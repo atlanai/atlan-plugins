@@ -87,8 +87,8 @@ candidate files and clear publication receipts; re-author/reconcile before conti
 **Compare with the source, for every metric that has one.** A metric that came from a report
 tile is compared with that tile's own statement, run on the same warehouse and the same
 filters, not only the representative one. Record each as matching, or as a difference with
-its size and the reason, and show the count in the review ("9 of 10 match the report, 1
-needs a look"). A difference is news for the person, never something to smooth over. When a
+its size and the reason, and show the count in the review ("9 of 10 match your report; 1
+needs your review"). A difference is news for the person, never something to smooth over. When a
 chat SQL tool is the executor, send the comparisons together where the host allows it.
 
 **Say how much of the population the numbers cover.** When a metric counts only rows that

@@ -373,7 +373,8 @@ class Project(ContextState):
             if not on_warehouse:
                 raise ProjectError('On local data this helper runs it itself: send the request without "result".'
                                    if binding and binding['kind'] in LOCAL else
-                                   'Record a result only for the warehouse recorded in state, in its dialect.')
+                                   'Record a result only for the warehouse recorded in state, in its dialect'
+                                   + ('.' if binding else ': none is recorded yet. Record it with `PROJECT warehouse`.'))
             return self.record_warehouse_check(item, kind, request, warnings)
         if on_warehouse:
             return self.warehouse_statement(item, kind, request, binding)
@@ -386,7 +387,10 @@ class Project(ContextState):
         else:
             source_sql = definition['sql']
         if not binding or binding['kind'] not in LOCAL or definition['dialect'].lower() != binding['kind']:
-            raise ProjectError('Use the recorded read-only warehouse tool for this dialect and retain its check evidence.')
+            raise ProjectError('Use the recorded read-only warehouse tool for this dialect and retain its check evidence. '
+                               'No warehouse is recorded for this run yet: record it with `PROJECT warehouse`.'
+                               if not binding else
+                               'Use the recorded read-only warehouse tool for this dialect and retain its check evidence.')
         marker = '$' if binding['kind'] == 'duckdb' else ':'
         sql = ''.join(re.sub(r'\{\{\s*([A-Za-z_][A-Za-z_0-9]*)\s*\}\}', marker + r'\1', text)
                       if token_kind == 'code' else text for token_kind, text in mine.scan(source_sql))
@@ -790,11 +794,28 @@ def main():
     visual.add_argument('--engine-dir', type=Path)
     visual.add_argument('--input', choices=('-',), help="The moment's data file as JSON on stdin (saved, answer, layout, edit), written to the run first")
 
-    asking = sub.add_parser('question', help="The save or ready question's text and options, composed from the run's files")
-    asking.add_argument('kind', choices=('save', 'ready'))
+    house = sub.add_parser('warehouse', help="Record the warehouse this run reads, once its check statement has run: the "
+                           "tests, answers, side page and ready block all read it")
+    house.add_argument('--kind', required=True, choices=('snowflake', 'databricks', 'other'))
+    house.add_argument('--dialect', help='The SQL dialect, when it is not the kind (another warehouse)')
+    house.add_argument('--via', required=True, choices=('atlan', 'host', 'cli'))
+    house.add_argument('--tool', required=True, help='The exact read-only query tool name, or snow / databricks for a CLI')
+    house.add_argument('--server', help='The Atlan server name, when via is atlan')
+    house.add_argument('--runner', help='The runner its run_with names, when via is atlan')
+    house.add_argument('--profile', help='The CLI connection or profile name, when via is cli')
+    house.add_argument('--bulk-via', choices=('cli', 'tool', 'file'), help='How larger reads go, when not through the tool')
+
+    asking = sub.add_parser('question', help="The save or ready question's text and options, or the closing message, composed from the run's files")
+    asking.add_argument('kind', choices=('save', 'ready', 'close'))
     asking.add_argument('--widget', action='store_true', help='Where the chips and cards are drawn as widgets: the text keeps its count line')
     asking.add_argument('--data', type=Path, action='append', default=[], help="A demo's facts file")
     asking.add_argument('--engine-dir', type=Path)
+    asking.add_argument('--accuracy', action='store_true',
+                        help='The ready question: the accuracy check is available for this run and has not run yet')
+    asking.add_argument('--recap', action='store_true',
+                        help='The ready question on a resumed run, where the save question was not shown in this chat')
+    asking.add_argument('--score', type=int, help="The closing message: the accuracy check's percentage, when it ran")
+    asking.add_argument('--scored', type=int, help='The closing message: how many questions the accuracy check scored')
 
     page = sub.add_parser('view', help="The run's side page: start it, or find the one already open, and print its address")
     page.add_argument('--stop', action='store_true', help='Stop serving the page')
@@ -822,6 +843,34 @@ def main():
             return 0
         if not args.run_dir:
             raise ProjectError('Select a run directory, or use location to choose a permitted one.')
+        if args.command == 'warehouse':
+            # The record every warehouse step reads (connect.md, step 5). It was hand-written JSON that no step wrote,
+            # and three test runs and 0.9.76's live run were refused at the tests until a helper wrote it by hand.
+            if args.via == 'atlan' and not (args.server and args.runner):
+                raise ProjectError('A warehouse reached through Atlan needs --server and --runner, as the tool search named them.')
+            if args.via == 'cli' and not args.profile:
+                raise ProjectError('A warehouse reached through its CLI needs --profile, the connection the check used.')
+            if args.kind == 'other' and not args.dialect:
+                raise ProjectError('Another warehouse needs --dialect, the SQL dialect its tool speaks.')
+            run = safe_path(args.run_dir)
+            run.mkdir(parents=True, exist_ok=True)
+            record = {'kind': args.kind, 'dialect': (args.dialect or args.kind).lower(), 'via': args.via, 'tool': args.tool,
+                      **{k: v for k, v in (('server', args.server), ('runner', args.runner), ('profile', args.profile)) if v},
+                      **({'bulk': {'via': args.bulk_via, **({'profile': args.profile} if args.bulk_via == 'cli' else {})}}
+                         if args.bulk_via else {})}
+            path = run / 'state.json'
+            try:
+                state = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}
+            except ValueError:
+                raise ProjectError('The run\'s state.json is not readable JSON: repair it, then record the warehouse again.') from None
+            state = state if isinstance(state, dict) else {}
+            state['warehouse'] = record
+            temp = path.with_suffix('.json.tmp')
+            temp.write_text(json.dumps(state, indent=1, ensure_ascii=False), encoding='utf-8')
+            temp.replace(path)
+            print(json.dumps({'status': 'ok', 'warehouse': record,
+                              'next': 'Recorded: the tests, answers, side page and ready block now read this warehouse.'}))
+            return 0
         if args.command == 'visual':
             import side_page
             import side_view
@@ -984,23 +1033,36 @@ def main():
             run = safe_path(args.run_dir)
             data = [json.loads(path.read_text(encoding='utf-8')) for path in args.data]
             try:
-                asked = getattr(questions, args.kind)(run, args.widget, data, args.engine_dir)
+                extra = {'ready': {'accuracy': args.accuracy, 'recap': args.recap},
+                         'close': {'score': args.score, 'scored': args.scored}}.get(args.kind, {})
+                asked = getattr(questions, args.kind)(run, args.widget, data, args.engine_dir, **extra)
             except ValueError as exc:
                 raise ProjectError(str(exc)) from None
             except Exception as exc:  # noqa: BLE001 - a run file in a shape this cannot read: say so, never a traceback
                 raise ProjectError('The %s question could not be composed from this run (%s): ask it from the flow\'s own '
                                    'reference instead.' % (args.kind, type(exc).__name__)) from None
+            if args.kind == 'close':
+                asked['next'] = ('Print this `text` exactly as given, with its line breaks, as the last thing in your reply. '
+                                 'Then, only when the build found caveats the person should know (a metric that totals across '
+                                 'periods, a filter its tile always applies, a review warning), add a blank line, "Good to '
+                                 'know" and one "- " line per caveat, each said once in this conversation. Ask no question, '
+                                 'draw no banner and call no tool after it.')
+                print(json.dumps(asked, ensure_ascii=False))
+                return 0
             for kind in asked.pop('shown'):
                 try:
                     side_view.note(run, kind)
                 except OSError:
                     pass  # A folder this session cannot write still gets its question: the note only spares a repeat.
             results = asked.pop('results', False)
-            asked['next'] = ('Ask one native question now: this `header`, this `question` as its text exactly as given, with its '
+            asked['next'] = ('Ask no native question: there is nothing to pick. Print this `question` text exactly as given, '
+                             'with its line breaks, as the last thing in your reply, and wait for the person\'s question.') \
+                if args.kind == 'ready' and not asked['options'] else \
+                ('Ask one native question now: this `header`, this `question` as its text exactly as given, with its '
                              'line breaks and leading spaces, and these `options` in order%s. Write nothing before it, and never '
                              'reword or shorten it: every count is the run\'s own.%s'
                              % (', with the host\'s free-text entry' if args.kind == 'ready' else '',
-                                ' On own data, add only the `Worth knowing` rows ready.md names, before its last line.'
+                                ' Add nothing to it: caveats go in the closing message (`PROJECT question close`).'
                                 if args.kind == 'ready' else
                                 ' This run\'s sample checks ran with the warehouse\'s own tool and none of their results is in '
                                 'the run\'s files: add one line before its last, how many passed and how many need a look from '
@@ -1120,9 +1182,16 @@ def main():
                     progress.update(project, project.read(path)['stage'], 'failed', 'review_held')
             except (ValueError, OSError, KeyError, TypeError):
                 pass  # A broken optional progress artifact cannot hide the original safe error.
+        # A run with no record yet is the common case (a dashboard link fetched before any survey): say what makes one.
+        try:
+            missing_run = bool(args.run_dir) and Path(args.run_dir).is_dir() and not (Path(args.run_dir) / 'run.json').is_file()
+        except (OSError, AttributeError):
+            missing_run = False
         print(json.dumps({'status': 'blocked', 'message': str(exc) if isinstance(exc, (ProjectError, local_data.DataError, retrieval.RetrievalError, mine.Blocked,
                                                                                 journey.JourneyError))
-                          else 'Project step could not complete. Check the selected files, source state and request fields.'}))
+                          else 'This run has no record yet: run `PROJECT survey` on the working folder first, which creates it.'
+                          if missing_run else
+                          'Project step could not complete. Check the selected files, source state and request fields.'}))
         return 2
 
 

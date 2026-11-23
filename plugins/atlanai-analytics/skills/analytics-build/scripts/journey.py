@@ -37,7 +37,7 @@ def validate(value):
     if value.get('dashboard_result', 'built') not in ('built', 'declined'):
         raise JourneyError('The saved dashboard choice needs repair before continuing.')
     if any(k in value and type(value[k]) is not bool for k in ('asked', 'dashboard', 'tasks')):
-        raise JourneyError('The saved question and dashboard steps need repair before continuing.')
+        raise JourneyError('The saved query and dashboard steps need repair before continuing.')
     return value
 
 
@@ -57,7 +57,8 @@ def apply(model, saved, explicit_focus=False):
         model['focus'] = None
     if mode == 'paused':
         model['phase'] = {**model['phase'], 'status': 'paused', 'label': 'Your work is saved'}
-        model['next_step'] = 'Resume here when ready; completed work will be reused.'
+        # The snapshot replaces this with where the work is and what to say to pick it up.
+        model['next_step'] = 'Your work is saved on this machine.'
         model['next_prompt'] = 'Resume this saved analytics run from its current checkpoint.'
     model['continuation'] = continuation(model)
     if model['continuation']['action'] in ('choose-domain', 'choose-purpose'):
@@ -82,9 +83,10 @@ def continuation(model):
     intent = model['interaction']['intent']
     # Ask after inspection, before authoring. Later-stage legacy runs retain their
     # checkpoint; an explicitly changed domain reopens the purpose question. A demo's focus is
-    # preset, so it never asks either question.
+    # preset, and the dashboard branch's is the report the person picked, so neither asks either
+    # question (0.9.76's live run was told to ask "What business area…?" after every journey step).
     intent_due = ((bool(intent) or model.get('intent_checkpoint', False))
-                  and model['interaction'].get('flow') != 'demo')
+                  and model['interaction'].get('flow') not in ('demo', 'dashboard'))
     if mode == 'paused':
         code, label, needs_input = 'resume', 'Resume', True
     elif model['warnings']:

@@ -16,7 +16,8 @@ recorded interpreter. The local executor is a connection and takes precedence ov
 discovery. Rebind if its schema changed; never silently select another database or server.
 
 If `state.json` has `warehouse.tool`, run that warehouse's check statement once. If it works,
-show `warehouse ok (<kind> via <via>)` and return. If it fails, continue at step 1.
+say "<Kind> is connected through <route>.", where the route is Atlan (`via` `atlan`), this app
+(`host`) or the <kind> CLI (`cli`), and return. If it fails, continue at step 1.
 
 A setup run does not require DuckDB. `PROJECT answer` reads this same warehouse record and
 returns a validated plan with `execute_in_host`. Use its SQL and separate native bindings
@@ -38,12 +39,14 @@ person.
    - `databricks.com` or `azuredatabricks.net` is Databricks;
    - otherwise use the server and tool names, and ask the person when it is still unclear.
 3. Prefer a server whose `com.atlan/server-source` is `atlan_catalog` (installed from Atlan's
-   catalog) over `custom`. When several warehouses match, ask which one the agent should read.
+   catalog) over `custom`. When several warehouses match, ask "Which warehouse should I read from?" with one option
+   per warehouse found.
 4. Skip tools that create, write or call procedures. Record only the query tool.
 5. A matching server listed under `connect` is registered but not signed in for this person.
-   Ask them to connect it with `mcp__connect_server`, which gives them a sign-in link to open,
-   then search again. A call that comes back with a sign-in link means the same thing: show the
-   link and wait.
+   Connect it with `mcp__connect_server`, which returns a sign-in link, and say "<server> is
+   added in Atlan, but you haven't signed in to it yet. Sign in with this link, then tell me
+   when you're done: <link>" Then search again. A call that comes back with a sign-in link means the same thing:
+   show the link that way and wait.
 
 If a tool is found, go to step 5.
 
@@ -52,7 +55,8 @@ If a tool is found, go to step 5.
 Look for a SQL tool connected to this harness directly: in Claude Code, ToolSearch
 `snowflake sql query` and `databricks sql`; elsewhere, the listed MCP tools. The candidate
 rules in step 1 apply. If only sign-in or connect tools come back, the connector is not signed
-in: ask the person to sign in, then search again.
+in: say "<connector> is connected here, but not signed in. Sign in, then tell me." Then search
+again.
 
 If a tool is found, go to step 5.
 
@@ -62,12 +66,13 @@ Only when this harness runs shell commands (Claude Code, Codex, Cursor's agent, 
 mode) and the CLI is already installed and configured: `snow --version` with a connection in
 `snow connection list`, or `databricks --version` with a profile in
 `databricks auth profiles`. Never install a CLI, and never open its config files: they can
-hold secrets. Ask which connection or profile to use when there are several.
+hold secrets. When there are several connections or profiles, ask "Which <snow / databricks> CLI connection
+should I use?"
 
 Run the check statement through it ([through a CLI](warehouses/cli.md))
-and show the person the role it ran as. A CLI does not enforce read-only access, so the
-connection must use a read-only role: ask the person to confirm it, and if they can't, don't
-use the CLI. The read-only rules apply to every statement you send.
+and ask about the role it ran as: "The CLI connects as role <role>. Is that role read-only?
+I'll use the CLI only if you confirm it is." A CLI does not enforce read-only access, so the
+connection must use a read-only role: if they can't confirm it, don't use the CLI. The read-only rules apply to every statement you send.
 
 If it works, go to step 5 with `via` `cli`.
 
@@ -79,21 +84,27 @@ installs the listing in the Store with the warehouse's host (for Snowflake, also
 schema and MCP server name), then each person connects their own account. You can't install it
 from here.
 
-Ask:
-- `<slug> · warehouse · how to reach the warehouse`
-- **Ask an Atlan admin to add <warehouse> from the Store (Recommended)**: everyone on the team
-  reaches it through Atlan with their own sign-in. Explain the missing connection and wait until it is added.
-- **Add one to this tool myself**: give the steps for this harness from
-  [adding a server here](warehouses/add-server.md), then name
-  the missing connection and ask the person to run the skill again once it is connected.
+Ask "How should I reach your warehouse?" under the line
+`<slug> · warehouse · deciding how to reach the warehouse`, with these options:
+- **Ask an Atlan admin to add <warehouse> (Recommended)**: They add it from the Atlan Store
+  once. Then each person signs in with their own account. On this choice, say "I'll wait. Once
+  <warehouse> is added in Atlan, sign in to it and tell me."
+- **Add it to this app yourself**: I'll give you the steps. Ask me again once it's connected. On
+  this choice, give the steps for this harness from
+  [adding a server here](warehouses/add-server.md), then name the missing connection.
 
-In metrics mode, add **No warehouse: use a declared model, a BI file or an export** and return
-without a tool when it is chosen.
+In metrics mode, add **No warehouse**: Build from a model file (dbt, LookML), a dashboard file
+or an export instead. Return without a tool when it is chosen.
 
 ## 5. Check and record
 
 1. Run the warehouse's check statement once. The read-only rules apply.
-2. Record in `state.json`:
+2. Record it in the run, as soon as the run's folder is known and before any test: with the
+   `analytics-build` helper, `PROJECT --run-dir <run-dir> warehouse --kind <kind> --via <via>
+   --tool <tool>`, adding `--server` and `--runner` through Atlan, `--profile` through a CLI,
+   `--dialect` for another warehouse and `--bulk-via` (section 6). It writes the run's
+   `state.json` record below, which the tests, answers, side page and ready block read; never
+   write it by hand. Outside a setup run (metrics mode with no `PROJECT`), write the same record:
 
    ```json
    "warehouse": {
@@ -111,7 +122,7 @@ without a tool when it is chosen.
    Through Atlan in search mode, `tool` is the name you pass to a runner; record the runner its
    `run_with` names as `runner` beside it (`mcp__call_read_tool` for a read-only query tool). Through a
    harness connector it is the full name the harness lists, with its prefix.
-3. Show `warehouse ok (<kind> via <via>)`.
+3. Say "<Kind> is connected through <route>.", with the route named as in step 0.
 
 ## 6. Bulk reads
 

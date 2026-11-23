@@ -34,7 +34,7 @@ class CliReadError(ValueError):
     """A failed CLI read. Its message stays generic; `code` is the gateway's error code only."""
 
     def __init__(self, code: str):
-        super().__init__("The authenticated Atlan metadata read failed")
+        super().__init__("I couldn't read this from Atlan.")
         self.code = code
 
 
@@ -44,7 +44,7 @@ def _cli_json(arguments):
         result = subprocess.run(["atlanai", *arguments], capture_output=True, text=True,
                                 timeout=30, check=False)
     except (OSError, subprocess.TimeoutExpired) as exc:
-        raise ValueError("The authenticated Atlan CLI is unavailable") from exc
+        raise ValueError("The Atlan CLI isn't installed or isn't responding.") from exc
     if result.returncode:
         # Never echo transport stderr or a response body into a user-facing error. Keep only
         # the gateway's error code: a not_found and an auth failure need different next steps.
@@ -53,9 +53,9 @@ def _cli_json(arguments):
     try:
         value = json.loads(result.stdout)
     except (TypeError, json.JSONDecodeError) as exc:
-        raise ValueError("Atlan returned invalid metadata") from exc
+        raise ValueError("Atlan sent back something I couldn't read.") from exc
     if not isinstance(value, dict):
-        raise ValueError("Atlan returned invalid metadata")
+        raise ValueError("Atlan sent back something I couldn't read.")
     return value
 
 
@@ -71,7 +71,8 @@ def _resolve_link(gateway: str, origin: str, kind: str, handle: str, workspace: 
     status = _cli_json(status_args)
     if (status.get("state") != "authenticated" or not status.get("orgID")
             or status.get("gateway", "").rstrip("/") != gateway.rstrip("/")):
-        raise ValueError("The CLI connection does not match the MCP gateway")
+        raise ValueError("The Atlan CLI isn't signed in, or it's signed in to a different Atlan "
+                         "address than this chat.")
     identity = _cli_json([
         "api", "get", "registry:/users/me", "--jq",
         "{org_id, orgs: [.orgs[] | {id, slug}]}",
@@ -79,10 +80,10 @@ def _resolve_link(gateway: str, origin: str, kind: str, handle: str, workspace: 
     org_id = identity.get("org_id")
     orgs = identity.get("orgs")
     if org_id != status["orgID"] or not isinstance(orgs, list):
-        raise ValueError("The active organization could not be verified")
+        raise ValueError("I couldn't confirm which Atlan organization you're signed in to.")
     matches = [org for org in orgs if isinstance(org, dict) and org.get("id") == org_id]
     if len(matches) != 1 or not isinstance(matches[0].get("slug"), str):
-        raise ValueError("The active organization has no unambiguous slug")
+        raise ValueError("I couldn't find the web address of your Atlan organization.")
     link = definition_link(origin, matches[0]["slug"], kind, handle, workspace)
     try:
         artifact = _cli_json([
@@ -97,17 +98,19 @@ def _resolve_link(gateway: str, origin: str, kind: str, handle: str, workspace: 
                         and isinstance(o.get("slug"), str))
         if exc.code == "not_found" and others:
             raise ValueError(
-                "The Atlan CLI is signed in to organization '" + matches[0]["slug"] + "', which "
-                "cannot see this artifact; it is likely in another of your organizations ("
-                + ", ".join(others) + "). Sign the CLI in to that organization with "
-                "`atlanai auth login`, then run this again.") from None
+                "The Atlan CLI is signed in to '" + matches[0]["slug"] + "', which can't "
+                "see this item. It's likely in another of your organizations: "
+                + ", ".join(others) + ". Sign in there with `atlanai auth login`, then ask "
+                "me again.") from None
         raise
     if artifact.get("id") != handle or artifact.get("workspace_id") != workspace:
-        raise ValueError("The CLI cannot verify the artifact in the MCP workspace")
+        raise ValueError("The Atlan CLI can't confirm this item is in the same workspace as this "
+                         "chat, so I didn't link it.")
     # A concurrent login switch must not compose a link from two different accounts.
     after = _cli_json(status_args)
     if any(after.get(key) != status.get(key) for key in ("state", "gateway", "orgID")):
-        raise ValueError("The active connection changed during link resolution")
+        raise ValueError("Your Atlan sign-in changed while I was making links. Ask again, and "
+                         "I'll retry.")
     return link
 
 

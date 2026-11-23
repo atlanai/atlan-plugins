@@ -15,8 +15,11 @@ tool, print them last as plain lines, as
 | Option | Description |
 | --- | --- |
 | The proposed change | One line: what the rule would count instead. |
-| My own change | The person types it. |
-| Leave it as it is | End the turn with the `Next:` line from [ready](../../analytics-build/references/setup/ready.md). |
+| Your own change | Type the change you want. |
+| Leave it as it is | Keep the current rule. |
+
+On "Your own change", the person types it. On "Leave it as it is", end the turn with the `Next:`
+line from [ready](../../analytics-build/references/setup/ready.md).
 
 Never propose a change the demo's data cannot show: the tables must hold the column the
 new rule needs.
@@ -46,7 +49,7 @@ of the save question, never reply text followed by a native question:
 > | --- | --- | --- |
 > | Rule | `<old rule, plain words>` | `<new rule, plain words>` |
 > | `<one worked example from this run's data>` | `<old value>` | `<new value>` |
-> | Check | `<old check status>` | `<new check status>` |
+> | Test | `<old test result>` | `<new test result>` |
 
 Before showing it, re-ask, through `analytics-ask`, one question the person already asked
 that uses this metric. With no earlier question, use the first question offered in this run. Write one
@@ -58,9 +61,9 @@ wherever it goes.
 - Context kept on this machine: the change is saved in the run. Print the card (or the block)
   and the comparison sentence as reply text, say so in one line, close with the plain `Next:` line
   from [ready](../../analytics-build/references/setup/ready.md) and end the turn.
-- Context saved to Atlan Trident: ask one native question whose text is the card (or the
-  block) as plain lines, then the comparison sentence, then "Save this change for everyone who uses the
-  metric?" On yes, call
+- Context saved to Atlan: ask one native question whose text is the card (or the
+  block) as plain lines, then the comparison sentence, then "Save this change to the metric in Atlan too?"
+  On yes, call
   `metrics-generation` `save`, which publishes a revision of the same metric after the
   person approves the plan. On no, the change stays on this machine and the published
   metric is unchanged. Then say in one line which rule answers from now on, close with the

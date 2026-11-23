@@ -64,9 +64,8 @@ and source DAX. A BIM supporting the same report is a sidecar, not another dashb
 Text-only Power BI metadata needs no PBIXRay dependency; binary models do.
 
 Before authoring, tell the user what was found and how it will be used. For example, only
-when supported by the survey: "I found one Power BI report with four measures, 110 query
-history records and five data tables. I'll use the dashboard definitions and query history
-together to build metrics and reusable SQL in Atlan. You'll ask questions here afterward."
+when supported by the survey: "I found one Power BI report, 110 past queries and five
+tables. I'll build your agent from all of them. Then you ask it questions here."
 Use actual counts, not these example numbers. Never hide source selection inside a long
 setup log or ask the user to choose one of two complementary sources.
 

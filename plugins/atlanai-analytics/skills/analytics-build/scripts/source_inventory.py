@@ -15,6 +15,10 @@ def source_kind(path):
         return 'powerbi_project'
     if suffix in ('.twb', '.tds', '.twbx', '.tdsx'):
         return 'tableau'
+    if name.endswith('.coverage.json'):
+        # A history pull's coverage sidecar (`querylog.jsonl.coverage.json`) counts what the pull left out: it is part of
+        # that history, never a second source (0.9.74 read "Find your sources: 2 found" for one table).
+        return None
     if suffix == '.duckdb':
         return 'duckdb'
     if suffix in ('.sqlite', '.sqlite3'):

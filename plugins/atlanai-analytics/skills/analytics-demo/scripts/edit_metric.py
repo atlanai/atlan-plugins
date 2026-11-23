@@ -60,7 +60,7 @@ def edit_metric(run, request):
         body['definition'] = old
         body.update(old_text)
         run.write(path, bodies)
-        raise ProjectError(f'The new rule fails its check, so the old rule is kept: {error}')
+        raise ProjectError(f'The new rule failed its test, so the old rule stays: {error}')
     _mirror_metric_edit(run, body['name'], changes, kept, version)
     return {'status': 'ok', 'name': body['name'], 'version': version + 1, 'previous': str(kept),
             'changed': [c['path'] for c in changes]}

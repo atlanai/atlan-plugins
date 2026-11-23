@@ -29,8 +29,8 @@ id as `session_id`, and the warehouse query tool as `warehouse.tool` in the dial
 - **One decision per `AskUserQuestion` call** (a plain chat question where the harness has no
   question tool). Wait for the answer before asking the next.
 - **Re-ground every question** with one line at the top: `<slug> · <phase> · deciding <what>`.
-- **Recommended option first**, labelled `(Recommended)`, with the reason in its description.
-  Give 2–4 concrete options and never add your own "Other".
+- **Recommended option first**, its label ending in ` (Recommended)`, with the reason in its
+  description. Give 2 to 4 concrete options and never add your own "Other".
 - **Propose, don't interrogate.** Draft a default from what you already know (the brief, the
   state file, the warehouse, the registry) and ask the user to confirm or edit it.
 - **Smart-skip.** If state or an earlier answer already settles it, say so in one line and move on.

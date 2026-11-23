@@ -44,19 +44,19 @@ before going on. While the engine builds, its result after each gate says so too
 
 | Moment | Kind | The chat shows | Data |
 | --- | --- | --- | --- |
-| The queries are in plain words, before any metric | `connect` | Nothing: it opens the side page | |
+| The queries are in plain words, before any metric | `connect` | One line once the side page shows: "A page has opened beside this chat…", as its `next` gives it | |
 | Own data, right before choosing what to build from | `found` | Chip: the sources and the warehouse found | |
 | Data read: a demo's or local tables loaded, or a warehouse's past queries read | `sources` | Chip: the rows and what was read (a demo's opens the next question in a terminal) | |
 | The engine grouped the past queries | `group` | Chip: how many different questions | |
 | The engine wrote up the dashboard's tiles | `tiles` | Chip: the tiles, each now a question | |
 | The engine described each query | `described` | Chip: one question in plain words | |
-| The engine found the metrics in the queries | `drafted` | Chip: how many possible metrics, and in how many queries | |
+| The engine found the metrics in the queries | `drafted` | Chip: how many metrics were found, and in how many queries | |
 | The engine merged the metrics | `metrics` | Chip: the metrics by name | |
 | The engine wrote each metric's rule | `rules` | Chip: one metric's rule | |
 | The engine linked the metrics | `links` | Chip: how one metric builds on others | |
-| Metrics generated: the engine run is complete, before the checks | `build` | Mini card (in a terminal, it waits for the save question) | |
-| Every check has run | `context` | Chip: what ran, and what needs a look; in a terminal, with the build card, in the save question | |
-| Saved to Atlan Trident | `saved` | Mini card before the ready question; nothing when kept on this machine, which the person has just chosen | `saved.json` |
+| Metrics generated: the engine run is complete, before the checks | `build` | Mini card (without widgets, the save question says it in sentences) | |
+| Every check has run | `context` | Chip: what ran, and what needs your review; without widgets, a sentence in the save question | |
+| Saved to Atlan | `saved` | Mini card before the ready question; nothing when kept on this machine, which the person has just chosen | `saved.json` |
 | A question answered | `answer` | Mini card the first time, then a chip | `answer.json` |
 | A rule changed | `edit` | Mini card | `edit.json` |
 
@@ -96,10 +96,10 @@ If the page cannot start, its `next` gives the one line to tell the person. Othe
 - **Anywhere else:** the next chip that goes in a question names the address the same way.
 
 The page shows what the build made, in every flow: the metrics, each in its state (Found,
-Defined, Tested, Needs a look), then the queries, then the tiles that could not be built. A click
+Defined, Tested, Not tested, Needs your review), then the queries, then the tiles that could not be built. A click
 opens a metric's definition, formula and where it was found. The build's steps, the survey, the
 choices, the save, the answers and the dashboard are the chat's and never appear on it. The page reads the run's files itself: never reload,
-rebuild or push to it, and never describe what it shows. Nothing on it leaves this machine, so
+rebuild or push to it, and never describe what it shows beyond the one line its `next` gives when it first opens. Nothing on it leaves this machine, so
 it shows the metrics, their sources and values on own data as on a demo. A card's last line points to it for the detail. If
 the page stops while nobody looks at it, the next `visual` call, `visual next` included,
 starts it again at the same address. `PROJECT view` prints the address again;

@@ -32,7 +32,7 @@ graders:
     criteria: |
       PASS if the reply says it will pick questions from the past queries, pair each with the SQL
       whose result is the right answer, write them as a set in this project, and ask whether to keep
-      it on this machine or save it to Atlan Trident.
+      it on this machine or save it to Atlan.
       FAIL if it asks the person to write the questions or the SQL by hand, promises to build or
       change metrics, runs or scores the questions itself, proposes a train, validation and holdout
       split, or registers a new agent.

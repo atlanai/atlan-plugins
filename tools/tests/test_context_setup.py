@@ -334,6 +334,9 @@ class GenericSetup(unittest.TestCase):
         for report in reports:
             self.run.scope({'source_id': report['source_id'], 'pages': ['overview'], 'history_tables': ['site.work']})
         self.assertEqual(len(self.run.current()['scopes']), 2)
+        # A page reads by its title in the chat, never its internal id (0.9.74's pause read "pages: page1").
+        import experience
+        self.assertEqual(experience.snapshot(self.run)['selected_pages'], ['Overview', 'Overview'])
         result = self.run.history()
         self.assertEqual(result['tables'], ['site.work'])
         self.assertEqual(len(Path(result['history']).read_text().splitlines()), 2)

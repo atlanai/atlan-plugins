@@ -1,6 +1,6 @@
 interface:
   display_name: "Analytics Demo"
-  short_description: "Try Atlan Analytics on made-up data, step by step"
+  short_description: "Build a data agent on made-up data, step by step"
   default_prompt: "Use $analytics-demo to show me how Atlan Analytics works on a demo."
 dependencies:
   tools:

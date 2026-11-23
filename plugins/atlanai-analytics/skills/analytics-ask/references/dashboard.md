@@ -18,15 +18,17 @@ Keep it real and small:
 
 - Propose the layout in at most six lines: a tile for each of the context's metrics, one
   breakdown, and one chart. In a turn with no answer, the layout is the text of one native
-  question to confirm it or change it. When the same message also asked a question, answer
-  it, put the layout as plain lines after the answer, end the turn with a `Next:` line
-  asking to build it or change it, and ask no native question.
+  question, "Build this dashboard?", with the options "Build it" and "Change it", the
+  second described "Tell me what to add or drop." When the same message also asked a
+  question, answer it, put the layout as plain lines after the answer, end the turn with
+  "Next: say build it, or tell me what to change." and ask no native question.
 - Build the page with what the host offers: an Artifact in Claude, otherwise one
   self-contained HTML file in the working folder with the name above, inline CSS and SVG,
   no external scripts or fonts, readable in light and dark.
 - Every number comes from the same metrics and queries, run through the ask route. Do not
   write new SQL for a number a metric already defines, and never type a number in by hand.
-- Each tile names its metric and links to its page in Atlan Trident when one exists.
-- Do not publish it anywhere. End the turn with one line naming where the page is (its full
-  file path, or the Artifact) and how to open it, then, in a guided flow, the `Next:` line
+- Each tile names its metric, linked to its page in Atlan when it has one.
+- Do not publish it anywhere. End the turn with one line: "Your dashboard is at <path>. Open it in
+  your browser." for a file, or "Your dashboard is the page beside this chat." for an Artifact,
+  then, in a guided flow, the `Next:` line
   from [ready](../../analytics-build/references/setup/ready.md). No native question in that turn.

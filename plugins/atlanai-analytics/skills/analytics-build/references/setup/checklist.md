@@ -1,8 +1,8 @@
 # The guided-flow checklist
 
 Read on starting or resuming setup. Show the flow's steps in chat and in the host's task list
-when available, kept true to the saved run. The dashboard branch ("Make my dashboard agentic")
-has nine items of its own, set out in [the dashboard branch](dashboard-flow.md); the rest of
+when available, kept true to the saved run. The dashboard branch ("Start from a dashboard")
+has ten items of its own, set out in [the dashboard branch](dashboard-flow.md); the rest of
 this file applies to it too. Open no side panel, browser view or preview page
 unless the person asks for a visual view, apart from the run's own [side page](visuals.md).
 
@@ -15,24 +15,26 @@ desktop app, its own plan tool. Use it whenever the host has one, not only when 
 
 | Step | Own data (`analytics-build`) | Demo (`analytics-demo`) |
 | --- | --- | --- |
-| 1 | Clarify your use case | Choose and load demo data |
-| 2 | Survey your sources | Choose what to build from |
-| 3 | Select tables and dashboards | Find metrics in your sources |
-| 4 | Find metrics in your sources | Combine duplicates, one metric per number |
-| 5 | Combine duplicates, one metric per number | Define and test each metric |
-| 6 | Define and test each metric | Keep local or save to Atlan Trident |
-| 7 | Keep local or save to Atlan Trident | Ask a question |
-| 8 | Ask a question | |
-| 9 | Build a dashboard | |
+| 1 | Choose what your agent answers | Load the demo data |
+| 2 | Find your sources | Choose what to build your agent from |
+| 3 | Pick tables and dashboards | Build your context: metrics and saved queries |
+| 4 | Build your context: metrics and saved queries | Merge duplicate metrics |
+| 5 | Merge duplicate metrics | Write detailed notes on each metric and saved query |
+| 6 | Write detailed notes on each metric and saved query | Validate the context on your data |
+| 7 | Validate the context on your data | Choose where to store your context |
+| 8 | Choose where to store your context | Ask your agent a question |
+| 9 | Ask your agent a question | |
+| 10 | Build a dashboard from its answers (optional) | |
 
-Drafting, merging and writing are the build, one step each, so the person sees how it moves.
+Drafting, merging, writing the notes and validating are the build, one step each, so the person sees how it moves.
 Each ticks as the engine finishes its part and shows a time estimate once the count going into
 it is known ("about 4 min"); use the helper's text as it is. Each of these steps' chips comes
 with `task_list`, the list as it now stands: set the host's list to it in the same message.
 
 Before a run exists, `PROJECT checklist --flow demo` returns the demo's list, and
 `--flow dashboard` the dashboard branch's. That branch records its flow with
-`PROJECT journey agentic` once the run exists. A demo records
+`PROJECT journey agentic` once the run exists, and ticks its first item the moment the person
+picks the pages, even before the run exists, as [the dashboard branch](dashboard-flow.md) says. A demo records
 its flow with `PROJECT journey demo` once the run exists. Record `PROJECT journey asked` after
 the first chosen question is answered, and, for own data, `PROJECT journey dashboard` once a
 dashboard is built or declined; nothing else ticks those two steps. A demo's list ends at the
@@ -44,7 +46,7 @@ and `TaskUpdate` in Claude Code (`TodoWrite` where those are absent), the app's 
 in the same turn as every stage change, so the list on screen is never behind the run.
 When each step starts, show the full tracker in chat. Finished steps carry their actual
 results; the current step says `now`, with `your choice` when it needs an answer; the next
-step says `next`. In a demo, step 2 is `Choose what to build from`, because focus and purpose
+step says `next`. In a demo, step 2 is `Choose what to build your agent from`, because focus and purpose
 are already set, and steps 3 to 5 build and check without an extra decision. Own data's steps 4 to 6
 run through the selected collection without an extra build decision. Do not substitute a task
 update for the collection review or celebration.
@@ -52,8 +54,9 @@ update for the collection review or celebration.
 ## Keep it true to the saved run
 
 `PROJECT checklist` returns the flow's steps from saved progress. Each step has `content` (its
-name, sharpened with real counts once they exist, such as `Read 4 sources` or `Check 15
-metrics and queries`), `active` (what to show while it runs, such as `Checking 5 of 9`),
+name, sharpened with real counts once they exist, such as `Find your sources: 4 found` or
+`Build your context: 15 metrics and 12 saved queries`), `active` (what to show while it runs, such
+as `Testing 5 of 9`),
 `status` (`pending`, `in_progress` or `completed`) and `needs_you`. Add `--engine-dir` during
 engine work. `PROJECT journey` results carry the same `checklist`.
 
@@ -79,7 +82,7 @@ name a helper you ran or did not run.
 ## When a step ends
 
 When a step completes, say its result in one line of chat, in the past tense, with its
-counts: "Read 4 sources: 23 measures and 412 query records." Skip the line when nothing new
+counts: "Read 4 sources: 23 measures and 412 past queries." Skip the line when nothing new
 is known. Follow [the presentation flow](presentation.md) for the collection review, context-built
 celebration and ready block. A step-complete line never replaces those moments.
 

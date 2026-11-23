@@ -1,9 +1,9 @@
 # Prepare existing context for questions
 
 Use seven stages: **Inspect, Scope, Build, Check, Preview, Publish, Ready to ask**.
-The person sees them as the guided flow's steps in [the checklist](setup/checklist.md): nine
-in the task list for own data (`analytics-build`), seven for a demo (`analytics-demo`), the build
-shown as three steps in each.
+The person sees them as the guided flow's steps in [the checklist](setup/checklist.md): ten
+in the task list for own data (`analytics-build`), eight for a demo (`analytics-demo`), the build
+shown as four steps in each.
 The result is released metrics and saved SQL in Atlan, used by this chat through MCP.
 An input folder is ordinary customer context. Never depend on a particular repository,
 sample schema or database name. Explicit agent and evaluation modes remain separate.
@@ -28,10 +28,9 @@ technical stages on the demo's working folder. An own-data request starts with
 of three branches (discover use cases, a dashboard, or tables they already know).
 All setup uses [one presentation flow](setup/presentation.md), with actual source facts.
 
-Explain the outcome, next action and controls. For example: "I'll turn
-these dashboards and query history into metrics you can question here. First I'll check the
-sources, ask what matters to you and what you want to accomplish, then build and check the selected collection before reviewing its results. I'll show the steps and where your choices matter. You can narrow the scope, inspect details, keep
-drafts local or pause." Continue authorized work without another go-ahead. On resume, state the saved result
+Explain the outcome, next action and controls. For example: "I'll build
+an agent that answers questions about these dashboards, using them and your team's past
+queries. You'll see each step and choose what matters." Continue authorized work without another go-ahead. On resume, state the saved result
 and next action instead of repeating the introduction.
 
 Read [native conversation and saved choices](setup/workbench.md) on starting or resuming.
@@ -43,7 +42,7 @@ run waits for an explicit resume; details requests do not resume work.
 Ask [the interview](setup/intent.md) before reading any data: card 1, then the chosen
 branch's ask, skipping what the request already answered. The discovery branch
 [offers use cases with their tables](setup/names.md); the other two check access to what the
-person named. Every branch ends with the interview's "Build it?" before authoring.
+person named. Every branch ends with the interview's "Build your agent?" before authoring.
 Demos use their preset intent and source question instead. Retain answers already given.
 The purpose sets the stopping point. Understanding-only intent ends with requested evidence;
 it does not require a destination or publication question. Render the question itself, without

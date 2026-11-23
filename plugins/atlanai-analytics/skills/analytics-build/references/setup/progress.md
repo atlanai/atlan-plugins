@@ -51,7 +51,7 @@ page shows each batch as it lands; the chat shows each step's end:
    needs the person; then run the `visual next` of the step that ended (it is quick) and show what
    it gives in the same message that starts the next gate's subagent: nothing comes between a
    step's end and its chip, and the build never waits on a chip. The app shows each
-   subagent's name to the person: name each for what it does ("Describe each query"), never a
+   subagent's name to the person: name each for what it does ("Describing each saved query"), never a
    gate's name. For the card gate, run the gate result's `after_each_batch.split` (`PROJECT
    split`) first: up to 20 metrics it gives one brief, above that one per share, at most five.
    Start every share's subagent at once with its brief as the whole prompt; none advances the
@@ -79,12 +79,12 @@ page shows each batch as it lands; the chat shows each step's end:
 
    Add no words of your own between these. A step's own chip or line names the step that
    starts, so no line of yours names it again (a Doing line under a chip that says "Next:
-   Combine duplicates" repeats it). Never the engine's results or counts (accepted, cards,
+   merging duplicates" repeats it). Never the engine's results or counts (accepted, cards,
    pairs, a check's own name), your own tooling (scripts, retries, setup), who writes a step or
    how big it is; never that a step is still running.
 3. **What the app shows is the person's.** It shows each command's description, each helper's
    name, and each widget's title. Describe each command as what it does for them ("Showing
-   what's new", "Continuing the build", "Testing on the data"), never a chip, the engine, a
+   what's new", "Building your agent", "Testing your agent's metrics"), never a chip, the engine, a
    gate, an answer folder, a record or a "visual moment"; give each widget the title its
    `visual` result names.
 

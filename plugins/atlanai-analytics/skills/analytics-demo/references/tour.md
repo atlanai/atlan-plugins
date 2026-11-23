@@ -15,6 +15,12 @@ with no reason to care, worry at sign-in about touching their company's data, an
 end want to know what they made and what to do with it. Each section below answers one of
 those. When in doubt, say what just happened, what it means, and what comes next.
 
+Every chat line is written for the person. Say what you're doing when it helps them follow
+along or explains a wait. Never write your own working notes: tool names, files to read, what
+to do silently or next. The test: would the person miss this line if it were gone? The full
+rule is in [the conventions](../../analytics-build/references/conventions.md), under Words the
+person reads.
+
 Assume the person knows nothing: not the firm, the data, what Atlan does, or why they will
 sign in. The demo is about one experience: watching existing sources become context. The
 context is made of metrics, each explained in plain words when it first appears. Before anything runs, they know what will happen, why,
@@ -24,8 +30,8 @@ a tool description or status line. This is the [presentation flow](../../analyti
 throughout setup.
 
 A native question holds four options. When the demo's "What would you like to do next?" table offers
-five, leave Continue building on real data out of the options and end the question's text with one
-line: You can also type "Continue building on real data".
+five, leave Build one on your own data out of the options and end the question's text with one
+line: You can also type "Build one on your own data".
 
 ## After the first answer
 
@@ -34,23 +40,28 @@ see (the team's copy budget, 2026-11-19):
 
 - With `show_widget`, the `answer` card is drawn above it, so the text is one line naming what
   the answer used, such as "Behind this answer: Rework cost (metric), Rework cost by job
-  (query).", then the question. Do not restate the answer.
+  (saved query).", then the question. Do not restate the answer.
 - In a terminal, the text is the `answer` visual's lines as it prints them, one sentence on
   what explains the number, then the question.
 - On every host, leave out the line that answers come from the context (the card's sources
-  say it) and, while the context is only on this machine, the Atlan Trident proof lines and
+  say it) and, while the context is only on this machine, the Atlan proof lines and
   any nudge to save. Once it is saved, keep one proof line per metric and query, as
   [definition links](../../analytics-ask/references/definition-links.md) says.
-- When Continue building on real data is left out of the options, end with its line, as above.
+- When Build one on your own data is left out of the options, end with its line, as above.
 
-Check how accurate it is reads: "See how often it gets right the questions `<firm>`'s analysts
-already ask, and fix the rule behind a miss. The checks only ran each number."
+Check how accurate it is reads: "Test your agent on questions `<firm>`'s analysts already ask,
+and fix the rule behind any miss. So far, the tests only checked that each metric returns a value."
+Once a check has run, it gives that check's result instead: "Your agent got `<right>` of `<N>`
+right on the last check. Run it again after you change a rule."
+
+Change a rule and see what happens reads: "Change one metric's rule, and see your agent's
+answer change with it."
 
 ### Without a question tool
 
 End the message on the question itself: "What would you like to do next?" on its own line,
 then one plain line per option (its name, a colon, its description), and nothing after them:
-no table, no "pick one" line. List every option that applies, Continue building on real data
+no table, no "pick one" line. List every option that applies, Build one on your own data
 included: the four-option limit, and the line that stands in for a left-out option, are the
 question tool's alone. Offer Check how accurate it is until the check has run. Never
 tell the person about a helper you ran, skipped or could not run.
@@ -77,8 +88,8 @@ the firm while the build runs.
 
 | Option | Description |
 | --- | --- |
-| Start building | Begin step 1: set up the demo in this folder and read its files. |
-| Not now | Stop here; /atlanai-analytics:analytics-demo picks it up later. |
+| Start building | I'll add the demo's files to this folder and read them. |
+| Not now | Stop here. Ask for the Atlan Analytics demo any time to start again. |
 
 Where there is no question tool at all, print the welcome lines as the last thing in the
 message, then the two choices as plain lines, and call no tool after it.
@@ -95,7 +106,7 @@ two short lines as an ordinary reply, at most 35 words together, in this shape:
 
 ```
 **Doing:** Reading Fixit's dashboard and 110 past queries.
-**Why:** They show how Fixit already measures a job, so the context matches the firm instead of my guess.
+**Why:** They show how Fixit already measures a job, so your agent measures it the same way.
 ```
 
 Fill in actual counts and names from the chosen demo. Use these, in order; the first of a
@@ -108,15 +119,15 @@ what the person can't already see (step 2).
 
 | Moment | Doing | Why |
 | --- | --- | --- |
-| Open the demo | Setting up `<firm>`'s demo in this folder. | The dashboard, past queries and data are in those files, and I read them on your machine. |
-| Read sources | Reading the dashboard's tiles and the past queries. | They show how `<firm>` already measures itself, so the context matches the firm instead of my guess. |
-| Load data | Loading `<firm>`'s tables into a small database on this machine. | Each metric gets run on real rows, so you see numbers and not only words. |
-| Metrics found | Listing the metrics your sources hold. | You see what the context will contain before I write each rule. |
-| Build | Writing what each metric and query counts, from the sources you chose. | `<why build them>` |
-| Check | Running every metric and query on `<firm>`'s data. | One that returns nothing or nonsense would give wrong answers later; this catches it now. |
-| Sign-in | Opening the Atlan Trident sign-in in your browser. | Saving needs to know who you are and which workspaces you can save to. |
-| Workspace question | Asking which workspace to save to. | A workspace is where your team, and the agents they use, find this context. |
-| Save | Saving the context to the workspace you chose and releasing it. | Agents only find released metrics and queries, so releasing is what lets the agent and your colleagues use them. |
+| Open the demo | Setting up `<firm>`'s demo in this folder. | Its dashboard, past queries and data are files. I read them here, on your machine. |
+| Read sources | Reading the dashboard's tiles and the past queries. | They show how `<firm>` already measures its work, so your agent measures it the same way. |
+| Load data | Loading `<firm>`'s tables into a small database on this machine. | Each metric gets tested on these rows, so you see what it comes to. |
+| Metrics found | Listing the metrics found in `<firm>`'s sources. | You see what your agent will answer from before I write notes on each one. |
+| Build | Writing detailed notes on each metric: what it counts and what it leaves out. | `<why build them>` |
+| Check | Testing every metric and saved query on `<firm>`'s data. | A test catches one that returns nothing or looks off, before your agent answers with it. |
+| Sign-in | Opening Atlan sign-in in your browser. | Atlan needs to know who you are, and which workspaces you can save to. |
+| Workspace question | Asking where to save your agent's metrics. | A workspace decides who sees them. Your personal one is only yours. |
+| Save | Saving your agent's metrics and saved queries to `<workspace>`. | Once saved, each metric has a page in Atlan that shows how it's worked out. |
 
 After a moment ends, give its result in one line with counts, in the past tense. Print the
 first tracker right after "Start building", before reading setup's references or opening the demo, and record
@@ -136,13 +147,13 @@ the steps, a question or an example. Use the firm's name. A name
 from the data may appear in an answer only when the person's question asks who, and never
 a customer's personal details.
 
-**Two words for what gets built: metrics and queries.** The whole is the context. It holds
-metrics (a number the firm cares about, with its rule) and queries (a ready-made question
-about the data, such as margin by job). Count them that way every time: "Context built: 7
-metrics and 12 queries", "saving 3 new metrics". Never call them pieces, calculations,
+**Two words for what gets built: metrics and saved queries.** Your agent answers from them:
+metrics (a number the firm cares about, with its rule) and saved queries (a ready-made question
+about the data, such as margin by job). Call the whole your agent, never the context or the run. Count them that way every time: "Your agent answers
+from 7 metrics and 12 saved queries", "saving 3 new metrics". Never call them pieces, calculations,
 KPIs, measures, definitions, saved questions or saved SQL; the dashboard has tiles, and
-what analysts ran is past queries. Say "the context behind this answer". Never say
-candidate, engine, reconciliation, hold or Registry to the person.
+what analysts ran is past queries. Say "what this answer is based on". Never say
+candidate, engine, reconciliation, hold, Trident or Registry to the person.
 
 ## Step 2: ask what to build from
 
@@ -159,14 +170,14 @@ was read, since the `sources` chip says it. In order:
    the past queries cover that the dashboard does not, such as "Most of Fixit's 110 past
    queries are about crew hours and labour cost on each job, and the dashboard shows none of
    that."
-3. "Each source becomes metrics: numbers `<firm>` cares about, each with the rule for working
-   it out." This is where the person first meets the word metric, so it stays on every host.
-4. "What should I build from?"
+3. "Your agent answers from metrics. A metric is one number `<firm>` cares about, with one
+   definition, so the same question gets the same number." This is where the person first meets the word metric, so it stays on every host.
+4. "What should I build your agent from?"
 
 | Option | Description |
 | --- | --- |
-| Dashboard and past queries (recommended) | The dashboard's 4 numbers, plus what `<firm>`'s analysts actually ask. More metrics and queries, and a few minutes longer. |
-| Dashboard only | The dashboard's 4 numbers as metrics. Fastest. |
+| Dashboard and past queries (Recommended) | The dashboard's 4 metrics, plus what `<firm>`'s analysts actually ask. More metrics and saved queries, and a few minutes longer. |
+| Dashboard only | The dashboard's 4 metrics. Fastest. |
 
 Scope the run to the answer through [inspect and scope](../../source-survey/references/inspect-scope.md). With "Dashboard
 only", author from the dashboard's measures alone and leave the past queries out. The data

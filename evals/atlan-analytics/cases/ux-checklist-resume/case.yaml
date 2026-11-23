@@ -7,16 +7,17 @@ execution:
     instructions only; do not execute commands or contact services in this test. The saved
     run's `project.py checklist` output is:
     {"flow": "build", "steps": [
-     {"id": "intent", "content": "Use case: Shipping cost", "active": "Waiting for your use case", "needs_you": false, "status": "completed"},
-     {"id": "sources", "content": "Survey 4 sources", "active": "Surveying your sources", "needs_you": false, "status": "completed"},
-     {"id": "scope", "content": "Select tables and dashboards", "active": "Waiting for your selection", "needs_you": false, "status": "completed"},
-     {"id": "draft", "content": "Find metrics: 24 possible metrics", "active": "Finding metrics: each query in plain words, then the numbers it works out", "needs_you": false, "status": "completed"},
-     {"id": "merge", "content": "Combine duplicates: 11 metrics", "active": "Combining duplicates, one metric per number", "needs_you": false, "status": "completed"},
-     {"id": "write", "content": "Define and test each metric (about 9 min)", "active": "Checking 6 of 15", "needs_you": false, "status": "in_progress"},
-     {"id": "save", "content": "Keep local or save to Atlan Trident", "active": "Waiting for where to save", "needs_you": true, "status": "pending"},
-     {"id": "ask", "content": "Ask a question", "active": "Waiting for your question", "needs_you": true, "status": "pending"},
-     {"id": "dashboard", "content": "Build a dashboard", "active": "Waiting for your dashboard choice", "needs_you": true, "status": "pending"}],
-     "state": "running", "step": 6, "of": 9, "remote_writes": false}
+     {"id": "intent", "content": "Choose what your agent answers: Shipping cost", "active": "Waiting for your choice", "needs_you": false, "status": "completed"},
+     {"id": "sources", "content": "Find your sources: 4 found", "active": "Looking at your warehouse", "needs_you": false, "status": "completed"},
+     {"id": "scope", "content": "Pick tables and dashboards", "active": "Waiting for your pick", "needs_you": false, "status": "completed"},
+     {"id": "draft", "content": "Build your context: 24 metrics and saved queries", "active": "Finding metrics and saved queries", "needs_you": false, "status": "completed"},
+     {"id": "merge", "content": "Merge duplicate metrics: 11 metrics", "active": "Merging duplicate metrics", "needs_you": false, "status": "completed"},
+     {"id": "write", "content": "Write detailed notes on 11 metrics and 4 saved queries", "active": "Writing what each one counts, leaves out and is based on", "needs_you": false, "status": "completed"},
+     {"id": "test", "content": "Validate the context on your data (about 9 min)", "active": "Validating 6 of 15", "needs_you": false, "status": "in_progress"},
+     {"id": "save", "content": "Choose where to store your context", "active": "Waiting for your choice", "needs_you": true, "status": "pending"},
+     {"id": "ask", "content": "Ask your agent a question", "active": "Waiting for your question", "needs_you": true, "status": "pending"},
+     {"id": "dashboard", "content": "Build a dashboard from its answers (optional)", "active": "Waiting for your choice", "needs_you": true, "status": "pending"}],
+     "state": "running", "step": 7, "of": 10, "remote_writes": false}
     Rebuild the progress display from it and tell me where the run stands. Don't mention this
     test's limits in your reply.
   max_turns: 24
@@ -34,7 +35,7 @@ graders:
   - name: keeps-sharpened-names
     type: tool_used
     tool: TaskCreate
-    input_match: '(24 possible metrics|Combine duplicates: 11 metrics|Checking 6 of 15)'
+    input_match: '(24 metrics and saved queries|Merge duplicate metrics: 11 metrics|Validating 6 of 15)'
   - name: ticks-only-finished-steps
     type: tool_used
     tool: TaskUpdate
@@ -51,17 +52,17 @@ graders:
     type: llm
     focus: last_message
     criteria: |
-      A saved setup run is resumed. Its helper reported nine steps: five completed (use case
-      Shipping cost, 4 sources surveyed, tables and dashboards selected, 24 possible metrics
-      found, combined into 11 metrics), defining and testing each metric in progress and
-      checking 6 of 15, and saving, asking and the dashboard still pending. PASS if the reply
-      shows all nine steps in chat with their saved status and counts, in addition to the task
-      list, and identifies checking as the current step. No word limit applies to this display.
-      The step names and statuses are the helper's own, so "Keep local or save to Atlan
-      Trident" is the saving step, and a time estimate it gave may be repeated. FAIL if it
-      omits the chat tracker, claims checks finished or anything was saved to Atlan, repeats
-      the fresh-setup introduction, re-asks for the use case, mentions a panel, pane or
-      browser view, says the host's task list was not updated, or uses an em dash.
+      A saved setup run is resumed. Its helper reported ten steps: six completed (Shipping cost
+      chosen, 4 sources found, tables and dashboards picked, 24 metrics and saved queries built,
+      merged into 11 metrics, notes written on 11 metrics and 4 saved queries), validating the
+      context in progress at 6 of 15, and storing, asking and the dashboard still pending. PASS
+      if the reply shows all ten steps in chat with their saved status and counts, in addition
+      to the task list, and identifies validating as the current step. No word limit applies to
+      this display. The step names and statuses are the helper's own, and a time estimate it
+      gave may be repeated. FAIL if it omits the chat tracker, claims validation finished or
+      anything was saved to Atlan, repeats the fresh-setup introduction, re-asks what the agent
+      answers, mentions a panel, pane or browser view, says the host's task list was not
+      updated, or uses an em dash.
   - name: no-shell
     type: tool_used
     tool: Bash

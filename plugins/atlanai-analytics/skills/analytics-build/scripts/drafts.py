@@ -145,7 +145,7 @@ BATCH_SECONDS = 60
 # Where the session keeps a task list, it carries the build: the step under way counts its batches, from the same files
 # the side page counts, with time left from the step's own pace.
 ROW_OF = {'m2': 'draft', 'x1': 'draft', 'x2': 'merge', 'x3': 'write'}
-SHORT = {'draft': 'Find metrics', 'merge': 'Combine duplicates'}
+SHORT = {'draft': 'Build your context: metrics and saved queries', 'merge': 'Merge duplicate metrics'}
 
 
 def _left(files, done, total):
@@ -167,17 +167,17 @@ def _live(engine, under):
     c = describe(engine, files)
     if gate == 'm2':
         done, total = c.get('described') or 0, c.get('total')
-        said = '%d of %d queries in plain words' % (done, total) if total else '%d queries in plain words' % done
+        said = '%d of %d questions written' % (done, total) if total else '%s written' % _plural(done, 'question')
     elif gate == 'x1':
         done, total = c.get('queries_read') or 0, c.get('queries_total')
-        said = '%s so far, %s' % (_plural(c.get('drafts') or 0, 'possible metric'),
-                                  '%d of %d queries read' % (done, total) if total else '%d queries read' % done)
+        said = '%s found so far, %s' % (_plural(c.get('drafts') or 0, 'metric'),
+                                        '%d of %d questions read' % (done, total) if total else '%s read' % _plural(done, 'question'))
     elif gate == 'x2':
         # How many metrics the drafts make is only known once they are all combined.
         done, total, said = 0, None, '%s so far' % _plural(c.get('metrics') or 0, 'metric')
     else:
         done, total = c.get('defined') or 0, c.get('total')
-        said = '%d of %d defined' % (done, total) if total else '%d defined' % done
+        said = '%d of %d written' % (done, total) if total else '%d written' % done
     left = _left(files, done, total)
     return said + (' (%s)' % left if left else '')
 

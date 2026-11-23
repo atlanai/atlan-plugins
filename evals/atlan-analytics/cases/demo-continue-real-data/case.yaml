@@ -4,7 +4,7 @@ tags: [analytics, setup, demo, regression]
 execution:
   prompt: |
     In Atlan Analytics I have finished the Fixit demo and built its local dashboard.
-    At the final next-action menu I select Continue building on real data. I have
+    At the final next-action menu I select Build one on your own data. I have
     not supplied any real dashboard, export or local source folder yet. The previous
     demo context and its local dashboard should stay available. Continue from here.
   max_turns: 16

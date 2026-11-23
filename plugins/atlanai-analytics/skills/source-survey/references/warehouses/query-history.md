@@ -21,8 +21,8 @@ runs and total characters, grouped by statement length (under 2,000, 2,000 to 10
   the same bound to `CONTEXT querylog --max-statement-chars <n>`, with the counting statement's
   totals for the band you never fetched as `--left-out-at-source <texts> <runs>`. Both land in
   `querylog.jsonl.coverage.json`.
-- Say what was left out with its counts ("300 of 2,000 texts, 900 runs, over 10,000
-  characters"), and keep that line in the survey and the collection review.
+- Say what was left out with its counts ("Left out 300 of 2,000 past queries, used 900 times
+  in all, each over 10,000 characters long."), and keep that line in the survey and the collection review.
 
 ## Through a chat SQL tool
 
@@ -73,12 +73,14 @@ person selected an existing shape view.
    ```
 3. **`INFORMATION_SCHEMA`**, with no grant at all. It returns the person's own queries (and
    others' on warehouses their role can monitor) from the last 7 days only. Its row limit is
-   applied before the filter, so it is thin. Use it to start, and say how thin it is:
+   applied before the filter, so it is thin. Use it to start, and say how thin it is ("This covers only your own past
+   queries from the last 7 days, so it's thin."). Snowflake refuses `dateadd('day', -7, …)` here as more than 7 days
+   ago, so the window is written as 167 hours:
 
    ```sql
    select query_text as sql, count(*) as exec, count(distinct user_name) as users
    from table(<db>.information_schema.query_history(
-          end_time_range_start => dateadd('day', -7, current_timestamp()), result_limit => 10000))
+          end_time_range_start => dateadd('hour', -167, current_timestamp()), result_limit => 10000))
    where execution_status = 'SUCCESS' and query_type = 'SELECT'
      and (query_text ilike '%<TABLE_1>%' or query_text ilike '%<TABLE_2>%')
    group by 1 order by 2 desc limit 5000
@@ -113,14 +115,16 @@ existing authorized tools; keep their scope within the selected workspace.
 
 ## Another warehouse
 
-Its own documented read-only query history, grouped the same way. With none, ask for an export.
+Its own documented read-only query history, grouped the same way. With none, say "I can't find past
+queries for <warehouse>. If someone with access exports them to a file, I'll use that."
 
 ## One-time setup an admin can run
 
 Most friction is the history grant. Rather than giving every analyst a governance role, an
 admin can create one view, once, that groups statements without user names. Analysts then need
-only SELECT on that view. Offer this script to the person when the history pull is refused. The
-admin reviews and runs it: you never run it. Narrow the `where` to the databases the team works
+only SELECT on that view. When the history pull is refused, offer this script: "I can't read your
+team's past queries. An admin can create one view that lets me read them without user names.
+Here's the script for them to review." The admin reviews and runs it: you never run it. Narrow the `where` to the databases the team works
 in, because the view shows the text of every query it covers.
 
 **Snowflake**, run by a role that can read `SNOWFLAKE.ACCOUNT_USAGE`:

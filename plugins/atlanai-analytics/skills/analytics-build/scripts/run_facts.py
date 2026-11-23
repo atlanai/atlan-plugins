@@ -22,6 +22,8 @@ FOUND = ((('powerbi',), 'Power BI dashboard'), (('powerbi_project',), 'Power BI 
          (('dashboard_html',), 'HTML dashboard'), (('model_candidate',), 'model file'), (('data_file',), 'data file'),
          (('sqlite', 'duckdb'), 'database'), (('rowsets',), 'saved row set'), (('saved_sql',), 'saved SQL file'),
          (('query_history',), 'query history'))
+# A found label as the person reads it, where it differs: the label itself stays, since visuals.FOUND_MARKS matches it.
+FOUND_SAID = {'query history': ('past queries', 'files of past queries')}
 # Warehouses as a person names them; any other kind reads as its own name.
 WAREHOUSES = {'snowflake': 'Snowflake', 'databricks': 'Databricks', 'bigquery': 'BigQuery', 'redshift': 'Redshift',
               'postgres': 'Postgres', 'postgresql': 'Postgres', 'duckdb': 'DuckDB'}
@@ -125,6 +127,27 @@ def sentence(name):
     return ''.join(out)
 
 
+def clip(text, width):
+    """Text on one line, cut to a width at a word with "…", never inside one ("delivery f…" read as broken in 0.9.74)."""
+    text = ' '.join(str(text or '').split())
+    if len(text) <= width:
+        return text
+    cut = text[:width - 1]
+    # A cut that ends where a word ends keeps that word.
+    space = width - 1 if text[width - 1] == ' ' else cut.rfind(' ')
+    return (cut[:space] if space > width // 2 else cut).rstrip(' ,;:·-') + '…'
+
+
+def short_name(text, width=60):
+    """A use case as a name: a long answer's own short name, the text before its first ":" or ".", else the answer cut
+    at a word. "AE pod targets: what each pod's S1 target is. Table: GTM_OPE…" reads as "AE pod targets"."""
+    text = ' '.join(str(text or '').split())
+    if len(text) > width:
+        head = re.split(r':|\.(?=\s|$)', text, maxsplit=1)[0].strip()
+        text = head if head else text
+    return clip(text, width)
+
+
 def table_name(name):
     """A table as a person says it: 'site.work_logs' reads as 'work logs'."""
     return str(name).split('.')[-1].replace('_', ' ')
@@ -136,6 +159,19 @@ def count(n, word, many=None):
 
 def their(subject):
     return subject + "'s" if subject else 'your'
+
+
+def agent_name(facts, demo=None):
+    """Your agent's name, for "Your <name> is ready": a demo's own ("job profit agent"), else "agent for" the dashboard
+    or the use case ("agent for Sales pipeline"), never the raw title with "agent" after it, else "agent". `demo` is a
+    demo's ready facts when the caller holds them; otherwise they are read from the demo's own folder."""
+    demo = demo if demo is not None else demo_facts(facts.dir).get('ready') or {}
+    name = ' '.join(str(demo.get('agent') or '').split()) if isinstance(demo, dict) else ''
+    if not name:
+        # A long use case reads as a paragraph, not a name: its own short name stands for it.
+        base = facts.report or short_name(facts.use_case)
+        name = 'agent for ' + base if base and len(base) <= 60 else ''
+    return name or 'agent'
 
 
 # Files ----------------------------------------------------------------------------------------
@@ -239,6 +275,32 @@ class RunFacts:
         intent = self.interaction.get('intent')
         return ' '.join(str(intent.get('domain') or '').split()) if isinstance(intent, dict) else ''
 
+    @property
+    def report(self):
+        """The dashboard the person named for a dashboard run ("Sales pipeline: Overview, Stages" names Sales pipeline),
+        or ''."""
+        return ' '.join(str(self.interaction.get('report') or '').split(':')[0].split())
+
+    @property
+    def folder(self):
+        """The working folder a chat opens in to find this run (`<folder>/.atlan-metrics/run_…`, or a dashboard project's
+        `<folder>/.atlan-analytics/<slug>`), home as ~, or None for a run kept anywhere else. A dashboard run in
+        `.atlan-analytics` read "this folder" in every message (0.9.76's live run)."""
+        if self.dir.parent.name not in ('.atlan-metrics', '.atlan-analytics'):
+            return None
+        folder = self.dir.absolute().parent.parent
+        try:
+            return '~/' + str(folder.relative_to(Path.home())) if folder != Path.home() else '~'
+        except ValueError:
+            return str(folder)
+
+    @cached_property
+    def held(self):
+        """How many metrics and saved queries the save held back, from its record of the holds."""
+        holds = self.file('context', 'publication-holds.json')
+        return {k: sum(1 for h in holds.get(k) or [] if isinstance(h, dict)) if isinstance(holds.get(k), list) else 0
+                for k in ('metrics', 'queries')}
+
     @cached_property
     def warehouse(self):
         """The warehouse the run reads, as the connection recorded it in the run's state, or None for local data."""
@@ -280,8 +342,8 @@ class RunFacts:
     @cached_property
     def found(self):
         """What the survey and the warehouse connection found, as (how many, the words for them): only what can be named
-        is counted, so the count and the words always agree."""
-        items = [(1, '%s warehouse' % self.warehouse)] if self.warehouse else []
+        is counted, so the count and the words always agree. Then the same labels as the person reads them."""
+        items = [(1, '%s warehouse' % self.warehouse, '%s warehouse' % self.warehouse)] if self.warehouse else []
         for kinds, word in FOUND:
             n = sum(1 for s in self.sources if s.get('kind') in kinds)
             if not n:
@@ -289,8 +351,9 @@ class RunFacts:
             # A Power BI project is one report kept as many files; a dashboard or a history reads alone when it is one.
             label = ('%s (%s)' % (word, count(n, 'file')) if n > 1 else word) if kinds == ('powerbi_project',) else \
                 word if n == 1 and kinds[0] in ('powerbi', 'tableau', 'dashboard_html', 'query_history') else count(n, word)
-            items.append((n, label))
-        return sum(n for n, _ in items), [label for _, label in items]
+            said = FOUND_SAID.get(word)
+            items.append((n, label, label if not said else said[0] if n == 1 else '%d %s' % (n, said[1])))
+        return sum(n for n, _, _ in items), [label for _, label, _ in items], [said for _, _, said in items]
 
     @cached_property
     def dashboard(self):

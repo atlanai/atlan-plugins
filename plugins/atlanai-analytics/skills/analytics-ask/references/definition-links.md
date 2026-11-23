@@ -1,15 +1,56 @@
 # Name the definitions behind an answer, as links
 
-Read when an answer, a preview or a handoff cites a metric or saved query. Render each
-name as a clickable Markdown link, not a bare artifact id or URL.
+Read before every answer: it sets the answer's layout and how it cites each metric or saved
+query. Render each name as a clickable Markdown link, never a bare artifact id or URL.
 
-Every saved-context answer ends with **Proof in Atlan Trident**, one line per metric and
-query used. Include the released version in plain words when the read returned one.
-Use the artifact's name as the link label, such as Gross margin or Margin by job.
+## Lay out the answer
+
+Every answer takes this shape, leaving out any part with nothing to say:
+
+```
+<the answer, in one or two sentences>
+
+<once per conversation, where it came from>
+
+**Based on**
+- Metric: [Gross margin](<link>), version <N>
+- Saved query: [Margin by job](<link>), version <N>
+
+**Worth knowing**
+- <one caveat per line>
+
+Next: <one next step>
+```
+
+**Based on** has one line per metric and saved query used. Leave out the version when the read
+returned none. Use the artifact's name as the link label. With no metric, it holds one line:
+"My own SQL. No metric in Atlan covers <measure>. I assumed <formula and filters>."
 Keep artifact, workspace and release ids inside URLs only; do not repeat them in prose,
-code spans or caveats. A proof line needs only the linked name and released version.
+code spans or caveats. A **Based on** line needs only the linked name and released version.
 Show a workspace's display name only when it helps, never its handle. Do not append
 hypothetical warnings about valid, successfully resolved links.
+
+**Next** is one line. Use the one the situation names (a missing warehouse, a missing metric,
+a correction), else "Next: ask a follow-up, or ask to see the SQL."
+
+## Lines that go with the answer
+
+- Where it came from, with the first answer in a conversation. From a metric: "I answered from
+  <metric>, a metric saved in Atlan. I wrote the SQL from its definition, so the same question
+  gets the same number." From a saved query: "I answered from <saved query>, a saved query in
+  Atlan, using its SQL as saved."
+- Under **Worth knowing**:
+  - an unreviewed saved query: "<saved query> hasn't been reviewed yet, so check this number
+    before you rely on it."
+  - a dashboard metric with unmeasured parity, once: "<metric> hasn't been compared with its
+    dashboard tile, so this number may differ from the dashboard."
+  - a conflict between sources that shaped the answer: "<source A> and <source B> disagree
+    here. I answered from <source A>, because <reason>."
+  - with no metric, the near misses: "Close, but measuring something else: <names>."
+  - a reading of the question you chose: "I read this as <reading>. Tell me if you meant
+    something else."
+- Once per conversation, after the first answer and before **Next**: "You can also ask in
+  other chats, with Atlan Analytics and your warehouse connected."
 
 ## Discover the organization automatically
 
@@ -50,8 +91,8 @@ Do not read credential files, call a token-printing command or decode tokens in 
 Do not rely on a pasted address or a saved user-supplied slug.
 
 If neither the host's authenticated HTTP transport nor a matching signed-in CLI is
-available, report that specific connection limitation and keep the answer with named
-proof. Do not substitute a URL/slug question or pretend the proof has a working link.
+available, say "I couldn't make links to Atlan. <reason> The names above are what I used.",
+with the helper's message as <reason>. Keep the answer with named proof. Do not substitute a URL/slug question or pretend the proof has a working link.
 Never offer Skip links or Paste later. A transport failure is a connection issue to fix,
 not a request for information from the person.
 
@@ -82,13 +123,14 @@ https://app.atlan.com/example-org/apps/metric?path=%2Fm%2Fmetric_example%3Fworks
 ```
 
 When the helper says the CLI is signed in to another of the person's organizations, the
-answer keeps its named proof and the reply names the one step: sign the CLI in to the
-organization that holds the artifact. Render it as `[Gross margin](<returned URL>)`. For a saved query, use `--kind sql_query`
+answer keeps its named proof and the reply names the one step: "To get links, sign the Atlan
+CLI in to the organization that holds these, with `atlanai auth login`." Render a returned URL as `[Gross margin](<returned URL>)`. For a saved query, use `--kind sql_query`
 and the returned `sql_query_...` handle. The helper verifies the active organization and exact artifact workspace before composing
 the link. Use the workspace returned with that artifact, not a guessed default.
 
 ## Context kept on this machine
 
-Local metrics and queries have no Atlan page. Cite their local definition by name and
-path, label them as local, and say that saving to Atlan makes direct proof links available.
+Local metrics and saved queries have no Atlan page. Under **Based on**, cite each as "Metric:
+<name>, on this machine at <path>" or "Saved query: <name>, on this machine at <path>". Then add
+"Nothing to open yet. Each one gets a page in Atlan once you save it there."
 Never fabricate a saved link for an unpublished item or let a missing link block an answer.

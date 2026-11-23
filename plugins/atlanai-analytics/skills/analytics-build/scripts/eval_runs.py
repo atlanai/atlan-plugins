@@ -62,17 +62,16 @@ def find_run(project: pathlib.Path, run=None) -> pathlib.Path:
         if not named.is_absolute():
             named = project / named
         if not is_built(named):
-            raise Blocked(f"No built context at {named}: it has no context/metrics.json. Name the run folder "
-                          "the build wrote, or build the context first.")
+            raise Blocked(f"Nothing is built at {named}: it has no context/metrics.json. Name the folder "
+                          "that holds your agent, or ask me to build one first.")
         return outside(project, named)
     ready = built_runs(project)
     if not ready:
-        raise Blocked("This folder holds no context built with Atlan Analytics, so there is nothing to check "
-                      "here. Open the folder where it was built, or build one with analytics-build. This "
-                      "check scores a built context; it does not score a registry agent's own eval set.")
+        raise Blocked("This folder has no agent built with Atlan Analytics, so there's nothing to test. "
+                      "Open the folder that holds your agent, or ask me to build one.")
     if len(ready) > 1:
         cases = [f"{r.relative_to(project)}: {purpose(r)}" for r in ready]
-        raise Blocked("Several built runs; name one with --run <folder>: " + "; ".join(cases))
+        raise Blocked("This folder has more than one agent: " + "; ".join(cases) + ". Which one should I test?")
     return ready[0]
 
 

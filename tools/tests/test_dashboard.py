@@ -73,7 +73,7 @@ class DashboardPublication(unittest.TestCase):
         plan = self.pub.plan(self.snapshot)
         saved = json.loads((self.context / 'queries.json').read_text())
         (self.context / 'queries.json').write_text(json.dumps(saved + [{'source_id': 'query:held'}]))
-        with self.assertRaisesRegex(context_contracts.Blocked, 'held artifact'):
+        with self.assertRaisesRegex(context_contracts.Blocked, 'held-back item was added back'):
             self.pub.next(plan['plan_id'])
         self.assertIsNone(self.pub.read(self.pub.path)['inflight'])
         (self.context / 'queries.json').write_text(json.dumps(saved))

@@ -1,6 +1,6 @@
 # Offer the use cases, each with its tables
 
-Read in the "Let discovery decide" branch, after discovery. The other two branches do not
+Read in the "Suggest from your warehouse" branch, after discovery. The other two branches do not
 use this file: the person already named the dashboard or the tables, so they go from the
 access check straight to the confirmation in [the interview](intent.md). Demos skip it too,
 and so does a resume with a saved selection.
@@ -25,21 +25,21 @@ Neither generates SQL or runs a check on a metric.
 
 The question's own text is one line of what was found and where the usage came from:
 
-"Found: Snowflake. Most used across your account in the last 7 days."
+"Most used on Snowflake in the last 7 days."
 
-Then "Which should I build?", one option per use case, with multiple selection where the
+Then "What should your agent answer?", one option per use case, with multiple selection where the
 host allows it:
 
 | Part | What goes there |
 | --- | --- |
 | Label | The use case, two to four words: "Sales pipeline" |
-| Description | One line of what it answers, then its tables: "Pipeline by stage, win rate and slipped deals. Tables: FCT_OPPORTUNITY, DIM_ACCOUNTS, DIM_REPS_CURRENT" |
+| Description | One line of what it answers, then its tables: "Pipeline by stage, win rate and slipped deals. Tables: FCT_OPPORTUNITY, DIM_ACCOUNTS, DIM_REPS_CURRENT." |
 
 **The last option is always a dashboard.** After the use cases, add:
 
 | Label | Description |
 | --- | --- |
-| I have a dashboard | "Share its link or file and I'll build from it, on its own or with the use cases you pick." |
+| Add a dashboard | "Share its link or file. I'll build your agent from it, alone or with what you pick here." |
 
 A question card holds four options, so show at most three use cases beside it, the most used
 first; name a fourth in the found line only if it matters. Never mark the dashboard option
@@ -63,7 +63,7 @@ Rules for the card:
   the tables are.
 - Two to five tables per use case, by table name only. Say the schema once in the found line
   when every table shares it; otherwise prefix only the tables that differ.
-- Mark the most used use case recommended. Order the rest by use.
+- Mark the most used use case recommended: its label ends in ` (Recommended)`. Order the rest by use.
 - Nothing else in the card: no row counts, query counts, column names, join keys,
   exclusions, snapshot notes or sample questions. Those are details.
 
@@ -77,8 +77,8 @@ checked.
 
 **Details on request.** What discovery worked out about the chosen tables (how they link,
 what will be left out, how much each is used) is kept in the run and shown only when the
-person asks, or in one sentence after they choose: "Building sales pipeline from 3 tables.
-I'll leave out the test accounts on the exclusion list."
+person asks, or in one sentence after they choose: "Your agent will answer sales pipeline
+questions from 3 tables, leaving out test accounts."
 
 For an understanding-only request, the menu is the result; no build follows unless asked.
 
