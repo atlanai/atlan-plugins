@@ -1,6 +1,6 @@
 ---
 name: accuracy-check
-description: "Atlan Analytics: run an eval set against a project's context and score it: each question to a fresh agent, results compared by script, why each miss failed. Use when asked to test or score accuracy. Not for a demo (analytics-demo) or making evals."
+description: "Atlan Analytics: test your agent on an eval set, a list of questions with known answers, score it and explain each wrong answer. Use when asked to test or score accuracy. Not for writing evals (eval-generation)."
 ---
 
 # Run and score an eval set
@@ -8,8 +8,8 @@ description: "Atlan Analytics: run an eval set against a project's context and s
 A capability. It works on any built run: a local SQLite or DuckDB one, or a warehouse build
 (Snowflake, Databricks or another) whose SQL runs through this host's warehouse query tool. It
 takes an eval set, asks each question to a fresh agent that sees only the context, compares each answer's result with the trusted result (by script, with a judge where the script refuses an answer that ran), and says why each
-miss failed. Every check also asks the same questions with schema only, so the result shows
-what the context changed. It generates no questions and changes nothing: a metric, a saved query and the set
+miss failed. Every check also asks the same questions with column names alone, so the result
+shows what the context changed. It generates no questions and changes nothing: a metric, a saved query and the set
 stay as they are. A person can call it directly, and another skill can call it as a step; it
 behaves the same either way.
 
@@ -24,7 +24,7 @@ command.
 | --- | --- |
 | Loading a set, its trusted answers, running it, the score, why each miss failed, testing again | this skill |
 | Answering each question | `analytics-ask`, in a fresh subagent per question |
-| Saving a check's set and runs to Atlan Trident, when asked | this skill |
+| Saving a check's set and runs to Atlan, when asked | this skill |
 | Generating a set, or saving a set on its own | `eval-generation` |
 | Choosing a set, acting on a miss, changing a metric | whoever called it, never this skill |
 
@@ -51,7 +51,8 @@ command as separate argv entries; zsh does not split a string holding one.
    question's metric, source and expected answer.
 3. **Show a set the person has not seen, and confirm it.** A set generated in this request is
    shown before it runs: the table `CHECK show` prints, as a chat message, then one native
-   question, "Run these <N> questions?", with Run them, Edit questions and Skip for now, as the
+   question, worded as `CHECK show`'s `ask` gives it ("Test your agent on these <N> questions?",
+   or "Test your agent on this question?" for one), with its options, as the
    demo's [generated questions](../analytics-demo/references/accuracy.md#2-generated-questions-show-them-then-ask-to-run-them)
    step words it. The questions never go in the question's text. `CHECK edit` rewords a question
    and `CHECK drop` takes questions out. This holds when a person calls this skill directly too.
@@ -59,7 +60,8 @@ command as separate argv entries; zsh does not split a string holding one.
 4. **Run and score it** as [run it](references/run.md#run-it) describes, with the raw-source
    pass of [before and after](references/run.md#before-and-after) on every check, started with
    the context pass, whatever the size of the set and whoever started the check,
-   then show the score as [show the score](references/run.md#show-the-score) describes.
+   then show the result as [show the score](references/run.md#show-the-score) describes, and
+   [ask for more](references/run.md#ask-for-more).
 
 ## A new check is a new check
 
@@ -77,16 +79,17 @@ command as separate argv entries; zsh does not split a string holding one.
 After the context changed, [test again](references/run.md#test-again) on the same eval folder,
 pinned to a metric version when the caller names one.
 
-## Save to Atlan Trident
+## Save to Atlan
 
-After every check's result, offer to [save the check](references/run.md#save-to-atlan-trident):
-the set, the schema only run and every run with the context, each linked to the run before it.
-When a person called this skill directly, end on the demo's result message and its plain save
-offer yourself, and save on "save". No agent is registered: the runs save without one. A skill that called this one
-asks it instead.
+With 5 questions or more, [ask for more](references/run.md#ask-for-more) offers to [save the
+check](references/run.md#save-to-atlan): the set, the column names alone run and every run with
+the context, each linked to the run before it. When a person called this skill directly, end on
+the result and that question yourself, then `PROJECT question close`. No agent is registered:
+the runs save without one. A skill that called this one asks it instead.
 
 ## What comes back
 
 The run report as `EVAL report` prints it: the `score_line`, word for word, every run on the
-set, the run it is compared with, and the misses under their numbers, grouped by cause. The eval folder, for whoever acts
+set, the run it is compared with, and the misses under their numbers, grouped by cause, with
+`EVAL before-after`'s `result`, the numbers a person's result is written from. The eval folder, for whoever acts
 on the misses. Never call a question checked when its SQL did not run.

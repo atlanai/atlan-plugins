@@ -1,6 +1,6 @@
-# Publish an eval set to Atlan Trident
+# Publish an eval set to Atlan
 
-Read when saving a set to Atlan Trident.
+Read when saving a set to Atlan.
 
 Each `EVAL publish` prints the next `step` and its `calls`, each a `{tool, arguments}` pair.
 Send every call in order with that exact name and arguments (in search mode, through

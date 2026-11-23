@@ -1336,13 +1336,13 @@ def summarize(pr: Proj, variant: str, final: bool = False) -> dict:
            "graded_by": dict(Counter(r.get("graded_by") or "script" for r in scored if r.get("class") != JUDGED)),
            "judge_passed": sum(1 for r in scored if r.get("graded_by") == "judge" and (r.get("grade") or {}).get("pass"))}
     if out["gold"]["stale"]:
-        out["gold_next"] = (f"The oldest gold ran {out['gold']['age_days']} days ago. If the tables under it were "
-                            f"backfilled or corrected since, re-run the gold, refreeze and re-run the baseline.")
+        out["gold_next"] = (f"The known answers were worked out {out['gold']['age_days']} days ago. If your tables changed "
+                            f"since, I can work them out again and retest.")
     v = out["validation"]
     if v["n"]:
         # The count a person reads, worded here so no one recounts it from the rows.
         k = sum(1 for i in validation if means.get(i) == 1)
-        out["score_line"] = f"{k / v['n']:.0%} accuracy: {k} of {v['n']} answered correctly"
+        out["score_line"] = f"Your agent answered {k} of {v['n']} correctly: {k / v['n']:.0%}."
     if final:
         out["holdout"] = rate(means, holdout)
     elif holdout and any(r.get("prompt_id") in holdout for r in all_rows):
@@ -1457,29 +1457,30 @@ def cmd_before_after(a) -> dict:
     # where markdown tables break. One block per question (scaled to 20 past that), right filled.
     width = min(n, 20)
     bar = lambda k: ("\u2588" * round(k / n * width)).ljust(width, "\u2591")  # noqa: E731
-    lines = [f"With your context, {kb} of {n} right. With schema only, {ka} of {n}.", ""]
-    for label, k, c in (("schema only", ka, ca), ("With your context", kb, cb)):
+    lines = [f"Your agent got {kb} of {n} right, against {ka} of {n} from column names alone.", ""]
+    for label, k, c in (("Column names only", ka, ca), ("Your agent", kb, cb)):
         t = secs(c)
         lines.append(f"  {label:<18} {bar(k)}  {k:>{len(str(n))}} of {n}  {k / n:>4.0%}" + (f"   {t}" if t else ""))
     # Every line stays under 76 characters, so an 80-column terminal never wraps one mid-sentence.
-    lines += ["", f"  {len(only_after)} now right that were wrong with schema only.",
-              f"  {both} right both ways. {neither} still wrong."
-              + (f" {len(only_before)} right only with schema only." if only_before else "")]
+    lines += ["", f"  Right with your agent, wrong from column names alone: {len(only_after)}."]
+    if only_before:
+        lines.append(f"  Right from column names alone, wrong with your agent: {len(only_before)}.")
+    lines.append(f"  Right both ways: {both}. Wrong both ways: {neither}.")
     if judged["before"] or judged["after"]:
-        lines.append(f"  Judged right, not an exact match: {judged['after']} with context, "
-                     f"{judged['before']} schema only.")
+        lines.append(f"  Judged right without an exact match: your agent {judged['after']}, "
+                     f"column names {judged['before']}.")
     if left_out:
         k = len(left_out)
         lines.append(f"  {k} {'question was' if k == 1 else 'questions were'} not scored both ways, "
-                     f"so this compares {n}.")
+                     f"so this compares the other {n}.")
     text = {c["case_id"]: c["question"] for c in pr.cases()}
     number = {i: k for k, i in enumerate(order, 1)}
     mark = lambda m, i: "right" if m[i] == 1 else "wrong"  # noqa: E731
     cell = lambda t: " ".join(str(t).split()).replace("|", "\\|")  # noqa: E731
     # The changes, for the chat: the questions the context turned around, then any it lost.
     changes = []
-    for picked, what in ((only_after, "wrong with schema only, right with your context"),
-                         (only_before, "right with schema only, wrong with your context")):
+    for picked, what in ((only_after, "wrong from column names, right with your agent"),
+                         (only_before, "right from column names, wrong with your agent")):
         if picked:
             changes += [f"**{len(picked)} {'question' if len(picked) == 1 else 'questions'} {what}**", "",
                         "| # | Question |", "| --- | --- |"]
@@ -1516,24 +1517,24 @@ def _before_after_widget(ids, number, text, ma, mb, right, times, only_after, on
     the questions that changed, from the same numbers as the text card. No script: it draws in any widget host."""
     import visual_kit as k
     e, n = k.e, len(ids)
-    rows = [("Schema only", right[0], times[0]), ("With your context", right[1], times[1])]
+    rows = [("Column names only", right[0], times[0]), ("Your agent", right[1], times[1])]
     ba = ''.join('<span>%s</span><b%s>%d%%</b><span>%d of %d right%s</span>'
-                 % (e(label), ' class="now"' if label != "Schema only" else '', round(100 * kk / n), kk, n,
+                 % (e(label), ' class="now"' if label != "Column names only" else '', round(100 * kk / n), kk, n,
                     ', ' + e(t) if t else '') for label, kk, t in rows)
     strip = ''
     if n <= 30:
         marks = lambda m: ''.join('<i class="%s">%s</i>' % ('y' if m[i] == 1 else 'n', TICK if m[i] == 1 else CROSS)
                                   for i in ids)  # noqa: E731
-        strip = ('<div class="st" style="--n:%d"><span></span>%s<span>Schema only</span>%s<span>With your context</span>%s</div>'
+        strip = ('<div class="st" style="--n:%d"><span></span>%s<span>Column names only</span>%s<span>Your agent</span>%s</div>'
                  % (n, ''.join('<span class="hd">%d</span>' % number[i] for i in ids), marks(ma), marks(mb)))
-    changed = [(i, 'Now right with your context', 'vy') for i in only_after] + \
-              [(i, 'Right only with schema only', 'vn') for i in only_before]
+    changed = [(i, 'Now right with your agent', 'vy') for i in only_after] + \
+              [(i, 'Right only from column names', 'vn') for i in only_before]
     listed = ('<div class="mt">What changed</div><div class="ls">%s</div>' % ''.join(
         '<div><span>%d. %s</span><b class="%s">%s</b></div>' % (number[i], e(text.get(i, '')), c, e(v)) for i, v, c in changed)
               if changed else '<div class="mt">No question changed between the two.</div>')
-    body = (WIDGET_CSS + '<div class="mh">%s<b>Accuracy: schema only and your context</b></div><div class="ba">%s</div>%s%s'
+    body = (WIDGET_CSS + '<div class="mh">%s<b>Accuracy: your agent against column names alone</b></div><div class="ba">%s</div>%s%s'
             % (k.icon('check-circle'), ba, strip, listed))
-    return k.card(body, 'With your context, %d of %d right. With schema only, %d of %d.' % (right[1], n, right[0], n))
+    return k.card(body, 'Your agent got %d of %d right, against %d of %d from column names alone.' % (right[1], n, right[0], n))
 
 
 # ====================================================================== publishing (registry MCP)
@@ -1734,7 +1735,8 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
     if full and not exps.get(V):
         name = f"{slug}-{V}"
         # The raw-source pass is the run the context is compared with: name it so in Atlan.
-        shown = {"raw": "schema only", "baseline": "with your context"}.get(V, V)
+        shown = {"raw": "column names only", "baseline": "your agent"}.get(V) or (
+            f"your agent, test {int(V[1:]) + 1}" if re.fullmatch(r"v\d+", V) else V)
         body = {"name": name, "workspace_id": ws, "display_name": f"{slug} · {shown}",
                 "description": (load_json(pr.vdir(V) / "summary.json", {}) or {}).get("description") or f"analytics eval {V}",
                 "dataset_id": ids["eval_dataset_id"],
@@ -2020,6 +2022,8 @@ def _apply(pr: Proj, pub: Publication, V: str, step: str, got: dict) -> None:
 # run lives, what flipped, and the misses grouped by cause. Read-only, outside the harness span.
 REPORT_WHYS = ("Different rule", "Different filter", "No definition", "Query failed", "Question asks the opposite")
 _CLASS_WHY = {"no_sql": "Query failed", "agent_sql_error": "Query failed"}
+# The words the report prints for each cause. The keys stay the values why.json carries.
+_WHY_SHOWN = {"Different rule": "Different definition", "No definition": "No metric fit", "Query failed": "Its SQL failed"}
 
 
 def _report_runs(pr: Proj, skip=()) -> list:
@@ -2038,6 +2042,12 @@ def _short(cells, width: int = 60) -> str:
 def _when(stamp) -> str:
     t = _stamp(stamp)
     return f"{t.day} {t:%b %H:%M} UTC" if t else "time not recorded"
+
+
+def _run_name(v, runs) -> tuple:
+    """A run as the person reads it, for the table and inside a sentence. The stored name stays."""
+    i = runs.index(v)
+    return ("First test", "the first test") if i == 0 else (f"Test {i + 1}", f"test {i + 1}")
 
 
 def cmd_report(a) -> dict:
@@ -2061,28 +2071,30 @@ def cmd_report(a) -> dict:
     scored = lambda v: [i for i, r in rows[v].items() if r.get("class") not in UNSCORED]  # noqa: E731
     summ = summarize(pr, last, False)
     name = (load_json(pr.p("work", "spec.json"), {}) or {}).get("name") or pr.dir.name
-    lines = [f"Accuracy check on {name}: run {runs.index(last) + 1} of {len(runs)}", summ.get("score_line") or "No question was scored."]
+    lines = [f"Accuracy on {name}: test {runs.index(last) + 1} of {len(runs)}", summ.get("score_line") or "No question was scored."]
 
-    table = [("Run", "When", "Right", "Accuracy")]
+    table = [("Test", "When", "Right", "Accuracy")]
     for v in runs:
         ids = scored(v)
         k = sum(1 for i in ids if ok(v, i))
         when = max((r.get("ts") or "" for r in rows[v].values()), default="")
-        table.append((v, _when(when), f"{k} of {len(ids)}", f"{k / len(ids):.0%}" if ids else "none scored"))
+        table.append((_run_name(v, runs)[0], _when(when), f"{k} of {len(ids)}", f"{k / len(ids):.0%}" if ids else "none scored"))
     w = [max(len(r[k]) for r in table) for k in range(4)]
-    lines += ["", "Runs on this set"] + ["  " + "   ".join(c.ljust(w[k]) for k, c in enumerate(r)).rstrip() for r in table]
+    lines += ["", "Tests on these questions"] + ["  " + "   ".join(c.ljust(w[k]) for k, c in enumerate(r)).rstrip() for r in table]
 
     prev = runs[runs.index(last) - 1] if runs.index(last) else None
     saved = ((pr.state().get("ids") or {}).get("experiments") or {})
+    compared: list = []
     if prev:
-        where = f"saved in Atlan Trident as {saved[prev]}" if saved.get(prev) else f"on this machine, in {pr.vdir(prev)}"
+        where = "saved to Atlan" if saved.get(prev) else "kept on this machine"
         when = max((r.get("ts") or "" for r in rows[prev].values()), default="")
-        lines += ["", f"Compared with {prev}, run {_when(when)}, {where}."]
+        compared.append(f"Compared with {_run_name(prev, runs)[1]} ({_when(when)}), {where}.")
         both = [i for i in scored(last) if i in scored(prev)]
         up = sorted(number[i] for i in both if ok(last, i) and not ok(prev, i))
         down = sorted(number[i] for i in both if not ok(last, i) and ok(prev, i))
         say = lambda ns: ", ".join(str(n) for n in ns) if ns else "none"  # noqa: E731
-        lines.append(f"Changed since {prev}: now right: {say(up)}. Now wrong: {say(down)}.")
+        compared.append(f"Since {_run_name(prev, runs)[1]}, questions now right: {say(up)}. Now wrong: {say(down)}.")
+        lines += [""] + compared
 
     misses = sorted((i for i in scored(last) if not ok(last, i)), key=lambda i: number.get(i, 0))
     groups: dict = {}
@@ -2090,29 +2102,72 @@ def cmd_report(a) -> dict:
         given = whys.get(i) if isinstance(whys.get(i), dict) else {}
         why = given.get("why") if given.get("why") in REPORT_WHYS else _CLASS_WHY.get(rows[last][i].get("class"), "Not yet explained")
         groups.setdefault(why, []).append((i, given.get("detail") or rows[last][i].get("reason") or ""))
+    # The misses alone, numbered and grouped by cause: the part of the report the chat result carries.
+    missed: list = []
     if misses:
-        lines += ["", f"Misses ({len(misses)}), by cause"]
+        missed.append(f"Wrong answers ({len(misses)}), by cause")
         for why in [g for g in (*REPORT_WHYS, "Not yet explained") if g in groups]:
-            lines.append(f"{why} ({len(groups[why])})")
+            missed.append(f"{_WHY_SHOWN.get(why, why)} ({len(groups[why])})")
             for i, detail in groups[why]:
                 got = load_json(pr.vdir(last) / "results" / f"{i}_rep0.agent.json", {}) or {}
                 got_row = ((normalize_result(got).get("rows") or [[]]) or [[]])[0] if got else []
                 tests = (picked.get(i) or {}).get("metric")
-                lines.append(f"  {number.get(i, '?')}. {question.get(i, i)}")
-                lines.append("     " + (f"Tests {tests}. " if tests else "") +
-                             f"Expected {_short((picked.get(i) or {}).get('expected')) or 'not recorded'}. "
-                             f"Got {_short(got_row) or 'no result'}.")
+                missed.append(f"  {number.get(i, '?')}. {question.get(i, i)}")
+                missed.append("     " + (f"Tests {tests}. " if tests else "") +
+                              f"Expected {_short((picked.get(i) or {}).get('expected')) or 'not recorded'}. "
+                              f"Got {_short(got_row) or 'no result'}.")
                 if detail:
-                    lines.append(f"     Why: {detail}")
+                    missed.append(f"     Why: {detail}")
+        lines += [""] + missed
     left = sorted(number.get(i, 0) for i, r in rows[last].items() if r.get("class") in UNSCORED)
     if left:
-        lines += ["", f"Left out of the score: {len(left)} (question {', '.join(str(n) for n in left)}); the run failed there, not the answer."]
+        lines += ["", f"Left out of the score: {len(left)} (question{'s' if len(left) > 1 else ''} {', '.join(str(n) for n in left)}). "
+                      "The test failed there, not your agent."]
     if summ.get("judge_passed"):
         n_j = summ["judge_passed"]
-        lines.append(f"{n_j} {'answer was' if n_j == 1 else 'answers were'} judged right without an exact match.")
+        lines += ["", f"{n_j} {'answer was' if n_j == 1 else 'answers were'} judged right without an exact match."]
     return {"status": "ok", "variant": last, "runs": runs, "compared_with": prev, "misses": [number.get(i) for i in misses],
             "unexplained": [i for i in misses if not isinstance(whys.get(i), dict) or whys[i].get("why") not in REPORT_WHYS],
-            "report": "\n".join(lines)}
+            "report": "\n".join(lines), "misses_text": "\n".join(missed), "compared_text": "\n".join(compared),
+            "left_out": len(left)}
+
+
+def _questions(n: int) -> str:
+    return f"{n} question" if n == 1 else f"{n} questions"
+
+
+SMALL_SET = 5  # under this many questions, the result says how few it rests on
+
+
+def result_facts(pr: Proj, ba: dict) -> dict:
+    """The numbers the chat result is written from, out of a before-and-after comparison: accuracy, the score from
+    column names alone, the lift, how many questions, and the misses by number. The assistant writes the result's
+    words around these, by its outcome, and never works a number out itself. Kept outside the grading span, so a
+    change to how the result reads never invalidates an approved grader."""
+    n = ba["questions"]
+    after, before = ba["correct"]["after"], ba["correct"]["before"]
+    # Half up, as a person rounds: Python's round() gives 12 for 1 of 8 (12.5), and a reader expects 13.
+    pct = lambda k: int(100 * k / n + 0.5)  # noqa: E731
+    number = {c["case_id"]: k for k, c in enumerate(pr.cases(), 1)}
+    outcome = "ahead" if after > before else "behind" if after < before else "tie"
+    return {"accuracy": pct(after), "baseline": pct(before), "lift": pct(after) - pct(before), "outcome": outcome,
+            "questions": n, "right": after, "baseline_right": before, "all_right": after == n,
+            "small_set": n < SMALL_SET, "left_out": len(ba.get("left_out") or []),
+            "turned_around": [number.get(i) for i in ba.get("right_only_after") or []],
+            "lost": [number.get(i) for i in ba.get("right_only_before") or []],
+            "misses": [{"number": number.get(p["id"]), "question": p["question"]}
+                       for p in ba.get("per_question") or [] if p["after"] != "right"],
+            # The number lines, worded once here so no one rounds or recounts them.
+            "lines": {"accuracy": f"Accuracy: {pct(after)}%.",
+                      "before_after": f"With column names alone: {pct(before)}%. With your agent: {pct(after)}%.",
+                      "small_set": (f"Based on {_questions(n)}. Add more for a sharper score." if n < SMALL_SET else "")}}
+
+
+def cmd_before_after_result(a) -> dict:
+    """`before-after`: the comparison, plus `result`, the numbers the chat result is written from."""
+    out = cmd_before_after(a)
+    out["result"] = result_facts(Proj(a.dir), out)
+    return out
 
 
 # ====================================================================== selftest
@@ -2562,9 +2617,9 @@ def _selftest_integrity(ok) -> None:
             refused = True
         ok("--require-isolation refuses a score with an unverified row", refused)
         k = sum(1 for c in split["test_ids"] if case_means(read_results(Proj(d).vdir("base") / "results.jsonl")).get(c) == 1)
-        ok("the score line states the scripted count", f": {k} of {len(split['test_ids'])} answered" in summ["score_line"]
-           and summ["score_line"].startswith(f"{k / len(split['test_ids']):.0%} accuracy"))
-        ok("the score line is the count alone, with no interval", summ["score_line"].endswith("answered correctly"))
+        ok("the score line states the scripted count", f"answered {k} of {len(split['test_ids'])} correctly" in summ["score_line"]
+           and summ["score_line"].endswith(f": {k / len(split['test_ids']):.0%}."))
+        ok("the score line is the count alone, with no interval", summ["score_line"].startswith("Your agent answered "))
         ok("context engagement is measured from cited definitions", summ["context_engagement"] == 1.0)
         try:
             cmd_split(argparse.Namespace(dir=d, test_frac=0.5, seed=8, holdout_frac=0.2, redraw=True))
@@ -2734,15 +2789,22 @@ def _selftest_inputs(ok) -> None:
            "0 of 2" in ba["report"] and "1 of 2" in ba["report"] and "50%" in ba["report"] and "10 s" in ba["report"])
         card = ba["report"].splitlines()
         ok("the card leads with both scores and draws a block per question",
-           card[0] == "With your context, 1 of 2 right. With schema only, 0 of 2."
+           card[0] == "Your agent got 1 of 2 right, against 0 of 2 from column names alone."
            and "░░" in card[2] and "█░" in card[3] and "| " not in ba["report"])
         ok("the change table names the question the context turned around, under its number",
-           ba["changes"].startswith("**1 question wrong with schema only, right with your context**")
+           ba["changes"].startswith("**1 question wrong from column names, right with your agent**")
            and any(row.startswith("| ") and row.split("|")[1].strip().isdigit() for row in ba["changes"].splitlines()))
+        res = cmd_before_after_result(argparse.Namespace(dir=d, before="raw", after="ctx"))["result"]
+        ok("the result's numbers are percentages first, with the lift, the outcome and the misses by number",
+           (res["accuracy"], res["baseline"], res["lift"], res["outcome"], res["questions"]) == (50, 0, 50, "ahead", 2)
+           and res["lines"]["accuracy"] == "Accuracy: 50%."
+           and res["lines"]["before_after"] == "With column names alone: 0%. With your agent: 50%."
+           and res["lines"]["small_set"] == "Based on 2 questions. Add more for a sharper score."
+           and [m["number"] for m in res["misses"]] == [3] and res["turned_around"] == [2])
         w = ba.get("widget") or ""
         ok("the desktop widget draws the same card: both scores, a mark per question, what changed",
            'class="a mc"' in w and "0 of 2" in w and "1 of 2" in w and w.count('class="y"') + w.count('class="n"') == 4
-           and "Now right with your context" in w and "<script" not in w)
+           and "Now right with your agent" in w and "<script" not in w)
         summ = summarize(Proj(d), "ctx")
         ok("the summary says how many answers the judge decided",
            summ["graded_by"] == {"script": 1, "judge": 2} and summ["judge_passed"] == 1)
@@ -3016,7 +3078,7 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--dir", required=True)
     c.add_argument("--before", default="raw", help="the raw-source variant")
     c.add_argument("--after", default="baseline", help="the variant that answered from the context")
-    c.set_defaults(func=cmd_before_after)
+    c.set_defaults(func=cmd_before_after_result)
 
     c = s.add_parser("report", help="one run's report: score, every run on the set, what flipped, misses by cause")
     c.add_argument("--dir", required=True)

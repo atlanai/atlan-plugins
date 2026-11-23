@@ -3,7 +3,7 @@
 
     python3 accuracy.py fixes --evals <evals-run> --file <fixes.json>
     python3 accuracy.py version --evals <evals-run> --run <run> --metric <name> --head-version <N>
-    python3 accuracy.py result --evals <evals-run> --agent <agent> --firm <firm> [--changed <words>] [--misses <words>] [--generated]
+    python3 accuracy.py result --evals <evals-run> [--generated]
     python3 accuracy.py saved --evals <evals-run> --agent <agent> --workspace <name> --org <slug> [--released <metric>:<version> ...]
 
 A fix is applied from <evals-run>/fixes.json, so its shape is checked here rather than trusted.
@@ -23,9 +23,8 @@ HARNESS = pathlib.Path(__file__).resolve().parents[2] / "analytics-build" / "scr
 BANNER = (" *   .  '   *    .   '  *   .    '   *  .",
           " '   *   .   {n} OUT OF {n} RIGHT   .   *   '",
           " .   *    '   .    *   '    .   *    '  .")
-SOURCE = ("These questions were written from your own dashboards and past queries. So this score says the "
-          "agent can answer what your team already asks. It does not say how it will do on a question nobody "
-          "has asked before.")
+SOURCE = ("These questions come from what your team already asks. So the score shows your agent can answer those. "
+          "It doesn't show how it does on new questions.")
 
 # A phrase that moves with the calendar, and a date or period that does not. A fix that ties the
 # first to the second answers this run's question and every later one wrongly.
@@ -180,9 +179,13 @@ def _score(ev: pathlib.Path, variant: str) -> dict:
             "pct": round(100 * float(v.get("pass_rate") or 0))}
 
 
+def _questions(n) -> str:
+    return f"{n} question" if n == 1 else f"{n} questions"
+
+
 def _compare(ev: pathlib.Path, after: str) -> dict:
-    """The before-and-after comparison: schema only against the context, on the same questions, as the text card
-    (`report`) and as a widget (`widget`)."""
+    """The before-and-after comparison: column names alone against the context, on the same questions, with the
+    result's numbers (`result`) and a widget (`widget`)."""
     out = subprocess.run([sys.executable, str(HARNESS), "before-after", "--dir", str(ev),
                           "--before", "raw", "--after", after], capture_output=True, text=True)
     try:
@@ -196,46 +199,42 @@ def _compare(ev: pathlib.Path, after: str) -> dict:
 
 
 def cmd_result(a) -> dict:
-    """The demo's result block, word for word: banner when every question is right, result line, score line."""
+    """The numbers the result is written from, never a finished card: the assistant writes the result's words by its
+    outcome (ahead, tie, behind, small set), around the number lines given here. The banner, when every question is
+    right, is the one piece put as it is."""
     ev = pathlib.Path(a.evals)
     runs = _runs(ev)
     if not runs:
         raise Blocked("This eval folder has no scored run yet.")
     first, last = _score(ev, runs[0]), _score(ev, runs[-1])
-    right = last["pct"] == 100
-    lines = [b.format(n=last["n"]) for b in BANNER] + [""] if right else []
-    if right and len(runs) > 1:
-        if not a.changed:
-            raise Blocked("After a fix, say what changed (--changed), in plain words.")
-        lines.append(f"Your {a.agent} has reached 100% accuracy, up from {first['pct']}%, now that {a.changed}.")
-    elif right:
-        lines.append(f"Your {a.agent} is at 100% accuracy on the {last['n']} questions {a.firm}'s analysts ask most.")
-    else:
-        if not a.misses:
-            raise Blocked("With misses left, say what they share (--misses), in plain words.")
-        lines.append(f"Your {a.agent} misses {a.misses}.")
-    lines.append(last["line"])
-    # Every check runs the raw-source pass, so every result carries the comparison: drawn as a widget where the host
-    # draws one, else as the text card. Never both: the person reads it once.
+    # Every check runs the raw-source pass, so every result is against column names alone, on the latest run.
     compared = _compare(ev, runs[-1])
-    if not a.widget:
-        lines += ["", compared["report"]]
-    if a.generated:
-        lines.append(SOURCE)
-    return {"status": "ok", "text": "\n".join(lines), "all_right": right, "from": first["pct"], "to": last["pct"],
-            "compared": True, "fixed": len(runs) > 1, **({"widget": compared.get("widget") or ""} if a.widget else {})}
+    res = compared.get("result") or {}
+    if not res:
+        raise Blocked("The comparison has no result numbers. Run the before-and-after again, then ask for the result.")
+    right = bool(res.get("all_right"))
+    out = {"status": "ok", "banner": "\n".join(b.format(n=res["questions"]) for b in BANNER) if right else "",
+           **{k: res[k] for k in ("accuracy", "baseline", "lift", "outcome", "questions", "small_set", "misses",
+                                  "turned_around", "lost", "left_out", "lines")},
+           "all_right": right, "fixed": len(runs) > 1, "from": first["pct"], "to": last["pct"],
+           "source": SOURCE if a.generated else ""}
+    if len(runs) > 1:
+        out["lines"] = {**out["lines"], "fixed": f"Up from {first['pct']}% before the fix."}
+    if a.widget:
+        out["widget"] = compared.get("widget") or ""
+    return out
 
 
 def cmd_saved(a) -> dict:
-    """What saving the check put in Atlan Trident, word for word, for the next question's text."""
+    """What saving the check put in Atlan, word for word, for the next question's text."""
     ev = pathlib.Path(a.evals)
     runs = _runs(ev)
     first, last = _score(ev, runs[0]), _score(ev, runs[-1])
-    scored = (f"1 run scored {last['pct']}%" if len(runs) == 1
-              else f"{len(runs)} runs scored from {first['pct']}% to {last['pct']}%")
-    lines = [f"Saved to {a.workspace}:", f"  {a.agent or 'This check'}, with {last['n']} questions and {scored}"]
+    scored = (f"1 round scored {last['pct']}%" if len(runs) == 1
+              else f"{len(runs)} rounds scored from {first['pct']}% to {last['pct']}%")
+    lines = [f"Saved to {a.workspace}:", f"  {a.agent or 'This check'}, with {_questions(last['n'])} and {scored}"]
     if (ev / "hillclimb" / "raw" / "results.jsonl").is_file():
-        lines.append(f"  schema only: {_score(ev, 'raw')['pct']}%")
+        lines.append(f"  column names alone: {_score(ev, 'raw')['pct']}%")
     for state, given in (("released", a.released), ("withdrawn", a.withdrawn)):
         for r in given or []:
             name, _, version = r.rpartition(":")
@@ -249,7 +248,7 @@ def cmd_saved(a) -> dict:
     base = f"{a.origin}/{a.org}/registry/evals/experiments"
     # The last run's page compares it with the run before it; a saved agent has a page of its own.
     page = f"{base}/agent/{agent}?ws=all" if str(agent).startswith("agent_") else f"{base}/{list(exps.values())[-1]}?ws=all"
-    lines.append(f"See the runs in Atlan: {page}")
+    lines.append(f"See the scores in Atlan: {page}")
     return {"status": "ok", "text": "\n".join(lines)}
 
 
@@ -266,16 +265,14 @@ def main(argv=None) -> int:
     c.add_argument("--metric", required=True)
     c.add_argument("--head-version", type=int, required=True, help="the version_ordinal Atlan holds now")
     c.set_defaults(func=cmd_version)
-    c = s.add_parser("result", help="the result block, word for word")
+    c = s.add_parser("result", help="the numbers the result is written from, and the banner when every question is right")
     c.add_argument("--evals", required=True)
-    c.add_argument("--agent", required=True)
-    c.add_argument("--firm", required=True)
-    c.add_argument("--changed", help="after a fix: what changed, plain words")
-    c.add_argument("--misses", help="with misses left: what they share, plain words")
+    c.add_argument("--agent", help="unused; accepted so an older call still runs")
+    c.add_argument("--firm", help="unused; accepted so an older call still runs")
     c.add_argument("--generated", action="store_true", help="CHECK load returned generated: true")
-    c.add_argument("--widget", action="store_true", help="the host draws widgets: the card comes as `widget`, not in the text")
+    c.add_argument("--widget", action="store_true", help="also return the comparison's widget, for a side page")
     c.set_defaults(func=cmd_result)
-    c = s.add_parser("saved", help="what saving the check put in Atlan Trident, word for word")
+    c = s.add_parser("saved", help="what saving the check put in Atlan, word for word")
     c.add_argument("--evals", required=True)
     c.add_argument("--agent", required=True)
     c.add_argument("--workspace", required=True)

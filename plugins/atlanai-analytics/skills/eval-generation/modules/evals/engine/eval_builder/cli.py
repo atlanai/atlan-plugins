@@ -630,10 +630,10 @@ def cmd_build(args) -> int:
         print(f"  sensitive  {kept} kept under --allow-sensitive — this set "
               "carries customer-identifying values")
     else:
-        print(f"  withheld   {len(withheld)} carrying customer data"
-              + (" (--allow-sensitive keeps them)" if withheld else ""))
+        print(f"  withheld   {len(withheld)} naming a customer: they never leave this machine")
+        # The kind and the reason only: the flagged value itself never reaches the screen.
         for _, f in withheld[:3]:
-            print(f"    {f[0].render()[:96]}")
+            print(f"    {f[0].kind}: {f[0].why[:90]}")
     if schema_report:
         print(schema_report)
     print(f"\n  prompts -> {prompts}/*.txt")
@@ -836,9 +836,8 @@ def _assemble(work: Path, name: str, source: str) -> tuple[int, list[tuple[str, 
     for d in sorted({rec.dialect for rec in pending}):
         try:
             conns[d] = connect(d)
-        except Exception as e:  # noqa: BLE001
+        except Exception:  # noqa: BLE001
             conns[d] = None
-            print(f"  note: golden SQL not executed on {d} — no warehouse ({str(e).splitlines()[0][:60]}).")
     conn = None
 
     # Without a warehouse, Atlan's schema is the check: a column the table does
@@ -851,7 +850,7 @@ def _assemble(work: Path, name: str, source: str) -> tuple[int, list[tuple[str, 
         refs = [r for rec in unexecuted for r in sc.table_refs(rec.golden_sql, rec.dialect)]
         catalog, route, errors = sc.load(work, refs)
         if catalog is None:
-            print("        not checked against Atlan either — ATLAN_BASE_URL/ATLAN_API_KEY")
+            print("        not checked against Atlan — ATLAN_BASE_URL/ATLAN_API_KEY")
             print(f"        unset and no {sc.SCHEMA_FILE}. Records are kept UNVERIFIED.")
         else:
             print(f"        checking columns against Atlan's schema instead ({route}).")
@@ -887,7 +886,7 @@ def _assemble(work: Path, name: str, source: str) -> tuple[int, list[tuple[str, 
             # Last gate before a human spends attention on it.
             findings = scan_record(rec)
             if findings:
-                dropped.append((rec.id, findings[0].render()))
+                dropped.append((rec.id, f"{findings[0].kind}: {findings[0].why}"))
                 continue
             spec.records.append(rec)
     finally:
@@ -924,9 +923,9 @@ def cmd_review(args) -> int:
     # record — those read the spec that assembly already produced.
     if not (args.approve or args.reject or args.next):
         kept, dropped, undrafted = _assemble(work, args.name, args.source)
-        print(f"  checked {kept + len(dropped)} · kept {kept} · dropped {len(dropped)}")
-        for rid, why in dropped:
-            print(f"    dropped {rid}: {why[:92]}")
+        print(f"  Questions checked: {kept + len(dropped)}. Kept {kept}, left out {len(dropped)}.")
+        for _, why in dropped:
+            print(f"    left out: {why[:92]}")
         if undrafted:
             print(f"    {len(undrafted)} not drafted yet: {', '.join(undrafted[:8])}")
             print("    (write them in work/answers.json, or leave them — they are"
@@ -934,8 +933,8 @@ def cmd_review(args) -> int:
         unverified = [r for r in EvalSpec.from_json((work / "spec.json").read_text()).records
                       if r.review_note.startswith("UNVERIFIED")]
         if unverified:
-            print(f"\n  ⚠  {len(unverified)} of {kept} kept record(s) UNVERIFIED — their golden SQL")
-            print("     was neither executed nor confirmed against Atlan's schema:")
+            print(f"\n  SQL not run yet for {len(unverified)} of {kept} questions.")
+            print("  I work out their known answers when I test your agent.")
             for r in unverified[:5]:
                 why = r.review_note.removeprefix("UNVERIFIED — ").split("inconclusive: ", 1)[-1]
                 print(f"     {r.id}: {why[:90]}")
