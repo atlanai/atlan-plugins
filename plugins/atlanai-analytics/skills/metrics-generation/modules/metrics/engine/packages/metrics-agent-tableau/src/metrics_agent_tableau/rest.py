@@ -581,6 +581,6 @@ def seat_refusal(caps: dict[str, Any]) -> str | None:
     so asking for a permission would not help. None when the role allows downloads."""
     role = str(caps.get("siteRole") or "")
     if role and role.replace(" ", "").lower() in _NO_DOWNLOAD_ROLES:
-        return (f"site role {role} can never download workbooks or data sources: ask for an "
-                "Explorer or Creator seat for this user")
+        return (f"Your Tableau site role, {role}, can't download workbooks or data sources. Ask "
+                "your Tableau admin for an Explorer or Creator seat.")
     return None

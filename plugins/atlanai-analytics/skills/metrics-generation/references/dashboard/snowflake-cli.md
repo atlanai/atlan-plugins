@@ -19,8 +19,8 @@ identity does not identify the person running the agent.
    and credential material are never returned or persisted.
 3. If no connection matches, the helper checks its private Analytics profile for that
    account and role. If needed, it invokes the installed CLI's `auth login` command using
-   only the account and requested scope. Tell the user: **Connect to Snowflake to validate
-   your dashboard. Your browser will open if sign-in is needed.** The user authenticates
+   only the account and requested scope. Tell the user: **Connect to Snowflake so I can test
+   these metrics on your data. Your browser opens if you need to sign in.** The user authenticates
    there; the CLI discovers and stores the identity. No typed username is required.
 4. Browser-created profiles live under `~/.atlan/analytics/snowflake/<scope-hash>/`.
    Both `SNOWFLAKE_HOME` and `--config-file` are scoped to that directory for login and

@@ -120,8 +120,8 @@ PUBLIC_CLIENT_VAR = "PBI_PUBLIC_CLIENT_ID"
 
 # Said after any device-code failure: a tenant whose policy blocks the flow answers with its own
 # AADSTS code and text (passed on as it is), and the browser sign-in is the way round it.
-DEVICE_BLOCKED_HINT = (" -- where the tenant blocks the device code flow, sign in in your "
-                       "browser instead (--auth browser; the plug's `sign_in: browser`)")
+DEVICE_BLOCKED_HINT = (". Your organization may block sign-in with a code. If so, I can sign "
+                       "you in through your browser instead.")
 # A browser sign-in (authorization code with PKCE) waits this long for the person to finish,
 # by default; a run passes its own (`fetch.max_sign_in_wait_seconds` in its policy).
 SIGN_IN_WAIT_SECONDS = 300
@@ -374,12 +374,12 @@ def token_device_code(tenant: str, client_id: str, scope: str, *, on_token=None)
     )
     if status != 200 or "device_code" not in payload:
         raise AuthError(
-            f"device-code request failed ({status}): "
+            f"Power BI couldn't start sign-in with a code ({status}): "
             f"{payload.get('error_description') or payload.get('error')}" + DEVICE_BLOCKED_HINT
         )
 
     log()
-    log(payload.get("message", "Complete sign-in in the browser."))
+    log(payload.get("message", "Finish signing in to Power BI in your browser."))
     log()
 
     interval = int(payload.get("interval", 5))
@@ -406,9 +406,9 @@ def token_device_code(tenant: str, client_id: str, scope: str, *, on_token=None)
         if error == "slow_down":
             interval += 5
             continue
-        raise AuthError(f"sign-in failed: {tok.get('error_description') or error}"
+        raise AuthError(f"Power BI sign-in failed: {tok.get('error_description') or error}"
                         + DEVICE_BLOCKED_HINT)
-    raise AuthError("sign-in timed out -- the device code expires after ~15 minutes")
+    raise AuthError("Power BI sign-in timed out. The code lasts about 15 minutes, so start again for a new one.")
 
 
 def _b64url(raw: bytes) -> str:
@@ -479,7 +479,7 @@ def token_auth_code(tenant: str, client_id: str, scope: str, *,
         "code_challenge": challenge, "code_challenge_method": "S256",
         "prompt": "select_account"})
     log()
-    log("Sign in in your browser at this address (it opens by itself where it can):")
+    log("Sign in to Power BI in your browser. It opens on its own where it can. If it doesn't, open this address:")
     log(url)
     log()
     if open_url is not None:
@@ -495,20 +495,19 @@ def token_auth_code(tenant: str, client_id: str, scope: str, *,
         server.server_close()
     answer = server.answer  # type: ignore[attr-defined]
     if answer is None:
-        raise AuthError(f"browser sign-in timed out: no answer within {int(timeout)} seconds")
+        raise AuthError(f"Power BI sign-in timed out after {int(timeout)} seconds. Start again when you're ready.")
     if answer.get("error"):
-        raise AuthError(f"browser sign-in refused: {answer.get('error')}: "
+        raise AuthError(f"Power BI refused the sign-in: {answer.get('error')}: "
                         f"{(answer.get('error_description') or '')[:300]}")
     if not secrets.compare_digest(str(answer.get("state") or ""), state):
-        raise AuthError("browser sign-in refused: the answer's state is not the one sent "
-                        "(a stale tab, or an answer that is not this sign-in's)")
+        raise AuthError("That sign-in came from an older browser tab. Sign in again from the newest one.")
     if not answer.get("code"):
-        raise AuthError("browser sign-in refused: the answer carries no authorization code")
+        raise AuthError("Power BI refused the sign-in: no authorization code came back. Sign in again.")
     status, tok = _form_post(f"{LOGIN_HOST}/{tenant}/oauth2/v2.0/token", {
         "grant_type": "authorization_code", "client_id": client_id, "code": answer["code"],
         "redirect_uri": redirect, "code_verifier": verifier, "scope": scope})
     if status != 200 or "access_token" not in tok:
-        raise AuthError(f"browser sign-in failed at the token endpoint ({status}): "
+        raise AuthError(f"Power BI sign-in failed ({status}): "
                         f"{tok.get('error_description') or tok.get('error')}")
     log("Signed in.")
     if on_token:
@@ -601,9 +600,9 @@ def acquire_token(args: argparse.Namespace, *, on_token=None) -> str:
         # Never falls back to a sign-in: an expired cache fails here, by name.
         cached = _read_cached_token(_cache_path(args.tenant, args.client_id, args.scope))
         if not cached:
-            raise AuthError("the cached sign-in is missing or has expired; run at a terminal "
-                            "to sign in again")
-        log("Reusing cached sign-in.")
+            raise AuthError("Your saved Power BI sign-in is missing or has expired. Sign in "
+                            "again from a terminal.")
+        log("Using your saved Power BI sign-in.")
         return cached
     if args.auth == "token":
         token = os.environ.get("PBI_ACCESS_TOKEN", "").strip()
@@ -624,7 +623,7 @@ def acquire_token(args: argparse.Namespace, *, on_token=None) -> str:
     if cache:
         cached = _read_cached_token(cache)
         if cached:
-            log("Reusing cached sign-in.")
+            log("Using your saved Power BI sign-in.")
             return cached
     if args.auth == "browser":
         import webbrowser  # noqa: PLC0415 - only a person's own sign-in opens a browser

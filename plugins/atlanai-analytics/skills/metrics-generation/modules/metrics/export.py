@@ -150,15 +150,15 @@ def export_context(run, context, receipt, parity=None):
     queries = artifacts.read(run, 'verified_queries.json')
     relationships = artifacts.read(run, 'metric_relationships.json')
     if cards.get('partial'):
-        raise ValueError('Complete the metric cards before publication.')
+        raise ValueError('Some metrics aren\'t defined yet, so nothing can be saved.')
     if cards.get('spec_version') != '1.0-draft.1':
         raise ValueError('Unsupported core card contract; update the adapter explicitly.')
     from metrics_agent.lib import card_sql
     for card in cards['metrics']:
         problems = card_sql.aggregation_problems(card_sql.canonical_statement(card), card.get('dialect'))
         if problems:
-            raise ValueError('A metric card failed aggregation checks; repair it through the authored card gate: '
-                             + '; '.join(problems))
+            raise ValueError('A metric\'s formula can\'t be worked out as written: %s. I\'ll rewrite it and test it again.'
+                             % '; '.join(problems))
     ri = artifacts.read(run, 'run_inputs.json')
     metrics, saved, links = project(cards, queries, relationships, ri['scope'], receipt['commit'], receipt.get('producer'))
     report = None
@@ -265,7 +265,7 @@ def export_context(run, context, receipt, parity=None):
                 failures.append({'kind': kind, 'name': body['name'], 'errors': errors})
     if failures:
         write(run / 'export-refusals.json', failures)
-        raise ValueError('Context export refused; repair the named fields in export-refusals.json through the original gates.')
+        raise ValueError('Some metrics or saved queries failed Atlan\'s format check before saving. I\'ll fix the named fields and rebuild them.')
     hold_document = publication_holds.validate({'format': 2, 'checks': publication_holds.CHECKS, 'outputs': receipt['outputs'],
                                                'metrics': held, 'queries': held_queries})
     context = ordinary(context)

@@ -95,7 +95,7 @@ class InputStagingTests(unittest.TestCase):
             (run / 'run.json').write_text('{}')
             describe = self.worker().batch_progress(run / 'engine', 'm2')
             cards = self.worker().batch_progress(run / 'engine', 'x3')
-        self.assertTrue(describe['say'].startswith('A fresh subagent named `Describe each query`'), describe['say'])
+        self.assertTrue(describe['say'].startswith('A fresh subagent named `Write each question`'), describe['say'])
         self.assertNotIn('split', describe)
         self.assertTrue(cards['split'].endswith('split --engine-dir "engine"'), cards['split'])
         self.assertIn('`split`', cards['say'])
@@ -121,8 +121,8 @@ class InputStagingTests(unittest.TestCase):
         self.assertIn('started in the background', describe['say'])
         self.assertIn('never one this session waits on', describe['say'])
         # The app shows a subagent's name to the person: live ones were "Describe past queries gate", "noop placeholder".
-        self.assertEqual(describe['name'], 'Describe each query')
-        self.assertEqual(cards['name'], 'Define each metric')
+        self.assertEqual(describe['name'], 'Write each question')
+        self.assertEqual(cards['name'], 'Write detailed notes on each metric and saved query')
         self.assertIn('`%s`' % cards['name'], cards['say'])
 
     def test_every_other_authored_step_is_named_in_words_and_never_waited_on(self):
@@ -186,7 +186,7 @@ class InputStagingTests(unittest.TestCase):
     def test_setup_stops_once_no_python_can_build_the_runtime(self):
         blocked, built, _ = self.setup_with(works=[])
         self.assertEqual(blocked['status'], 'BLOCKED')
-        self.assertEqual(blocked['reason'], 'Python could not create the isolated runtime.')
+        self.assertEqual(blocked['reason'], "Python couldn't set up the metric tools on this machine.")
         self.assertEqual(len(built), 2)
 
     def test_capture_is_immutable_when_files_are_added_removed_or_changed(self):
@@ -209,7 +209,7 @@ class InputStagingTests(unittest.TestCase):
                     asset.write_text('model Changed')
                 else:
                     (capture / 'unexpected.tmdl').write_text('model Extra')
-                with self.assertRaisesRegex(ValueError, 'input changed'):
+                with self.assertRaisesRegex(ValueError, 'changed since I first read it'):
                     worker.stage_input(source, capture)
 
     def test_stable_asset_identity_ignores_download_suffix_and_preserves_custody(self):
@@ -232,7 +232,7 @@ class InputStagingTests(unittest.TestCase):
             again.write_bytes(b'updated-asset')
             d = worker.stage_input(again, root / 'capture-d', 'bi:workspace:report-a')
             self.assertEqual(Path(a['path']).name, Path(d['path']).name)
-            with self.assertRaisesRegex(ValueError, 'input changed'):
+            with self.assertRaisesRegex(ValueError, 'changed since I first read it'):
                 worker.stage_input(again, root / 'capture-a', 'bi:workspace:report-a')
 
     def test_capture_refuses_links_and_credentials_before_copying(self):
@@ -243,12 +243,12 @@ class InputStagingTests(unittest.TestCase):
             source.mkdir()
             (source / 'model.tmdl').write_text('model Synthetic')
             (source / '.env').write_text('SYNTHETIC_ONLY')
-            with self.assertRaisesRegex(ValueError, 'credential material'):
+            with self.assertRaisesRegex(ValueError, 'credential files'):
                 worker.stage_input(source, root / 'capture')
             self.assertFalse((root / 'capture').exists())
             (source / '.env').unlink()
             (source / 'linked.tmdl').symlink_to(source / 'model.tmdl')
-            with self.assertRaisesRegex(ValueError, 'symbolic links'):
+            with self.assertRaisesRegex(ValueError, 'is a shortcut'):
                 worker.stage_input(source, root / 'capture')
             self.assertFalse((root / 'capture').exists())
 
@@ -315,7 +315,7 @@ class SnapshotTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
             with driver.operation_lock(root):
-                with self.assertRaisesRegex(ValueError, 'Another metrics operation'):
+                with self.assertRaisesRegex(ValueError, 'Another metrics build'):
                     with driver.operation_lock(root):
                         self.fail('Concurrent operation acquired the runtime lock.')
             with driver.operation_lock(root):
@@ -369,7 +369,7 @@ class SnapshotTests(unittest.TestCase):
             driver.unpack(root)
             driver.unpack(root)
             (root / 'pyproject.toml').write_text('changed')
-            with self.assertRaisesRegex(ValueError, 'source changed'):
+            with self.assertRaisesRegex(ValueError, 'out of date'):
                 driver.unpack(root)
 
 class ProjectionTests(unittest.TestCase):
@@ -719,7 +719,7 @@ path.write_text(json.dumps(layer))
 try:
     export_context(run,run.parent/'invalid-export',json.loads((run/'module.json').read_text()))
 except ValueError as exc:
-    assert 'aggregation checks' in str(exc),str(exc)
+    assert "can't be worked out as written" in str(exc),str(exc)
 else:
     raise AssertionError('Invalid older card received current eligibility evidence')
 '''
@@ -784,7 +784,7 @@ else:
         path.write_text(path.read_text() + '\n')
         code, blocked = self.command('export', '--run', self.run, '--context', self.root / 'other-context')
         self.assertEqual(code, 2)
-        self.assertIn('changed after completion', blocked['reason'])
+        self.assertIn('changed after the build finished', blocked['reason'])
 
 
     def test_no_engine_registry_destination_or_observer_and_no_early_export(self):
@@ -931,14 +931,14 @@ else:
         units.write_text(original_units + '\n')
         code, refused = self.command('export', '--run', self.run, '--context', self.root / 'changed-units')
         self.assertEqual(code, 2, refused)
-        self.assertIn('changed after completion', refused['reason'])
+        self.assertIn('changed after the build finished', refused['reason'])
         units.write_text(original_units)
         # Changing gate evidence after completion cannot silently remove the publication hold.
         report = self.run / 'verify_report.json'
         report.write_text(report.read_text() + '\n')
         code, refused = self.command('export', '--run', self.run, '--context', self.root / 'other')
         self.assertEqual(code, 2, refused)
-        self.assertIn('changed after completion', refused['reason'])
+        self.assertIn('changed after the build finished', refused['reason'])
 
     def test_input_is_staged_once_with_custody_and_reused_from_project(self):
         sidecar = self.history.with_name(self.history.name + '.manifest.json')

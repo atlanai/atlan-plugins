@@ -17,7 +17,9 @@ From this conversation, write down:
 - each question as the person asked it, when, and who asked, by name (ask in the confirmation
   below when the conversation does not show it).
 
-Confirm it with the person in one sentence. If the conversation shows neither kind, ask what
+Confirm it with the person in one sentence: "I'll propose a new metric for <measure> to the
+owners of <workspace>. Right?" or "I'll propose a fix to <metric> to its owners in
+<workspace>. Right?" If the conversation shows neither kind, ask what
 to propose rather than guess.
 
 ## 2. Check what exists
@@ -25,10 +27,12 @@ to propose rather than guess.
 Open a registry session as **Registry calls** in the conventions describes, then:
 - **New metric:** search the workspace for the measure under its likely names
   (`registry__search_artifacts`, kind `metric`). If a metric already covers it, write nothing
-  and point the person to it: the agent missed it, the metric isn't missing.
+  and point the person to it: "<metric> already covers this, so I didn't propose a new one. Your
+  agent missed it when answering."
 - **Both:** list the workspace's proposals and apply the duplicate rules in
-  [the proposal record](propose-record.md). If one already covers it, write nothing and tell the person; if
-  it was dismissed, say that its owners decided against it.
+  [the proposal record](propose-record.md). If one already covers it, write nothing and tell the person: "A
+  proposal for this already exists, so I didn't add another." If it was dismissed, say "Its
+  owners already decided against this, so I didn't propose it again."
 
 ## 3. Draft
 
@@ -52,8 +56,8 @@ is the talk-to-data agent that answered, or the harness when the person asked di
 `asked_by` is the person's name when the conversation shows it, or `"unknown"` (don't ask just
 for this), and `at` is when they asked, in UTC, or the time of this
 propose run when the conversation does not show it. Tell
-the person that the trace opens in Atlan only after this session is synced; the question, who
-asked and when show in Metric Studio either way.
+the person: "In Metric Studio, the owners see your question, who asked it and when. A link to
+this chat works there once this session syncs to Atlan."
 
 ## 5. Preview, then write
 
@@ -67,9 +71,10 @@ sets `subject_name` to the new metric's name, has no base or `changes`, and carr
 (`{name, display_name, description, definition}`) and a top-level `rationale`.
 
 If the registry refuses the write because the person can only view the workspace, write the
-proposal nowhere else: Metric Studio lists only the proposals in the metric's workspace. Give
-the person the full record instead, so the draft is not lost, and say who can file it: for a
-fix, the metric's owner (its `owner_id`); otherwise anyone who can edit the workspace.
+proposal nowhere else: Metric Studio lists only the proposals in the metric's workspace. Say
+"You can only view <workspace>, so I couldn't file this. Here it is in full." and give the
+full record, so the draft is not lost. Then say who can file it: for a fix, "The metric's owner
+can file it." (its `owner_id`); otherwise "Anyone who can edit <workspace> can file it."
 
-Tell the person the proposal's id, and that the owners review it on Metric Studio's metrics
-list, where `suggestion=<file id>` opens it directly. End naturally with the result and the owners' next action, as `conventions.md` describes.
+Tell the person "Filed proposal <id>. Its owners review it in Metric Studio's metrics list in
+Atlan." (`suggestion=<file id>` opens it there directly.) End naturally with the result and the owners' next action, as `conventions.md` describes.

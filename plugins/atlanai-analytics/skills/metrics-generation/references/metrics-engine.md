@@ -37,7 +37,8 @@ optional binary reader. A new source is a registered plug/reader, never a core e
 A source the person named needs its feature: for a Power BI link that is `powerbi`, set up as
 part of this procedure rather than skipped in favour of a browser capture.
 
-If the runtime is absent, announce its isolated, constrained initialization and run
+If the runtime is absent, announce its isolated, constrained initialization ("First I'll set
+up the tools that build metrics. They stay on this machine and are reused next time.") and run
 `ENGINE setup` as part of the requested workflow through the host permission controls, with one
 `--feature <name>` per required feature. It installs no Registry writer, glossary writer,
 observer or model SDK. Do not install everything to answer a local-file request.
@@ -57,23 +58,44 @@ a failed semantic check cannot be converted into parse-only success.
 ### Power BI from a report link
 
 The `powerbi-fabric` plug fetches the report and its semantic model in one step, the richest
-input a run can have. It signs in as the person on its own: in their browser (authorization
-code with PKCE: single sign-on, nothing to copy) where one can open on this machine, else by
-device code (an SSH or cloud session, a host with no display, or a sign-in app of the
-customer's own in `PBI_PUBLIC_CLIENT_ID`). `sign_in: device` or `sign_in: browser` overrides
-it. A token or service principal already in the environment is used without either. Both interactive sign-ins need the terminal procedure under **Native sign-in**.
+input a run can have. One command does all of it: sets up the runtime with the `powerbi`
+feature when it lacks it (reusing one that has it), writes the run settings to
+`<run-dir>/private/engine-config.json` (the report in `targets`, `with_model: true`, no SQL
+check, `witness_mode: parse`, `publish: [files]`), prepares, signs in, fetches and advances to
+the first step that needs an answer:
 
-```yaml
-inputs:
-  bi: [powerbi-fabric]
-settings:
-  powerbi-fabric:
-    targets: [https://app.powerbi.com/groups/<workspace-id>/reports/<report-id>]
-    with_model: true
+```bash
+ENGINE powerbi-report --link "<the link as pasted>" --run <run-dir>/engine \
+  --dialect <warehouse dialect> --model <actual-model-id> [--feature <warehouse feature>]
 ```
 
+**Run it as an ordinary background command that wakes you when it exits**: in Claude Code,
+Bash with `run_in_background`; in another host, its equivalent. Never a terminal tab, and never
+read its output with waits. It needs a shell, not a terminal: the browser opens on its own and
+the command listens on localhost for the answer, so nothing is typed.
+
+It signs in as the person: in their browser (authorization code with PKCE: single sign-on,
+nothing to copy) where one can open on this machine, else by device code (an SSH or cloud
+session, a host with no display, or a sign-in app of the customer's own in
+`PBI_PUBLIC_CLIENT_ID`). `--sign-in device` or `--sign-in browser` overrides it. A token or
+service principal already in the environment is used without either. A device code is the one
+thing the person needs while it runs: watch the command's output until the line with the code
+appears (Claude Code: `Monitor` until that line), give them the address and the code, then
+wait for the exit.
+
+Its last line is the advance result (section 3), plus `sign_in`, `source_id`, `engine_run`,
+`runtime` and `config`. Save `source_id` as the source revision, with the runtime and
+`engine_run`, as section 2 says. A pause at a `gate` (exit 0 for this command, so the app does not
+show its normal end as failed; its `status` says `paused`) continues at section 3; exit 2 names a
+`reason` and a `fix`. **Say the person is signed in only when `sign_in` is `signed_in`**: the
+connector printed "Signed in." Never when the command starts, and never from a browser tab
+opening. `saved` means an earlier sign-in was reused. Running the same command again resumes
+the same build; other settings for the same run are refused.
+
 Fall back to [browser capture](dashboard/powerbi-capture.md) only when the plug cannot run
-or is refused, and say which.
+or is refused, and say which: "I can't reach Power BI directly from here, so I'll take the
+report from your browser instead." or "Power BI refused the direct fetch, so I'll take the
+report from your browser instead."
 
 ### Direct Snowflake query history
 
@@ -81,7 +103,8 @@ With the `snowflake` feature and the person's configured connection, use `snowfl
 for history with `history_source: account_usage`, omitting `shape_table`. This reads native
 `SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY` through the existing read-only socket; no preparation
 view is required. Reuse the selected tables and time range. When no range was requested, state
-the default 90 day range and write its absolute start/end dates into `run.yml` before preparing,
+the default 90 day range ("I'll read the last 90 days of past queries, from <start> to <end>.")
+and write its absolute start/end dates into `run.yml` before preparing,
 so resuming keeps the same bounds. The end date is exclusive at midnight UTC. Do not ask for
 an existing shape table unless the person selected that route or native read access is missing.
 
@@ -144,7 +167,8 @@ asset or generated instructions/answers/receipts. A host file permission dialog 
 the person's answer; do not edit sandbox settings or repeat the same access request per stage.
 Use this plugin's isolated runtime and packaged gate instructions for every run.
 
-For a setup run on a local database, `PROJECT engine-config` writes this configuration; see
+For a Power BI report link, `ENGINE powerbi-report` does this section and the first advance
+(see **Power BI from a report link**). For a setup run on a local database, `PROJECT engine-config` writes this configuration; see
 [build and check](../../analytics-build/references/setup/build-check.md). Otherwise, write the agreed configuration to a private file, with absolute staged input paths. It is the normal
 metrics-agent `run.yml` contract, with `publish: [files]` and `observers: []`. This destination
 means local handoff to the plugin, not authorization to publish to Registry. All input plug
@@ -174,14 +198,16 @@ files, never a folder holding a `.pbit`.
 
 Run `ENGINE prepare --run <engine-dir> --config <private-config> --approval-mode auto`.
 It runs the maintained configuration and plug checks, without the terminal interview.
-Resolve only returned missing requirements. Save `module: metrics`, runtime path, run path
+Resolve only returned missing requirements. A `.pbix` that needs an add-on needs the `pbix`
+feature. Save `module: metrics`, runtime path, run path
 and source revision in project state. The engine manifest owns stage progress; do not mirror it.
 For a setup project, save its within-run engine directory as `engine_run` in `run.json`.
 The native journey then retains the provisional sample on resume without another path prompt.
 
 ### Native sign-in
 
-For a live connector that needs the person's browser, a device code or an MFA prompt, run
+Power BI does not use this procedure: its one command runs in the background, as **Power BI
+from a report link** says. For another live connector that needs the person's browser, a device code or an MFA prompt, run
 both `ENGINE prepare` and `ENGINE advance` using the host terminal tool with a real TTY
 (for example, `tty: true` in Codex). Keep that command session running while the person
 completes sign-in. Relay the connector's sign-in instructions immediately, then poll the same
@@ -192,10 +218,10 @@ that the connector obtained API access.
 The wrapper preserves stdin and streams connector prompts through stderr while keeping its
 stdout JSON separate. Setup checks also retain terminal detection. Interactive preparation
 and each interactive advance have a 15 minute deadline; a timeout blocks the operation.
-Power BI device-code and browser PKCE routes and Databricks browser OAuth use this path, as does Snowflake's
+Databricks browser OAuth uses this path, as does Snowflake's
 `authenticator=externalbrowser` and any native terminal MFA prompt. Environment-based routes
-remain available for unattended execution. Power BI still refuses interactive fallback when
-no terminal is attached. Do not fabricate a terminal in an unattended job to bypass that check.
+remain available for unattended execution. Power BI refuses a person's sign-in when neither a
+terminal nor its one command is running it. Do not fabricate a terminal, or run that command, in an unattended job to bypass that check.
 
 Power BI also supports explicit certificate and managed-identity routes and renews acquired
 tokens during a fetch. See the installed plug README for the required environment variables.
@@ -297,10 +323,13 @@ warehouse access and parse-only evidence remain limitations rather than failed s
 A stale review on replaced SQL is resolved by C4, not by editing export metadata.
 
 A query or metric held because a literal reads as a person's name (`a person's name ('…')`,
-hold reason `privacy_review`) is cleared only by the person. Show them the quoted value. When
-they confirm it is a business value, such as a line of business, add the exact text to
-`privacy.reviewed_values` in a new run's configuration (`{"privacy": {"reviewed_values":
-["Variable Spend"]}}`; a setup run records it with `PROJECT reviewed-values`), then run again.
+hold reason `privacy_review`) is cleared only by the person. Show them the quoted value:
+"'<value>' looks like a person's name, so I held back what uses it: <names>. Is it fine to
+keep?" When they confirm it is a business value, such as a line of business, add the exact
+text to `privacy.reviewed_values` in a new run's configuration
+(`{"privacy": {"reviewed_values": ["Variable Spend"]}}`; a setup run records it with `PROJECT
+reviewed-values`), then run again and say "I'll rebuild with '<value>' allowed. Nothing else
+changes."
 The value is admitted in the history, the cards and the export, and nothing else is. Never
 rewrite the SQL or its case to pass the check.
 
