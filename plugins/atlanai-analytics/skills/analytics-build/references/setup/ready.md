@@ -58,8 +58,8 @@ show an Ask AI menu or real-data transition before this first question list.
 
 **The closing message.** Every finished flow ends with it, once: after "I'm done for now" or
 "I'm done", after the accuracy check's last question on own data (a demo goes back to its
-"What would you like to do next?", whose "I'm done" ends with it), and after a dashboard is built when the
-person stops there. Run `PROJECT question close`, adding `--score <percent> --scored <count>`
+"What would you like to do next?", whose "I'm done" ends with it), and after a dashboard is built on own
+data, the last step, right after its two lines. Run `PROJECT question close`, adding `--score <percent> --scored <count>`
 when the accuracy check ran, and `--data` for a demo. Print its `text` as it is, as the last
 thing in the reply: what was built, how to use it from now on, and how to share it. Then, only
 when the build found caveats the person should know, add "Good to know" with one "- " line per
