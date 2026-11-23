@@ -1418,6 +1418,12 @@ class _Parser:
             op = take()
             if op[0] != "op" or op[1] not in _COMPARISONS:
                 raise _NotSimple
+            if (kw("MIN") or kw("MAX")) and peek(1)[0] == "lparen":
+                agg = take()[1].upper()
+                want("lparen")
+                bound_of = take()
+                want("rparen")
+                return self._context_bound(col, op[1], agg, bound_of)
             lit, value = literal()
             if fold and isinstance(value, str):
                 self.used.append("engine.dax_text_key")
@@ -1447,6 +1453,55 @@ class _Parser:
         if pos != len(toks):
             raise _NotSimple
         return out
+
+    def _context_bound(self, col: str, op: str, agg: str, tok: tuple[str, str]) -> str:
+        """`T[c] <op> MIN(D[d])` (or MAX) as a filter: the bound is D's lowest (highest) `d`
+        in the visual's context, which DAX reads in the context the CALCULATE is evaluated
+        in, before its own filters apply. Typical of a date range: `T[changed] >=
+        MIN('Date'[Date])` and `<= MAX('Date'[Date])` keep the rows dated within the visual's
+        dates.
+
+        Compiled where that context leaves D whole: D is not the measure's own table, and
+        nothing the visual groups or filters by reaches D along a relationship. D's bound is
+        then one number for every row, a scalar subquery over D. Where the visual narrows D
+        (it groups by a month, a slicer picks a year) the bound differs per row, and that is
+        refused by name. A blank `c` compares as DAX's blank does: 0, or 30 December 1899
+        for a date column, so it passes `<=` a later date."""
+        k, v = tok
+        if k not in ("qualified", "quoted_qualified") or self.home is None or self.ctx is None:
+            raise _NotSimple
+        table, dcol = _table_ref(v) or "", _column_ref(v)
+        table_of, source = self.home
+        physical = table_of.get(table.lower())
+        if not physical:
+            raise _NotSimple
+        dbare = _bare(physical)
+        what = f"{agg}('{table}'[{dcol}])"
+        if dbare == _bare(source):
+            raise CompileError(f"{what} in a CALCULATE filter reads the measure's own rows in "
+                               f"the visual's context, which a row filter does not have")
+        if (self.row_filter or self.window is not None or self.slots is not None
+                or self.date_set is not None):
+            raise CompileError(f"{what} in a CALCULATE filter inside another filter context "
+                               f"(a CALCULATE, a removal or a date set): its context is not "
+                               f"the visual's")
+        narrowing = {t for _c, t, _k in self.ctx.groups if t} | {
+            t for _c, t in self.ctx.filters if t}
+        graph = list(self.ctx.graph or [])
+        if any(_bare(t) == dbare for t in narrowing) or (
+                narrowing and _filter_reaches(narrowing, physical, graph)):
+            raise CompileError(
+                f"{what} in a CALCULATE filter, where the visual groups or filters by a column "
+                f"that reaches '{table}': the bound differs per row of the visual, which one "
+                f"scalar does not say")
+        phys_col = self.ctx.renames.get((dbare, dcol.lower()), dcol)
+        bound = f"(SELECT {agg}(cs.{phys_col}) FROM {physical} cs)"
+        is_date = "date" in str(self.ctx.types.get((table.lower(), dcol.lower())) or "").lower()
+        blank = "CAST('1899-12-30' AS DATE)" if is_date else "0"
+        self.used.append("engine.dax_context_bound")
+        pred = f"{col} {op} {bound}"
+        # DAX's blank is 0 (a date's day 0): it passes where 0 <op> the bound holds.
+        return f"({pred} OR ({col} IS NULL AND {blank} {op} {bound}))"
 
     @staticmethod
     def _text_key(sql: str) -> str:

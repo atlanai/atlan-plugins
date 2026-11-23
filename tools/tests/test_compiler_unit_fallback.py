@@ -21,13 +21,17 @@ if DEPENDENCIES:
     from metrics_agent.stages import a3_translate
 
 FACT, BUDGET, SITE = 'retail.fct_sales', 'retail.fct_budget', 'retail.dim_site'
+MOVES = 'retail.fct_moves'
 DATES, SHIP = 'retail.dim_date', 'retail.dim_ship_date'
 COLUMNS = {FACT: {'date_sk', 'ship_sk', 'site_key', 'amount', 'order_id'},
            BUDGET: {'date_sk', 'site_key', 'budget'},
            SITE: {'site_key', 'profile', 'region'},
-           DATES: {'date_sk', 'calendar_date'}, SHIP: {'ship_sk', 'ship_date'}}
-TABLE_OF = {'sales': FACT, 'budget': BUDGET, 'site': SITE, 'date': DATES, 'ship date': SHIP}
-TYPES = {('date', 'calendar_date'): 'dateTime', ('ship date', 'ship_date'): 'dateTime'}
+           DATES: {'date_sk', 'calendar_date', 'retail_year'}, SHIP: {'ship_sk', 'ship_date'},
+           MOVES: {'member_id', 'tier', 'change_date', 'date_sk'}}
+TABLE_OF = {'sales': FACT, 'budget': BUDGET, 'site': SITE, 'date': DATES, 'ship date': SHIP,
+            'moves': MOVES}
+TYPES = {('date', 'calendar_date'): 'dateTime', ('ship date', 'ship_date'): 'dateTime',
+         ('moves', 'change_date'): 'dateTime'}
 
 
 def edge(f, t, fc, tc):
@@ -37,10 +41,11 @@ def edge(f, t, fc, tc):
 
 GRAPH = [edge(FACT, SITE, 'site_key', 'site_key'), edge(FACT, DATES, 'date_sk', 'date_sk'),
          edge(FACT, SHIP, 'ship_sk', 'ship_sk'), edge(BUDGET, SITE, 'site_key', 'site_key'),
-         edge(BUDGET, DATES, 'date_sk', 'date_sk')]
+         edge(BUDGET, DATES, 'date_sk', 'date_sk'), edge(MOVES, DATES, 'date_sk', 'date_sk')]
 MEASURES = {'sales': 'SUM(Sales[amount])', 'budget': 'SUM(Budget[budget])',
             'budget by site': 'SUMX(SUMMARIZE(Budget, Budget[site_key]), [Budget])',
-            'store label': 'CONCATENATEX(VALUES(Site[region]), Site[region], ", ")'}
+            'store label': 'CONCATENATEX(VALUES(Site[region]), Site[region], ", ")',
+            'members moved': 'DISTINCTCOUNT(Moves[member_id])'}
 
 
 def measure(name, formula):
@@ -207,6 +212,50 @@ class CompilerUnitFallbackTest(unittest.TestCase):
         res = compile_(unit(measure('Share', "DIVIDE([Sales], CALCULATE([Sales], ALL(Site)))"),
                             group_by=['region'], group_by_tables=[SITE]), 'duckdb')
         self.assertNotIn('Share', [g.get('in_measure') for g in res.untranslatable])
+
+    # -- a CALCULATE filter bounded by the visual's dates ------------------------------------
+    MOVED = ("CALCULATE([Members Moved], KEEPFILTERS(Moves[tier] = \"GOLD\"), "
+             "KEEPFILTERS(Moves[change_date] >= MIN('Date'[calendar_date])), "
+             "KEEPFILTERS(Moves[change_date] <= MAX('Date'[calendar_date])))")
+
+    def test_a_filter_bounded_by_min_and_max_of_the_date_table_compiles(self):
+        res = compile_(unit(measure('Moved To Gold', self.MOVED), tables=(MOVES,)), 'duckdb')
+        self.assertEqual(res.coverage, sockets.TRANSLATED, res.reason)
+        self.assertIn('engine.dax_context_bound', res.rules_used)
+        self.assertIn('(SELECT MIN(cs.calendar_date) FROM retail.dim_date cs)', res.sql)
+        self.assertIn('(SELECT MAX(cs.calendar_date) FROM retail.dim_date cs)', res.sql)
+        if not DUCKDB:
+            self.skipTest('duckdb is not installed')
+        import duckdb
+        con = duckdb.connect()
+        con.execute('create schema retail')
+        con.execute('create table retail.fct_moves(member_id int, tier varchar, '
+                    'change_date date, date_sk int)')
+        con.execute('create table retail.dim_date(date_sk int, calendar_date date, '
+                    'retail_year int)')
+        con.execute("insert into retail.dim_date values (1, '2025-01-01', 2025), "
+                    "(2, '2025-12-31', 2025)")
+        # In range (1, 2), before the calendar (3), after it (4), blank (5: DAX's blank date
+        # is day 0, so it fails >= the first date), another tier (6).
+        con.execute("insert into retail.fct_moves values (1, 'Gold', '2025-03-01', 1), "
+                    "(2, 'gold ', '2025-12-31', 2), (3, 'Gold', '2024-06-01', 1), "
+                    "(4, 'Gold', '2026-02-01', 2), (5, 'Gold', NULL, 1), "
+                    "(6, 'Silver', '2025-05-01', 1)")
+        self.assertEqual(con.execute(res.sql).fetchall(), [(2,)])
+
+    def test_a_bound_the_visual_narrows_is_refused_by_name(self):
+        res = compile_(unit(measure('Moved To Gold', self.MOVED), tables=(MOVES,),
+                            group_by=['retail_year'], group_by_tables=[DATES]), 'duckdb')
+        self.assertFalse(res.sql)
+        self.assertIn("MIN('Date'[calendar_date]) in a CALCULATE filter, where the visual "
+                      "groups or filters", res.reason)
+        self.assertNotIn('modifies filter context', res.reason)
+
+    def test_a_bound_over_the_measures_own_rows_is_refused_by_name(self):
+        res = compile_(unit(measure('M', "CALCULATE([Members Moved], Moves[change_date] >= "
+                                         "MAX(Moves[change_date]))"), tables=(MOVES,)), 'duckdb')
+        self.assertFalse(res.sql)
+        self.assertIn("reads the measure's own rows", res.reason)
 
 
 if __name__ == '__main__':
