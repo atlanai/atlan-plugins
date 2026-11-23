@@ -4,7 +4,7 @@ The interview belongs to `analytics-build`. `source-survey` reads and reports an
 the person anything. This file is every question asked before metric generation starts.
 
 ```
-warehouse ─ what to build from ─┬─ Suggest from your warehouse ─ use cases ─ clarify ──────┬─ confirm ─ build
+warehouse ─ what to build from ─┬─ Suggest from your warehouse ─ use cases ────────────────┬─ confirm ─ build
                                 ├─ Start from tables ─────────── tell me ───── access check ┘
                                 └─ Start from a dashboard ────── share it ─ pick report and pages ─ check what can be built ─ build
 ```
@@ -126,19 +126,12 @@ file; say so if they chose A or C, and mention `analytics-demo`.
 2. **What should your agent answer?** [The use cases](names.md): up to three, each one line with its
    tables, then "Add a dashboard". More than one can be picked. Picking the dashboard
    option asks for its link or file next.
-3. **Clarify, only if needed.** One card of at most two questions, asked only where
-   discovery could not settle something that changes the numbers, with what was found as the
-   options:
-
-   | Unsettled | Ask | Options |
-   | --- | --- | --- |
-   | Two tables both look like the main thing counted | "Which table lists your `<accounts>`?" | The candidates, each with one line of what it holds |
-   | Rows that may need leaving out | "What should always be left out?" | What was found (test accounts, internal users, deleted rows), and "Nothing" |
-   | Fiscal and calendar dates both present | "Fiscal or calendar quarters?" | The two |
-   | Two columns both look like the main amount | "Which column is `<ARR>`?" | The candidates |
-
-   Ask nothing that discovery settled: state those as assumptions in the confirmation. Never
-   ask about audience, layout or which metrics.
+3. **Settle the rest yourself, and ask nothing.** Where the chosen use cases leave something
+   open that changes the numbers (which table is the main one, rows to leave out, fiscal or
+   calendar quarters, which column is the main amount), choose from what discovery found and
+   state each choice in the confirmation's Assumptions line. The person changes one there,
+   through "Change something": a question here would come before anything is built, about
+   things the person has not seen yet.
 4. **Confirm and trigger**, below.
 5. **After the build, offer a dashboard**, next.
 
@@ -295,15 +288,15 @@ It also keeps saved queries: questions your team already asks, each with the SQL
 - **Sources**: a dashboard first, then query history on the tables, then their columns. Say
   the counts: "3 tables and their past queries from the last 7 days".
 - **Time**: "about 10 minutes", from the work's size.
-- **Assumptions**, one line, only when discovery or the clarification settled something that
-  changes the numbers: "Leaving out test accounts. Quarters are fiscal."
+- **Assumptions**, one line, each choice you made that changes the numbers: "Leaving out test
+  accounts. Quarters are fiscal." Left out when there is none.
 
 Then "Build your agent?":
 
 | Option | Description |
 | --- | --- |
 | Build it (Recommended) | You'll see each step as it finishes. |
-| Change something | Add or drop a table, swap the dashboard or leave out past queries. |
+| Change something | Add or drop a table, swap the dashboard, leave out past queries or change an assumption. |
 
 Nothing is generated, installed or pulled from query history before the yes. On yes, start
 in the same turn.

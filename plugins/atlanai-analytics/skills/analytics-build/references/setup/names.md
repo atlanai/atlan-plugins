@@ -82,10 +82,10 @@ questions from 3 tables, leaving out test accounts."
 
 For an understanding-only request, the menu is the result; no build follows unless asked.
 
-## 3. Then clarify and confirm
+## 3. Then confirm
 
-With the choice made, ask [the interview's clarification](intent.md) only for what discovery
-could not settle about the chosen use cases, then its confirmation. Record the selection in
+With the choice made, ask [the interview's confirmation](intent.md#confirm-and-trigger-discovery-and-known-tables),
+with what discovery left open chosen by you and stated in its Assumptions line. Record the selection in
 the run. After the yes, enter [Build](build-check.md): call `metrics-generation` `generate`
 with the tables of every chosen use case and the whole of any dashboard named on them. A
 report is built whole, every page and measure, and query history is scoped to the chosen
