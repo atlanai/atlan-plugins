@@ -5,8 +5,9 @@ covers the question, or when they say an answer's rule is wrong.
 
 ## Turn answers into a dashboard
 
-Follow [the dashboard](dashboard.md): a layout in words, one confirmation, then a page built
-with the host's own page tool, every number from a metric or saved query.
+Follow [the dashboard](dashboard.md): build the page straight away with the host's own page
+tool, every number from a metric or saved query, then say what it shows. A layout in words
+first only when the person asks to see one before anything is built.
 
 ## Nothing published covers the question
 

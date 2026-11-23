@@ -12,23 +12,31 @@ Record `PROJECT journey dashboard` once a dashboard is built, or when the person
 "I'm done" without one; nothing else ticks this step. Both moments follow
 [text before a native question](../../analytics-build/references/conventions.md#text-before-a-native-question-is-lost).
 
-## Design a dashboard
+## Build the dashboard
 
-Keep it real and small:
+A request for a dashboard is the go-ahead: build it in this turn, with no layout to approve
+and no questions first. Only when the person asks to see a plan before anything is built,
+give the layout in words and stop. Keep it real and small:
 
-- Propose the layout in at most six lines: a tile for each of the context's metrics, one
-  breakdown, and one chart. In a turn with no answer, the layout is the text of one native
-  question, "Build this dashboard?", with the options "Build it" and "Change it", the
-  second described "Tell me what to add or drop." When the same message also asked a
-  question, answer it, put the layout as plain lines after the answer, end the turn with
-  "Next: say build it, or tell me what to change." and ask no native question.
-- Build the page with what the host offers: an Artifact in Claude, otherwise one
-  self-contained HTML file in the working folder with the name above, inline CSS and SVG,
-  no external scripts or fonts, readable in light and dark.
+- When the context was built from a dashboard, start from that dashboard: its pages, tile
+  titles, chart types, sort and filters, as the run read them (the engine's `fragments/`: a
+  `*.widget.json` per tile with its `title`, `visual_type`, `sort` and `filters`, and a
+  `*.dashboard.json` per page), each tile now drawn from the metric made from it. Keep
+  what the person knows, and fix only what misleads, such as a total added across periods.
+- Otherwise, a tile for each of the context's metrics, one breakdown and one chart, chosen
+  from what the metrics and the person's questions so far say matters. A tile's headline is one number only
+  where adding up makes sense; a metric over several periods shows its latest period, with
+  the rest in the breakdown, never one total across them all.
+- In Claude, build it as a Claude dashboard: where the `Artifact` tool is available, run its
+  quickstart with intent `other` and start from the Dashboard type it names, filled with the
+  numbers below; where it names none, a page published with that tool. In any other host, one
+  self-contained HTML file in the working folder with the name above, inline CSS and SVG, no
+  external scripts or fonts, readable in light and dark.
 - Every number comes from the same metrics and queries, run through the ask route. Do not
   write new SQL for a number a metric already defines, and never type a number in by hand.
 - Each tile names its metric, linked to its page in Atlan when it has one.
 - Do not publish it anywhere. End the turn with one line: "Your dashboard is at <path>. Open it in
   your browser." for a file, or "Your dashboard is the page beside this chat." for an Artifact,
-  then, in a guided flow, the `Next:` line
-  from [ready](../../analytics-build/references/setup/ready.md). No native question in that turn.
+  then one line on what it shows ("Tiles for Pod S1 target, latest quarter; by pod and quarter
+  below. Tell me what to add or drop."), then, in a guided flow, the `Next:` line from
+  [ready](../../analytics-build/references/setup/ready.md). No native question in that turn.

@@ -90,7 +90,7 @@ dashboard and after the edit-metric block.
 | Option | Description |
 | --- | --- |
 | Ask more questions | Type another question, or pick one your agent answers. |
-| Design a dashboard | I propose a layout from your metrics, you adjust it and I build it as a page you can open. |
+| Design a dashboard | I build a page from your metrics that you can open, and change it if you ask. |
 | Build one on your own data | Start with your own dashboard link, local folder or BI export, here in this chat. |
 | I'm done | Finish the demo here. |
 
