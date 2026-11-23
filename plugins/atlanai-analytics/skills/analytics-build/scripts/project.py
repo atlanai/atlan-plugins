@@ -36,14 +36,22 @@ import context_contracts as mine
 from analytics_eval import filter_querylog, set_reviewed_values
 
 # Local engines the helper executes itself; SQLite needs only the standard library.
-_card_path = Path(__file__).resolve().parents[2] / 'metrics-generation/modules/metrics/engine/src/metrics_agent/lib/card_sql.py'
-_card_spec = importlib.util.spec_from_file_location('analytics_card_sql', _card_path)
-_card_sql = importlib.util.module_from_spec(_card_spec)
-_card_spec.loader.exec_module(_card_sql)
+def _load_engine_helper(name):
+    engine = Path(__file__).resolve().parents[2] / 'metrics-generation/modules/metrics/engine'
+    spec = importlib.util.spec_from_file_location('analytics_' + name,
+                                                  engine / 'src/metrics_agent/lib' / (name + '.py'))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_card_sql = _load_engine_helper('card_sql')
+_metric_results = _load_engine_helper('metric_results')
 
 LOCAL = ('duckdb', 'sqlite')
 # Survey source kinds the metrics engine reads as BI files; each is also the engine's reader name.
-ENGINE_READERS = ('powerbi', 'tableau')
+ENGINE_READERS = {'powerbi': 'powerbi', 'tableau': 'tableau',
+                  'metric_catalogue': 'snowflake-semantic-view'}
 # Survey statuses of a BI file the engine can read (Tableau surveys as needing model review).
 USABLE_BI = ('available', 'needs_model_review')
 
@@ -57,7 +65,7 @@ def engine_table(binding, name):
     return name if len(parts) == 3 else '.'.join([Path(binding['path']).stem] + parts[-2:])
 
 # Sources the survey recognises as a model or report it does not parse into pages itself.
-MODEL_KINDS = ('powerbi_project', 'model_candidate', 'tableau', 'dashboard_html')
+MODEL_KINDS = ('powerbi_project', 'model_candidate', 'tableau', 'dashboard_html', 'metric_catalogue')
 
 
 def model_scope(measures):
@@ -68,6 +76,22 @@ def model_scope(measures):
         raise ProjectError('List the measures to scope by name, or pass ["all"].')
     return {'kind': 'model', 'measures': sorted(set(m.strip() for m in measures)),
             'selected': sorted(set(m.strip() for m in measures)), 'held': []}
+
+
+def result_reference(request, result=None):
+    """Read a trusted reference accompanying a check, outside the metric definition."""
+    result = result or {}
+    expected = request.get('expected_value', result.get('expected'))
+    tolerance = request.get('expected_tolerance', 0)
+    if not (_metric_results.valid_reference(expected, tolerance)
+            and (expected is not None or 'expected_tolerance' not in request)):
+        raise ProjectError('Give a finite expected value and a non-negative numeric tolerance.')
+    return expected, tolerance
+
+
+def sample_errors(samples):
+    return list(dict.fromkeys(sample.get('error') or 'A parameter sample still fails SQL execution.'
+                              for sample in samples.values() if sample.get('status') == 'failed'))
 
 
 RUN_README = '''# Atlan Analytics setup run
@@ -228,7 +252,7 @@ class Project(ContextState):
                         item['records'] = len(mine.read_querylog_source(p))
                         if not item['records']:
                             item['status'] = 'held_no_query_records'
-                    elif kind in ('model_candidate', 'powerbi_project', 'tableau', 'dashboard_html'):
+                    elif kind in MODEL_KINDS:
                         item['status'] = 'needs_model_review'
                         item['reason'] = 'Use the source reader for this format; detection is not parsed coverage.'
             except (ValueError, OSError, KeyError, TypeError):
@@ -334,9 +358,7 @@ class Project(ContextState):
             checker = mine.check_metric if item['kind'] == 'metric' else mine.check_query
             errors, warnings = checker(item['body'])
             prior = item['check']
-            failed = any(s.get('status') == 'failed' for s in prior.get('samples', {}).values())
-            if failed:
-                errors.append('A parameter sample still fails SQL execution.')
+            errors.extend(sample_errors(prior.get('samples', {})))
             checks[item['key']] = {**prior, 'definition_hash': item['definition_hash'],
                 'status': 'held' if errors else prior['status'] if prior.get('status') in ('executed', 'example_executed') else 'schema_checked',
                 'errors': errors, 'warnings': warnings}
@@ -401,6 +423,8 @@ class Project(ContextState):
         sample_id = digest({'example_index': index, 'parameters': request.get('parameters', {})}
                            if kind == 'metric' else request.get('parameters', {}))
         composition = None
+        problem = None
+        reference = result_reference(request) if kind == 'metric' else (None, 0)
         try:
             example_query = {'sql': sql, 'parameters': request.get('parameters', {}),
                              'limit': request.get('limit', 100)}
@@ -415,8 +439,9 @@ class Project(ContextState):
                 if not needed <= available.keys():
                     raise local_data.ParameterError('Supply the named parameters required by the metric '
                                                     'calculation: ' + ', '.join(sorted(needed)) + '.')
+                limit = request.get('limit', 100)
                 calculation_query = {'sql': card_sql, 'parameters': {k: available[k] for k in needed},
-                                     'limit': request.get('limit', 100)}
+                                     'limit': 2 if type(limit) is int and limit == 1 else limit}
                 empty_query = {'sql': card_sql + ('\nAND 1=0' if definition.get('mandatory_filters') else '\nWHERE 1=0'),
                                'parameters': {k: available[k] for k in needed}, 'limit': 100}
                 result, calculated, empty = local_data.call_batch(
@@ -425,6 +450,9 @@ class Project(ContextState):
                                'sql_hash': calculated['sql_hash'], 'rows': calculated['rows'],
                                'coverage': 'formula_source_mandatory_filters'}
                 composition['empty_population'] = {'query_id': empty['query_id'], 'rows': empty['rows']}
+                problem = _metric_results.result_problem(
+                    calculated['rows'], scalar=not definition.get('dimensions'),
+                    expected=reference[0], tolerance=reference[1])
             else:
                 result = self.execute(example_query)
 
@@ -438,17 +466,21 @@ class Project(ContextState):
             self.write(path, checks)
             progress.update_checks(self)
             raise
-        samples[sample_id] = {'status': 'executed', 'query_id': result['query_id'], 'sql_hash': result['sql_hash']}
-        failed = any(s['status'] == 'failed' for s in samples.values())
+        samples[sample_id] = {'status': 'failed' if problem else 'executed',
+                              'query_id': result['query_id'], 'sql_hash': result['sql_hash'],
+                              **({'error': problem} if problem else {})}
+        errors = sample_errors(samples)
         checks[item['key']] = {'definition_hash': item['definition_hash'],
-                               'status': 'held' if failed else 'example_executed' if kind == 'metric' else 'executed',
+                               'status': 'held' if errors else 'example_executed' if kind == 'metric' else 'executed',
                                'samples': samples, 'query_id': result['query_id'], 'sql_hash': result['sql_hash'],
                                **({'composition': composition} if composition is not None else {}),
-                               'errors': ['A parameter sample still fails SQL execution.'] if failed else [],
+                               'errors': errors,
                                'coverage': 'authored_example_only' if kind == 'metric' else 'observed_parameter_samples',
                                'warnings': warnings}
         self.write(path, checks)
         progress.update_checks(self)
+        if kind == 'metric' and errors:
+            return {'status': 'held', 'passed': False, 'name': item['key'], 'errors': errors}
         if kind == 'metric':
             # The metric's value is its card's calculation. An authored example can filter or group (one supplier's rate
             # read as the whole rate, 2026-11-22), so it is returned apart and named by its index.
@@ -471,7 +503,8 @@ class Project(ContextState):
         return {'status': 'run_on_warehouse', 'name': item['key'], 'sql': sql,
                 'parameters': {k: available[k] for k in sorted(needed) if k in available},
                 'next': 'Run this statement once with the recorded read-only tool (%s), binding each {{parameter}} '
-                        'natively, then run this command again with the same name and parameters and "result": '
+                        'natively. For a metric, request at least two rows. Then run this command again '
+                        'with the same name, parameters, any expected value, and "result": '
                         '{"rows": [[...], ...]} as it returned them, or "result": {"error": "<why it failed, in a '
                         'few words>"}.' % binding.get('tool', 'the warehouse query tool')}
 
@@ -486,23 +519,32 @@ class Project(ContextState):
                     isinstance(r, list) and len(r) <= 100 and all(isinstance(v, plain) for v in r) for r in rows))):
             raise ProjectError('Give "result" as {"rows": [[...], ...]} (at most 1,000 rows of plain values) or '
                                '{"error": "<why it failed>"}.')
+        if not error and kind == 'metric':
+            expected, tolerance = result_reference(request, result)
+            problem = _metric_results.result_problem(
+                rows, scalar=not item['body']['definition'].get('dimensions'),
+                expected=expected, tolerance=tolerance)
+        else:
+            problem = None
+        reason = 'SQL execution failed on the warehouse: ' + ' '.join(error.split())[:200] if error else problem
         path = self.context / 'candidate-checks.json'
         checks = self.read(path) if path.exists() else {}
         prior = checks.get(item['key'], {})
         samples = prior.get('samples', {}) if prior.get('definition_hash') == item['definition_hash'] else {}
-        samples[digest(request.get('parameters', {}))] = {'status': 'failed' if error else 'executed'}
-        failed = any(s['status'] == 'failed' for s in samples.values())
+        samples[digest(request.get('parameters', {}))] = {
+            'status': 'failed' if reason else 'executed', **({'error': reason} if reason else {}),
+        }
+        errors = sample_errors(samples)
         checks[item['key']] = {
-            'definition_hash': item['definition_hash'], 'status': 'held' if failed else 'executed',
+            'definition_hash': item['definition_hash'], 'status': 'held' if errors else 'executed',
             'samples': samples, 'executor': 'warehouse_tool',
             **({'composition': {'status': 'executed', 'rows': rows[:20], 'coverage': 'formula_source_mandatory_filters'}}
                if kind == 'metric' and not error else {}),
-            'errors': ['SQL execution failed on the warehouse: ' + ' '.join(error.split())[:200]] if error else
-                      ['A parameter sample still fails SQL execution.'] if failed else [],
+            'errors': errors,
             'coverage': 'warehouse_tool_result', 'warnings': warnings}
         self.write(path, checks)
         progress.update_checks(self)
-        return {'status': 'recorded', 'name': item['key'], 'passed': not failed}
+        return {'status': 'recorded', 'name': item['key'], 'passed': not errors}
 
     def history(self):
         state = self.current()
@@ -562,7 +604,7 @@ class Project(ContextState):
         inputs = {'history': [], 'schema': [], 'bi': [], 'sql_check': 'local-files'}
         if dashboards:
             settings.update(bi=str(safe_path(Path(state['source_root']) / dashboards[0]['path'], state['source_root'])),
-                            bi_vendor=dashboards[0]['kind'])
+                            bi_vendor=ENGINE_READERS[dashboards[0]['kind']])
             inputs['bi'] = ['local-files']
         config = {'version': 1, 'scope': re.sub(r'[^a-z0-9]+', '-', Path(state['source_root']).name.lower()).strip('-') or 'project',
                   'dialect': binding['kind'], 'mode': 'standalone', 'inputs': inputs,

@@ -414,6 +414,7 @@ def _ingest(ctx: stage.Ctx) -> None:
             # produces a card whose formula is absent from its own SQL — which reads as a
             # metric over a table that does not compute it.
             ent = str(m.get("entity") or "").strip()
+            agrees = []
             if expr and ent:
                 agrees = [s.get("proposal_id") for s in srcs if isinstance(s, dict)
                           and s.get("proposal_id") in props
@@ -423,6 +424,13 @@ def _ingest(ctx: stage.Ctx) -> None:
                         f"{where}: no source both reads {ent!r} and contains this expression. "
                         f"The formula, its table and the statement behind it are one claim — "
                         f"take all three from the same source.")
+
+            matching = [props[pid] for pid in agrees]
+            rollups = {p["rollup_source"] for p in matching if p.get("rollup_source")}
+            has_direct = any(not p.get("rollup_source") for p in matching)
+            if rollups and (len(rollups) > 1 or has_direct):
+                problems.append(f"{where}: sources disagree on the rows this SUM reads. "
+                                "Keep each distinct source total separate.")
 
             # THE AGGREGATION MUST BE WHAT THE FORMULA DOES.
             agg = str(m.get("aggregation") or "").strip().lower()
@@ -447,12 +455,16 @@ def _ingest(ctx: stage.Ctx) -> None:
                 _reads_derived(expr, (stmts.get(s.get("vq_id")) or {}).get("sql") or "")
                 for s in srcs if isinstance(s, dict))
             if not placeholder:
-                shapes.setdefault(_shape(expr, ent) + (K.identity_filters(m),), []).append(
-                    nm or where)
+                shape = _shape(expr, ent) + (K.identity_filters(m),)
+                if rollups:
+                    shape += (tuple(sorted(rollups)),)
+                shapes.setdefault(shape, []).append(nm or where)
             names[nm.lower()] = names.get(nm.lower(), 0) + 1
             metrics.append({
                 "metric_id": slugs.artifact_name(nm) if nm else f"metric-{i}",
                 **{k: m.get(k) for k in REQUIRED + OPTIONAL if m.get(k) is not None},
+                **({"aggregation": "custom"} if agg == "none" else {}),
+                **({"rollup_source": next(iter(rollups))} if len(rollups) == 1 else {}),
             })
 
     for key, who in shapes.items():

@@ -34,7 +34,7 @@ PROSE_KEYS = frozenset({
     "evidence", "resolved_branch", "number_format", "default_format", "native_sql",
     # A declared model's example questions, and the SQL beside them and its dimensions': a
     # person wrote both, literals included.
-    "question", "sql"})
+    "question", "sql", "statement_sql", "mandatory_filters"})
 
 MARKER = "<redacted:{n}>"
 MARKER_RE = re.compile(r"<redacted:(\d+)>")
@@ -69,7 +69,8 @@ def scrub_prose(node, scrubber, key: str = "", numbering: Numbering | None = Non
     still the same name afterwards and a statement can bind it again; without a numbering
     every match is the plain `<redacted>`."""
     if isinstance(node, dict):
-        return {k: scrub_prose(v, scrubber, k, numbering) for k, v in node.items()}
+        return {k: scrub_prose(v, scrubber, "sql" if k == "source" and "statement_sql" in node
+                              else k, numbering) for k, v in node.items()}
     if isinstance(node, list):
         return [scrub_prose(v, scrubber, key, numbering) for v in node]
     if not isinstance(node, str):

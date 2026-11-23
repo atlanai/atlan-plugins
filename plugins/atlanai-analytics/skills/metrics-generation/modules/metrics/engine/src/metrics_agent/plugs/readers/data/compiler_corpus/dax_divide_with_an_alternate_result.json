@@ -1,0 +1,45 @@
+{
+  "name": "dax_divide_with_an_alternate_result",
+  "dialect": "duckdb",
+  "unit": {
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [],
+    "filters": [],
+    "top_n": null,
+    "join_graph": [],
+    "unit_id": "dv",
+    "measures": [
+      {
+        "name": "Sell Through",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "DIVIDE(SUM(Sales[units_sold]), SUM(Sales[units_received]), 0)"
+      },
+      {
+        "name": "South Sell Through",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "CALCULATE(DIVIDE(SUM(Sales[units_sold]), SUM(Sales[units_received]), -1), Sales[region] = \"South\")"
+      }
+    ]
+  },
+  "expect_sql": "SELECT CASE WHEN COALESCE(SUM(t.units_received), 0) = 0 THEN 0 ELSE SUM(t.units_sold) / SUM(t.units_received) END AS sell_through,\n       (CASE WHEN COALESCE(SUM(CASE WHEN UPPER(RTRIM(t.region)) = 'SOUTH' THEN t.units_received END), 0) = 0 THEN -1 ELSE SUM(CASE WHEN UPPER(RTRIM(t.region)) = 'SOUTH' THEN t.units_sold END) / SUM(CASE WHEN UPPER(RTRIM(t.region)) = 'SOUTH' THEN t.units_received END) END) AS south_sell_through\nFROM   retail.fct_sales t",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "dax.calculate.filter",
+    "dax.divide",
+    "dax.sum",
+    "engine.dax_text_key"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "date_sk",
+      "amount",
+      "units_sold",
+      "units_received",
+      "region"
+    ]
+  }
+}

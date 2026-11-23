@@ -9,6 +9,8 @@ SENSITIVE = ('credential', 'secret', 'password', 'token', 'keychain')
 def source_kind(path):
     path = Path(path)
     suffix, name = path.suffix.lower(), path.name.lower()
+    if name == 'dim_measure.csv' or name.endswith(('.metric-catalogue.json', '.metric-catalogue.csv')):
+        return 'metric_catalogue'
     if suffix in ('.pbix', '.pbit', '.bim'):
         return 'powerbi'
     if suffix in ('.tmdl', '.pbip', '.pbir') or name in ('page.json', 'visual.json', 'report.json', 'pages.json'):
@@ -68,6 +70,7 @@ def discover(root, excluded=None, limit=5000, selected=None):
 # hold agreed rules, query history shows what people ask, table data lets the rules run.
 ROLES = {'powerbi': ('bi', 'Power BI report or model'), 'powerbi_project': ('bi', 'Power BI project'),
          'tableau': ('bi', 'Tableau workbook'), 'model_candidate': ('bi', 'semantic model'),
+         'metric_catalogue': ('bi', 'governed metric catalogue'),
          'dashboard_html': ('bi', 'HTML dashboard'), 'query_history': ('history', 'query history export'),
          'saved_sql': ('history', 'saved SQL'), 'rowsets': ('data', 'saved row sets'),
          'duckdb': ('data', 'DuckDB database'), 'sqlite': ('data', 'SQLite database'),

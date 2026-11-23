@@ -93,6 +93,14 @@ sources. No SQL written or tested yet." where appropriate. Missing lineage is
 an explicit limit, not a guessed table mapping. This first look does not certify a candidate,
 replace the engine's authored gates or satisfy the later checked publication preview.
 
+When the supplied schema shows a table with measure-name and saved-SQL columns, such as a
+`DIM_MEASURE` with `MEASURE_NAME` and `EXACT_SQL`, offer it as a governed metric catalogue
+before query history. Confirm who owns the definitions and whether the saved SQL already applies
+the required filters. For Snowflake, set `settings.snowflake-direct.metric_catalogue` to the
+confirmed fully qualified table and include `snowflake-direct` in `inputs.bi`. A local
+`DIM_MEASURE.csv` or a `.metric-catalogue.csv` or `.metric-catalogue.json` extract can be
+surveyed as a model source.
+
 ## 2. Scope the report and evidence
 
 **Order the sources first (`plan`).** Return the sources to build from as one short list, in
