@@ -44,6 +44,10 @@ Use the host's task tool, loading it first when it is listed but not loaded: `Ta
 and `TaskUpdate` in Claude Code (`TodoWrite` where those are absent), the app's plan tool
 (`update_plan`) in the Claude desktop app and in Codex, the todo tool in Cursor. Update it
 in the same turn as every stage change, so the list on screen is never behind the run.
+Where the host shows the list only under a turn that sent it (the Claude desktop app and
+Codex), send it again in every turn while the run is open, as the turn's first call: a wake
+when a helper reports back and an answer to "what's happening" too, unchanged when no step
+moved. A turn without it leaves the person with no list.
 When each step starts, show the full tracker in chat. Finished steps carry their actual
 results; the current step says `now`, with `your choice` when it needs an answer; the next
 step says `next`. In a demo, step 2 is `Choose what to build your agent from`, because focus and purpose
