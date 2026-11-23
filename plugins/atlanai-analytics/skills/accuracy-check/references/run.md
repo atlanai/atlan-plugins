@@ -151,7 +151,7 @@ again, each to a fresh agent with only the source tables' schema and no addition
 
      Answer this question using only the schema of these tables: <tables>.
      You may inspect table and column names, data types and declared keys with read-only
-     schema queries. Do not read comments, descriptions, sample rows, distinct values,
+     schema queries; DESCRIBE TABLE is usually the quickest. Do not read comments, descriptions, sample rows, distinct values,
      profiles, query history, dashboards, documentation, metrics or saved queries.
      Do not explore data values or run intermediate data queries. Write the final answer
      SQL from the question and schema alone, then execute that statement to get the answer.
