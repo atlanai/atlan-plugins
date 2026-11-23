@@ -341,14 +341,15 @@ def _dashboard(model):
             active = phase['label']
         elif key == 'save' and at == 5 and not done[key]:
             active, needs_you = 'Saving to Atlan', False
-        elif key == 'check' and status == 'in_progress' and not interaction.get('checks'):
+        elif key == 'check' and status == 'in_progress' and not interaction.get('checks') and at == 3 and finished:
             # Asked whether to test at all: nothing runs until the person answers, so nothing shows as under way.
             status, needs_you, active = 'pending', True, 'Waiting for your choice'
         if stopped and key == current:
             active = PAUSED
         if status == 'completed' and results[key]:
             from run_facts import clip
-            content = content.split(':')[0] + ': ' + clip(results[key], 120)
+            content = content.split(':')[0].replace(' (optional)', '') + ': ' + clip(results[key], 120) \
+                if results[key] == 'skipped' else content.split(':')[0] + ': ' + clip(results[key], 120)
         rows.append({'id': key, 'content': content, 'active': active, 'needs_you': needs_you and status != 'completed',
                      'status': status})
     state = 'paused' if stopped and current else 'blocked' if phase['status'] in ('blocked', 'failed') else \

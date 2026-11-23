@@ -11,8 +11,8 @@ native chat. No additional MCP server is installed.
      the report and its semantic model together, so metrics stay tied to the visuals.
      One command, `ENGINE powerbi-report`, sets up the runtime's `powerbi` feature when
      missing, writes the settings (the report URL in `targets`, `with_model: true`), prepares,
-     signs in as the person and fetches. Run it as a background command that wakes you when it
-     exits, never in a terminal tab: see [the metrics module](metrics-engine.md#power-bi-from-a-report-link).
+     signs in as the person and fetches. Run it as a background command, then wait for it in the
+     same turn, never in a terminal tab: see [the metrics module](metrics-engine.md#power-bi-from-a-report-link).
      The plug signs in through their own browser (authorization code with PKCE: single
      sign-on, nothing to copy) where one can open on this machine, and by device code where
      none can, such as an SSH or cloud session; `--sign-in` overrides it. A token or service principal already set in the environment is

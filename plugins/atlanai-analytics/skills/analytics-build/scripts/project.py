@@ -115,21 +115,33 @@ def wait_task(output, after=0, timeout=540, interval=2.0):
             text = Path(output).read_text(encoding='utf-8', errors='replace')
         except OSError:
             text = ''
-        new = text[seen:]
-        for line in new.splitlines():
+        # Whole lines only: a sign-in line still being written could lose its code.
+        complete = text[:text.rfind('\n') + 1]
+        new = complete[seen:] if len(complete) > seen else ''
+        for line in new.splitlines(keepends=True):
             if re.search(r'devicelogin|enter the code|use a web browser to open', line, re.I):
                 return {'status': 'sign_in', 'line': line.strip()[:300], 'after': seen + new.index(line) + len(line),
                         'next': 'Relay this line to the person once, then run this command again with --after.'}
-        lines = [x for x in text.splitlines() if x.strip()]
-        if lines:
+        # The result is the last line that is a JSON object; a host may add a line after it when the command exits
+        # (Claude Code: "[exited with code N]"), which also ends the wait when no result came.
+        lines = [x.strip() for x in complete.splitlines() if x.strip()]
+        for line in reversed(lines[-20:]):
             try:
-                last = json.loads(lines[-1])
+                last = json.loads(line)
             except ValueError:
-                last = None
+                continue
             if isinstance(last, dict) and last.get('status'):
                 return {'status': 'done', 'result': last, 'next': "Go on as the command's result says, in this same turn."}
+        exited = next((re.search(r'exited with code (-?\d+)', x) for x in reversed(lines[-3:])
+                       if re.search(r'exited with code -?\d+', x)), None)
+        if exited:
+            return {'status': 'exited', 'code': int(exited.group(1)), 'tail': lines[-6:],
+                    'next': 'The command ended without a result: say what stopped it in one line, from its last lines, '
+                            'and the one way forward.'}
         if time.monotonic() - start >= timeout:
-            return {'status': 'waiting', 'after': len(text), 'next': 'Run this command again with --after, in this same turn.'}
+            return {'status': 'waiting', 'after': len(complete),
+                    'next': 'Run this command again with --after, in this same turn. After two waits with nothing new, '
+                            'tell the person in one line that the sign-in is still open in their browser.'}
         time.sleep(interval)
 
 
@@ -984,7 +996,7 @@ def main():
                 args.kind = ahead[0]
             if args.kind == 'connect' and not side_page.has_output(visuals.RunFacts(run, args.engine_dir)):
                 print('side view: ' + json.dumps({'next': 'Nothing to show on the side page yet: carry on. It opens once '
-                                                          'the queries are in plain words, when `visual next` names it.'}))
+                                                          'the first saved queries are drafted, when `visual next` names it.'}))
                 return 0
             if args.kind == 'connect':
                 # A demo's title and firm name the page; only a run the journey records as a demo takes them.

@@ -1050,7 +1050,7 @@
             "properties": {
               "page": {"type": "string", "minLength": 1},
               "for": {"type": "string", "minLength": 1, "description": "The kept page whose tiles need it."},
-              "why": {"enum": ["drillthrough", "linked"], "description": "`drillthrough`: a tile shows the column the page's drillthrough is bound to. `linked`: a tile names it as its tooltip or drillthrough target."}
+              "why": {"enum": ["linked"], "description": "`linked`: a tile names it as its tooltip or drillthrough target. A page offered only because a tile shows its drillthrough column is never kept."}
             },
             "additionalProperties": false,
             "required": ["page", "for", "why"]

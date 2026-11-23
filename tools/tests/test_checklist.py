@@ -264,7 +264,7 @@ class Checklist(unittest.TestCase):
         self.run.journey('dashboard', answer='declined')
         result = self.steps()
         self.assertEqual((result['state'], result['steps'][7]['content']),
-                         ('done', 'Build a dashboard from its answers (optional): skipped'))
+                         ('done', 'Build a dashboard from its answers: skipped'))
 
     def test_dashboard_records_refuse_what_they_cannot_hold(self):
         import journey

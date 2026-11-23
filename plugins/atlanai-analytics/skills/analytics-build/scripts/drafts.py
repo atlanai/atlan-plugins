@@ -163,8 +163,8 @@ def _live(engine, under):
         return 'finding metrics: %s in %s' % (_plural(c.get('drafts') or 0, 'metric'),
                                               '%d of %d questions' % (done, total) if total else _plural(done, 'question'))
     if gate == 'x2':
-        # How many metrics the drafts make is only known once they are all combined: nothing to count until then.
-        return ''
+        # How many metrics the drafts make is only known once they are all combined: no count until then.
+        return 'combining duplicates'
     done, total = c.get('defined') or 0, c.get('total')
     return '%d of %d written' % (done, total) if total else '%d written' % done
 

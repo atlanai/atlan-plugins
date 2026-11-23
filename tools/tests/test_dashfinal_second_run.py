@@ -53,6 +53,17 @@ class SecondRun(unittest.TestCase):
         out.write_text(out.read_text() + json.dumps({'status': 'paused', 'sign_in': 'signed_in'}) + '\n')
         self.assertEqual(project.wait_task(out, after=code['after'], timeout=1, interval=0.1)['result']['sign_in'], 'signed_in')
 
+    def test_the_wait_sees_the_result_past_the_host_s_exit_line_and_stops_on_a_bare_exit(self):
+        # Claude Code adds "[exited with code N]" after a background command's last line: the wait looped on it.
+        out = Path(self.tmp.name) / 'task.out'
+        out.write_text(json.dumps({'status': 'paused', 'sign_in': 'signed_in'}) + '\n\n[exited with code 0]\n')
+        self.assertEqual(project.wait_task(out, timeout=1, interval=0.1)['status'], 'done')
+        out.write_text('Traceback (most recent call last):\nValueError: no\n[exited with code 1]\n')
+        ended = project.wait_task(out, timeout=1, interval=0.1)
+        self.assertEqual((ended['status'], ended['code']), ('exited', 1))
+        out.write_text('To sign in, use a web browser to open the page https://microsoft.com/devicelogin and enter')
+        self.assertEqual(project.wait_task(out, timeout=1, interval=0.1)['status'], 'waiting', 'a line still being written')
+
 
 if __name__ == '__main__':
     unittest.main()
