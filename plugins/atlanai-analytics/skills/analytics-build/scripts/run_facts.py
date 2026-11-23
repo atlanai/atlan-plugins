@@ -344,6 +344,17 @@ class RunFacts:
         """What the survey and the warehouse connection found, as (how many, the words for them): only what can be named
         is counted, so the count and the words always agree. Then the same labels as the person reads them."""
         items = [(1, '%s warehouse' % self.warehouse, '%s warehouse' % self.warehouse)] if self.warehouse else []
+        # A report fetched from its link is in the engine's fetch record, not the folder's survey: the live run's chip read
+        # "1 source · Snowflake warehouse" for a Power BI build (2026-11-23). It leads, as the source the build is from.
+        fetched = self.engine_file('bi_fetch.json')
+        plug = str(fetched.get('plug') or '') if fetched else ''
+        if plug and not self.usable(*BI_TOOLS):
+            reports = ((read_json(Path(str(fetched.get('root') or '')) / 'manifest.json', dict, {}).get('reports') or {})
+                       .get('fetched') or 1) if fetched.get('root') else 1
+            word = 'Power BI dashboard' if plug.startswith('powerbi') else 'Tableau dashboard' if plug.startswith('tableau') \
+                else 'dashboard'
+            said = 'Power BI report' if plug.startswith('powerbi') else word
+            items.insert(0, (reports, word, said if reports == 1 else '%d %ss' % (reports, said)))
         for kinds, word in FOUND:
             n = sum(1 for s in self.sources if s.get('kind') in kinds)
             if not n:

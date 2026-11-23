@@ -126,5 +126,25 @@ class DemoRunFixes(unittest.TestCase):
         self.assertIn('int(100 * k / n + 0.5)', source, '1 of 8 reads 13%, not 12%')
 
 
+class SignInRunFixes(unittest.TestCase):
+    """What 0.9.82's live Power BI run showed: a report fetched from its link was missing from the sources chip, and
+    nothing told the person what happens after they sign in."""
+
+    def test_a_report_fetched_from_its_link_counts_as_a_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run = Path(tmp).resolve() / '.atlan-metrics' / 'run'
+            (run / 'engine').mkdir(parents=True)
+            (run / 'engine' / 'bi_fetch.json').write_text(json.dumps({'plug': 'powerbi-fabric'}))
+            found = RunFacts(run).found
+            self.assertEqual(found[0], 1)
+            self.assertEqual(found[2], ['Power BI report'])
+
+    def test_the_browser_page_after_sign_in_says_where_to_go(self):
+        source = (SCRIPTS.parents[1] / 'metrics-generation' / 'modules' / 'metrics' / 'engine' / 'packages'
+                  / 'metrics-agent-powerbi' / 'src' / 'metrics_agent_powerbi' / 'pbi_definition_extract.py').read_text()
+        self.assertIn('Go back to your', source)
+        self.assertIn('about a minute', source)
+
+
 if __name__ == '__main__':
     unittest.main()

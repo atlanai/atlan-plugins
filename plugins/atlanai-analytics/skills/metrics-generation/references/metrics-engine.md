@@ -89,7 +89,9 @@ Its last line is the advance result (section 3), plus `sign_in`, `source_id`, `e
 show its normal end as failed; its `status` says `paused`) continues at section 3; exit 2 names a
 `reason` and a `fix`. **Say the person is signed in only when `sign_in` is `signed_in`**: the
 connector printed "Signed in." Never when the command starts, and never from a browser tab
-opening. `saved` means an earlier sign-in was reused. Running the same command again resumes
+opening. `saved` means an earlier sign-in was reused. When it exits, say what it did in one
+line before any other call ("Signed in, and your report is read."): the person signed in a
+minute ago and has seen nothing since. Running the same command again resumes
 the same build; other settings for the same run are refused.
 
 Fall back to [browser capture](dashboard/powerbi-capture.md) only when the plug cannot run

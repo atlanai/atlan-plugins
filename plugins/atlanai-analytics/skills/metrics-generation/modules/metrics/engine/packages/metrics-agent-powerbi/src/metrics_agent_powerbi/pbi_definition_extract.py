@@ -442,8 +442,9 @@ class _Redirect(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             return
         self.server.answer = dict(urllib.parse.parse_qsl(url.query))  # type: ignore[attr-defined]
-        body = (b"<!doctype html><title>Signed in</title><p>The sign-in is complete. You can "
-                b"close this tab.</p>")
+        # The person is looking here, not at the chat: say what happens next and where (live run, 2026-11-23).
+        body = (b"<!doctype html><title>Signed in</title><p>You're signed in to Power BI. Go back to your "
+                b"chat: reading your report takes about a minute. You can close this tab.</p>")
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
