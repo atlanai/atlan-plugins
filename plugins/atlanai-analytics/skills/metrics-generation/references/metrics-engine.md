@@ -324,11 +324,11 @@ report. Never search descriptions for words such as "held" to decide eligibility
 warehouse access and parse-only evidence remain limitations rather than failed semantics.
 A stale review on replaced SQL is resolved by C4, not by editing export metadata.
 
-A query or metric held for privacy (hold reason `privacy_review`: an email address or an
-identifier in its SQL or samples) is not saved. Say which item and why in one line; the fix is
-to make the value a parameter or leave the row out, never to rewrite the SQL to pass the check.
-No value is held for being a person's name: those rules were removed until the security team
-sets new ones.
+A query or metric held for privacy (hold reason `privacy_review`: an email address in its SQL
+or samples) is not saved. Say which item and why in one line; the fix is to make the value a
+parameter or leave the row out, never to rewrite the SQL to pass the check. No value is held for
+being a name, a company name or an ID: those rules were removed until the security team sets
+new ones.
 
 The publication checker enforces the manifest and rejects reintroduced held bodies or links.
 The resumable publisher checks it before returning a call. Keep the manifest and source

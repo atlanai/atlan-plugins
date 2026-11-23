@@ -121,9 +121,12 @@ class LabelOrNameTest(unittest.TestCase):
             with self.subTest(sql=sql):
                 self.assertIsNone(pii_reason(sql))
 
-    def test_an_email_or_an_id_is_still_refused(self):
+    def test_only_an_email_is_still_refused(self):
         self.assertEqual(pii_reason("owner = 'jane@example.com'"), 'email')
-        self.assertEqual(pii_reason("user_id = 42"), 'entity_id')
+        for sql in ("user_id = 42", "account_name = 'Acme Corp'", "ref = 'cus_8Hk2Lm9'",
+                    "k = '3f2b8c1e-9a4d-4e7b-8c2a-1d5e6f7a8b9c'"):
+            with self.subTest(sql=sql):
+                self.assertIsNone(pii_reason(sql))
 
 
 class ReviewedValuesReachEveryCheckTest(unittest.TestCase):

@@ -2385,7 +2385,8 @@ def selftest() -> dict:
                      ("select * from t where o.order_number in (17, 18)", "entity_id"),
                      ("select * from t where actor = '3f2b8c1e-9a4d-4e7b-8c2a-1d5e6f7a8b9c'", "uuid"),
                      ("select * from t where ref = 'ord_ab12cd'", "prefixed_id")):
-        ok(f"pii {why}: {sql[22:]}", pii_reason(sql) is not None)
+        # The ID rules were removed (2026-11-23) until the security team sets new ones.
+        ok(f"pii no {why} rule: {sql[22:]}", pii_reason(sql) is None)
     for sql in ("select sum(amount) from orders o join customers c on o.customer_id = c.customer_id where o.status = 'paid'",
                 "select count(*) from t where region = 'eu_central' and amount > 1000",
                 "select count(*) from t where status_id = 2"):

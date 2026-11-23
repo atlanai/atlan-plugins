@@ -359,16 +359,11 @@ def _sql_fields(d: dict) -> list:
 # A literal compared with a person's, customer's or record's ID, whatever its length; a UUID; a
 # prefixed ID such as 'cus_8Hk2Lm9'. A heuristic, as the query-log filter is: the person still
 # reviews the preview before anything is saved.
-_ENTITY_ID = _SHARED_PII["entity_id"]
-_UUID = _SHARED_PII["uuid"]
-_PREFIXED_ID = _SHARED_PII["prefixed_id"]
 
 
 def _pii(text: str, names: bool = True):
     if _EMAIL.search(text or ""):
         return "an email address"
-    if _ENTITY_ID.search(text or "") or _UUID.search(text or "") or _PREFIXED_ID.search(text or ""):
-        return "an identifier literal: make it a parameter, or leave the row out"
     return None
 
 
@@ -379,16 +374,12 @@ def _pii_value(column: str, value) -> str | None:
     text = str(value)
     if _EMAIL.search(text):
         return "an email address"
-    if _UUID.search(text) or _PREFIXED_ID.search(f"'{text}'") or _ENTITY_ID.search(f"{column} = '{text}'"):
-        return "an identifier value"
     return None
 
 
 def _pii_prose(text: str) -> str | None:
     if _EMAIL.search(text or ""):
         return "an email address"
-    if _UUID.search(text or ""):
-        return "an identifier literal"
     return None
 
 
@@ -1142,7 +1133,8 @@ def selftest() -> dict:
     for text in ("select * from t where customer_id = 'cus_8Hk2Lm9'", "select * from t where user_id = 42",
                  "select * from t where ref = 'ord_ab12cd'",
                  "select * from t where k = '3f2b8c1e-9a4d-4e7b-8c2a-1d5e6f7a8b9c'"):
-        ok(f"identifier literal refused: {text[22:]}", _pii(text) is not None)
+        # The ID rules were removed (2026-11-23) until the security team sets new ones.
+        ok(f"identifier literal passes: {text[22:]}", _pii(text) is None)
     def leaks(**changes) -> list:
         body = json.loads(json.dumps(good))
         body["definition"].update(changes.pop("definition", {}))
@@ -1158,11 +1150,11 @@ def selftest() -> dict:
        not leaks(definition={"examples": [{"source": "shape:s-1", "sql": "select 1",
                                        "result": {"columns": ["customer_name", "revenue"], "rows": [["Ann Lee", "3"]],
                                                   "row_count": 1, "hash": "h", "executed_at": "t"}}]}))
-    ok("an id in a join, a dimension value, a default or the description is refused", all((
-        leaks(definition={"joins": [{"name": "c", "to": "C", "cardinality": "many_to_one", "origin": "declared",
-                                     "sql": "o.c = c.id and c.id = '3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90'"}]}),
-        leaks(definition={"dimensions": [{"name": "Account", "kind": "categorical", "sql": "o.account_id",
-                                          "datatype": "string", "values": ["cus_8Hk2Lm9"]}]}),
+    ok("an id in a join or a dimension value passes; an email in a default or the description is refused", all((
+        not leaks(definition={"joins": [{"name": "c", "to": "C", "cardinality": "many_to_one", "origin": "declared",
+                                         "sql": "o.c = c.id and c.id = '3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90'"}]}),
+        not leaks(definition={"dimensions": [{"name": "Account", "kind": "categorical", "sql": "o.account_id",
+                                              "datatype": "string", "values": ["cus_8Hk2Lm9"]}]}),
         leaks(definition={"source": {**good["definition"]["source"],
                                      "parameters": [{"name": "who", "datatype": "string", "default": "ann@example.com"}]}}),
         leaks(description="Revenue for ann@example.com."))))

@@ -459,12 +459,13 @@ class AnalyticsExperience(unittest.TestCase):
         self.assertNotEqual(model['sample']['status'], 'released')
 
     def test_source_sql_privacy_and_length_limits_are_explicit_not_silent_edits(self):
-        self.engine("SELECT SUM(cost) FROM work WHERE customer_id = 42")
+        # Only an email is refused since the name and ID rules were removed (2026-11-23).
+        self.engine("SELECT SUM(cost) FROM work WHERE owner = 'ann@example.com'")
         model = experience.snapshot(self.run, 'engine')
         self.assertEqual(model['sample']['calculation'], 'SUM(cost)')
         self.assertEqual(model['sample']['sql'], '')
         self.assertIn('privacy filter', ' '.join(model['sample']['detail_notes']))
-        self.assertNotIn('customer_id = 42', experience.render_html(model))
+        self.assertNotIn('ann@example.com', experience.render_html(model))
         self.engine('SELECT SUM(cost) FROM work /*' + 'x' * 12000 + '*/')
         model = experience.snapshot(self.run, 'engine')
         self.assertEqual(model['sample']['sql'], '')
