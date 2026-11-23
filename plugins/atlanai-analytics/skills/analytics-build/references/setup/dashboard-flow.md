@@ -46,8 +46,8 @@ estimate once the count going into it is known ("about 4 min").
   recorded their results, or the person chose to skip them.
 - A finished item shows its result after a colon, as the helper returns it: "Check what your agent
   can use: 2 of 5 tiles, targets not set". Never write a result yourself.
-- Item 10 ticks when a page is built or the person declines one:
-  `PROJECT journey dashboard --answer built` or `--answer declined`.
+- Item 10 ticks when a page is built or the person declines one, recorded as
+  [the dashboard](../../../analytics-ask/references/dashboard.md) says.
 
 ## 1. Pick report and pages
 
@@ -270,7 +270,7 @@ The person is a builder in another organization, using this for the first time. 
 see, at every moment:
 
 - **No internal words**: engine, gate, helper, subagent, export, hold, alias, run directory,
-  candidate, Registry, statement, staged copy, packing, draft, rule, chip, so-far, or a file
+  candidate, Registry, statement, staged copy, packing, draft, chip, so-far, or a file
   or command name. Say what it means: "the build", "a step", "held back", "needs your review",
   "your report's tiles", "a metric", "merge duplicate metrics", "its definition".
 - **Before the build, whenever something is happening, say what it is and why, and roughly how

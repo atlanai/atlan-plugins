@@ -138,7 +138,7 @@ def cmd_start(a) -> dict:
         "text": ("I test your agent on questions with known answers. "
                  f"This folder has {len(found)} set{'s' if len(found) != 1 else ''}: {names}.\n"
                  "Your agent answers each question in a fresh chat. "
-                 "A second chat answers from column names alone. I compare both answers with the known one. "
+                 "A second chat answers from column names only. I compare both answers with the known one. "
                  "Which questions should I test your agent with?"),
         "options": [{"label": f"{s['name']} ({q(s['questions'])})",
                      "description": "Your own questions, each with its known answer."} for s in found]
@@ -504,7 +504,7 @@ def next_options(gaps: dict, questions: int) -> list:
             gaps_first.append({"key": "past_queries", "label": "Let me read your past queries",
                                "description": HISTORY_GRANT.get(gaps["warehouse"] or "", HISTORY_EXPORT)
                                if gaps["history_unreadable"] else
-                               "I read what your team already asks on your warehouse, so your agent learns from it."})
+                               "I read what your team already asks on your warehouse, and build your agent from it."})
         if gaps["pages_left_out"]:
             gaps_first.append({"key": "other_pages", "label": "Add the other pages",
                                "description": f"The pages of {gaps['report']} I left out, so your agent covers the "
@@ -525,7 +525,7 @@ def next_options(gaps: dict, questions: int) -> list:
                                       "them too."})
     tail = ([{"key": "save", "label": "Save this score to Atlan",
               "description": "Save this score to Atlan, so your team can see it."}] if questions >= SMALL_SET else []) \
-        + [{"key": "done", "label": "I'm done for now", "description": "Stop here. Your agent stays ready to ask."}]
+        + [{"key": "done", "label": "I'm done", "description": "Stop here. Your agent stays ready to ask."}]
     return gaps_first[:4 - len(tail)] + tail
 
 

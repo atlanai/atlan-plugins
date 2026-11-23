@@ -34,7 +34,7 @@ What you're working with:
                     (about 13 min)
                  3. Choose where to store your context
                  4. Ask your agent a question
-                 5. Design a dashboard (optional)
+                 5. Build a dashboard (optional)
 
 About 15 minutes. The data is made up. I add two folders here and
 change none of your files.

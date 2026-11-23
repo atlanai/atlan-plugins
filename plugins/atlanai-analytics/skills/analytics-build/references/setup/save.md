@@ -34,7 +34,8 @@ When every check has run, before any save, sign-in or workspace step, run
 `PROJECT question save`, adding `--data` with the demo's facts file for a demo
 ([Fixit](../../../analytics-demo/references/yard.json),
 [Ticketfuddle](../../../analytics-demo/references/box-office.json)), and nothing for own data.
-With `show_widget`, first draw `PROJECT visual context --widget` and add `--widget` here. Ask
+With `show_widget`, first draw `PROJECT visual build --widget`, then `PROJECT visual context --widget`,
+and add `--widget` here. Ask
 one native question with the `header`, the `question` text and the `options` it prints, exactly
 as given. Without widgets the text says in sentences what the build card and the checks chip
 would, each fact once and with no bars: what was built and in how long, what it answers from,
@@ -52,11 +53,8 @@ words. Do not oversell: say nothing about speed, accuracy scores or governance, 
 suggest the local choice is wrong; it is the right one for a quick look.
 
 Only "Save to Atlan" starts sign-in. With "Keep it on this machine", run
-`PROJECT journey keep-local` and say: "Your agent stays on this machine, in `<folder>`. Ask it
-here, or later from a chat opened in that folder." `<folder>` is the project folder the chat
-opened in (`~/…`, the folder that holds `.atlan-metrics`), never the run folder inside it: the save
-option and the ready block name the same one. Then go
-straight to the question step ([ready](ready.md)); its answers come from the local context.
+`PROJECT journey keep-local` and go straight to the question step ([ready](ready.md)), with no
+line of your own: the ready question says where it is stored and how to reach it.
 Own-data setup goes, after either choice, to [check accuracy](accuracy.md) first, which offers
 the check and then opens the question step.
 

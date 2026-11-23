@@ -54,8 +54,8 @@ before going on. While the engine builds, its result after each gate says so too
 | The engine merged the metrics | `metrics` | Chip: the metrics by name | |
 | The engine wrote each metric's rule | `rules` | Chip: one metric's rule | |
 | The engine linked the metrics | `links` | Chip: how one metric builds on others | |
-| Metrics generated: the engine run is complete, before the checks | `build` | Mini card (without widgets, the save question says it in sentences) | |
-| Every check has run | `context` | Chip: what ran, and what needs your review; without widgets, a sentence in the save question | |
+| Every check has run, right before the save question | `build` | Mini card (without widgets, the save question says it in sentences). It counts the checks, so it has nothing to show before them | |
+| Every check has run, after the build card | `context` | Chip: what ran, and what needs your review; without widgets, a sentence in the save question | |
 | Saved to Atlan | `saved` | Mini card before the ready question; nothing when kept on this machine, which the person has just chosen | `saved.json` |
 | A question answered | `answer` | Mini card the first time, then a chip | `answer.json` |
 | A rule changed | `edit` | Mini card | `edit.json` |

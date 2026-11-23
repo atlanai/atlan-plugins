@@ -176,7 +176,7 @@ def _score(ev: pathlib.Path, variant: str) -> dict:
         raise Blocked(f"No score for {variant}: {(out.stdout or out.stderr)[-200:]}")
     v = s.get("validation") or {}
     return {"line": s.get("score_line") or "", "n": int(v.get("n") or 0),
-            "pct": round(100 * float(v.get("pass_rate") or 0))}
+            "pct": int(100 * float(v.get("pass_rate") or 0) + 0.5)}  # half up, as the result lines round
 
 
 def _questions(n) -> str:
@@ -184,7 +184,7 @@ def _questions(n) -> str:
 
 
 def _compare(ev: pathlib.Path, after: str) -> dict:
-    """The before-and-after comparison: column names alone against the context, on the same questions, with the
+    """The before-and-after comparison: column names only against the context, on the same questions, with the
     result's numbers (`result`) and a widget (`widget`)."""
     out = subprocess.run([sys.executable, str(HARNESS), "before-after", "--dir", str(ev),
                           "--before", "raw", "--after", after], capture_output=True, text=True)
@@ -207,7 +207,7 @@ def cmd_result(a) -> dict:
     if not runs:
         raise Blocked("This eval folder has no scored run yet.")
     first, last = _score(ev, runs[0]), _score(ev, runs[-1])
-    # Every check runs the raw-source pass, so every result is against column names alone, on the latest run.
+    # Every check runs the raw-source pass, so every result is against column names only, on the latest run.
     compared = _compare(ev, runs[-1])
     res = compared.get("result") or {}
     if not res:
@@ -234,7 +234,7 @@ def cmd_saved(a) -> dict:
               else f"{len(runs)} rounds scored from {first['pct']}% to {last['pct']}%")
     lines = [f"Saved to {a.workspace}:", f"  {a.agent or 'This check'}, with {_questions(last['n'])} and {scored}"]
     if (ev / "hillclimb" / "raw" / "results.jsonl").is_file():
-        lines.append(f"  column names alone: {_score(ev, 'raw')['pct']}%")
+        lines.append(f"  column names only: {_score(ev, 'raw')['pct']}%")
     for state, given in (("released", a.released), ("withdrawn", a.withdrawn)):
         for r in given or []:
             name, _, version = r.rpartition(":")

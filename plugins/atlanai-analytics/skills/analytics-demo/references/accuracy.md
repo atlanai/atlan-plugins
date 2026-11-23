@@ -120,7 +120,7 @@ Reply "test", "reword 3 to: <new wording>", "drop 2, 7" or "skip". Where no pers
 ## 3. Run your agent on each question, and score the answers
 
 Run the set with `accuracy-check`, as its [run it](../../accuracy-check/references/run.md#run-it) describes, with its
-[before and after](../../accuracy-check/references/run.md#before-and-after) pass using column names alone,
+[before and after](../../accuracy-check/references/run.md#before-and-after) pass using column names only,
 with no additional context or exploratory data queries; only its final answer SQL reads data.
 The raw pass is started with the
 context pass. With every question right, go to step 5: the result carries the comparison.
@@ -264,7 +264,7 @@ describes. Ask it as one native question whose text is the result, a blank line 
 as plain lines with no Markdown and the banner as plain lines, so the result reaches the person
 whole. When the person just replied "keep" to a score message, they have seen the score: the
 text is the released lines, if any, and the `lead`. On a demo, its options are Add questions of
-your own, Save this score to Atlan (5 questions or more) and I'm done for now.
+your own, Save this score to Atlan (5 questions or more) and I'm done.
 
 `<workspace>` is the one the context was saved to (`context_saved_to`); for a context on this
 machine it is the person's personal workspace, the `user_default` one
@@ -284,12 +284,12 @@ as that `text`, put as it is, and no banner (the result was just shown):
 ```
 Saved to <workspace>:
   <agent>, with <N> questions and <runs> rounds scored from <p>% to <q>%
-  column names alone: <r>%
+  column names only: <r>%
   <metric> version <v>, released            (one line per released or withdrawn version)
 See the scores in Atlan: <runs link>
 ```
 
-On **I'm done for now**: the same question, whose text is one line: "The check stays on this
+On **I'm done**: the same question, whose text is one line: "The check stays on this
 machine." On **Add questions of your own**, follow ask for more, then test again.
 
 A run with no person to answer (a scheduled or headless check) saves nothing and says the

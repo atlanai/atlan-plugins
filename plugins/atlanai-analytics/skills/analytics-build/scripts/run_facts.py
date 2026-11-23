@@ -306,7 +306,14 @@ class RunFacts:
         """The warehouse the run reads, as the connection recorded it in the run's state, or None for local data."""
         recorded = self.file('state.json').get('warehouse')
         kind = recorded.get('kind') if isinstance(recorded, dict) else None
-        return WAREHOUSES.get(str(kind).lower(), str(kind)) if kind else None
+        if not kind:
+            return None
+        # "other" is how the record says "not one we name": the person reads its dialect instead, which recording an
+        # other warehouse requires ("other warehouse" in the review's run).
+        dialect = str(recorded.get('dialect') or '').lower()
+        if str(kind).lower() == 'other' and dialect and dialect != 'other':
+            return WAREHOUSES.get(dialect, dialect.title())
+        return WAREHOUSES.get(str(kind).lower(), str(kind))
 
     @cached_property
     def config(self):
@@ -348,7 +355,12 @@ class RunFacts:
         # "1 source · Snowflake warehouse" for a Power BI build (2026-11-23). It leads, as the source the build is from.
         fetched = self.engine_file('bi_fetch.json')
         plug = str(fetched.get('plug') or '') if fetched else ''
-        if plug and not self.usable(*BI_TOOLS):
+        # Not a fetch the access check blocked whole, which keeps its record with nothing read: the review's run still
+        # counted that report as a source.
+        per_plug = fetched.get('fetched') if fetched and isinstance(fetched.get('fetched'), dict) else {}
+        blocked = bool(per_plug) and not fetched.get('bi') and all(
+            isinstance(v, dict) and v.get('blocked') and not v.get('bi') for v in per_plug.values())
+        if plug and not blocked and not self.usable(*BI_TOOLS):
             reports = ((read_json(Path(str(fetched.get('root') or '')) / 'manifest.json', dict, {}).get('reports') or {})
                        .get('fetched') or 1) if fetched.get('root') else 1
             word = 'Power BI dashboard' if plug.startswith('powerbi') else 'Tableau dashboard' if plug.startswith('tableau') \

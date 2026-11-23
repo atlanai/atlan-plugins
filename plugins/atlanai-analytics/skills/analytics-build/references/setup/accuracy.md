@@ -56,7 +56,7 @@ sources do not name it.
   let them pick a run, and never ask the person which run: this build knows its own.
 - **Before and after.** Every check here also runs accuracy-check's
   [before and after](../../../accuracy-check/references/run.md#before-and-after) pass, started
-  with the context pass so both finish together. The raw pass receives column names alone, with
+  with the context pass so both finish together. The raw pass receives column names only, with
   no additional context or exploratory data queries; only its final answer SQL reads data. The
   score and the result are written as accuracy-check's
   [show the score](../../../accuracy-check/references/run.md#show-the-score) describes. The Test
@@ -86,7 +86,7 @@ The check ends on the result and the ask for more, not on the demo's next-step q
 result as the demo's [step 5](../../../analytics-demo/references/accuracy.md#5-the-result) says,
 then ask accuracy-check's [ask for more](../../../accuracy-check/references/run.md#ask-for-more)
 question: `CHECK next --evals <evals-run> --run <run-dir>`, its options as they are, its text the
-result, a blank line and its `lead`. After it resolves, or on I'm done for now, the last step is
+result, a blank line and its `lead`. After it resolves, or on I'm done, the last step is
 `PROJECT question close`, its closing message as it prints. Never run `PROJECT question ready`
 again after a check. A pick that builds again hands over to that build.
 

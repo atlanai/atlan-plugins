@@ -8,7 +8,7 @@ description: "Atlan Analytics: test your agent on an eval set, a list of questio
 A capability. It works on any built run: a local SQLite or DuckDB one, or a warehouse build
 (Snowflake, Databricks or another) whose SQL runs through this host's warehouse query tool. It
 takes an eval set, asks each question to a fresh agent that sees only the context, compares each answer's result with the trusted result (by script, with a judge where the script refuses an answer that ran), and says why each
-miss failed. Every check also asks the same questions with column names alone, so the result
+miss failed. Every check also asks the same questions with column names only, so the result
 shows what the context changed. It generates no questions and changes nothing: a metric, a saved query and the set
 stay as they are. A person can call it directly, and another skill can call it as a step; it
 behaves the same either way.
@@ -82,7 +82,7 @@ pinned to a metric version when the caller names one.
 ## Save to Atlan
 
 With 5 questions or more, [ask for more](references/run.md#ask-for-more) offers to [save the
-check](references/run.md#save-to-atlan): the set, the column names alone run and every run with
+check](references/run.md#save-to-atlan): the set, the column names only run and every run with
 the context, each linked to the run before it. When a person called this skill directly, end on
 the result and that question yourself, then `PROJECT question close`. No agent is registered:
 the runs save without one. A skill that called this one asks it instead.

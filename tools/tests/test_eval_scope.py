@@ -259,12 +259,12 @@ class ScopeTest(unittest.TestCase):
         self.assertEqual([o["label"] for o in res["ask"]["options"]], ["finance (1 question)", "Write 20 new questions"])
         # Every check runs the raw-source pass too, whoever starts it and whatever its size.
         self.assertTrue(res["before_after"])
-        self.assertIn("column names alone", res["ask"]["text"])
+        self.assertIn("column names only", res["ask"]["text"])
         self.assertEqual(res["ask"]["options"][-1]["label"], "Write 20 new questions")  # a direct check: 20
         demo = self.check("start", "--project", str(self.tmp), "--run", str(self.run), "--questions", "8")
         self.assertEqual(demo["ask"]["options"][-1]["label"], "Write 8 new questions")
         self.assertTrue(demo["before_after"])
-        self.assertIn("column names alone", demo["ask"]["text"])
+        self.assertIn("column names only", demo["ask"]["text"])
         self.assertNotIn("--context-only", CHECK.read_text())  # no caller can leave the comparison out
         (self.run / "context" / "published.json").write_text(json.dumps({"metric:yard:1": "metric_01x"}))
         (self.run / "authorization.json").write_text(json.dumps({"workspace_id": "workspace_01saved"}))
@@ -314,7 +314,7 @@ class ScopeTest(unittest.TestCase):
         result = {"accuracy": 100, "baseline": 29, "lift": 71, "outcome": "ahead", "questions": 7, "small_set": False,
                   "misses": [], "turned_around": [1, 2, 3, 4, 5], "lost": [], "left_out": 0, "all_right": True,
                   "lines": {"accuracy": "Accuracy: 100%.",
-                            "before_after": "With column names alone: 29%. With your agent: 100%.", "small_set": ""}}
+                            "before_after": "With column names only: 29%. With your agent: 100%.", "small_set": ""}}
         with mock.patch.object(acc, "_score", lambda e, v: scores[v]), \
                 mock.patch.object(acc, "_compare", lambda e, after: compared.append(after) or
                                   {"report": "card", "widget": "<div>card</div>", "result": result}):
@@ -326,7 +326,7 @@ class ScopeTest(unittest.TestCase):
             self.assertNotIn("text", out)
             self.assertEqual((out["accuracy"], out["baseline"], out["outcome"], out["from"]), (100, 29, "ahead", 71))
             self.assertEqual(out["lines"]["fixed"], "Up from 71% before the fix.")
-            self.assertEqual(out["lines"]["before_after"], "With column names alone: 29%. With your agent: 100%.")
+            self.assertEqual(out["lines"]["before_after"], "With column names only: 29%. With your agent: 100%.")
             # The comparison is always against the latest run, and a widget only when asked for.
             self.assertEqual(compared, ["v1"])
             self.assertNotIn("widget", out)
@@ -654,7 +654,7 @@ class ScopeTest(unittest.TestCase):
         res = self.harness("before-after", "--dir", str(ev), "--before", "raw", "--after", "v1")["result"]
         # Behind: the honest outcome, never a lift that isn't there.
         self.assertEqual((res["accuracy"], res["baseline"], res["lift"], res["outcome"]), (67, 100, -33, "behind"))
-        self.assertEqual(res["lines"]["before_after"], "With column names alone: 100%. With your agent: 67%.")
+        self.assertEqual(res["lines"]["before_after"], "With column names only: 100%. With your agent: 67%.")
         self.assertEqual(res["lines"]["small_set"], "Based on 3 questions. Add more for a sharper score.")
         self.assertEqual((res["misses"], res["lost"]), ([{"number": 3, "question": "Question c?"}], [3]))
 

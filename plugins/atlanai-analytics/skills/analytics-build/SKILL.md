@@ -10,11 +10,10 @@ person's dashboards, folders, BI exports and past queries into checked metrics t
 `source-survey`, `metrics-generation` and `analytics-ask`. Before the first helper call, and
 on every resume, read [shared setup](references/setup.md): it defines `PROJECT`, the stage
 files and the review rule. This file sets their order and what the person sees.
-Read plugin files one per call. In a shell, never print a separator like
-`echo =====`: zsh fails on a word that starts with `=` and skips the rest of the line.
+Read plugin files one per call. Shell commands print no separators or decoration.
 
 For workspace access or creation questions, follow [workspace help](references/setup/workspace-access.md)
-and return. This includes explanation-only requests; do not start source inspection or publication.
+and return. Even for an explanation, start no source inspection or publication.
 
 Then read [shared conventions](references/conventions.md): audit sessions, task
 authorization, privacy and status reporting. Reads of the selected source, runtime
@@ -84,8 +83,8 @@ the first survey on, as [visuals](references/setup/visuals.md) says.
    terminal. A report is built whole.
 4. **Build your context: metrics and saved queries.** `metrics-generation` `generate` and `check` with the selection
    and the whole survey, through [build and check](references/setup/build-check.md). A fresh
-   subagent writes each metric gate while the side page shows each saved batch and this session
-   draws each step's chip ([drafts as they land](references/setup/progress.md#drafts-as-they-land)). The
+   subagent writes each metric gate; chips show as [drafts as they land](references/setup/progress.md#drafts-as-they-land)
+   says. The
    review of the completed collection is the save question's own text (step 5).
 5. **Choose where to store your context.** Read
    [context built and where to keep it](references/setup/save.md) and
@@ -101,8 +100,7 @@ the first survey on, as [visuals](references/setup/visuals.md) says.
 Keep execution, source review, holds and releases separate, with factual check labels and
 the tracker's step headings. Total = metrics + saved queries. Attribute saved checks
 to the earlier run. After publication, answers retrieve definitions before SQL runs. Cloning
-a repository the person asks to set up is an ordinary step; repository names or layouts never
-select a special workflow.
+a repository the person names is an ordinary step, never a special workflow.
 
 Use this host and its Atlan MCP connection. This chat is the talk-to-data agent; this add-on
 deploys or evaluates no separate agent, and says so in one line when asked.
@@ -139,7 +137,6 @@ and do not install this add-on beside that bundle.
 
 Installed paths resolve under `${CLAUDE_PLUGIN_ROOT}/skills/analytics-build/`; the sibling
 skills sit beside it. With MCP only, read `atlan://defaults/skills/analytics-build/SKILL.md`
-and cited references at that base, and fetch scripts locally in their layout before running
-them; MCP does not expand plugin-local includes.
+and its references there, and fetch scripts locally in their layout before running them.
 
 Never expose credentials or identifying query literals.

@@ -303,6 +303,21 @@ class Checklist(unittest.TestCase):
         self.run.write(path, checks)
         self.assertEqual({r['id']: r for r in self.steps()['steps']}['check']['status'], 'completed')
 
+    def test_own_data_validate_stays_open_until_every_test_has_its_verdict(self):
+        # 0.9.83, tables and warehouse routes: "Validate the context on your data: 0 of 6 tested" ticked as the build
+        # ended, before any test ran. The dashboard branch had this fix since 0.9.74.
+        fixture.seed_checked(self.run, 'checked')
+        self.progress(stage='check', status='complete')
+        expanded = lambda: {r['id']: r for r in checklist.build(experience.snapshot(self.run))['steps']}
+        self.assertNotEqual(expanded()['test']['status'], 'completed')
+        self.assertNotEqual({r['id']: r for r in self.steps()['steps']}['metrics']['status'], 'completed')
+        path = self.run.context / 'candidate-checks.json'
+        checks = self.run.read(path)
+        for entry in checks.values():
+            entry['status'] = 'executed'
+        self.run.write(path, checks)
+        self.assertEqual(expanded()['test']['status'], 'completed')
+
     def test_a_readiness_result_that_waits_keeps_its_item_open_while_the_build_is_prepared(self):
         # 0.9.74, run 3: the check advances the build to its first written step, and the waiting result ticked anyway.
         self.run.journey('agentic')

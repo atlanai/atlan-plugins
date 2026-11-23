@@ -8,8 +8,9 @@ answer. For a demo, take the file name from its facts file
 [Ticketfuddle](../../analytics-demo/references/box-office.md)). For own data, name it after the
 business focus, such as `<focus>-dashboard.html`.
 
-Record `PROJECT journey dashboard` once a dashboard is built, or when the person picks
-"I'm done" without one; nothing else ticks this step. Both moments follow
+Record `PROJECT journey dashboard --answer built` once a dashboard is built, or `--answer declined`
+when the person picks "I'm done" without one; nothing else ticks this step, and the closing
+message names the dashboard only after `built`. Both moments follow
 [text before a native question](../../analytics-build/references/conventions.md#text-before-a-native-question-is-lost).
 
 ## Build the dashboard
@@ -40,7 +41,7 @@ give the layout in words and stop. Keep it real and small:
   a Claude dashboard, and one line on what it shows ("Pod S1 target for the latest quarter,
   by pod, with every quarter in a table below.").
 - **What comes after.** In own-data setup the dashboard is the last step: record `PROJECT
-  journey dashboard`, then end with [the closing message](../../analytics-build/references/setup/ready.md)
+  journey dashboard --answer built`, then end with [the closing message](../../analytics-build/references/setup/ready.md)
   (`PROJECT question close`), printed as it is, as the last thing in the reply. In a demo,
   end with its `Next:` line from [ready](../../analytics-build/references/setup/ready.md)
   instead. Outside a guided flow, end on the two lines above. Nothing else in that reply: no

@@ -120,10 +120,11 @@ class DemoRunFixes(unittest.TestCase):
             self.assertIn('ask anything about job margin, rework and late jobs', text)
 
     def test_a_half_percent_rounds_up(self):
+        # The result lines and every widget round the same way: the review's run showed 13% beside 12%.
         import inspect
         import analytics_eval
-        source = inspect.getsource(analytics_eval.result_facts)
-        self.assertIn('int(100 * k / n + 0.5)', source, '1 of 8 reads 13%, not 12%')
+        self.assertEqual(analytics_eval.whole_percent(1, 8), 13, '1 of 8 reads 13%, not 12%')
+        self.assertIn('whole_percent(k, n)', inspect.getsource(analytics_eval.result_facts))
 
 
 class SignInRunFixes(unittest.TestCase):
@@ -138,6 +139,19 @@ class SignInRunFixes(unittest.TestCase):
             found = RunFacts(run).found
             self.assertEqual(found[0], 1)
             self.assertEqual(found[2], ['Power BI report'])
+
+    def test_a_blocked_fetch_is_not_a_source_and_an_other_warehouse_reads_as_its_dialect(self):
+        # PR 205's review run: a report nobody could read still counted, and a warehouse recorded as "other" read
+        # "other warehouse".
+        with tempfile.TemporaryDirectory() as tmp:
+            run = Path(tmp).resolve() / '.atlan-metrics' / 'run'
+            (run / 'engine').mkdir(parents=True)
+            (run / 'engine' / 'bi_fetch.json').write_text(json.dumps(
+                {'plug': 'powerbi-fabric', 'fetched': {'powerbi-fabric': {'blocked': ['no_access']}}}))
+            (run / 'state.json').write_text(json.dumps({'warehouse': {'kind': 'other', 'dialect': 'trino'}}))
+            facts = RunFacts(run)
+            self.assertEqual(facts.warehouse, 'Trino')
+            self.assertEqual(facts.found[2], ['Trino warehouse'])
 
     def test_the_browser_page_after_sign_in_says_where_to_go(self):
         source = (SCRIPTS.parents[1] / 'metrics-generation' / 'modules' / 'metrics' / 'engine' / 'packages'

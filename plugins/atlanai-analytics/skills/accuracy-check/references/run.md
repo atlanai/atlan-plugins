@@ -176,7 +176,7 @@ again, each to a fresh agent with only the source tables' schema and no addition
    every number the person reads: `accuracy` and `baseline` (percentages), `lift` (points),
    `outcome` (`ahead`, `tie` or `behind`), `questions`, `small_set` (under 5), `turned_around`
    and `lost` (question numbers), `misses`, and `lines`, the number lines worded once:
-   `accuracy` ("Accuracy: 100%."), `before_after` ("With column names alone: 40%. With your
+   `accuracy` ("Accuracy: 100%."), `before_after` ("With column names only: 40%. With your
    agent: 100%.") and `small_set`. Write the result from these, as [show the
    score](#show-the-score) describes. Never work a number out yourself, and never show one pass's
    score without the other. Its `report`, `bars` and `widget` are for a reader that asks for
@@ -206,7 +206,7 @@ way, in plain words, with no tool or file names.
 
 Never in the chat: bars, a widget, counts of answers right or wrong both ways, how many answers
 a judge decided, the score line said again in other words, or "schema only". The raw pass is
-"column names alone" everywhere the person reads. The full `EVAL report` keeps those details
+"column names only" everywhere the person reads. The full `EVAL report` keeps those details
 for a reader who asks.
 
 **Never claim a lift that isn't there.** Write by `outcome`:
@@ -221,26 +221,26 @@ Examples, each a whole result:
 ```
 Ahead (8 questions):
 Accuracy: 88%. Your agent gets 7 of 8 right.
-With column names alone: 25%. With your agent: 88%.
+With column names only: 25%. With your agent: 88%.
 Net revenue's rule, after refunds, turned five answers around.
 <misses_text>
 
 Tie (5 questions, every one right):
 <banner>
 Accuracy: 100%. Your metrics held up on every question.
-With column names alone: 100%. With your agent: 100%.
+With column names only: 100%. With your agent: 100%.
 Your tables already name these clearly, and your agent answered each from the metric your team uses.
 
 Behind (6 questions):
 Accuracy: 50%. A good base, and the misses show exactly what to fix.
-With column names alone: 67%. With your agent: 50%.
+With column names only: 67%. With your agent: 50%.
 Two answers used an older rule for active accounts. Fixing it should win them back.
 <misses_text>
 
 Small set (2 questions, ahead):
 <banner>
 Accuracy: 100%. Both questions right.
-With column names alone: 50%. With your agent: 100%.
+With column names only: 50%. With your agent: 100%.
 Pod targets came out right because your agent used the dashboard's own rule.
 Based on 2 questions. Add more for a sharper score.
 ```
@@ -316,7 +316,7 @@ and stop. On each answer:
 | `tables` | Name the tables your team uses | Ask which tables in plain chat, build again with them, then check again. |
 | `own_questions` | Add questions of your own | Ask in plain chat for each question and the SQL that gives its known answer (theirs, or a past query or tile they name). Write them as a set in `.atlan-evals/sets/` and test it as a set the person brought. |
 | `save` | Save this score to Atlan | [Save the check](#save-to-atlan), then close. Offered only with 5 questions or more. |
-| `done` | I'm done for now | Close. |
+| `done` | I'm done | Close. |
 
 Close is the last step: `PROJECT question close`, its message as it prints. A pick that builds
 again hands over to that build, which ends on its own. The demo ends on its own next step

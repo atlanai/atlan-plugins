@@ -51,13 +51,13 @@ then the options as plain numbered lines, and call no tool after it.
 **The options, for both demo and own-data setup.** At most four: questions the checked context
 answers, each the question the build wrote for a metric or saved query that passed its check,
 then, when they apply, "Check how accurate it is" and (own data only) "Build a dashboard", then
-"I'm done for now". **Check how accurate it is** runs the check as [check accuracy](accuracy.md)
+"I'm done". **Check how accurate it is** runs the check as [check accuracy](accuracy.md)
 says. **Build a dashboard** follows [the dashboard](../../../analytics-ask/references/dashboard.md).
-**I'm done for now** ends with the closing message, below. No demo ships a question list. Do not
+**I'm done** ends with the closing message, below. No demo ships a question list. Do not
 show an Ask AI menu or real-data transition before this first question list.
 
-**The closing message.** Every finished flow ends with it, once: after "I'm done for now" or
-"I'm done", after the accuracy check's last question on own data (a demo goes back to its
+**The closing message.** Every finished flow ends with it, once: after "I'm done",
+after the accuracy check's last question on own data (a demo goes back to its
 "What would you like to do next?", whose "I'm done" ends with it), and after a dashboard is built on own
 data, the last step, right after its two lines. Run `PROJECT question close`, adding `--score <percent> --scored <count>`
 when the accuracy check ran, and `--data` for a demo. Print its `text` as it is, as the last
@@ -81,7 +81,7 @@ native question in a turn that answers. Close the answer with one plain `Next:` 
 the options below that apply at this point, in the person's words, as one sentence and not
 a list, then stop. Build it from
 the table each time rather than copying an example: after a demo dashboard, Change a rule
-and see what happens takes Design a dashboard's place; own-data setup leaves out Build one
+and see what happens takes Build a dashboard's place; own-data setup leaves out Build one
 on your own data. Treat the person's reply as the matching option. Ask the native
 "What would you like to do next?" question only when the person replies without choosing,
 and then with no answer text in that turn. The same rule ends the turn after a built
@@ -90,7 +90,7 @@ dashboard and after the edit-metric block.
 | Option | Description |
 | --- | --- |
 | Ask more questions | Type another question, or pick one your agent answers. |
-| Design a dashboard | I build a page from your metrics that you can open, and change it if you ask. |
+| Build a dashboard | I build a page from your metrics that you can open, and change it if you ask. |
 | Build one on your own data | Start with your own dashboard link, local folder or BI export, here in this chat. |
 | I'm done | Finish the demo here. |
 
@@ -115,14 +115,14 @@ numbers. Every answer has three parts, in this order:
    "Nothing to open yet. After a save to Atlan, each metric named here has a page to open."
 3. After the first answer, record `PROJECT journey asked`. Finish all questions in the
    selected request before the `Next:` line. After an own-data answer, that line offers
-   Ask more questions, Check how accurate it is (until it has run), Design a dashboard and
-   I'm done. Design a dashboard follows
+   Ask more questions, Check how accurate it is (until it has run), Build a dashboard and
+   I'm done. Build a dashboard follows
    [the dashboard](../../../analytics-ask/references/dashboard.md).
 
-With the first answer, say once per conversation: "This answer came from the metrics and saved
-queries built from `<your>` dashboard and past queries. Each one it used is named below."
-`<your>` is "your" on own data and the demo firm's name with "'s" on a demo ("Fixit's"). Name only the sources the
-run used. When the tests were skipped, add: "They aren't tested yet, so check this number
+With the first answer on own data, say once per conversation: "This answer came from the metrics
+and saved queries built from your dashboard and past queries. Each one it used is named below."
+Name only the sources the run used. A demo leaves this line out: its answer card's sources say it
+([the tour](../../../analytics-demo/references/tour.md)). When the tests were skipped, add: "They aren't tested yet, so check this number
 before you rely on it." Names in the data, such as a crew member, appear only when the
 question asks who. Never answer a question the person has not asked.
 
@@ -142,7 +142,7 @@ authorization steps if the person later chooses to save the new context.
 the dashboard's place in the `Next:` line. Follow the demo's
 [edit a metric](../../../analytics-demo/references/edit-metric.md).
 
-**Wrap up.** On "I'm done", record `PROJECT journey dashboard` if no dashboard was built,
+**Wrap up.** On "I'm done", record `PROJECT journey dashboard --answer declined` if no dashboard was built,
 then finish in three short lines, with no headings or lists, adding the dashboard's location
 to the second when one was built:
 

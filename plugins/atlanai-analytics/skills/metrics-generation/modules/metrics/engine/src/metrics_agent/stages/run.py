@@ -129,6 +129,8 @@ def _trace_credentials() -> set[str]:
 # The core's tracing switches (`observe.py`). Names only; the tracing itself is the
 # observer's, and what it reads besides is its own.
 ENV_OFF, ENV_REQUIRED = _observe.OFF_ENV, _observe.REQUIRED_ENV
+# Set by the host module's one-command Power BI fetch: a person can answer a sign-in. Name only.
+ATTENDED_ENV = "METRICS_AGENT_ATTENDED"
 
 
 def stage_env(trace_on: bool, extra: dict | None = None) -> dict:
@@ -562,6 +564,9 @@ def main(argv: list | None = None) -> int:
         _say(f"REFUSED — {exc}")
         return REFUSED
     env = stage_env(args.trace_on, added)
+    # A person present for sign-in (the one-command Power BI fetch) is present for the BI fetch only: no later stage
+    # may start a sign-in and wait up to 15 minutes for someone who has moved on, or who was never there.
+    fetch_env, env = env, {k: v for k, v in env.items() if k != ATTENDED_ENV}
 
     def _on_signal(signum, _frame):
         raise KeyboardInterrupt(f"signal {signum}")
@@ -576,7 +581,7 @@ def main(argv: list | None = None) -> int:
                 # reads what is there.
                 try:
                     run_step(Step("s_fetch_bi", "s_fetch_bi.py", ["--config", config]),
-                             args, env)
+                             args, fetch_env)
                 except StageFailed:
                     _say("REFUSED — the BI fetch did not complete (its reason is above)."
                          + _access_summary(run))

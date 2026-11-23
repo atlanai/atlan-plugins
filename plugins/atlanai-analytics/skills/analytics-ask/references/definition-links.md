@@ -16,7 +16,7 @@ Every answer takes this shape, leaving out any part with nothing to say:
 - Metric: [Gross margin](<link>), version <N>
 - Saved query: [Margin by job](<link>), version <N>
 
-**Worth knowing**
+**Good to know**
 - <one caveat per line>
 
 Next: <one next step>
@@ -39,7 +39,7 @@ a correction), else "Next: ask a follow-up, or ask to see the SQL."
   <metric>, a metric saved in Atlan. I wrote the SQL from its definition, so the same question
   gets the same number." From a saved query: "I answered from <saved query>, a saved query in
   Atlan, using its SQL as saved."
-- Under **Worth knowing**:
+- Under **Good to know**:
   - an unreviewed saved query: "<saved query> hasn't been reviewed yet, so check this number
     before you rely on it."
   - a dashboard metric with unmeasured parity, once: "<metric> hasn't been compared with its

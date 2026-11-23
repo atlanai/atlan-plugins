@@ -1274,6 +1274,12 @@ def rate(means: dict, ids) -> dict:
 GOLD_STALE_DAYS = 30  # older gold is flagged: re-run it if the tables under it changed
 
 
+def whole_percent(k, n) -> int:
+    """k of n as a whole percent, half up as a person rounds: 1 of 8 is 13. Python's round() and the `%` format give
+    12 (half to even), and the review's run showed 13% in the text beside 12% in the widget. Every shown percent uses this."""
+    return (200 * k + n) // (2 * n) if n else 0
+
+
 def pcts(values) -> dict:
     """n, p50 and p95 by nearest rank; None for each with no values."""
     v = sorted(x for x in values if x is not None)
@@ -1342,7 +1348,7 @@ def summarize(pr: Proj, variant: str, final: bool = False) -> dict:
     if v["n"]:
         # The count a person reads, worded here so no one recounts it from the rows.
         k = sum(1 for i in validation if means.get(i) == 1)
-        out["score_line"] = f"Your agent answered {k} of {v['n']} correctly: {k / v['n']:.0%}."
+        out["score_line"] = f"Your agent answered {k} of {v['n']} correctly: {whole_percent(k, v['n'])}%."
     if final:
         out["holdout"] = rate(means, holdout)
     elif holdout and any(r.get("prompt_id") in holdout for r in all_rows):
@@ -1457,14 +1463,14 @@ def cmd_before_after(a) -> dict:
     # where markdown tables break. One block per question (scaled to 20 past that), right filled.
     width = min(n, 20)
     bar = lambda k: ("\u2588" * round(k / n * width)).ljust(width, "\u2591")  # noqa: E731
-    lines = [f"Your agent got {kb} of {n} right, against {ka} of {n} from column names alone.", ""]
+    lines = [f"Your agent got {kb} of {n} right, against {ka} of {n} from column names only.", ""]
     for label, k, c in (("Column names only", ka, ca), ("Your agent", kb, cb)):
         t = secs(c)
-        lines.append(f"  {label:<18} {bar(k)}  {k:>{len(str(n))}} of {n}  {k / n:>4.0%}" + (f"   {t}" if t else ""))
+        lines.append(f"  {label:<18} {bar(k)}  {k:>{len(str(n))}} of {n}  {str(whole_percent(k, n)) + '%':>4}" + (f"   {t}" if t else ""))
     # Every line stays under 76 characters, so an 80-column terminal never wraps one mid-sentence.
-    lines += ["", f"  Right with your agent, wrong from column names alone: {len(only_after)}."]
+    lines += ["", f"  Right with your agent, wrong from column names only: {len(only_after)}."]
     if only_before:
-        lines.append(f"  Right from column names alone, wrong with your agent: {len(only_before)}.")
+        lines.append(f"  Right from column names only, wrong with your agent: {len(only_before)}.")
     lines.append(f"  Right both ways: {both}. Wrong both ways: {neither}.")
     if judged["before"] or judged["after"]:
         lines.append(f"  Judged right without an exact match: your agent {judged['after']}, "
@@ -1519,7 +1525,7 @@ def _before_after_widget(ids, number, text, ma, mb, right, times, only_after, on
     e, n = k.e, len(ids)
     rows = [("Column names only", right[0], times[0]), ("Your agent", right[1], times[1])]
     ba = ''.join('<span>%s</span><b%s>%d%%</b><span>%d of %d right%s</span>'
-                 % (e(label), ' class="now"' if label != "Column names only" else '', round(100 * kk / n), kk, n,
+                 % (e(label), ' class="now"' if label != "Column names only" else '', whole_percent(kk, n), kk, n,
                     ', ' + e(t) if t else '') for label, kk, t in rows)
     strip = ''
     if n <= 30:
@@ -1532,9 +1538,9 @@ def _before_after_widget(ids, number, text, ma, mb, right, times, only_after, on
     listed = ('<div class="mt">What changed</div><div class="ls">%s</div>' % ''.join(
         '<div><span>%d. %s</span><b class="%s">%s</b></div>' % (number[i], e(text.get(i, '')), c, e(v)) for i, v, c in changed)
               if changed else '<div class="mt">No question changed between the two.</div>')
-    body = (WIDGET_CSS + '<div class="mh">%s<b>Accuracy: your agent against column names alone</b></div><div class="ba">%s</div>%s%s'
+    body = (WIDGET_CSS + '<div class="mh">%s<b>Accuracy: your agent against column names only</b></div><div class="ba">%s</div>%s%s'
             % (k.icon('check-circle'), ba, strip, listed))
-    return k.card(body, 'Your agent got %d of %d right, against %d of %d from column names alone.' % (right[1], n, right[0], n))
+    return k.card(body, 'Your agent got %d of %d right, against %d of %d from column names only.' % (right[1], n, right[0], n))
 
 
 # ====================================================================== publishing (registry MCP)
@@ -2078,7 +2084,7 @@ def cmd_report(a) -> dict:
         ids = scored(v)
         k = sum(1 for i in ids if ok(v, i))
         when = max((r.get("ts") or "" for r in rows[v].values()), default="")
-        table.append((_run_name(v, runs)[0], _when(when), f"{k} of {len(ids)}", f"{k / len(ids):.0%}" if ids else "none scored"))
+        table.append((_run_name(v, runs)[0], _when(when), f"{k} of {len(ids)}", f"{whole_percent(k, len(ids))}%" if ids else "none scored"))
     w = [max(len(r[k]) for r in table) for k in range(4)]
     lines += ["", "Tests on these questions"] + ["  " + "   ".join(c.ljust(w[k]) for k, c in enumerate(r)).rstrip() for r in table]
 
@@ -2141,13 +2147,12 @@ SMALL_SET = 5  # under this many questions, the result says how few it rests on
 
 def result_facts(pr: Proj, ba: dict) -> dict:
     """The numbers the chat result is written from, out of a before-and-after comparison: accuracy, the score from
-    column names alone, the lift, how many questions, and the misses by number. The assistant writes the result's
+    column names only, the lift, how many questions, and the misses by number. The assistant writes the result's
     words around these, by its outcome, and never works a number out itself. Kept outside the grading span, so a
     change to how the result reads never invalidates an approved grader."""
     n = ba["questions"]
     after, before = ba["correct"]["after"], ba["correct"]["before"]
-    # Half up, as a person rounds: Python's round() gives 12 for 1 of 8 (12.5), and a reader expects 13.
-    pct = lambda k: int(100 * k / n + 0.5)  # noqa: E731
+    pct = lambda k: whole_percent(k, n)  # noqa: E731
     number = {c["case_id"]: k for k, c in enumerate(pr.cases(), 1)}
     outcome = "ahead" if after > before else "behind" if after < before else "tie"
     return {"accuracy": pct(after), "baseline": pct(before), "lift": pct(after) - pct(before), "outcome": outcome,
@@ -2159,7 +2164,7 @@ def result_facts(pr: Proj, ba: dict) -> dict:
                        for p in ba.get("per_question") or [] if p["after"] != "right"],
             # The number lines, worded once here so no one rounds or recounts them.
             "lines": {"accuracy": f"Accuracy: {pct(after)}%.",
-                      "before_after": f"With column names alone: {pct(before)}%. With your agent: {pct(after)}%.",
+                      "before_after": f"With column names only: {pct(before)}%. With your agent: {pct(after)}%.",
                       "small_set": (f"Based on {_questions(n)}. Add more for a sharper score." if n < SMALL_SET else "")}}
 
 
@@ -2620,7 +2625,7 @@ def _selftest_integrity(ok) -> None:
         ok("--require-isolation refuses a score with an unverified row", refused)
         k = sum(1 for c in split["test_ids"] if case_means(read_results(Proj(d).vdir("base") / "results.jsonl")).get(c) == 1)
         ok("the score line states the scripted count", f"answered {k} of {len(split['test_ids'])} correctly" in summ["score_line"]
-           and summ["score_line"].endswith(f": {k / len(split['test_ids']):.0%}."))
+           and summ["score_line"].endswith(f": {whole_percent(k, len(split['test_ids']))}%."))
         ok("the score line is the count alone, with no interval", summ["score_line"].startswith("Your agent answered "))
         ok("context engagement is measured from cited definitions", summ["context_engagement"] == 1.0)
         try:
@@ -2791,16 +2796,18 @@ def _selftest_inputs(ok) -> None:
            "0 of 2" in ba["report"] and "1 of 2" in ba["report"] and "50%" in ba["report"] and "10 s" in ba["report"])
         card = ba["report"].splitlines()
         ok("the card leads with both scores and draws a block per question",
-           card[0] == "Your agent got 1 of 2 right, against 0 of 2 from column names alone."
+           card[0] == "Your agent got 1 of 2 right, against 0 of 2 from column names only."
            and "░░" in card[2] and "█░" in card[3] and "| " not in ba["report"])
         ok("the change table names the question the context turned around, under its number",
            ba["changes"].startswith("**1 question wrong from column names, right with your agent**")
            and any(row.startswith("| ") and row.split("|")[1].strip().isdigit() for row in ba["changes"].splitlines()))
         res = cmd_before_after_result(argparse.Namespace(dir=d, before="raw", after="ctx"))["result"]
+        ok("every shown percent rounds half up, as the result lines do (1 of 8 is 13%)",
+           (whole_percent(1, 8), whole_percent(3, 8), whole_percent(0, 0), whole_percent(2, 3)) == (13, 38, 0, 67))
         ok("the result's numbers are percentages first, with the lift, the outcome and the misses by number",
            (res["accuracy"], res["baseline"], res["lift"], res["outcome"], res["questions"]) == (50, 0, 50, "ahead", 2)
            and res["lines"]["accuracy"] == "Accuracy: 50%."
-           and res["lines"]["before_after"] == "With column names alone: 0%. With your agent: 50%."
+           and res["lines"]["before_after"] == "With column names only: 0%. With your agent: 50%."
            and res["lines"]["small_set"] == "Based on 2 questions. Add more for a sharper score."
            and [m["number"] for m in res["misses"]] == [3] and res["turned_around"] == [2])
         w = ba.get("widget") or ""

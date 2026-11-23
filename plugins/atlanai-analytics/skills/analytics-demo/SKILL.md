@@ -8,8 +8,7 @@ description: Guided Atlan Analytics demo on made-up data: build an agent for a s
 A demo exists so the person understands Atlan Analytics by watching it work on a small,
 made-up firm. The blocks printed at each moment are the product.
 
-Read plugin files with the Read tool, one per call. In a shell, never print a separator such as
-`echo =====`: zsh reads a word that starts with `=` as a command, fails and skips the rest of the line.
+Read plugin files with the Read tool, one per call. Shell commands print no separators or decoration.
 
 Read [the tour rules](references/tour.md) before the welcome: what to say at every moment,
 the two words for what gets built, and the rule against naming people. They apply to every
@@ -99,19 +98,17 @@ scope, run `PROJECT history` (no arguments). Then `PROJECT engine-config` with a
 prints `config` and `engine_run`; prepare the engine with them, never with a configuration
 written by hand. Run the metrics engine as
 [the metrics module](../metrics-generation/references/metrics-engine.md) describes, up to its
-X3 card gate. The source choice authorizes the complete local build. Author every
-card without a metric-list checkpoint or another build confirmation. Keep proposal and
-deduplication details internal.
+X3 card gate. The source choice authorizes the whole local build: no metric-list checkpoint or
+other confirmation, and proposal and deduplication details stay internal.
 Advance the same run through all its gates, export and run every check on the loaded
 data, through [build and check](../analytics-build/references/setup/build-check.md).
 
 ## 4. Choose where to store your context
 
 When every check has run, read [context built and where to keep it](../analytics-build/references/setup/save.md).
-The celebration is the save question's own text. Saving reads the person's workspaces with
-`registry__list_workspaces` (`user_default` for the personal destination) and writes
-in batches with `registry__create_artifacts`, as [publication](../metrics-generation/references/metrics/publish.md)
-describes. Keeping it local, run `PROJECT journey keep-local` first.
+The celebration is the save question's own text. Saving follows
+[publication](../metrics-generation/references/metrics/publish.md). Keeping it local, run
+`PROJECT journey keep-local` first.
 
 ## 5. Ask your agent a question, then choose what's next
 
@@ -128,7 +125,7 @@ dashboard or an edit:
 | --- | --- |
 | Ask more questions | Step 5: a question the context supports, answered through `analytics-ask`, then `PROJECT journey asked` |
 | Check how accurate it is | Test the context on questions the firm's analysts already ask, and fix the rule behind a miss, as [accuracy](references/accuracy.md) describes |
-| Design a dashboard, until one is built; then Change a rule and see what happens | [The dashboard](../analytics-ask/references/dashboard.md), then `PROJECT journey dashboard`. After it, [edit a metric](references/edit-metric.md) takes this slot |
+| Build a dashboard, until one is built; then Change a rule and see what happens | [The dashboard](../analytics-ask/references/dashboard.md), then `PROJECT journey dashboard --answer built`. After it, [edit a metric](references/edit-metric.md) takes this slot |
 | Build one on your own data | Load `analytics-build` in this chat; it asks for the person's own source. A separate run: nothing of the demo carries over |
 | I'm done | End with the closing message, `PROJECT question close` |
 

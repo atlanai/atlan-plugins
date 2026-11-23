@@ -58,7 +58,7 @@ class Chips(unittest.TestCase):
         self.assertEqual(first('group'), '» **2 questions your team asks** · found in 2 of your 3 past queries')
         self.assertEqual(first('tiles'), '▦ **2 tiles read** · each written as a question with SQL')
         # Each count says where it came from, so 110, 95, 24, 30, 25 and 8 read as one story.
-        self.assertEqual(first('described'), '❝ **4 questions written** · in your team\'s words')
+        self.assertEqual(first('described'), '❝ **4 questions written** · from 2 tiles and 2 past queries')
         self.assertEqual(first('metrics'), '◆ **2 metrics** · 1 duplicate merged')
         self.assertEqual(first('rules'), '= **Detailed information added to 2 metrics** · what each counts and leaves out')
         self.assertEqual(self.show('links'), '⋈ **1 link between metrics** · e.g. Gross margin uses Rework cost')
@@ -78,7 +78,7 @@ class Chips(unittest.TestCase):
         # Live (h2), the chat went 3.4 minutes from the queries described to the merge with nothing new: the draft step
         # had no chip of its own.
         self.drafted()
-        self.assertEqual(self.show('drafted').split('\n')[0], '◆ **5 metrics found** · from 5 past queries')
+        self.assertEqual(self.show('drafted').split('\n')[0], '◆ **5 metrics found** · found in 3 of those 4 questions')
         self.assertIn('<b style="font-weight:400">Gross margin</b><span>in 3 questions</span>', self.show('drafted', widget=True))
         import side_view
         due = side_view.due(self.run)

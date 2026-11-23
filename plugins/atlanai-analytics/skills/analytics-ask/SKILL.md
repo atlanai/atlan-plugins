@@ -37,8 +37,8 @@ you meant something else."
    the session. Semantic search can drop a released metric whose name the query lacks, so an
    empty result proves nothing.
 
-   **A hit is a candidate, not an answer.** The right metric can rank low: "on-time
-   departure rate" put `otp_d15` eighth. Read every hit's name and display name, and keep the
+   **A hit is a candidate, not an answer.** The right metric can rank low. Read every hit's
+   name and display name, and keep the
    one whose name or formula measures what the question asks (revenue is a sum of money; a
    count of crew is not revenue), allowing the synonyms its description lists. Sharing a
    dimension word such as "region" is not a match. Only when no hit of either search below
@@ -47,7 +47,6 @@ you meant something else."
 3. Send these together after the search, as one `mcp__call_read_tools` call when listed:
    - **The keyword search, when no semantic hit measures it**: the same search with
      `semantic: false`. Keep `include_definition`: without it, unreleased heads return.
-     Once the session is open, send both searches together.
    - **The kept hit's definition, when it is not the first**: `extension__metric__search_metrics`
      with its exact `name`, the `workspace_id` that hit carries (required with a name),
      `include_definition: true` and `definition_view: "compact"`. Never answer from the
@@ -93,10 +92,10 @@ End with "Next: paste the result, and I'll answer from it." The published defini
 decides the formula and filters, whatever the data source.
 
 A released dashboard metric may carry
-`extensions.atlan_analytics.dashboard_validation.parity: unmeasured`. Snapshot mismatch
-or missing report references do not prevent a fresh warehouse answer. Preserve the metric
-scope and give its **Worth knowing** line once; never call the result dashboard-validated or reuse
-the report cutoff as the current warehouse cutoff. A recorded failed check needs correction.
+`extensions.atlan_analytics.dashboard_validation.parity: unmeasured`: answer fresh from the
+warehouse anyway, keep the metric's scope and give its **Good to know** line once. Never call
+the result dashboard-validated or reuse the report's cutoff as the warehouse's. A recorded
+failed check needs correction.
 
 ## 4. Query and check
 
@@ -125,13 +124,11 @@ good ÷ answered ratings, Q2 2026: 94.1%"). Then, in the layout of
   never a bare id in prose or caveats. Resolve the organization automatically through the
   authenticated self-profile; never ask for its slug or URL. With no metric: "My own SQL. No
   metric in Atlan covers <measure>. I assumed <formula and filters>.";
-- **Worth knowing**: an unreviewed query, a partial window, an assumption about the question;
+- **Good to know**: an unreviewed query, a partial window, an assumption about the question, or
+  which source answered when two conflicted, and why (the conventions' **Source of truth**);
 - the SQL, only when the person asks to see it.
 
 In a setup or demo run, record its `answer` moment and show what it prints ([visuals](../analytics-build/references/setup/visuals.md)).
-
-When a conflict between sources shaped the answer, say which one answered and why under **Worth
-knowing**, as the conventions' **Source of truth** says.
 
 ## 6. Close the gap
 

@@ -147,13 +147,10 @@ the steps, a question or an example. Use the firm's name. A name
 from the data may appear in an answer only when the person's question asks who, and never
 a customer's personal details.
 
-**Two words for what gets built: metrics and saved queries.** Your agent answers from them:
-metrics (a number the firm cares about, with its rule) and saved queries (a ready-made question
-about the data, such as margin by job). Call the whole your agent, never the context or the run. Count them that way every time: "Your agent answers
-from 7 metrics and 12 saved queries", "saving 3 new metrics". Never call them pieces, calculations,
-KPIs, measures, definitions, saved questions or saved SQL; the dashboard has tiles, and
-what analysts ran is past queries. Say "what this answer is based on". Never say
-candidate, engine, reconciliation, hold, Trident or Registry to the person.
+**Words** are the conventions' [words the person reads](../../analytics-build/references/conventions.md#words-the-person-reads):
+metrics and saved queries, counted the same way every time ("Your agent answers from 7 metrics and
+12 saved queries"), your agent for the whole and your context for what it answers from. Say "what
+this answer is based on". Never say reconciliation, hold or Registry to the person.
 
 ## Step 2: ask what to build from
 

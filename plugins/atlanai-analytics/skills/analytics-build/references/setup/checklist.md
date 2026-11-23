@@ -33,11 +33,11 @@ with `task_list`, the list as it now stands: set the host's list to it in the sa
 
 Before a run exists, `PROJECT checklist --flow demo` returns the demo's list, and
 `--flow dashboard` the dashboard branch's. That branch records its flow with
-`PROJECT journey agentic` once the run exists, and ticks its first item the moment the person
-picks the pages, even before the run exists, as [the dashboard branch](dashboard-flow.md) says. A demo records
+`PROJECT journey agentic` once the run exists. Its first item is ticked from card 1, and picking
+the pages ticks the second, as [the dashboard branch](dashboard-flow.md) says. A demo records
 its flow with `PROJECT journey demo` once the run exists. Record `PROJECT journey asked` after
-the first chosen question is answered, and, for own data, `PROJECT journey dashboard` once a
-dashboard is built or declined; nothing else ticks those two steps. A demo's list ends at the
+the first chosen question is answered, and, for own data, the dashboard step as [the dashboard](../../../analytics-ask/references/dashboard.md)
+records it; nothing else ticks those two steps. A demo's list ends at the
 question: a dashboard is one of the options after it, not a step.
 
 Use the host's task tool, loading it first when it is listed but not loaded: `TaskCreate`
@@ -52,8 +52,8 @@ to the host and that work; it comes back, rebuilt from the run, when the person 
 When each step starts, show the full tracker in chat. Finished steps carry their actual
 results; the current step says `now`, with `your choice` when it needs an answer; the next
 step says `next`. In a demo, step 2 is `Choose what to build your agent from`, because focus and purpose
-are already set, and steps 3 to 5 build and check without an extra decision. Own data's steps 4 to 6
-run through the selected collection without an extra build decision. Do not substitute a task
+are already set, and the build steps run through validation without an extra decision, on own
+data too. Do not substitute a task
 update for the collection review or celebration.
 
 ## Keep it true to the saved run

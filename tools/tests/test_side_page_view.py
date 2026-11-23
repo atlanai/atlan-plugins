@@ -237,10 +237,10 @@ class SidePageView(unittest.TestCase):
         self.assertIn('Past query, used 12 times · worth knowing', self.text(self.render(snap, list='queries')))
         html = self.render(snap, query='h-1')
         self.assertIn('data-tog="p:notes" data-k="t:p:notes" aria-expanded="true"', html)
-        self.assertIn('Worth knowing Read this before you rely on it. Returns blank rather than 0 when no job is '
+        self.assertIn('Good to know Read this before you rely on it. Returns blank rather than 0 when no job is '
                       'late.', self.text(html))
         plain = self.render(query='h-1')
-        self.assertNotIn('Worth knowing', self.text(plain), 'a query with nothing to know has no such card')
+        self.assertNotIn('Good to know', self.text(plain), 'a query with nothing to know has no such card')
 
     def test_the_way_back_names_where_it_goes(self):
         # Back from a query opened from a metric returns to that metric, so the breadcrumb names it, not the list.

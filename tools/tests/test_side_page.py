@@ -701,7 +701,7 @@ class Questions(unittest.TestCase):
         self.assertNotIn('Tour the demo data', text, 'own data has no tour')
         self.assertTrue(text.endswith('What would you like to ask? Pick one, or type your own in Other.'))
         self.assertEqual([o['label'] for o in asked['options']], ['What is the gross margin in pounds?', 'How much did rework cost?',
-                                                                  'Build a dashboard', "I'm done for now"],
+                                                                  'Build a dashboard', "I'm done"],
                          "each a question the build wrote for a metric that passed its check, the dashboard's wording first; "
                          "the person's own goes in the free-text entry")
         self.assertEqual(asked['options'][-1]['description'], 'Your context stays stored on this machine.')
@@ -724,7 +724,7 @@ class Questions(unittest.TestCase):
         run = make_run(self.root, local=True)
         asked = questions.ready(run, accuracy=True)
         self.assertEqual([o['label'] for o in asked['options']], ['What is the gross margin in pounds?', 'Check how accurate it is',
-                                                                  'Build a dashboard', "I'm done for now"])
+                                                                  'Build a dashboard', "I'm done"])
         self.assertEqual(len(questions.ready(make_run(self.root / 'atlan'), accuracy=True)['options']), 4)
 
     def test_a_demo_ready_question_names_its_tour_and_its_agent_on_a_recap(self):
@@ -790,11 +790,11 @@ class Questions(unittest.TestCase):
                           encoding='utf-8')
         # With nothing to pick there is no native question; with any option there are two at least, as the tool needs.
         asked = questions.ready(run)
-        self.assertEqual([o['label'] for o in asked['options']], ['Build a dashboard', "I'm done for now"],
+        self.assertEqual([o['label'] for o in asked['options']], ['Build a dashboard', "I'm done"],
                          'no question passed: own data still offers the dashboard')
         self.assertTrue(asked['question'].endswith("What would you like to ask? Type it in Other, or pick what's next."))
         self.assertEqual([o['label'] for o in questions.ready(run, accuracy=True)['options']],
-                         ['Check how accurate it is', 'Build a dashboard', "I'm done for now"])
+                         ['Check how accurate it is', 'Build a dashboard', "I'm done"])
         interaction = run / 'interaction.json'
         interaction.write_text(json.dumps(dict(json.loads(interaction.read_text(encoding='utf-8')), dashboard='built')),
                                encoding='utf-8')

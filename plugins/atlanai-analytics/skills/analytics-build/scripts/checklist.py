@@ -185,7 +185,11 @@ def _listed(model, flow=None):
     stopped = phase['status'] in STOPPED or interaction.get('mode') == 'paused'
     action = (model.get('continuation') or {}).get('action')
     total = counts['metrics'] + counts['queries']
-    checked = at >= 4 or (at == 3 and finished)
+    # Own data, as on the dashboard branch: the checks end with their verdicts or the person's skip, never when the
+    # structural check records the stage complete (0.9.83 ticked "Validate the context on your data: 0 of 6 tested").
+    # A demo moves on to its save once the collection check is done, its tests running behind it.
+    over = flow == 'demo' or model.get('checks_over', True)
+    checked = at >= 4 or (at == 3 and finished and over) or interaction.get('checks') == 'skip'
     # Keeping the context on this machine finishes the save, whatever the journey still waits on (such as a focus the
     # agent never recorded), and so does a save receipt with anything released: a save that held items leaves progress
     # at publish. A changed rule re-runs its check, which leaves progress at the checks again.

@@ -187,12 +187,30 @@ def collect(kind, facts):
         tiles = [o for o in facts.engine_file('verified_queries.bi.json').get('objects') or [] if isinstance(o, dict)]
         bi = [((o.get('provenance') if isinstance(o.get('provenance'), dict) else {}).get('bi') or {}) for o in tiles]
         if tiles:
+            # The pages the person picked, when the fetch read more of the report: the review's run said "50 tiles" for a
+            # one-page pick of 12. Kept whole when the pick names no page the tiles carry ("all pages").
+            picked = {' '.join(x.split()) for x in str(facts.interaction.get('report') or '').partition(':')[2].split(',')}
+            on = [i for i, b in enumerate(bi) if isinstance(b, dict) and ' '.join(str(b.get('page') or '').split()) in picked]
+            if on:
+                tiles, bi = [tiles[i] for i in on], [bi[i] for i in on]
             # Its page in the dashboard, kept apart from `page`, which is the side page's own address. Each tile opens to
-            # its question: in the build's plain words once described, else its own when it already reads as one.
+            # its question: in the build's plain words once described, else its own when it already reads as one. A tile
+            # is named by its title on the dashboard, never by the report's internal code for it, and a tile written as
+            # several queries (one per account, say) is one tile.
             asked = [first_question((facts.descriptions.get(o.get('vq_id')) or {}).get('question') or o.get('question')) for o in tiles]
-            return {'tiles': len(tiles), 'report': facts.report, 'bi_page': next((str(b['page']) for b in bi if isinstance(b, dict) and b.get('page')), None),
-                    'rows': [[str(b['visual']), '', q if q.endswith('?') else ''] for b, q in zip(bi, asked)
-                             if isinstance(b, dict) and b.get('visual')]}
+            rows, seen = [], set()
+            for b, q in zip(bi, asked):
+                if not isinstance(b, dict) or not b.get('visual') or b['visual'] in seen:
+                    continue
+                seen.add(b['visual'])
+                widget = (b.get('source_fragments') or {}).get('widget') if isinstance(b.get('source_fragments'), dict) else None
+                title = str(facts.engine_file(widget).get('title') or '').strip() if isinstance(widget, str) else ''
+                # The visual's own name where it is one, never a report's internal code for it (a GUID in Power BI).
+                title = title or ('' if re.fullmatch(r'[0-9a-fA-F-]{16,}', str(b['visual'])) else str(b['visual']))
+                if title or q.endswith('?'):
+                    rows.append([title or q, '', q if title and q.endswith('?') else ''])
+            return {'tiles': len(seen) or len(tiles), 'report': facts.report,
+                    'bi_page': next((str(b['page']) for b in bi if isinstance(b, dict) and b.get('page')), None), 'rows': rows}
     if kind == 'described' and 'm2_ingest' in facts.stages:
         return _described(facts)
     if kind == 'drafted' and 'x1_ingest' in facts.stages and facts.stage('x1_ingest', 'proposals'):
@@ -647,7 +665,10 @@ def _outcome(kind, s):
                 + (' Each gets plain words once its query is described.' if s.get('short') else '')
                 + ((' The other 1 was set aside before grouping.' if total - kept == 1 else
                     ' The other %d were set aside before grouping.' % (total - kept)) if kept and total and kept < total else ''))
-        o = {'mark': 'group', 'bold': count(s['questions'], 'question') + ' %s team asks' % whose, 'tail': tail, 'what': what,
+        # The count is the rows listed, so it agrees with "N more" below them: two shapes that read the same are one
+        # row (the review's run said 39 questions over a list that ended "25 more" after 8).
+        asks = len(s['rows']) if s.get('rows') else s['questions']
+        o = {'mark': 'group', 'bold': count(asks, 'question') + ' %s team asks' % whose, 'tail': tail, 'what': what,
              'rows': s.get('rows')}
     elif kind == 'tiles' and s.get('tiles'):
         named = s.get('report') or s.get('bi_page')
@@ -658,11 +679,17 @@ def _outcome(kind, s):
              'tail': 'each written as a question with SQL', 'rows': s.get('rows'),
              'what': 'Each tile %s is now written as a question, kept with SQL for its number.' % on}
     elif kind == 'described' and s.get('described'):
+        # Each count says where it came from, as on main: the review of PR 205 found this chip and the next had lost it.
         o = {'mark': 'described', 'bold': count(s['described'], 'question') + ' written',
-             'tail': 'in %s words' % their(s.get('firm')) if s.get('firm') else 'in your team\'s words', 'rows': s.get('rows'),
+             'tail': _from({'tiles': s.get('tiles'), 'queries': s.get('past')}) or 'in %s words' % their(s.get('firm')),
+             'rows': s.get('rows'),
              'what': 'When you ask one of these, your agent finds the question that matches and uses its SQL.'}
     elif kind == 'drafted' and s.get('drafted'):
-        o = {'mark': 'metrics', 'bold': count(s['drafted'], 'metric') + ' found', 'tail': _from(s.get('from')),
+        # Of the questions just written, how many work out a metric: "found in 3 of those 4 questions", so this count
+        # follows the one before it (a count of source ids read "from 5 past queries" after "4 questions written").
+        found_in = ('found in %d of those %s' % (s['with'], count(s['read'], 'question'))
+                    if s.get('read') and s.get('with') is not None else _from(s.get('from')))
+        o = {'mark': 'metrics', 'bold': count(s['drafted'], 'metric') + ' found', 'tail': found_in,
              'rows': s.get('rows'),
              'what': ('A metric is a total, count or rate that one of %s questions works out. The same metric often turns up '
                       'in several questions.' % their(s.get('firm')))}

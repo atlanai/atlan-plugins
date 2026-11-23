@@ -626,7 +626,7 @@ function queryView(S, UI, id) {
     + (txt(q.description) ? `<p class="pdsc">${esc(q.description)}</p>` : '')
     + '<div class="xpl">A saved query is a question with the SQL that answers it, kept so the same question gets the same SQL next time.</div>'
     // What the engine noted about it, and whether it marked it worth a read: the chat counts these, so the page says which.
-    + `<div class="ppanel">${prow(UI, 'notes', 'Worth knowing', null, q.review === 'read' || arr(q.notes).length ? (q.review === 'read' ? '<p>Read this before you rely on it.</p>' : '') + bullets(q.notes) : '')}${prow(UI, 'sql', 'The SQL', null, txt(q.sql) ? `<div class="pcard"><div class="pcard-h"><span class="pwh">${esc(whereData(S))}</span><span>SQL</span></div>${psql(q.sql)}</div>` : '')}`
+    + `<div class="ppanel">${prow(UI, 'notes', 'Good to know', null, q.review === 'read' || arr(q.notes).length ? (q.review === 'read' ? '<p>Read this before you rely on it.</p>' : '') + bullets(q.notes) : '')}${prow(UI, 'sql', 'The SQL', null, txt(q.sql) ? `<div class="pcard"><div class="pcard-h"><span class="pwh">${esc(whereData(S))}</span><span>SQL</span></div>${psql(q.sql)}</div>` : '')}`
     + prow(UI, 'qmetrics', 'Metrics made from it', ms.length || null, ms.length ? tree : '', false)
     + prow(UI, 'usage', 'Usage', null, usage, false)
     + prow(UI, 'cols', 'Columns, tables and filters', null, pkv('table', 'Tables', pchips(q.tables, 'psc')), false)

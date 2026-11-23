@@ -69,7 +69,10 @@ def _sources(f, demo):
              if chosen['bi'] and (f.dashboard or f.funnel.get('tiles')) else []) + (
         [count((f.history or {}).get('statements') or f.query_log, 'past query', 'past queries')]
         if chosen['history'] and ((f.history or {}).get('statements') or f.query_log) else [])
-    return ' and '.join(parts) or count(len(f.tables), 'table')
+    # A warehouse build reads its tables in place, so no table was prepared here: count the ones it was scoped to. The
+    # closing message said "from 0 tables" for a build that read one.
+    tables = len(f.tables) or (f.scoped_tables if f.warehouse else 0)
+    return ' and '.join(parts) or (count(tables, 'table') if tables else '%s data' % whose)
 
 
 def _tested(f, c, demo):
@@ -304,8 +307,10 @@ def _stored(f, demo, run=None, data=None, engine_dir=None):
     whole = len(f.context['metrics']) + f.context['queries']
     # A demo's topic in its own words ("Questions about job margin"), not its focus label ("Job margin").
     answers = str(demo.get('answers') or '')
+    # A dashboard is named as a person would: "ask about the Box Office Pulse dashboard", never without "the".
+    report = f.report and ('the %s' % f.report if re.search(r'\b(dashboard|report)$', f.report, re.I) else 'the %s dashboard' % f.report)
     topic = (answers[len('Questions about '):] if answers.startswith('Questions about ') else '') or \
-        short_name(f.use_case) or f.report or '%s data' % their(demo.get('firm'))
+        short_name(f.use_case) or report or '%s data' % their(demo.get('firm'))
     if saved:
         where = 'Saved to Atlan' + (', in %s' % saved['workspace'] if saved.get('workspace') else '')
         if saved.get('items', whole) < whole:
@@ -350,7 +355,10 @@ def ready(run, widget=False, data=None, engine_dir=None, accuracy=False, recap=F
     lines.append('%s. To use it later, %s and ask about %s.' % (where, how, topic))
     if demo.get('tour'):
         lines.append('To tour the demo data: %s shows the firm and its data.' % demo['tour'])
-    held = [] if f.interaction.get('flow') == 'demo' else [x for x in made['metrics'] + made['queries'] if x.get('status') == 'look']
+    # One the save held back is said once, under "Held back", as the side page counts it: the review's run counted a
+    # failed, held-back metric in both lines.
+    held = [] if f.interaction.get('flow') == 'demo' else [x for x in made['metrics'] + made['queries']
+                                                           if x.get('status') == 'look' and x.get('stage') != 'kept']
     if held:
         n_metrics = sum(1 for x in held if x in made['metrics'])
         what = ' and '.join(w for w in (count(n_metrics, 'metric') if n_metrics else '',
@@ -372,7 +380,7 @@ def ready(run, widget=False, data=None, engine_dir=None, accuracy=False, recap=F
     # Own data offers the dashboard here (the person's words, 2026-11-22); a demo keeps its own order, asking first.
     board = [{'label': 'Build a dashboard', 'description': "A dashboard page built from your agent's answers."}] \
         if f.interaction.get('flow') != 'demo' and not f.interaction.get('dashboard') else []
-    done = {'label': 'I\'m done for now', 'description': 'Your context stays %s.' % (
+    done = {'label': 'I\'m done', 'description': 'Your context stays %s.' % (
         'saved in Atlan' if f.publication and not f.local else 'stored on this machine')}
     suggested = _supported(made, limit=4 - 1 - len(check) - len(board))
     options = suggested[:1] + check + suggested[1:] + board
@@ -403,6 +411,9 @@ def close(run, widget=False, data=None, engine_dir=None, score=None, scored=None
                                            count(c['queries'], 'saved query', 'saved queries'), _sources(f, demo), validated)]
     if score is not None and scored:
         lines.append('- Accuracy: %d%% on %s.' % (score, 'its test question' if scored == 1 else '%d test questions' % scored))
+    # What the flow built after the context is part of what the person has: the closing message left the dashboard out.
+    if f.interaction.get('dashboard_result') == 'built':
+        lines.append("- A dashboard built from your agent's answers.")
     where, how, topic = _stored(f, demo, run, data, engine_dir)
     example = next(iter(_supported(made, limit=1)), {}).get('label')
     local = f.local or not f.publication
