@@ -82,7 +82,7 @@ history adds actual query patterns, dimensions, joins and missing measures. A da
 an executor/schema source, not a replacement for available history. Reuse already released
 workspace context early when the destination is known.
 
-Refresh [the checklist](../../analytics-build/references/setup/checklist.md) so the survey step shows its source count before the confirmation.
+Refresh [the checklist](../../analytics-build/references/setup/checklist.md) so the survey step shows its source count before the build starts.
 The caller owns the conversation: `analytics-build` asks its opening questions before any
 data is read, and asks which use cases to build before authoring. Use the domain the caller
 passed to select relevant source coverage.

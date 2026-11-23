@@ -588,7 +588,7 @@ class Helper(unittest.TestCase):
         self.assertEqual(visuals.render('found', visuals.build_spec('found', self.run), plain=True),
                          '◇ 4 sources · Power BI dashboard, 2 data files, past queries')
         self.assertEqual(visuals.asked('found', False), "the next native question's text, first",
-                         'one place: the next question (the use cases in discovery, "Build your agent?" from tables), never two')
+                         'one place: the next question, never two')
         self.assertEqual(visuals.asked('sources', True), "the next native question's text, first", "a demo's sources come right before its choice")
         self.assertIsNone(visuals.asked('sources', False), 'own data reads its data mid-build')
         self.assertIsNone(visuals.asked('answer', False), 'an answer ends its turn, which a terminal never folds')

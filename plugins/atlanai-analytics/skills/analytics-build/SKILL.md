@@ -32,11 +32,11 @@ concrete plan. Respect explicit draft or review requests.
    | They chose | Then |
    | --- | --- |
    | Suggest from your warehouse | `source-survey` `discover`, then "What should your agent answer?" over up to three use cases with their tables plus "Add a dashboard". After the build, one offer to add a dashboard |
-   | Start from a dashboard | One card for the dashboard: files in the folder as options, a link or path as free text. Then [the dashboard branch](references/setup/dashboard-flow.md), which replaces the steps below and the confirmation |
+   | Start from a dashboard | One card for the dashboard: files in the folder as options, a link or path as free text. Then [the dashboard branch](references/setup/dashboard-flow.md), which replaces the steps below |
    | Start from tables | One card asking for the use case and tables as free text, with a skip to discovery, then `source-survey` `access` on them |
 
-3. **The go-ahead.** In discovery, picking a use case starts the build. From tables, one line of
-   what will be built and from what, then "Build your agent?". Nothing is built before either.
+3. **The go-ahead.** Picking a use case, or naming tables that all read, starts the build, with
+   one line of what it builds and any choices made. A table that can't be read is asked about first.
 
 A question the request already answers is not asked. Before card 1, look silently at what is
 already connected (`source-survey` `connections`) and at BI file names in the working folder
@@ -78,9 +78,8 @@ the first survey on, as [visuals](references/setup/visuals.md) says.
    tables the person named. The side page opens once the queries are in plain words,
    when `PROJECT visual next` names `connect`.
 3. **Pick tables and dashboards.** In the discovery branch,
-   [the use cases](references/setup/names.md), whose pick starts the build. From tables, the
-   interview's confirmation, "Build your agent?", whose text opens with the `found` visual's line in a
-   terminal. A report is built whole.
+   [the use cases](references/setup/names.md), whose pick starts the build. From tables, a clean
+   access check starts it. A report is built whole.
 4. **Build your context: metrics and saved queries.** `metrics-generation` `generate` and `check` with the selection
    and the whole survey, through [build and check](references/setup/build-check.md). A fresh
    subagent writes each metric gate; chips show as [drafts as they land](references/setup/progress.md#drafts-as-they-land)

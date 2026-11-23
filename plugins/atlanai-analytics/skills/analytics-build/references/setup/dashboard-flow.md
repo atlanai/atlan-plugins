@@ -2,7 +2,7 @@
 
 Read when the person picks "Start from a dashboard" in [the interview](intent.md)'s card 1,
 or names a dashboard link or file instead. For this run, this file replaces the steps in
-`SKILL.md`, the shared checklist's step names and the interview's "Build your agent?" confirmation.
+`SKILL.md`, the shared checklist's step names and the interview's start of the build.
 Where it is silent, the shared files apply. The discovery and known-tables branches and the
 demo never read it, and nothing here changes how metrics are generated.
 

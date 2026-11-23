@@ -2,7 +2,7 @@
 
 Read in the "Suggest from your warehouse" branch, after discovery. The other two branches do not
 use this file: the person already named the dashboard or the tables, so they go on to
-[the interview](intent.md)'s confirmation (known tables) or readiness check (a dashboard). Demos skip it too,
+[the interview](intent.md)'s access check (known tables) or readiness check (a dashboard). Demos skip it too,
 and so does a resume with a saved selection.
 
 Discovery ends in a short menu of use cases, never a single suggestion, with one more
@@ -87,17 +87,9 @@ For an understanding-only request, the menu is the result; no build follows unle
 
 ## 3. Then build
 
-The pick is the go-ahead: this branch asks no "Build your agent?". Record the selection in the
-run and, in the same turn, write the build's start line, then enter [Build](build-check.md).
-The start line is the Doing and Why of [when to talk](progress.md#when-to-talk): what it builds
-from and what it will answer, then, when there are any, the choices you made where the use
-cases left something open that changes the numbers, ending "Tell me to change any of these.":
-
-"Building your agent from 4 tables and their past queries, to answer pod and AE target
-questions. Leaving out inactive reps. Quarters are calendar quarters, as the targets table
-uses. Tell me to change any of these."
-
-A change the person asks for restarts the build with it. Call `metrics-generation` `generate`
+The pick is the go-ahead. Record the selection in the run, write the build's start line as
+[starting the build](intent.md#starting-the-build-discovery-and-known-tables) says, then enter
+[Build](build-check.md): call `metrics-generation` `generate`
 with the tables of every chosen use case and the whole of any dashboard named on them. A
 report is built whole, every page and measure, and query history is scoped to the chosen
 tables. The collection review's representative metric is the one closest to the first chosen

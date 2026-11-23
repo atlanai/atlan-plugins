@@ -5,7 +5,7 @@ the person anything. This file is every question asked before metric generation 
 
 ```
 warehouse ─ what to build from ─┬─ Suggest from your warehouse ─ use cases ───────────────────────── build
-                                ├─ Start from tables ─────────── tell me ───── access check ─ confirm ─ build
+                                ├─ Start from tables ─────────── tell me ───── access check ─────── build
                                 └─ Start from a dashboard ────── share it ─ pick report and pages ─ check what can be built ─ build
 ```
 
@@ -131,7 +131,7 @@ file; say so if they chose A or C, and mention `analytics-demo`.
    calendar quarters, which column is the main amount), choose from what discovery found and
    state each choice in the build's start line, which the person can change: a question here
    would come before anything is built, about things the person has not seen yet.
-4. **Build on the pick.** Picking a use case is the go-ahead, as [the use cases](names.md#3-then-build) say.
+4. **Build on the pick**, as [starting the build](#starting-the-build-discovery-and-known-tables) says.
 5. **After the build, offer a dashboard**, next.
 
 ### After the build, in this branch only: offer a dashboard
@@ -222,11 +222,11 @@ already picked "Add a dashboard" in the menu, and on a resume that is past this 
    | Start from a dashboard | Branch B from its start |
 
 2. **Access check.** `source-survey` `access` on each table and dashboard they named.
-3. **Confirm and trigger**, below.
+3. **Build**, as [starting the build](#starting-the-build-discovery-and-known-tables) says.
 
 ## The access check, in branches B and C
 
-Silent when everything can be read: go straight to the confirmation, which says so.
+Silent when everything can be read: the build starts.
 
 ### A link that needs sign-in
 
@@ -271,34 +271,29 @@ Ask one question that names it and offers the ways forward:
 Name the tables that failed, never a credential, role secret or connection string. Saving
 to Atlan is a later sign-in and is not checked here.
 
-## Confirm and trigger: known tables
+## Starting the build: discovery and known tables
 
-One question, as its own text, before anything is built. The dashboard branch skips it: its
-readiness check is the go-ahead.
+There is no separate question to start. The go-ahead is the person's own answer: in
+discovery, picking a use case; from tables, their message naming the tables, once every one
+reads. When the access check finds something it cannot read, its question above comes first,
+and "Continue with the rest" is the go-ahead. The dashboard branch has its readiness check.
 
-"I'll build your agent from `<the sources, in order>` and test it on `<warehouse>`. It will
-answer `<what>` questions. About `<time>`.
+In the same turn, write the build's start line, the Doing and Why of
+[when to talk](progress.md#when-to-talk): what it builds from and what it will answer, about
+how long, then, when there are any, the choices you made that change the numbers, ending
+"Tell me to change any of these.":
 
-Your agent answers from metrics. A metric is one number with one definition, so the same
-question gets the same number and you can trace it.
-It also keeps saved queries: questions your team already asks, each with the SQL that answers it."
+"Building your agent from 4 tables and their past queries, to answer pod and AE target
+questions. About 15 minutes. Leaving out inactive reps. Quarters are calendar quarters, as the
+targets table uses. Tell me to change any of these."
 
-- **What**: the chosen use cases, the dashboard by name, or the stated use case.
-- **Sources**: a dashboard first, then query history on the tables, then their columns. Say
-  the counts: "3 tables and their past queries from the last 7 days".
-- **Time**: "about 10 minutes", from the work's size.
-- **Assumptions**, one line, each choice you made that changes the numbers: "Leaving out test
-  accounts. Quarters are fiscal." Left out when there is none.
+- **Sources**: a dashboard first, then past queries on the tables, then the tables. Counts,
+  never a schema name.
+- **Time**: from the work's size.
+- **Choices**: only ones that change the numbers, each in a few words. None, no line.
 
-Then "Build your agent?":
-
-| Option | Description |
-| --- | --- |
-| Build it (Recommended) | You'll see each step as it finishes. |
-| Change something | Add or drop a table, swap the dashboard, leave out past queries or change an assumption. |
-
-Nothing is generated, installed or pulled from query history before the yes. On yes, start
-in the same turn.
+A change the person asks for restarts the build with it. Nothing is generated, installed or
+pulled from query history before the go-ahead.
 
 ## Record what the person chose
 
