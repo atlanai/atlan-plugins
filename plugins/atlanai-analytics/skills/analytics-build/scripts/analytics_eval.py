@@ -2377,7 +2377,8 @@ def selftest() -> dict:
     s1, s2 = make_split(cs, 0.5, 7), make_split(cs, 0.5, 7)
     ok("split deterministic + disjoint", s1 == s2 and not set(s1["train_ids"]) & set(s1["test_ids"]))
     ok("pii email", pii_reason("select * from t where email = 'a.b@x.com'") == "email")
-    ok("pii person name", pii_reason("select * from t where assignee_name ilike '%sam%'") == "person_name")
+    # The name rules were removed (2026-11-23) until the security team sets new ones.
+    ok("pii no name rule", pii_reason("select * from t where assignee_name ilike '%sam%'") is None)
     ok("pii clean", pii_reason("select count(*) from t where status = 'solved'") is None)
     for sql, why in (("select * from t where customer_id = 'cus_8Hk2Lm9'", "entity_id"),
                      ("select * from t where user_id = 42", "entity_id"),

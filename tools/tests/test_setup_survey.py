@@ -97,13 +97,11 @@ class LabelOrNameTest(unittest.TestCase):
               # A persona, role or cohort is who a row is for, not who it is (2026-11-22, a Snowflake run).
               "u.PERSONA = 'Enterprise Architect'", "USER_PERSONA in ('Enterprise Architect', 'Data Engineer')",
               "t.ROLE_NAME = 'Data Steward'", "signup_cohort = 'Early Adopter'")
-    # Names compared with a column of people: the column rules still refuse them.
+    # The name rules were removed (2026-11-23) until the security team sets new ones: no value is refused for being a
+    # name, whatever its column or its look.
     NAMES = ("where rep = 'Jane Smith'", "status = 'Open' and owner_name = 'Jane Smith'",
-             "tier in ('Gold Plus') and manager like 'Mary Jones%'",
-             "line_of_business = 'Fleet' and business_owner = 'Jane Smith'", "region_manager = 'Jane Smith'",
-             "persona = 'Enterprise Architect' and owner = 'Jane Smith'", "where sales_rep = 'Jane Smith'",
-             "ae_name = 'Jane Smith'", "rep_name not in ('Jane Smith')")
-    # A two-word value on its own is no longer read as a name (2026-11-23).
+             "tier in ('Gold Plus') and manager like 'Mary Jones%'", "region_manager = 'Jane Smith'",
+             "where sales_rep = 'Jane Smith'", "rep_name not in ('Jane Smith')")
     BARE = ("CASE WHEN id = 4 THEN 'Jane Smith' END", "t.title = 'Enterprise Architect'",
             "job_title ilike '%Enterprise Architect%'", "where city = 'Salt Lake'")
 
@@ -118,20 +116,14 @@ class LabelOrNameTest(unittest.TestCase):
                 self.assertIsNone(pii_reason(sql))
                 self.assertIsNone(full_name_hit(sql))
 
-    def test_a_reviewed_value_beside_a_people_column_passes_and_nothing_else(self):
-        from analytics_eval import set_reviewed_values
-        try:
-            set_reviewed_values(['Data Platform'])
-            self.assertIsNone(pii_reason("owner = 'Data Platform'"))
-            self.assertEqual(pii_reason("owner = 'Data Platform' and rep = 'Jane Smith'"), 'person_name')
-        finally:
-            set_reviewed_values([])
-        self.assertEqual(pii_reason("owner = 'Data Platform'"), 'person_name')
-
-    def test_names_beside_people_columns_are_still_refused(self):
+    def test_no_name_is_refused_for_its_column(self):
         for sql in self.NAMES:
             with self.subTest(sql=sql):
-                self.assertEqual(pii_reason(sql), 'person_name')
+                self.assertIsNone(pii_reason(sql))
+
+    def test_an_email_or_an_id_is_still_refused(self):
+        self.assertEqual(pii_reason("owner = 'jane@example.com'"), 'email')
+        self.assertEqual(pii_reason("user_id = 42"), 'entity_id')
 
 
 class ReviewedValuesReachEveryCheckTest(unittest.TestCase):
@@ -192,11 +184,10 @@ class ReportSqlKeepsItsNamesTest(unittest.TestCase):
                                             'extensions': {'metrics_agent': {'evidence': {'provenance': {'lane': lane}}}}}}
         return [e for e in contracts.check_query(body)[0] if ' holds ' in e]
 
-    def test_a_name_in_report_sql_ships_and_the_same_name_from_history_does_not(self):
+    def test_a_name_ships_from_report_sql_and_from_history(self):
         sql = "select count(*) from calls where rep_name not in ('Jane Smith')"
         self.assertEqual(self.errors('bi', sql), [])
-        self.assertEqual(len(self.errors('history', sql)), 1)
-        self.assertIn("a person's name", self.errors('history', sql)[0])
+        self.assertEqual(self.errors('history', sql), [])
 
     def test_an_email_in_report_sql_is_still_refused(self):
         self.assertIn('an email address', self.errors('bi', "select 1 from t where owner = 'jane@example.com'")[0])

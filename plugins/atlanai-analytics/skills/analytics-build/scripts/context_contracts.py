@@ -20,7 +20,7 @@ import sys
 # No __pycache__ is written into the installed plugin's folder.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from analytics_eval import PII as _SHARED_PII, person_name_hit, set_reviewed_values  # noqa: E402
+from analytics_eval import PII as _SHARED_PII, set_reviewed_values  # noqa: E402
 import registry_contract  # noqa: E402
 
 VERSION = "0.1.0"
@@ -362,21 +362,11 @@ def _sql_fields(d: dict) -> list:
 _ENTITY_ID = _SHARED_PII["entity_id"]
 _UUID = _SHARED_PII["uuid"]
 _PREFIXED_ID = _SHARED_PII["prefixed_id"]
-# A column whose values are people: its sample values are refused whatever they look like.
-_PERSON_COLUMN = re.compile(r"(?:^|_)(?:full_|first_|last_)?(?:name|email|phone)$", re.I)
-_NOT_PERSON = re.compile(r"(?:product|item|sku|table|column|metric|region|country|city|state|stage|status|"
-                         r"category|segment|plan|tier|team|channel|campaign|brand|store|event|file|host|"
-                         r"domain|display|field|feature|model|schema|database|source)_?(?:full_)?name$", re.I)
 
 
 def _pii(text: str, names: bool = True):
     if _EMAIL.search(text or ""):
         return "an email address"
-    # A value compared with a person's column (rep_name = 'Jane Smith'): the two-word name rule that also refused
-    # business values such as 'Enterprise Architect' was removed on 2026-11-23.
-    name = person_name_hit(text) if names else None
-    if name:
-        return f"a person's name ({name}): a value compared with a column of people"
     if _ENTITY_ID.search(text or "") or _UUID.search(text or "") or _PREFIXED_ID.search(text or ""):
         return "an identifier literal: make it a parameter, or leave the row out"
     return None
@@ -391,8 +381,6 @@ def _pii_value(column: str, value) -> str | None:
         return "an email address"
     if _UUID.search(text) or _PREFIXED_ID.search(f"'{text}'") or _ENTITY_ID.search(f"{column} = '{text}'"):
         return "an identifier value"
-    if text.strip() and _PERSON_COLUMN.search(column or "") and not _NOT_PERSON.search(column or ""):
-        return f"a value of the person column {column!r}"
     return None
 
 
@@ -1107,14 +1095,13 @@ def selftest() -> dict:
     e, _ = check_metric(good)
     ok("a good card passes", not e)
     ok("a business value of two capitalised words is not a person's name",
-       _pii("where stage = 'Closed Won'") is None and _pii("where rep = 'Jane Smith'"))
+       _pii("where stage = 'Closed Won'") is None)
     ok("a label compared with a category column, or written by a CASE into one, is not a person's name",
        _pii("UPPER(RTRIM(\"Engagement Status\")) = 'Actively Worked'") is None
        and _pii("CASE WHEN s >= 4 THEN 'Well Covered' ELSE 'No Coverage' END AS coverage_tier") is None
        and _pii("CASE WHEN on_track THEN 'On Pace' END") is None)
-    ok("a name compared with a people column is still refused, and a two-word value alone is not",
-       _pii("status = 'Open' and owner_name = 'Jane Smith'") and _pii("where sales_rep = 'Jane Smith'")
-       and _pii("where title = 'Enterprise Architect'") is None)
+    ok("no name rule refuses a value until the security team sets new ones (2026-11-23)",
+       _pii("status = 'Open' and owner_name = 'Jane Smith'") is None and _pii("where title = 'Enterprise Architect'") is None)
     bad = json.loads(json.dumps(good))
     bad["display_name"] = "Paid Revenue by Region"
     bad["definition"].update({"aggregation": {"type": "count"}, "owner": "x", "filters": ["DB.S.ORDERS.DT >= '2026-01-01'"]})
@@ -1167,8 +1154,8 @@ def selftest() -> dict:
        leaks(definition={"examples": [{"source": "shape:s-1", "sql": "select 1",
                                        "result": {"columns": ["contact"], "rows": [["ann@example.com"]],
                                                   "row_count": 1, "hash": "h", "executed_at": "t"}}]}))
-    ok("a customer's name under a person column is refused",
-       leaks(definition={"examples": [{"source": "shape:s-1", "sql": "select 1",
+    ok("a sample value under a name column is not refused for its column alone (2026-11-23)",
+       not leaks(definition={"examples": [{"source": "shape:s-1", "sql": "select 1",
                                        "result": {"columns": ["customer_name", "revenue"], "rows": [["Ann Lee", "3"]],
                                                   "row_count": 1, "hash": "h", "executed_at": "t"}}]}))
     ok("an id in a join, a dimension value, a default or the description is refused", all((
@@ -1185,8 +1172,8 @@ def selftest() -> dict:
                              "examples": [{"source": "shape:s-1", "sql": "select 1", "group_by": ["Region"],
                                            "result": {"columns": ["region_name", "rev"], "rows": [["North America", "3"]],
                                                       "row_count": 1, "hash": "h", "executed_at": "t"}}]}))
-    ok("an allowed value does not hide a name after it",
-       _pii("where stage = 'Closed Won' and rep = 'Jane Smith'") is not None)
+    ok("an email after an allowed value is still refused",
+       _pii("where stage = 'Closed Won' and owner = 'jane@example.com'") is not None)
     ok("joins on ids are not literals",
        _pii("select 1 from o join c on o.customer_id = c.customer_id where o.status = 'paid'") is None)
 

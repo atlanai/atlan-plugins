@@ -324,17 +324,11 @@ report. Never search descriptions for words such as "held" to decide eligibility
 warehouse access and parse-only evidence remain limitations rather than failed semantics.
 A stale review on replaced SQL is resolved by C4, not by editing export metadata.
 
-A query or metric held because a value is compared with a column of people, such as an owner
-or a rep (`a person's name ('…')`, hold reason `privacy_review`), is cleared only by the
-person. A two-word value on its own is not read as a name. Show them the quoted value:
-"'<value>' is compared with <column>, a column of people, so I held back what uses it: <names>.
-Is it fine to keep?" When they confirm it is a business value, such as a team named as an
-owner, add the exact text to `privacy.reviewed_values` in a new run's configuration
-(`{"privacy": {"reviewed_values": ["Data Platform"]}}`; a setup run records it with `PROJECT
-reviewed-values`), then run again and say "I'll rebuild with '<value>' allowed. Nothing else
-changes."
-The value is admitted in the history, the cards and the export, and nothing else is. Never
-rewrite the SQL or its case to pass the check.
+A query or metric held for privacy (hold reason `privacy_review`: an email address or an
+identifier in its SQL or samples) is not saved. Say which item and why in one line; the fix is
+to make the value a parameter or leave the row out, never to rewrite the SQL to pass the check.
+No value is held for being a person's name: those rules were removed until the security team
+sets new ones.
 
 The publication checker enforces the manifest and rejects reintroduced held bodies or links.
 The resumable publisher checks it before returning a call. Keep the manifest and source
