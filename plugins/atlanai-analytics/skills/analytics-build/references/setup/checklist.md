@@ -46,8 +46,10 @@ and `TaskUpdate` in Claude Code (`TodoWrite` where those are absent), the app's 
 in the same turn as every stage change, so the list on screen is never behind the run.
 Where the host shows the list only under a turn that sent it (the Claude desktop app and
 Codex), send it again in every turn about the run, as the turn's first call: a wake when a
-helper reports back and an answer to "what's happening" too, unchanged when no step moved. A
-turn without it leaves the person with no list. A turn about something else leaves the list
+helper reports back and an answer to "what's happening" too, unchanged when no step moved. The
+list shows under the message that last sent it, so when a native question is answered and the
+turn goes on, send it again right after the answer. A turn without it leaves the person with no
+list. A turn about something else leaves the list
 to the host and that work; it comes back, rebuilt from the run, when the person returns to it.
 Where there is no task list, show the full tracker in chat when each step starts. Finished steps carry their actual
 results; the current step says `now`, with `your choice` when it needs an answer; the next

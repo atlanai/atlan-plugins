@@ -27,8 +27,8 @@ Two quick looks, so the choices offered are the person's own. Neither reads data
 
 **Say nothing about these looks.** No `**Doing:**` or `**Why:**`, no "checking what's
 connected", no "before the first question", and no explanation of where the options came
-from. If the host shows a line while tools run, that line is exactly "Getting set up." and
-nothing more. The person's first sight of this skill is the opening and the first question. How the options
+from. If the host shows a line while tools run, that line is exactly "Getting set up.",
+once, and nothing more. The person's first sight of this skill is the opening and the first question. How the options
 were found, that a check ran, and which tool answered are internal and never appear in the
 card, an option or its description.
 
@@ -240,7 +240,7 @@ that question comes only after a failure:
 
 | Tool | What to do | Say |
 | --- | --- | --- |
-| Power BI | Start the plug's one command as a background command (browser sign-in; a device code where no browser can open), as [the metrics module](../../../metrics-generation/references/metrics-engine.md#power-bi-from-a-report-link) says. Tell the person they are signed in only once its result shows it | "Opening Power BI sign-in in your browser. Once you're signed in, reading your report takes about a minute, and I'll show its pages here." Say it once: no second line about the same wait |
+| Power BI | Start the plug's one command as a background command (browser sign-in; a device code where no browser can open), as [the metrics module](../../../metrics-generation/references/metrics-engine.md#power-bi-from-a-report-link) says. Tell the person they are signed in only once its result shows it | "Opening Power BI sign-in in your browser. Once you're signed in, reading your report takes about a minute, and I'll show its pages here." Start the command first, then say this once, as the turn's last words: nothing before or after it about the same wait |
 | Another tool whose route can start a sign-in | Start it the same way | The same line, with the tool's name |
 | Tableau, or any tool with no sign-in a tool can start | Ask the one question below | |
 

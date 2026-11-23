@@ -1006,7 +1006,7 @@ def main():
                 print(shown)
             steps = []
             if shown and args.widget:
-                steps.append(("Draw it now: pass the HTML above to `show_widget` with the title `%s` (load it with your tool "
+                steps.append(("Draw it now: pass the HTML above, as printed and never through a file, to `show_widget` with the title `%s` (load it with your tool "
                               "search first if it is deferred, and run its `read_me` the first time), before your next "
                               "question or reply. Never put it in a question's text. It says what "
                               "the step produced: add no line of your own about it.") % visuals.title_of(args.kind, spec))

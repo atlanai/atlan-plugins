@@ -8,7 +8,7 @@ description: Guided Atlan Analytics demo on made-up data: build an agent for a s
 A demo exists so the person understands Atlan Analytics by watching it work on a small,
 made-up firm. The blocks printed at each moment are the product.
 
-Read plugin files with the Read tool, one per call. Shell commands print no separators or decoration.
+Read plugin files with the Read tool, one per call. Shell commands print no separators: zsh fails on `echo =====`.
 
 Read [the tour rules](references/tour.md) before the welcome: what to say at every moment,
 the two words for what gets built, and the rule against naming people. They apply to every

@@ -10,7 +10,7 @@ person's dashboards, folders, BI exports and past queries into checked metrics t
 `source-survey`, `metrics-generation` and `analytics-ask`. Before the first helper call, and
 on every resume, read [shared setup](references/setup.md): it defines `PROJECT`, the stage
 files and the review rule. This file sets their order and what the person sees.
-Read plugin files one per call. Shell commands print no separators or decoration.
+Read plugin files one per call. Shell commands print no separators: zsh fails on `echo =====`.
 
 For workspace access or creation questions, follow [workspace help](references/setup/workspace-access.md)
 and return. Even for an explanation, start no source inspection or publication.
@@ -41,7 +41,7 @@ concrete plan. Respect explicit draft or review requests.
 A question the request already answers is not asked. Before card 1, look silently at what is
 already connected (`source-survey` `connections`) and at BI file names in the working folder
 (`PROJECT discover`). Say nothing about that look or where the options came from (at most
-"Getting set up."), and read no data before the answers. The person's first sight is the card, whose own text is the
+"Getting set up.", once), and read no data before the answers. The person's first sight is the card, whose own text is the
 opening:
 
 "Let's build an agent that answers your data questions in plain English and shows what each

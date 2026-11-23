@@ -159,7 +159,7 @@ def collect(kind, facts):
         return {'funnel': dict(facts.funnel, metrics=len(kept)) if kept else facts.funnel,
                 'merged': kept or [m['name'] for m in facts.merged],
                 'evidence': [m for m in facts.merged if m['name'].lower() in names] if kept else facts.merged, 'took': _took(facts),
-                'saved_queries': saved, 'held': facts.held}
+                'saved_queries': saved, 'held': facts.held, 'report': facts.report}
     # The checks are over only when every item has its verdict: a chip before that would count unrun items as needing a look.
     if kind == 'context' and facts.checks_over:
         c = facts.context
@@ -775,12 +775,15 @@ def chip(kind, s):
 
 # Mini cards ------------------------------------------------------------------------------------
 
-def _source_line(f):
-    """Where the questions written came from, so the counts on the card add up on their face."""
+def _source_line(f, report=''):
+    """Where the questions written came from, so the counts on the card add up on their face: "From 1 tile on Pod
+    Targets" when they all came from a named report, else "From 2 dashboard tiles and 4 past queries"."""
     shown, asked = f.get('tiles', 0), f.get('questions', 0) - f.get('tiles', 0)
+    if shown and asked <= 0 and report:
+        return 'From %s on %s' % (count(shown, 'tile'), report)
     parts = [x for x in (count(shown, 'dashboard tile') if shown else '',
                          count(asked, 'past query', 'past queries') if asked > 0 else '') if x]
-    return 'Built from ' + ' and '.join(parts) if parts else ''
+    return 'From ' + ' and '.join(parts) if parts else ''
 
 
 def _from(e):
@@ -809,11 +812,12 @@ def _parts(kind, s):
         held = s.get('held') or {}
         held = ' and '.join(x for x in (count(held['metrics'], 'metric') if held.get('metrics') else '',
                                         count(held['queries'], 'saved query', 'saved queries') if held.get('queries') else '') if x)
-        return {'icon': 'metric', 'title': 'Your %s is built' % (s.get('agent') or 'agent'),
+        # The counts carry the headline; the dashboard's name goes in the source line (the person's words, 2026-11-23).
+        return {'icon': 'metric', 'title': 'Your agent is built',
                 'meta': 'in %d min' % s['took'] if s.get('took') else '',
-                'value': 'Answers from ' + count(f['metrics'], 'metric') + (
+                'value': count(f['metrics'], 'metric') + (
                     ' and ' + count(s['saved_queries'], 'saved query', 'saved queries') if s.get('saved_queries') else ''),
-                'line': _source_line(f),
+                'line': _source_line(f, s.get('report') or ''),
                 'held': 'Held back: %s. The side page says why.' % held if held else '',
                 'next': 'Next: choose where to keep it.',
                 'funnel': [r for r in (('Past queries read', f.get('queries'), [('fp', f.get('queries'))]) if f.get('queries') else None,

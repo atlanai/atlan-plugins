@@ -147,7 +147,7 @@ class Moments(unittest.TestCase):
     def test_a_card_at_each_big_moment(self):
         cards = {kind: self.show(kind) for kind in visuals.CARDS}
         heads = {kind: card.split('\n', 1)[0] for kind, card in cards.items()}
-        self.assertEqual(heads, {'build': '**Answers from 2 metrics and 2 saved queries** · Your agent for Job margin is built',
+        self.assertEqual(heads, {'build': '**2 metrics and 2 saved queries** · Your agent is built',
                                  'saved': '**2 metrics, 2 saved queries** · Saved to Atlan',
                                  'answer': '**\u2212£6,360** · Answer', 'edit': '**Late jobs 2 → 3** · Definition changed'},
                          'the number leads, bold, outside the block')
@@ -161,7 +161,7 @@ class Moments(unittest.TestCase):
                             kind + ': indented under the headline, narrow enough for a split pane')
         for kind in ('build', 'saved'):
             self.assertLessEqual(len(cards[kind].splitlines()), 6, kind + ': a terminal shows six lines before a question whole')
-        self.assertIn('Built from 2 dashboard tiles and 2 past queries', cards['build'], 'counts that add up on their face')
+        self.assertIn('From 2 dashboard tiles and 2 past queries', cards['build'], 'counts that add up on their face')
         self.assertNotIn('question', cards['build'])
 
     def test_cards_carry_no_step_label(self):
@@ -664,7 +664,7 @@ class Helper(unittest.TestCase):
         checks.write_text(verdicts, encoding='utf-8')
         self.assertIn('build', side_view.due(self.run))
         card = visuals.render('build', visuals.build_spec('build', self.run), plain=True)
-        self.assertTrue(card.startswith('Answers from %d metrics ' % kept), card.split('\n', 1)[0])
+        self.assertTrue(card.startswith('%d metrics ' % kept), card.split('\n', 1)[0])
 
     def test_the_checks_chip_waits_for_every_verdict(self):
         # A desktop chip drawn mid-checks read "24/81 checked, 57 need a look" and the final one was never drawn.

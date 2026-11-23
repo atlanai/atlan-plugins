@@ -24,7 +24,9 @@ before going on. While the engine builds, its result after each gate says so too
    never sees it there.
    - **With a `show_widget` tool** (the Claude desktop app): add `--widget` to every `visual`
      call and pass the HTML it prints to that tool, chips and cards alike, never in a
-     question's text. Your own words reach the person there too, so the widget is the moment's
+     question's text. Run each `visual` call on its own and pass what it prints before its
+     `side view:` line as it is: never send it to a file, cut it with a script, or say that
+     you need it. Your own words reach the person there too, so the widget is the moment's
      result.
    - **Otherwise** (a terminal): the helper prints plain lines and says where they go. A moment
      that comes right before a native question goes in that question's own text, which is always
