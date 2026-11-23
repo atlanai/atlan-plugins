@@ -50,7 +50,7 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
 - **Never hand-edit a generated file.** Change `plugin.toml`, run `make build`. CI fails on drift.
 - **Every skill is written here.** Until 0.3.1, six of the core's skills (`atlan-author-skills`,
   `atlan-author-agents`, `atlan-author-knowledge`, `atlan-connect-repo`, `atlan-content`,
-  `atlan-record-outputs`) were copied from the registry's apps at pinned commits. They are now
+  `atlan-record-outputs`) were copied from Atlan Trident's apps at pinned commits. They are now
   this repository's own and are edited here like the rest; nothing syncs them *into* this
   repository. The gateway's own `atlanai` plugin ships copies of these folders vendored *from*
   it at a pinned commit (gateway's `pinned-files.toml`), and the gateway's checks on
@@ -67,7 +67,7 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   that says when to use the skill rather than what it is: the action, then `Use when` (or
   `Use for`) with the words people say, then `Not for` naming the nearest sibling skill.
   `make check` fails on a description without `Use when` or `Use for`. The description is the
-  retrieval signal twice over: the harness matches requests against it, and the registry's
+  retrieval signal twice over: the harness matches requests against it, and Trident's
   search ranks on it once the skill is served from Atlan. Each skill opens its own session, so
   a task loads one skill, not `atlan-get-started` first. Every session carries every
   description, and hosts cut a long one in their skill list, so `make check` fails on one over
@@ -110,7 +110,7 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   every command to the script. The other exception is a mod, below.
 - **A mod is Claude Code's alone.** A `[[mods]]` entry in `plugin.toml` is a plugin whose hooks
   module ([Claude Code mods](https://code.claude.com/docs/en/plugins/mods/overview)) changes how
-  Claude Code handles the core's tools: `atlanai-mods` guards registry writes and repairs gateway
+  Claude Code handles the core's tools: `atlanai-mods` guards Trident writes and repairs gateway
   calls. The build lists it in the Claude marketplace alone and writes only its
   `.claude-plugin/plugin.json`. It depends on `atlanai`, declares no MCP
   server and no settings hooks, and `hooks/hooks.json` names one hooks module (`make check`
@@ -124,9 +124,9 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   `atlan-analytics` once, because Anthropic's directory lists a different plugin named `atlan`
   (atlanhq/agent-toolkit, the data catalog) and two plugins of one name share a skill prefix and
   an MCP server slot in Claude Code, so one silently replaced the other. `atlanai` is also the
-  name of the registry's own plugin, which serves the same server. `X-Atlan-Client`'s value, `atlan-plugin`, is a
+  name of Trident's own plugin, which serves the same server. `X-Atlan-Client`'s value, `atlan-plugin`, is a
   wire identifier the gateway records, and stays as it is.
-- **A workload is an add-on, not a core skill.** A workload built on the registry (analytics,
+- **A workload is an add-on, not a core skill.** A workload built on Trident (analytics,
   later sandbox templates) is an `[[addons]]` entry in `plugin.toml` named `atlanai-<workload>`.
   Its skills, commands and agents are authored here, under `plugins/<name>`, and this repository
   is their source of truth. The app behind the workload should pin a commit of this repository
@@ -141,7 +141,7 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   hooks: CoCo runs neither the hooks module nor the command hooks, whose `items_from` expansion
   needs a rewrite of the tool's input that CoCo's hooks do not offer. The core's names Claude
   Code's `.mcp.json`, the same `atlan` HTTP server, so the skills and the sign-in are unchanged.
-  0.5.55 bridged CoCo through a pinned `mcp-remote` while the registry refused CoCo's client
+  0.5.55 bridged CoCo through a pinned `mcp-remote` while Trident refused CoCo's client
   registration; the control plane accepts it now, and 0.5.56 removed the bridge.
 
 ## Voice
@@ -161,6 +161,11 @@ do next. Nothing else. The rules, which `make check` enforces where a check can:
 7. Do not announce which skill was loaded unless it changes what the user should expect.
 8. One next step, not a menu, and nothing about calls skipped or retried when it changes
    nothing the user should do ("I didn't request an upload ticket").
+
+The product is Atlan Trident: in full wherever a user reads it, and `Trident` alone only after a
+first mention in text for the model or for contributors. "Registry" was its earlier name and
+survives only in identifiers (tool names, file names, error codes) and as a search keyword.
+Never write plain "Atlan" where Atlan Trident is meant: Atlan is also the data catalog.
 
 `tools/lint.py` fails on an em dash, a sentence-ending exclamation mark or a short list of filler
 words (`seamless`, `robust`, `comprehensive`, `streamline` and their kin) in any Markdown at the root or
@@ -196,12 +201,12 @@ replaced by `evals/atlan/emulator/`, a stdio stand-in for the gateway's search m
 fixed organization, because `claude plugin eval` mocks cannot name a tool with `__` in it. It
 needs the claude CLI and costs money, so it is not in CI: run it before a release that changes
 an owned skill, and add a case for each failure you fix. The emulator advertises the gateway's
-own registry tool definitions: `tools/tests/fixtures/gateway-catalogue.json` holds them, and
+own Trident tool definitions: `tools/tests/fixtures/gateway-catalogue.json` holds them, and
 `python3 tools/sync_gateway_tools.py` writes them into the emulator's `world.json` and the tier
 fixture (`make check` fails when either has drifted). When the live gateway changes a tool,
 refresh the catalogue, run the sync, and teach the emulator's handler any new argument; when it
 changes a refusal the skills rely on, change the emulator to match. A case that needs the emulator
-in another state (an organization without the agent app, an empty registry, a rate limit, the
+in another state (an organization without the agent app, an empty Trident, a rate limit, the
 data-catalog server in the plugin's place, or a skill already installed from
 `evals/atlan/fixtures/installed-skills/`) carries an `emulator.json` beside its `case.yaml`
 with the emulator's environment switches; the runner groups cases by that file, one Claude Code
@@ -287,7 +292,7 @@ Repo-specific rules. The full guide, with patterns, anti-patterns and a pre-PR c
   tree, never through a link, never from a credential folder or key file, within 128 files and
   256 KiB (`guard`, `place` and `walk` in `plugins/atlanai/command-hooks/publish_hook.py`, and
   their counterparts in `claude-hooks/register.ts`). It refuses an `extension__agent__publish_output`
-  (or the registry's copy of that tool on a gateway that predates the move) whose inline text
+  (or Trident's copy of that tool on a gateway that predates the move) whose inline text
   matches a credential shape, and never repeats the value (`output_refusal`, `outputRefusal`).
 - **[MUST]** The hooks reach only the Atlan server and, for the update notice, the core's
   `plugin.json` on this repository's `main`. They send nothing about the user or the session to

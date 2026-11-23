@@ -42,7 +42,7 @@ until explicitly migrated. Dependencies stay pinned by constraints.txt.
 
 ## Customer flow
 
-The plugin owns the interview, customer progress and selected Registry workspace. It reuses
+The plugin owns the interview, customer progress and selected Atlan Trident workspace. It reuses
 known source, dialect and connection information. Read the selected asset and generated files
 as task steps, without asking conversational permission for each read. Stage a browser
 download once into the project's source folder; use that copy for inventory and processing.
@@ -55,7 +55,7 @@ Resolve the destination once. A request to save metrics in a chosen Atlan worksp
 in-scope creates and their source links. Show the checked plan as progress and continue, rather
 than asking for another publish confirmation. Explicit draft/preview requests defer writes.
 Manual review, unknown targets, changed source scope and unauthorized revisions remain decision
-points. The shared authorization helper evaluates this scope and makes no Registry calls.
+points. The shared authorization helper evaluates this scope and makes no Trident calls.
 
 ## Execution and publication
 
@@ -70,16 +70,16 @@ and all later gates remain mandatory; customer choices do not interrupt generati
 cards. Review the completed collection before destination and publication decisions.
 
 The retired shape miner, manual candidate/card-review pipeline and standalone dashboard
-SQL/card generator have been removed. `context_contracts.py` retains shared Registry
+SQL/card generator have been removed. `context_contracts.py` retains shared Trident
 contracts, privacy, history intake and reconciliation only. Source inventory and legacy
 readback remain available; generating a revision requires a main-engine run.
 
 Engine runs use publish: [files] and no observers. Export checks completion hashes and the
 output privacy boundary, preserves the metric execution fields, and projects metrics.json,
 queries.json and links.json. Actual producer attribution is recorded during generation and
-carried into Registry provenance. Failed independent parity holds affected metrics and links.
+carried into Trident provenance. Failed independent parity holds affected metrics and links.
 
-The existing Registry publisher owns create/revise/reuse, ETags, idempotency, batching and
+The existing Trident publisher owns create/revise/reuse, ETags, idempotency, batching and
 release readbacks. Its transport is unchanged. A task-scoped authorization record avoids
 duplicate conversational prompts without granting host permissions or overriding release policy.
 
@@ -88,7 +88,7 @@ duplicate conversational prompts without granting host permissions or overriding
 Run make check and make validate at the repository root. The standard suite covers source
 identity, workflow authorization, projection fidelity and variant packaging. Runtime acceptance
 adds synthetic source staging, every authored gate, resume, producer provenance, publication
-planning and independent parity. It makes no model or Registry calls.
+planning and independent parity. It makes no model or Trident calls.
 
 Use a private module runtime for runtime acceptance:
 
@@ -119,7 +119,7 @@ from the publishable files. Independent parity failures continue to create holds
 
 CONTEXT check, task authorization and the resumable publisher enforce the same manifest. A held
 item or link reintroduced after export is refused. The publisher checks again before returning
-a call, and a changed manifest invalidates the reviewed plan. Registry transport is unchanged.
+a call, and a changed manifest invalidates the reviewed plan. Trident transport is unchanged.
 
 Repair rejected SQL through the engine's gates, advance and export into a fresh context. Never
 remove a hold by changing descriptions, editing the manifest or deleting evidence. A completed
@@ -149,7 +149,7 @@ by stripping browser suffixes. Report titles remain display context, not identit
 Format 2 publication manifests record eligibility check versions. All publication entry points
 refuse older or incomplete check sets even when their manifest digest is internally consistent.
 Rerun with the current plugin/runtime from the selected source, preserving the user's answers.
-The source-stage contracts and Registry transport remain unchanged.
+The source-stage contracts and Trident transport remain unchanged.
 
 X3 rejects nested aggregates in one query scope, aggregate/window expressions in row filters
 and windows inside aggregates. Separate subqueries and valid grouped window calculations are
@@ -183,4 +183,4 @@ browser OAuth, environment tokens, legacy connection DSNs, native workspace-scop
 Unity Catalog column metadata and read-only SQL verification. No new third-party dependency
 is added: the existing constrained SQL connector is reused. The SQL-only example remains
 separate for compatibility. History masking, missing namespace context and overflow block
-explicitly; no historical catalog/schema is guessed. Existing Registry publication is unchanged.
+explicitly; no historical catalog/schema is guessed. Existing Trident publication is unchanged.

@@ -10,8 +10,8 @@ so they survive edits. To report a vulnerability, see [SECURITY.md](../SECURITY.
 Plugin content that installs into users' agents (Claude Code, Codex, Cursor, Copilot): skills and
 commands that steer an agent's calls to the `atlan` MCP server at `https://api.atlan.com/mcp`,
 the core's publish helper that reads skill folders off the user's disk and sends them inline, and
-the `atlanai-mods` hooks that gate registry writes. The risks are a skill or hook that leaks local
-files or credentials, sends them to a non-Atlan server, or lets a destructive registry call run
+the `atlanai-mods` hooks that gate Atlan Trident writes. The risks are a skill or hook that leaks local
+files or credentials, sends them to a non-Atlan server, or lets a destructive Trident call run
 unconfirmed. There is no service code and no stored credential here; sign-in is the host's OAuth.
 
 ## Follow these patterns
@@ -39,7 +39,7 @@ unconfirmed. There is no service code and no stored credential here; sign-in is 
   inside a URL, with placeholders let through: `CREDENTIAL_DIRS` in `publish_hook.py` and `claude-hooks/bundle.ts`, and `KEY_FILES`
   and `SECRETS` in `plugins/atlanai/skills/atlan-author-skills/scripts/check_bundle.py` and
   `bundle.ts`.
-- **A shared output is scanned too.** `extension__agent__publish_output` (and the registry's copy
+- **A shared output is scanned too.** `extension__agent__publish_output` (and Trident's copy
   on a gateway that predates the move) with inline `file.content` is held to the same `SECRETS`: a match denies the call and names the kind, line and column, never
   the value. The scan reads only the call's own text, and a fault sends the call as it was:
   `outputRefusal` in `register.ts`, `output_refusal` in `publish_hook.py`.
@@ -52,7 +52,7 @@ unconfirmed. There is no service code and no stored credential here; sign-in is 
 - **Hook commands never fall back to the current folder.** They run the script from their
   plugin root and nothing when it is unset; never `${ROOT:-.}`, and never `${ROOT:?}`, whose exit 2
   makes Cursor block every call (`CURSOR_ENTRIES` in `tools/lint.py`).
-- **Destructive registry calls always ask.** Archive, approve, move, release and roll-back confirm with the blast
+- **Destructive Trident calls always ask.** Archive, approve, move, release and roll-back confirm with the blast
   radius, and are refused where nobody can answer: `ALWAYS_CONFIRM` in
   `plugins/atlanai-mods/hooks/registry.ts` and `NO_APPROVER` in `hooks/register.tsx`.
 - **Subprocesses by argv list, with a timeout.** No shell strings in bundled scripts; see `run`
