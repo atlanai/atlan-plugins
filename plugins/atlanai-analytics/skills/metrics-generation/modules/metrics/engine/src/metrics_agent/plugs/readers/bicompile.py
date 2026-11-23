@@ -1050,6 +1050,13 @@ class _Parser:
         parts = _split_top(inner) if inner else []
         source = _bare(self.home[1]) if self.home else (self.ctx.source if self.ctx else None)
         expand = self.ctx.expanded if self.ctx is not None else (lambda t: {t})
+        renames = self.ctx.renames if self.ctx is not None else {}
+
+        def read_as(col: str, table: str | None) -> str:
+            # The column as its table reads it (a Power Query rename): the visual's grouping
+            # and filters name it so, and `_window_for` compares the two by name.
+            return str(renames.get((str(table or source or "").lower(), col), col)).lower()
+
         if not parts:
             out["all"] = True
             return out
@@ -1062,7 +1069,7 @@ class _Parser:
                 out["all"] = True
             else:
                 out["tables"] |= expand(table)
-            out["except"] = {(c, t or table) for c, t in cols}
+            out["except"] = {(read_as(c, t or table), t or table) for c, t in cols}
             return out
         for p in parts:
             table = self._table_arg(p)
@@ -1076,7 +1083,7 @@ class _Parser:
             if col is None:
                 raise CompileError(f"{head} is compiled over tables and columns, not "
                                    f"{' '.join(v for _k, v in p)!r}")
-            out["columns"].add(col)
+            out["columns"].add((read_as(*col), col[1]))
         return out
 
     def _window_for(self, removal, overrides) -> list[str] | None:
