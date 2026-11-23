@@ -543,7 +543,9 @@ def snapshot(run, engine_dir=None, focus=None, host=None, server=None):
         # The structural check records the check stage complete before any test runs; the checklist's test item waits
         # for every verdict (or the person's skip).
         from run_facts import RunFacts
-        model['checks_over'] = RunFacts(reader.root, engine_dir).checks_over
+        facts = RunFacts(reader.root, engine_dir)
+        # An export with nothing in it has nothing to validate: the step must not wait forever for its verdicts.
+        model['checks_over'] = facts.checks_over or not facts.context
     from experience_workbench import focus_sample
     from journey import apply
     model = apply(focus_sample(model, focus), interaction, explicit_focus=explicit_focus)

@@ -100,7 +100,7 @@ the first survey on, as [visuals](references/setup/visuals.md) says.
 Keep execution, source review, holds and releases separate, with factual check labels and
 the tracker's step headings. Total = metrics + saved queries. Attribute saved checks
 to the earlier run. After publication, answers retrieve definitions before SQL runs. Cloning
-a repository the person names is an ordinary step, never a special workflow.
+a repository the person names is an ordinary step; its name or layout never selects a special workflow.
 
 Use this host and its Atlan MCP connection. This chat is the talk-to-data agent; this add-on
 deploys or evaluates no separate agent, and says so in one line when asked.

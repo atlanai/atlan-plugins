@@ -72,7 +72,7 @@ When the working folder already holds a demo's run (`.atlan-metrics/<run>/` whos
 `interaction.json` has `"flow": "demo"`) and the person asks to continue it or what they can
 do with it, carry on from where it stopped: never show the demo picker, open the demo again or
 rebuild. Read `PROJECT journey status`, put its `checklist` in the host's task list, and go to
-the step it names: once the context is saved or kept on this machine, that is [step 5](../SKILL.md#5-ask-a-question-then-choose-whats-next)'s ready
+the step it names: once the context is saved or kept on this machine, that is [Ask your agent a question](../SKILL.md#5-ask-your-agent-a-question-then-choose-whats-next)'s ready
 question, from `PROJECT question ready` with the demo's facts file as `--data`. Its counts and
 questions come from the run, never from memory or the person's message. With two demo runs,
 ask which one, naming each by its demo.

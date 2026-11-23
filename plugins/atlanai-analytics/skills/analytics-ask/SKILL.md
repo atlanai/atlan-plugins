@@ -47,6 +47,7 @@ you meant something else."
 3. Send these together after the search, as one `mcp__call_read_tools` call when listed:
    - **The keyword search, when no semantic hit measures it**: the same search with
      `semantic: false`. Keep `include_definition`: without it, unreleased heads return.
+     Once the session is open, send both searches together.
    - **The kept hit's definition, when it is not the first**: `extension__metric__search_metrics`
      with its exact `name`, the `workspace_id` that hit carries (required with a name),
      `include_definition: true` and `definition_view: "compact"`. Never answer from the

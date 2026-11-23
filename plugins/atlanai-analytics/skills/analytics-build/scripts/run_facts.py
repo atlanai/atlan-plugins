@@ -26,7 +26,9 @@ FOUND = ((('powerbi',), 'Power BI dashboard'), (('powerbi_project',), 'Power BI 
 FOUND_SAID = {'query history': ('past queries', 'files of past queries')}
 # Warehouses as a person names them; any other kind reads as its own name.
 WAREHOUSES = {'snowflake': 'Snowflake', 'databricks': 'Databricks', 'bigquery': 'BigQuery', 'redshift': 'Redshift',
-              'postgres': 'Postgres', 'postgresql': 'Postgres', 'duckdb': 'DuckDB'}
+              'postgres': 'Postgres', 'postgresql': 'Postgres', 'duckdb': 'DuckDB', 'mysql': 'MySQL', 'tsql': 'SQL Server',
+              'mssql': 'SQL Server', 'sqlserver': 'SQL Server', 'oracle': 'Oracle', 'trino': 'Trino', 'presto': 'Presto',
+              'athena': 'Athena', 'synapse': 'Synapse', 'teradata': 'Teradata', 'clickhouse': 'ClickHouse'}
 
 
 DEMOS = Path(__file__).resolve().parents[2] / 'analytics-demo' / 'references'
@@ -317,7 +319,8 @@ class RunFacts:
 
     @cached_property
     def config(self):
-        return self.file('engine-config.json')
+        # A warehouse run keeps it in private/ (metrics-engine.md): its tables read "from your data" without this.
+        return self.file('engine-config.json') or self.file('private', 'engine-config.json')
 
     @cached_property
     def inputs(self):

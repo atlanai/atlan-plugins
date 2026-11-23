@@ -187,29 +187,22 @@ def collect(kind, facts):
         tiles = [o for o in facts.engine_file('verified_queries.bi.json').get('objects') or [] if isinstance(o, dict)]
         bi = [((o.get('provenance') if isinstance(o.get('provenance'), dict) else {}).get('bi') or {}) for o in tiles]
         if tiles:
-            # The pages the person picked, when the fetch read more of the report: the review's run said "50 tiles" for a
-            # one-page pick of 12. Kept whole when the pick names no page the tiles carry ("all pages").
-            picked = {' '.join(x.split()) for x in str(facts.interaction.get('report') or '').partition(':')[2].split(',')}
-            on = [i for i, b in enumerate(bi) if isinstance(b, dict) and ' '.join(str(b.get('page') or '').split()) in picked]
-            if on:
-                tiles, bi = [tiles[i] for i in on], [bi[i] for i in on]
             # Its page in the dashboard, kept apart from `page`, which is the side page's own address. Each tile opens to
             # its question: in the build's plain words once described, else its own when it already reads as one. A tile
-            # is named by its title on the dashboard, never by the report's internal code for it, and a tile written as
-            # several queries (one per account, say) is one tile.
+            # is named by its title on the dashboard, never by the report's internal code for it. The count stays the one
+            # the later chips and the save question use (the fetch reads every page; picking pages there is the engine's).
             asked = [first_question((facts.descriptions.get(o.get('vq_id')) or {}).get('question') or o.get('question')) for o in tiles]
-            rows, seen = [], set()
+            rows = []
             for b, q in zip(bi, asked):
-                if not isinstance(b, dict) or not b.get('visual') or b['visual'] in seen:
+                if not isinstance(b, dict) or not b.get('visual'):
                     continue
-                seen.add(b['visual'])
                 widget = (b.get('source_fragments') or {}).get('widget') if isinstance(b.get('source_fragments'), dict) else None
                 title = str(facts.engine_file(widget).get('title') or '').strip() if isinstance(widget, str) else ''
                 # The visual's own name where it is one, never a report's internal code for it (a GUID in Power BI).
                 title = title or ('' if re.fullmatch(r'[0-9a-fA-F-]{16,}', str(b['visual'])) else str(b['visual']))
                 if title or q.endswith('?'):
                     rows.append([title or q, '', q if title and q.endswith('?') else ''])
-            return {'tiles': len(seen) or len(tiles), 'report': facts.report,
+            return {'tiles': len(tiles), 'report': facts.report,
                     'bi_page': next((str(b['page']) for b in bi if isinstance(b, dict) and b.get('page')), None), 'rows': rows}
     if kind == 'described' and 'm2_ingest' in facts.stages:
         return _described(facts)
@@ -681,13 +674,16 @@ def _outcome(kind, s):
     elif kind == 'described' and s.get('described'):
         # Each count says where it came from, as on main: the review of PR 205 found this chip and the next had lost it.
         o = {'mark': 'described', 'bold': count(s['described'], 'question') + ' written',
-             'tail': _from({'tiles': s.get('tiles'), 'queries': s.get('past')}) or 'in %s words' % their(s.get('firm')),
+             # From one source the count would only repeat itself ("5 questions written · from your 5 questions").
+             'tail': ('from %s %s and %s' % (their(s.get('firm')), count(s['past'], 'question'), count(s['tiles'], 'dashboard tile'))
+                      if s.get('past') and s.get('tiles') else 'from %s dashboard\'s tiles' % their(s.get('firm')) if s.get('tiles')
+                      else 'in %s words' % their(s.get('firm'))),
              'rows': s.get('rows'),
              'what': 'When you ask one of these, your agent finds the question that matches and uses its SQL.'}
     elif kind == 'drafted' and s.get('drafted'):
         # Of the questions just written, how many work out a metric: "found in 3 of those 4 questions", so this count
         # follows the one before it (a count of source ids read "from 5 past queries" after "4 questions written").
-        found_in = ('found in %d of those %s' % (s['with'], count(s['read'], 'question'))
+        found_in = ('in %d of those %s' % (s['with'], count(s['read'], 'question'))
                     if s.get('read') and s.get('with') is not None else _from(s.get('from')))
         o = {'mark': 'metrics', 'bold': count(s['drafted'], 'metric') + ' found', 'tail': found_in,
              'rows': s.get('rows'),

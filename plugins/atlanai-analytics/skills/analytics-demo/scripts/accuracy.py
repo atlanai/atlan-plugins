@@ -175,8 +175,10 @@ def _score(ev: pathlib.Path, variant: str) -> dict:
     except json.JSONDecodeError:
         raise Blocked(f"No score for {variant}: {(out.stdout or out.stderr)[-200:]}")
     v = s.get("validation") or {}
-    return {"line": s.get("score_line") or "", "n": int(v.get("n") or 0),
-            "pct": int(100 * float(v.get("pass_rate") or 0) + 0.5)}  # half up, as the result lines round
+    n = int(v.get("n") or 0)
+    # The score line's own rounding, from the count right rather than the rounded rate: 23 of 40 is 58% in both.
+    right = round(float(v.get("pass_rate") or 0) * n)
+    return {"line": s.get("score_line") or "", "n": n, "pct": (200 * right + n) // (2 * n) if n else 0}
 
 
 def _questions(n) -> str:
