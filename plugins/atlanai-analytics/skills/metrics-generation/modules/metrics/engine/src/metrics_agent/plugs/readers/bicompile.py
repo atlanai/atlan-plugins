@@ -1597,7 +1597,9 @@ class _Parser:
         phys_col = self.ctx.renames.get((dbare, dcol.lower()), dcol)
         bound = f"(SELECT {agg}(cs.{_legal(phys_col)}) FROM {physical} cs)"
         is_date = "date" in str(self.ctx.types.get((table.lower(), dcol.lower())) or "").lower()
-        blank = "CAST('1899-12-30' AS DATE)" if is_date else "0"
+        # DAX's blank against a date is day 0, against text "", against a number 0.
+        blank = ("CAST('1899-12-30' AS DATE)" if is_date
+                 else "''" if self.ctx.is_text(table, dcol) else "0")
         self.used.append("engine.dax_context_bound")
         pred = f"{col} {op} {bound}"
         # DAX's blank is 0 (a date's day 0): it passes where 0 <op> the bound holds.
@@ -3473,7 +3475,7 @@ class _Parser:
             if t2 is not None and (source is None or t2 == source):
                 pred = self._row_predicate(parts[1])
                 self.i = end + 1
-                gate = f"({self.row_filter}) AND {pred}" if self.row_filter else pred
+                gate = f"({self.row_filter}) AND {_grouped(pred)}" if self.row_filter else pred
                 self.used.append("engine.dax_count_blank")
                 return self._combine("COUNTROWS", emit,
                                      f"NULLIF(COUNT(CASE WHEN {gate} THEN 1 END), 0)",
@@ -3763,6 +3765,11 @@ class _Parser:
         the two are the same set. Anywhere else, None (and the declared limit)."""
         head, inner = _call_head(toks)
         if head != "TREATAS" or self.ctx is None or self.home is None:
+            return None
+        if (self.row_filter or self.window is not None or self.date_set is not None
+                or self.slot_drops or self.slot_keep is not None):
+            # Inside another CALCULATE, a filter on D's other columns may hold, which TREATAS
+            # keeps and the lookup's ALL(D) would drop.
             return None
         parts = _split_top(inner)
         if len(parts) != 2:

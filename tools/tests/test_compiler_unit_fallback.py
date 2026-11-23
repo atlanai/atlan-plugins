@@ -414,3 +414,25 @@ class StillLeftOutTest(unittest.TestCase):
         grouped = compile3(measure('Sales LY', f), group_by=['retail_year'],
                            group_by_tables=[CAL])
         self.assertNotIn('engine.dax_time_lookup_treatas', grouped.rules_used)
+
+    def test_treatas_inside_another_calculate_is_not_the_lookup(self):
+        f = ("CALCULATE(CALCULATE(SUM(Orders[amount]), TREATAS(SUMMARIZE('Calendar', "
+             "'Calendar'[prior_year_date]), 'Calendar'[calendar_date])), "
+             "'Calendar'[retail_year] = 2025)")
+        self.assertNotIn('engine.dax_time_lookup_treatas', compile3(measure('M', f)).rules_used)
+
+    def test_an_or_row_predicate_under_a_calculate_filter_keeps_its_parentheses(self):
+        res = compile3(measure('M', 'CALCULATE(COUNTROWS(FILTER(Orders, Orders[flag] = "N" '
+                                    '|| Orders[other] = "N")), Orders[channel] = "a")'))
+        self.assertEqual(self.run_sql(res), [(2,)])       # order 1's and order 5's N rows
+
+    def test_a_text_bound_compares_a_blank_as_the_empty_string(self):
+        COLUMNS3[CAL].add('label')
+        TYPES3[('calendar', 'label')] = 'string'
+        try:
+            res = compile3(measure('M', "CALCULATE(SUM(Orders[amount]), KEEPFILTERS(Orders[flag] "
+                                        "<= MAX('Calendar'[label])))"))
+        finally:
+            COLUMNS3[CAL].discard('label')
+            TYPES3.pop(('calendar', 'label'))
+        self.assertIn("'' <= (SELECT MAX(cs.label)", res.sql)

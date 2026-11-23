@@ -169,6 +169,15 @@ def split_measures(u: dict, compile_, res, max_chars: int = 0):
     ms = list(u.get("measures") or [])
     if len(ms) < 2:
         return None
+    seen_compiles: dict[tuple, object] = {}
+    raw_compile = compile_
+
+    def compile_(sub_unit: dict):
+        """The reader's compile of a sub-unit, once per set of measures."""
+        key = tuple(id(m) for m in sub_unit["measures"])
+        if key not in seen_compiles:
+            seen_compiles[key] = raw_compile(sub_unit)
+        return seen_compiles[key]
     refused = res.coverage == _sockets.REFUSED or not res.sql
     too_big = bool(max_chars) and not refused and len(res.sql) > max_chars
 
