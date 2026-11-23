@@ -41,6 +41,7 @@ one that runs.
 """
 from __future__ import annotations
 
+import contextvars
 import pathlib
 import re
 from typing import Any
@@ -4295,9 +4296,44 @@ def _legal(name: str) -> str:
     return name if _SIMPLE_IDENT.match(name) else '"' + name.replace('"', '""') + '"'
 
 
+# The unit being compiled's own aliases for measures whose names share one (`_unique_aliases`):
+# set by `compile_unit` for the whole compile, nested statements included.
+_ALIASES: contextvars.ContextVar[dict[str, str] | None] = contextvars.ContextVar(
+    "bicompile_aliases", default=None)
+
+
 def _measure_alias(name: str) -> str:
-    """A measure's column alias: `slugs.column_alias` (a symbol kept as a word)."""
+    """A measure's column alias: `slugs.column_alias` (a symbol kept as a word), unless the
+    unit gives it one of its own (`_unique_aliases`)."""
+    own = _ALIASES.get()
+    if own and name in own:
+        return own[name]
     return slugs.column_alias(name)
+
+
+def _unique_aliases(unit: dict) -> dict[str, str]:
+    """{measure name: alias} for the measures of `unit` whose names give the SAME column alias
+    as an earlier measure's (`Cost $` and `Cost ($)` are both `cost_usd`): each later one is
+    numbered (`cost_usd_2`), never an alias any measure of the unit has. Two columns of one
+    name in one SELECT are rejected by the warehouse, or read as the wrong one by whatever
+    reads the statement. Empty when every measure's alias is its own."""
+    names = list(dict.fromkeys(str(m.get("name") or "") for m in unit.get("measures") or []
+                               if m.get("name")))
+    base = {n: slugs.column_alias(n) for n in names}
+    taken = set(base.values())
+    seen: set[str] = set()
+    out: dict[str, str] = {}
+    for n in names:
+        a = base[n]
+        if a not in seen:
+            seen.add(a)
+            continue
+        k = 2
+        while f"{a}_{k}" in taken:
+            k += 1
+        out[n] = f"{a}_{k}"
+        taken.add(out[n])
+    return out
 
 
 def _native_colmap(columns: dict) -> dict[str, str]:
@@ -4312,6 +4348,91 @@ def _native_colmap(columns: dict) -> dict[str, str]:
     for v in columns.values():
         colmap.setdefault(str(v).lower(), v)
     return colmap
+
+
+def _constant_share(m: dict, unit: dict, ctx: "_UnitContext", measures: dict[str, str] | None,
+                    table_of: dict[str, str] | None) -> str | None:
+    """Why a share of total is 1 on every row of this statement, else None.
+
+    `DIVIDE(x, CALCULATE(x, REMOVEFILTERS('T'[c])))` (or `ALL`) is x over x with the filters
+    on `c` removed from the denominator. On a statement that neither groups nor filters by
+    `c` (or, for a whole table removed, by any column of `T`) there is no filter to remove:
+    both sides are the same number and the ratio is 1 (or its alternate) on every row. That
+    is not the measure the model defines, which means something only where `c` is in the
+    context, so it is refused by name rather than published as a constant."""
+    if m.get("formula_language") != "dax" or not m.get("formula"):
+        return None
+    try:
+        toks = _strip_parens(tokenize(m["formula"]))
+    except CompileError:
+        return None
+    head, inner = _call_head(toks)
+    if head != "DIVIDE":
+        return None
+    args = _split_top(inner)
+    if len(args) not in (2, 3):
+        return None
+    num, den = _strip_parens(args[0]), _strip_parens(args[1])
+    dhead, dinner = _call_head(den)
+    if dhead != "CALCULATE":
+        return None
+    dargs = _split_top(dinner)
+    if len(dargs) < 2:
+        return None
+
+    def same(a: list, b: list) -> bool:
+        def text(t: list) -> str:
+            t = _strip_parens(t)
+            if len(t) == 1 and t[0][0] == "col" and measures:
+                f = measures.get(_column_ref(t[0][1]).lower())
+                if f:
+                    try:
+                        t = _strip_parens(tokenize(f))
+                    except CompileError:
+                        pass
+            return re.sub(r"\s+", "", _text_of(t)).lower()
+        return text(a) == text(b)
+    if not same(num, _strip_parens(dargs[0])):
+        return None
+    removed: list[tuple[str, str | None]] = []       # (model table, column or None)
+    for f in dargs[1:]:
+        fhead, finner = _call_head(_strip_parens(f))
+        if fhead not in ("REMOVEFILTERS", "ALL") or not finner:
+            return None
+        for a in _split_top(finner):
+            if len(a) != 1:
+                return None
+            k, v = a[0]
+            if k in ("qualified", "quoted_qualified"):
+                removed.append((str(_table_ref(v) or ""), _column_ref(v)))
+            elif k == "str" and v[:1] == "'":
+                removed.append((v[1:-1].replace("''", "'"), None))
+            elif k == "func":
+                removed.append((v, None))
+            else:
+                return None
+    if not removed:
+        return None
+    cols = {str(c).lower() for c, _t, _k in ctx.groups} | {str(c).lower() for c, _t in
+                                                           ctx.filters}
+    cols |= {str(g).lower() for g in unit.get("group_by") or []}
+    cols |= {str(f.get("column")).lower() for f in unit.get("filters") or [] if f.get("column")}
+    tabs = {_bare(t) for _c, t, _k in ctx.groups if t} | {_bare(t) for _c, t in ctx.filters if t}
+    tabs |= {_bare(t) for t in unit.get("group_by_tables") or [] if t}
+    renames = ctx.renames or {}
+
+    def in_context(table: str, col: str | None) -> bool:
+        wh = _bare((table_of or {}).get(table.lower()) or table)
+        if col is None:
+            return wh in tabs or table.lower() in tabs
+        c = col.lower()
+        return c in cols or str(renames.get((wh, c), c)).lower() in cols
+    if any(in_context(t, c) for t, c in removed):
+        return None
+    what = ", ".join(f"'{t}'[{c}]" if c else f"'{t}'" for t, c in removed)
+    return (f"a share of total whose denominator removes the filters on {what}, which this "
+            f"statement neither groups nor filters by: the ratio is the same number over "
+            f"itself, 1 on every row; it has a meaning only where {what} is in the context")
 
 
 def _compile_unit(unit: dict, rules, dialect: str, *, alias: str = "t",
@@ -4764,6 +4885,12 @@ def _compile_unit(unit: dict, rules, dialect: str, *, alias: str = "t",
             ranked_by = ranked_by or _measure_alias(m["name"])
             continue
         seen_gaps, seen_unknown = len(res.untranslatable), len(res.unknown)
+        constant = _constant_share(m, unit, ctx, measures, table_of)
+        if constant:
+            failed.append(f"{m.get('name')!r}: {constant}")
+            res.untranslatable.append({"construct": "share of total with nothing to remove",
+                                       "in_measure": m.get("name") or "", "why": constant})
+            continue
         elsewhere = _measure_elsewhere(m, unit, source, columns) if not native else None
         if elsewhere:
             # A shelf aggregation of a column of ANOTHER table: read off this statement's
@@ -6320,11 +6447,30 @@ def _composite_statement(unit: dict, measures: dict[str, str], table_of: dict[st
     r = again(sub)
     if r.coverage == REFUSED or not r.sql:
         return r
-    groups, _vals = _leaf_names(r, sub)
+    groups, vals = _leaf_names(r, sub)
     cols = [f"j.{g} AS {g}" if g != _out_name(g) else f"j.{g}" for g in groups]
     shown = []
+    # ONLY WHAT THE INNER STATEMENT PRODUCES IS READ. A measure (or a composite's part) the
+    # inner statement left out, with its gap named there, has no column in it: selecting
+    # `j.<it>` anyway made the warehouse refuse the WHOLE statement (an invalid identifier),
+    # every compiled measure with it. The measure, and a composite reading such a part, are
+    # left out here too, each with its reason.
+    have = set(vals)
+    left: list[str] = []
     for m in unit.get("measures") or []:
         alias = _measure_alias(m["name"])
+        if m["name"] in comps:
+            missing = [k for k, pname in enumerate(names[m["name"]])
+                       if _measure_alias(pname) not in have]
+            if missing:
+                why = (f"it reads {comps[m['name']][1][missing[0]]!r}, which the statement "
+                       f"does not compile")
+                r.untranslatable.append({"construct": "measure reading a part left out",
+                                         "in_measure": m["name"], "why": why})
+                left.append(f"measure {m['name']!r}: {why}")
+                continue
+        elif alias not in have:
+            continue
         if m["name"] in comps:
             outer, _parts = comps[m["name"]]
             text = _text_of(outer)
@@ -6341,6 +6487,15 @@ def _composite_statement(unit: dict, measures: dict[str, str], table_of: dict[st
         else:
             cols.append(f"j.{alias}")
         shown.append(cols[-1].rsplit(" AS ", 1)[0])
+    if left:
+        r.reason = "; ".join([x for x in [r.reason] if x] + left)
+        r.coverage = PARTIAL
+    if not shown:
+        res = Result()
+        res.reason = r.reason or "no measure of the unit compiled"
+        res.untranslatable = list(r.untranslatable)
+        res.unknown = list(r.unknown)
+        return res
     body = "\n".join("    " + ln if ln.strip() else ln for ln in r.sql.splitlines())
     r.sql = ("SELECT " + ",\n       ".join(cols) + f"\nFROM   (\n{body}\n) j"
              + ("\nWHERE  " + "\n    OR ".join(f"({e}) IS NOT NULL" for e in shown)
@@ -7450,6 +7605,13 @@ def compile_unit(unit: dict, rules, dialect: str, *, table_sql: dict[str, str] |
     view's own calculations (`visual_matrix`) is read off the view's matrix, each level of it
     compiled here (readers/visualcalc.py)."""
     inner = kw.pop("_inner", False)
+    own = _unique_aliases(unit)
+    if own and any((_ALIASES.get() or {}).get(k) != v for k, v in own.items()):
+        token = _ALIASES.set({**(_ALIASES.get() or {}), **own})
+        try:
+            return compile_unit(unit, rules, dialect, table_sql=table_sql, _inner=inner, **kw)
+        finally:
+            _ALIASES.reset(token)
     if unit.get("visual_matrix"):
         from metrics_agent.plugs.readers import visualcalc as _vcalc  # noqa: PLC0415
         res = _vcalc.compile_matrix(
@@ -7628,6 +7790,12 @@ def _compile_time_unit(unit: dict, rules, dialect: str, *, alias: str, columns, 
             continue
         seen = len(res.untranslatable)
         before = len(slots)
+        constant = _constant_share(m, unit, ctx, measures, table_of)
+        if constant:
+            failed.append(f"{m.get('name')!r}: {constant}")
+            res.untranslatable.append({"construct": "share of total with nothing to remove",
+                                       "in_measure": m.get("name") or "", "why": constant})
+            continue
         try:
             expr = _compile_measure(m, rules, alias, dialect, res, None, measures, unit,
                                     home=home, ctx=ctx, slots=slots)
