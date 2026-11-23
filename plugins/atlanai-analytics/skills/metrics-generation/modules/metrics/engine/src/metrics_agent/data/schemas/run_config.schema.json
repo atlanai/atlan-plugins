@@ -147,7 +147,7 @@
             "minLength": 1,
             "maxLength": 200
           },
-          "description": "Literals a person reviewed as business values, not names (a line of business such as 'Variable Spend'). Exact text; each clears the person's-name check for that literal only."
+          "description": "Literals a person reviewed as business values, not names (a team named as an owner, such as 'Data Platform'). Exact text; each clears the check on a value compared with a column of people, for that literal only."
         }
       }
     }

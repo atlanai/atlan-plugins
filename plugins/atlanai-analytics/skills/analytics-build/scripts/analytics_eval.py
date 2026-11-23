@@ -84,7 +84,7 @@ _policy_spec = _importlib_util.spec_from_file_location('atlan_literal_privacy', 
 _policy = _importlib_util.module_from_spec(_policy_spec)
 _policy_spec.loader.exec_module(_policy)
 PII_RULES, PII = _policy.PII_RULES, _policy.PII
-full_name_hit, pii_reason = _policy.full_name_hit, _policy.pii_reason
+full_name_hit, person_name_hit, pii_reason = _policy.full_name_hit, _policy.person_name_hit, _policy.pii_reason
 set_reviewed_values = _policy.set_reviewed
 
 

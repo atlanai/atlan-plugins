@@ -20,7 +20,7 @@ import sys
 # No __pycache__ is written into the installed plugin's folder.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from analytics_eval import PII as _SHARED_PII, full_name_hit, set_reviewed_values  # noqa: E402
+from analytics_eval import PII as _SHARED_PII, person_name_hit, set_reviewed_values  # noqa: E402
 import registry_contract  # noqa: E402
 
 VERSION = "0.1.0"
@@ -372,9 +372,11 @@ _NOT_PERSON = re.compile(r"(?:product|item|sku|table|column|metric|region|countr
 def _pii(text: str, names: bool = True):
     if _EMAIL.search(text or ""):
         return "an email address"
-    name = full_name_hit(text) if names else None
+    # A value compared with a person's column (rep_name = 'Jane Smith'): the two-word name rule that also refused
+    # business values such as 'Enterprise Architect' was removed on 2026-11-23.
+    name = person_name_hit(text) if names else None
     if name:
-        return f"a person's name ({name})"
+        return f"a person's name ({name}): a value compared with a column of people"
     if _ENTITY_ID.search(text or "") or _UUID.search(text or "") or _PREFIXED_ID.search(text or ""):
         return "an identifier literal: make it a parameter, or leave the row out"
     return None
@@ -1110,8 +1112,9 @@ def selftest() -> dict:
        _pii("UPPER(RTRIM(\"Engagement Status\")) = 'Actively Worked'") is None
        and _pii("CASE WHEN s >= 4 THEN 'Well Covered' ELSE 'No Coverage' END AS coverage_tier") is None
        and _pii("CASE WHEN on_track THEN 'On Pace' END") is None)
-    ok("a name beside a people column, or written by a CASE into one, is still refused",
-       _pii("status = 'Open' and owner_name = 'Jane Smith'") and _pii("CASE WHEN id = 4 THEN 'Jane Smith' END AS owner_name"))
+    ok("a name compared with a people column is still refused, and a two-word value alone is not",
+       _pii("status = 'Open' and owner_name = 'Jane Smith'") and _pii("where sales_rep = 'Jane Smith'")
+       and _pii("where title = 'Enterprise Architect'") is None)
     bad = json.loads(json.dumps(good))
     bad["display_name"] = "Paid Revenue by Region"
     bad["definition"].update({"aggregation": {"type": "count"}, "owner": "x", "filters": ["DB.S.ORDERS.DT >= '2026-01-01'"]})
