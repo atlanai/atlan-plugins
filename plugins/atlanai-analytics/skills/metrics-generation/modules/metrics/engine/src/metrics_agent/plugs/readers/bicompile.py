@@ -452,7 +452,7 @@ class _Parser:
         kind, value = self.peek()
         if kind == "op" and value in ("-", "+"):
             self.take()
-            inner = self._dax_unary()
+            inner = self._text_as_number(self._dax_unary())
             return f"-{inner}" if value == "-" else inner
         return self._dax_power()
 
@@ -489,6 +489,14 @@ class _Parser:
         operand is, as DAX applies pairwise. Written once per chain, so the statement grows
         with the number of operands rather than doubling with each one."""
         self.used.append("engine.dax_blank_arithmetic")
+        terms = [(op, self._text_as_number(sql)) for op, sql in terms]
+        for _op, sql in terms:
+            if self._is_date(sql):
+                raise CompileError(
+                    "a date in + or -: DAX reads it as a datetime, a number of days from 30 "
+                    "December 1899 (DATE(2024, 1, 1) + 0.5 is noon, and a date minus a date is "
+                    "a datetime too), and the result's type is not carried through the "
+                    "expression")
         kinds = [self._literal_kind(sql) for _, sql in terms]
         parts = [sql if kind else f"COALESCE({sql}, 0)" for (_, sql), kind in zip(terms, kinds)]
         body = parts[0] + "".join(f" {op} {part}" for (op, _), part in zip(terms[1:], parts[1:]))
@@ -500,6 +508,8 @@ class _Parser:
     def _dax_op(self, op: str, a: str, b: str) -> str:
         if op in ("&&", "||"):
             return f"{a} {'AND' if op == '&&' else 'OR'} {b}"
+        if op in ("^", "*", "/"):
+            a, b = self._text_as_number(a), self._text_as_number(b)
         if op == "^":
             return f"POWER({a}, {b})"
         lit_a, lit_b = self._literal_kind(a), self._literal_kind(b)
@@ -604,6 +614,41 @@ class _Parser:
         if re.match(r"(?i)^CAST\('\d{4}-\d{2}-\d{2}[^']*' AS (DATE|TIMESTAMP)\)$", s):
             return "date"
         return None
+
+    _DIGITS = re.compile(r"^\s*([+-]?)\s*(\d+)\s*$")
+
+    def _text_as_number(self, sql: str) -> str:
+        """A text literal as an arithmetic operand, read as the number DAX converts it to
+        (seen live: "3" * 2 is 6, "1" + "2" is 3, -"4" is -4). DAX reads it by the model's
+        culture; whole digits read alike in every culture, so they are that number. Text with
+        a decimal or group separator, or that is no number, is refused by name, as VALUE is.
+        Any other operand is returned as it is."""
+        if self._literal_kind(sql) != "str":
+            return sql
+        s = sql.strip()
+        while s.startswith("(") and s.endswith(")") and _balanced(s[1:-1]):
+            s = s[1:-1].strip()
+        text = s[1:-1].replace("''", "'")
+        m = self._DIGITS.match(text)
+        if not m:
+            raise CompileError(
+                f"the text {s} in arithmetic: DAX converts it to a number by the model's "
+                f"culture (its decimal and group separators), which the warehouse does not "
+                f"reproduce; only whole digits are read")
+        self.used.append("engine.dax_text_as_number")
+        n = int(m.group(2))
+        return f"(-{n})" if m.group(1) == "-" and n else str(n)
+
+    def _is_date(self, sql: str) -> bool:
+        """Whether compiled SQL is certainly a date: a column declared a date (or MIN / MAX
+        of one), a date literal, or a cast to a date, as DATE() compiles."""
+        if self._blank_kind(sql) == "date":
+            return True
+        s = sql.strip()
+        while s.startswith("(") and s.endswith(")") and _balanced(s[1:-1]):
+            s = s[1:-1].strip()
+        m = re.match(r"(?is)^CAST\((.*)\s+AS\s+(DATE|TIMESTAMP\w*|DATETIME)\)$", s)
+        return bool(m) and _balanced(m.group(1))
 
     def _literal_kind(self, sql: str) -> str | None:
         s = sql.strip()
@@ -2272,6 +2317,13 @@ class _Parser:
             # its own (lib/withheld), never the value.
             self.used.append("op.viewer_bind")
             emit = {**emit, "template": emit["template"].replace("{viewer}", ph)}
+        for k in emit.get("date_args") or ():
+            # A text where the row reads a date: DAX converts it by the model's culture.
+            if self._dax and int(k) < len(args) and self._literal_kind(args[int(k)]) == "str":
+                raise CompileError(
+                    f"{up} of the text {args[int(k)].strip()}: DAX reads text as a date by the "
+                    f"model's culture (\"3/5/2024\" is 5 March in en-US, 3 May in en-GB), which "
+                    f"the warehouse does not reproduce")
         if self._dax and up == "DATE" and args:
             # A two-digit year is windowed as DAX's DATE windows it (`dax_year`).
             args = [dax_year_sql(args[0]), *args[1:]]
@@ -6178,6 +6230,49 @@ class _NoTransition(CompileError):
     name for the measure it is in, never compiled as if CALCULATE were there."""
 
 
+class _RowValueUnplaced(_NoTransition):
+    """A member iterator's test or value reads a column of the iterated row whose one value
+    per member is not certain: refused by name for the measure it is in."""
+
+
+# Functions that only compute over the values given them, so a column read inside them is
+# still the iterated row's own value.
+_ROW_SCALAR_FUNCS = (_CONTEXT_FREE_FUNCS - {"VAR", "RETURN"}) | {"ISBLANK", "YEAR", "MONTH",
+                                                                 "DAY", "QUARTER"}
+
+
+def _member_row_values(toks: list, phys: str, tmap: dict[str, str], own: set[str],
+                       whole: bool, head: str) -> list:
+    """An iterator's per-member test or value with each bare column of the iterated table
+    (`'Date'[Year] = 2024` in `FILTER('Date', ...)`) read as the member's one value, MIN of it.
+
+    The per-member statement groups the rows by the members' keys, where a bare column is
+    not grouped and SQL rejects it. Each member has one value of such a column when the
+    column is a key itself (`own`: VALUES' column, or every column of a table iterated row by
+    row), or when the key is unique (`whole`: the one end of every relationship ending on
+    it), so MIN of it is that value. A column read inside an aggregate, an iterator or a
+    CALCULATE is over other rows and left as it is."""
+    out, stack = [], []
+    for i, (k, v) in enumerate(toks):
+        if k == "lparen":
+            prev = toks[i - 1] if i else None
+            stack.append(prev[1].upper() if prev and prev[0] == "func" else "(")
+        elif k == "rparen" and stack:
+            stack.pop()
+        if k in ("qualified", "quoted_qualified") \
+                and _bare(tmap.get(str(_table_ref(v) or "").lower()) or "") == _bare(phys) \
+                and all(f == "(" or f in _ROW_SCALAR_FUNCS for f in stack):
+            if not (whole or _column_ref(v).lower() in own):
+                raise _RowValueUnplaced(
+                    f"{head} over {_bare(phys)} reads {v.strip()} of each member, and the "
+                    f"members' key is not known to be unique (the one end of a relationship), "
+                    f"so the member's one value of it is not certain")
+            out += [("func", "MIN"), ("lparen", "("), (k, v), ("rparen", ")")]
+            continue
+        out.append((k, v))
+    return out
+
+
 # What reads a row iterator's row as a filter (a context transition): a CALCULATE, and
 # RELATEDTABLE (a CALCULATETABLE). A measure reference is a `col` token, not a call.
 _TRANSITIONS = {"CALCULATE", "CALCULATETABLE", "RELATEDTABLE"}
@@ -6320,6 +6415,7 @@ def _member_grain(formula: str, measures: dict[str, str], table_of: dict[str, st
         if not phys:
             return None
         keys = [(_column_ref(tin[0][1]), phys)]
+        own, whole = {keys[0][0].lower()}, False
         table, blank_member = phys, True
         # The values of a column of a table no relationship ends on (a fact's column): its
         # members are the ones its rows hold in the row's context.
@@ -6342,6 +6438,11 @@ def _member_grain(formula: str, measures: dict[str, str], table_of: dict[str, st
         rows = False
         if len(ends) == 1:
             keys = [(ends[0], phys)]
+            # The key is unique when every relationship ending on it ends on its one side.
+            own = {ends[0].lower()}
+            whole = all(_card_ends(e.get("cardinality"))[1] == "one" for e in graph
+                        if _bare(e.get("to_table")) == _bare(phys)
+                        and str(e.get("to_column")) == ends[0] and e.get("is_active", True))
         elif not ends and columns:
             # A table no relationship ends on (a fact): each ROW is iterated, and a measure
             # in it is read in that row's context (a context transition), which filters every
@@ -6352,6 +6453,7 @@ def _member_grain(formula: str, measures: dict[str, str], table_of: dict[str, st
             if not cols:
                 return None
             keys, rows = [(c, phys) for c in cols], True
+            own, whole = {c.lower() for c in cols}, True
         else:
             return None
         table, blank_member, held = phys, rows, False
@@ -6387,6 +6489,12 @@ def _member_grain(formula: str, measures: dict[str, str], table_of: dict[str, st
             out.append((k, v))
             i += 1
         return _text_of(out)
+    # A bare column of the iterated row is the member's one value (raises by name when that
+    # is not certain).
+    expr, pred = [None if t is None else _member_row_values(t, table, tmap, own, whole, head)
+                  for t in (expr, pred)]
+    if top:
+        top = {**top, "by": _member_row_values(top["by"], table, tmap, own, whole, head)}
     try:
         return {"iterator": head, "table": table, "keys": keys,
                 "expr": per_member(expr) if expr else None,
