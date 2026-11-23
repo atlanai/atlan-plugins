@@ -127,9 +127,9 @@ the right plural ("1 metric", "3 metrics"). Time is "about 2 minutes" in a sente
 4 min" in a task-list item or chip, never with a tilde. Labels are sentence case with no closing
 period, and start with a verb when the option is an action; descriptions are full sentences.
 
-**Every line in the chat is written for the person**, in their words, in every flow, as the demo's are. Say what
-you're doing and why when it helps them follow along or explains a wait: "Reading your report's pages now, about a
-minute." "Signing you in to Power BI in your browser." Never write your own working notes: tool names, files to read,
+**Every line in the chat is written for the person**, in their words, in every flow, as the demo's are. When to
+write one at all is [when to talk](setup/progress.md#when-to-talk): before work, a line on what you're doing and why
+("Signing you in to Power BI in your browser."); while it runs, nothing the screen already shows. Never write your own working notes: tool names, files to read,
 what to do silently or next ("Now the wait loop.", "Need show_widget; read_me first silently."). If a line would only
 make sense to you, don't write it. The test: would the person miss this line if it were gone? Keep it if yes, cut it
 if no. So never a file name, path or command name (a folder may be named where it is stored), nor a helper you ran, skipped or could not run; never how the work is split among helpers ("three at a

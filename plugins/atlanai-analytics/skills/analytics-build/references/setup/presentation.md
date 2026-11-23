@@ -47,12 +47,10 @@ question's text, so the rule, holds and limitations go there, never before the q
 
 ## Say what and why, as the demo does
 
-Own-data setup talks as the demo does ([the tour rules](../../../analytics-demo/references/tour.md),
-"Say what and why at every moment"), with this run's facts. Before each moment, two short
-lines as an ordinary reply, at most 35 words together; after it, the result in one line, in
-the past tense, with counts. Never a file name, helper name or query-pattern count in those
-lines, and never the words candidate, engine, gate, hold, export or Registry. A difference
-from a report is news: name it, say why, and count it.
+When to say a pair, and when to say nothing, is [when to talk](progress.md#when-to-talk); its
+words follow [the conventions](../conventions.md#words-the-person-reads). Own-data setup uses the
+pairs below with this run's facts, as the demo uses its own. A difference from a report is news:
+name it, say why, and count it.
 
 The look at what is connected before the interview has no line: it is silent, as
 [the interview](intent.md) says. The first Doing and Why come after the answers.

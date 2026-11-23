@@ -59,7 +59,7 @@ run whose candidates were never shown in chat starts at Preview.
 | Build or Check | [build and check](setup/build-check.md); new metrics also follow [the metrics module](../../metrics-generation/references/metrics-engine.md) for every source, including demos |
 | Preview, Publish or Ready to ask | [preview and publish](setup/preview-publish.md) |
 | Starting, resuming or any stage change | [the setup checklist](setup/checklist.md) |
-| A long helper run or a heartbeat | [progress and presentation](setup/progress.md) |
+| A long helper run, or when to talk | [progress and presentation](setup/progress.md) |
 | The person asks for a visual view | [a view on request](setup/render.md) |
 
 ## Review the completed collection

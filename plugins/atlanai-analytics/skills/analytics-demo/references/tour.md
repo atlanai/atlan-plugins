@@ -15,11 +15,9 @@ with no reason to care, worry at sign-in about touching their company's data, an
 end want to know what they made and what to do with it. Each section below answers one of
 those. When in doubt, say what just happened, what it means, and what comes next.
 
-Every chat line is written for the person. Say what you're doing when it helps them follow
-along or explains a wait. Never write your own working notes: tool names, files to read, what
-to do silently or next. The test: would the person miss this line if it were gone? The full
-rule is in [the conventions](../../analytics-build/references/conventions.md), under Words the
-person reads.
+Every chat line is written for the person, as [the conventions](../../analytics-build/references/conventions.md#words-the-person-reads)
+say, and only when it adds something the screen does not show, as
+[when to talk](../../analytics-build/references/setup/progress.md#when-to-talk) says.
 
 Assume the person knows nothing: not the firm, the data, what Atlan does, or why they will
 sign in. The demo is about one experience: watching existing sources become context. The
@@ -101,8 +99,9 @@ lists it.
 
 ## Say what and why at every moment
 
-The person should never wonder what is happening or why. Before each moment below, print
-two short lines as an ordinary reply, at most 35 words together, in this shape:
+The person should never wonder what is happening or why. Before each moment below, the Doing
+and Why pair [when to talk](../../analytics-build/references/setup/progress.md#when-to-talk)
+describes, in this shape:
 
 ```
 **Doing:** Reading Fixit's dashboard and 110 past queries.
@@ -129,18 +128,10 @@ what the person can't already see (step 2).
 | Workspace question | Asking where to save your agent's metrics. | A workspace decides who sees them. Your personal one is only yours. |
 | Save | Saving your agent's metrics and saved queries to `<workspace>`. | Once saved, each metric has a page in Atlan that shows how it's worked out. |
 
-After a moment ends, give its result in one line with counts, in the past tense. Print the
-first tracker right after "Start building", before reading setup's references or opening the demo, and record
-whether you keep a task list, as progress says.
-Never use file names, helper names or query-shape counts in these lines. What the sources
-revealed goes in the Sources question (step 2). Never leave a minute with nothing new on screen (where you keep a task list,
-its count is that something new, so write nothing then); follow [progress](../../analytics-build/references/setup/progress.md):
-while subagents write the build, each step's chip (or, once the side page is open, the one line `visual next`
-gives) and the side page are what is new: add no line of your own, never a Doing line that repeats what a chip
-just said; never that a step is still running, or what will show and when. The Doing and Why pairs
-are for the moments above; the metric steps between Build and Check have their chips. The app shows each
-command's description: describe each as what it does for the person, never a chip, the engine or a gate. Once the
-side page is open, the task list carries the build instead of chips where you keep one, as progress says.
+Print the first tracker right after "Start building", before reading setup's references or
+opening the demo, and record whether you keep a task list, as progress says. What the sources
+revealed goes in the Sources question (step 2). The metric steps between Build and Check have
+their chips, so they get no pair.
 
 **No named people.** Never name a person at the firm in the demo's own words: the brief,
 the steps, a question or an example. Use the firm's name. A name

@@ -2,6 +2,29 @@
 
 Read this file before a long helper run.
 
+## When to talk
+
+One rule for every flow: the demo, own data, the dashboard branch and the accuracy check. Other
+files link here and do not restate it. **A line earns its place only when it tells the person
+something the screen does not already show**: the task list, a chip or card, the side page, and
+the app's own labels for each command and helper.
+
+- **Before work starts**, at each moment [the presentation flow](presentation.md) names: one Doing
+  and Why pair, at most 35 words together, once. When a question follows, the pair is the
+  question's own text.
+- **While a build or a check runs**, the task list, the chips and the side page carry it. Write
+  nothing of your own: no heartbeat, no "still", no line that repeats a chip, no count the list
+  already shows. A wake that changed nothing on screen gets no words. Three things break the
+  silence, each in one line:
+  - a step that no chip names starts: its start line, once, where the flow's file gives one;
+  - a problem that changes something for the person: what happened, the count, what happens next;
+  - the person asks ("what's happening?", "is it stuck?"): the current step and its real counts
+    from `PROJECT checklist`, then keep waiting in the same turn.
+- **When it ends**: its result, once, as its chip or card, or one line in the past tense with
+  counts where there is none.
+- **On a host with no task list**, where no chip comes for minutes: one line when a count has
+  moved since your last line, never the same count twice.
+
 Use `PROJECT progress --stage <stage> --status <status>` at parent-owned stage transitions.
 `PROJECT progress` reads the latest state. Inspect/check operations also checkpoint their
 own counts. Statuses are pending, running, waiting-for-user, complete, complete-with-held-items,
@@ -18,19 +41,16 @@ another MCP server. Cancellation preserves checkpoints; uncertain remote writes 
 Normal structured helper results over 4 KiB become private result files. Read relevant fields
 from them instead of dumping logs. `--full` is for targeted diagnosis, not normal chat.
 At phase changes and first previews, follow [the presentation flow](presentation.md).
-For useful count changes between those moments, give a factual update. Read
+Read
 `PROJECT experience --format json` for saved setup state; while the engine is active, add
 `--engine-dir <within-run-engine>` so its manifest supplies engine progress. Use an absolute
 engine path or `--engine-dir engine`, which is relative to the selected run.
 When access evidence spans hosts, pass `--host <claude_code-or-codex> --server <observed-id>`
 to `PROJECT experience` and `PROJECT journey`. Only a matching successful Registry read
 can establish that host's readiness. It cannot clear another host's sign-in request.
-Do not pass a cwd-relative engine path unchanged. For long work,
-provide a factual heartbeat every 30 to 60 seconds, except while a subagent writes the gates: then the
-side page and the step chips are the heartbeat, and the task list's count where you keep one, so nothing of
-yours goes in the chat then. Surface useful evidence such as a first
-metric or a resolved hold, not gate names, private paths or raw logs. Do not repeat unchanged
-counts or imply that engine gates equal the setup stages. Never invent an ETA/percentage;
+Do not pass a cwd-relative engine path unchanged. What reaches the chat while work runs follows
+[when to talk](#when-to-talk): never gate names, private paths or raw logs, and never imply that
+engine gates equal the setup stages. Never invent an ETA/percentage;
 the dashboard branch gives a rough spoken range instead, as [its file](dashboard-flow.md) says.
 Report schema checks, executed examples and parity separately; diagnostics stay in details.
 
@@ -77,11 +97,9 @@ page shows each batch as it lands; the chat shows each step's end:
    - **Done**: export the build into the run and run `PROJECT check` before any question, then
      draw the build's card.
 
-   Add no words of your own between these. A step's own chip or line names the step that
-   starts, so no line of yours names it again (a Doing line under a chip that says "Next:
-   merging duplicates" repeats it). Never the engine's results or counts (accepted, cards,
-   pairs, a check's own name), your own tooling (scripts, retries, setup), who writes a step or
-   how big it is; never that a step is still running.
+   Add no words of your own between these, as [when to talk](#when-to-talk) says: a step's own
+   chip or line names the step that starts, and the engine's results, counts and tooling are
+   never the person's.
 3. **What the app shows is the person's.** It shows each command's description, each helper's
    name, and each widget's title. Describe each command as what it does for them ("Showing
    what's new", "Building your agent", "Testing your agent's metrics"), never a chip, the engine, a
@@ -97,7 +115,7 @@ Use native chat, its choice controls and [the setup checklist](checklist.md) in 
 the host's task list when available. The first time you print the tracker, record once whether you keep a task list:
 `PROJECT journey tasks --answer yes` when you have a task-list tool (TaskCreate and TaskUpdate, or TodoWrite), else
 `--answer no`; the desktop app needs none. Show the full tracker when a step starts; refresh
-`PROJECT checklist` with real counts during long work and report useful changes. Save phase changes and intent answers to the run, so the checklist stays
+`PROJECT checklist` with real counts during long work. Save phase changes and intent answers to the run, so the checklist stays
 true. Open no panel or view unless the person asks for [a visual view](render.md), apart from
 the run's own [side page](visuals.md). Do not
 invent a pause or publish button. If the task tool fails, keep the full tracker in chat.

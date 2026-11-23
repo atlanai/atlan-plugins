@@ -142,26 +142,8 @@ authorization steps if the person later chooses to save the new context.
 the dashboard's place in the `Next:` line. Follow the demo's
 [edit a metric](../../../analytics-demo/references/edit-metric.md).
 
-**Wrap up.** On "I'm done", record `PROJECT journey dashboard --answer declined` if no dashboard was built,
-then finish in three short lines, with no headings or lists, adding the dashboard's location
-to the second when one was built:
-
-```
-Your <agent name> answers from <N> metrics and <N> saved queries.
-They are kept in <workspace> in Atlan.
-To ask again, open a chat with Atlan Analytics and <warehouse> connected, and ask a data question.
-```
-
-When it stayed on this machine, the last two lines are instead:
-
-```
-They are kept on this machine, in <folder>.
-To ask again, open a chat in that folder and ask about your <use case> setup.
-```
-
-Use the plural that fits each count. The side page and the chat above hold the rest. Do not
-ask another question or require a restart. Building a demo dashboard ends with the `Next:`
-line above, including the option to continue on real data.
+**On "I'm done"**, record `PROJECT journey dashboard --answer declined` if no dashboard was
+built, then end with the closing message above (`PROJECT question close`), and nothing else.
 
 ## On resume
 

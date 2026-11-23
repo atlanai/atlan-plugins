@@ -60,7 +60,7 @@ sources do not name it.
   no additional context or exploratory data queries; only its final answer SQL reads data. The
   score and the result are written as accuracy-check's
   [show the score](../../../accuracy-check/references/run.md#show-the-score) describes. The Test
-  again step runs the context pass only, and its result names the column-names-alone score beside
+  again step runs the context pass only, and its result names the column-names-only score beside
   the new one.
 - **A warehouse build.** `CHECK load` returns `pending_gold` and the answering agents run their
   SQL on the warehouse, as accuracy-check's run procedure describes. Use the warehouse query

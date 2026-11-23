@@ -75,7 +75,8 @@ trusted results come from the warehouse, and no model copies a value:
    resumes here.
 2. Start one subagent per question, 10 at a time, each 10 in one message and in the foreground (a
    generated set has 20), so a batch comes back together: start the next 10 when a batch has replied.
-   For each:
+   Write nothing between batches: the app shows each helper by name, as
+   [when to talk](../../analytics-build/references/setup/progress.md#when-to-talk) says. For each:
    1. Spawn a subagent on the Haiku model (the Agent tool's `model: haiku`), which keeps a run's
       cost down, with this prompt, filled in:
       ```
@@ -179,8 +180,8 @@ again, each to a fresh agent with only the source tables' schema and no addition
    `accuracy` ("Accuracy: 100%."), `before_after` ("With column names only: 40%. With your
    agent: 100%.") and `small_set`. Write the result from these, as [show the
    score](#show-the-score) describes. Never work a number out yourself, and never show one pass's
-   score without the other. Its `report`, `bars` and `widget` are for a reader that asks for
-   detail; none of them goes in the chat.
+   score without the other. Its `widget` is the result's card, drawn as [show the
+   score](#show-the-score) says; its `report` and `bars` are for a reader who asks for detail.
 
 ## Show the score
 
@@ -189,11 +190,17 @@ be, a small set included. It comes first, with nothing around it: no setup recap
 commands, no closing summary. I build and test, you choose, your agent answers: say it that
 way, in plain words, with no tool or file names.
 
+**The card first.** Where you have `show_widget`, draw the comparison's `widget` (on a demo,
+`ACC result --widget`) before the result: the before-and-after card, with every question's mark.
+The text then leaves out the banner and `lines.before_after`, which the card shows. Without
+`show_widget`, the text carries them as below.
+
 **What it holds, in this order.** The script computes every number; you write the words.
 
-1. The banner, only when every question is right: `ACC result`'s `banner`, as plain lines.
+1. The banner, only when every question is right and no card is drawn: `ACC result`'s `banner`,
+   as plain lines.
 2. The accuracy first: `lines.accuracy`, and in the same line what it means for this outcome.
-3. Before and after, as percentages: `lines.before_after`. Counts only where they add something
+3. Before and after, as percentages, where no card is drawn: `lines.before_after`. Counts only where they add something
    (a set of 3 reads better as "all 3").
 4. One line on what made the difference, in the person's terms: the metric or rule that turned
    answers around (`turned_around` names them by number), never how the check ran.
@@ -204,7 +211,7 @@ way, in plain words, with no tool or file names.
    new questions." With `generated: false` (a set the person brought) say nothing about where
    its questions came from.
 
-Never in the chat: bars, a widget, counts of answers right or wrong both ways, how many answers
+Never in the chat: bars, the card's numbers said again in the text, counts of answers right or wrong both ways, how many answers
 a judge decided, the score line said again in other words, or "schema only". The raw pass is
 "column names only" everywhere the person reads. The full `EVAL report` keeps those details
 for a reader who asks.
@@ -247,7 +254,8 @@ Based on 2 questions. Add more for a sharper score.
 
 **Where it goes.** With misses and a fix still to offer (the demo's step 3), the result is a chat
 message that ends the turn on its reply line. At the end of a check it is the text of the
-[ask for more](#ask-for-more) question: plain lines, no Markdown, the banner as plain lines.
+[ask for more](#ask-for-more) question, with the card drawn just before it: plain lines, no
+Markdown, and the banner only where no card is drawn.
 
 On a test again, add `EVAL report`'s `compared_text` after the before and after: it names the run
 this one is compared with, where it lives and the questions that changed.

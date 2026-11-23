@@ -260,9 +260,9 @@ rule, or an offer to change a saved query, another metric or the set.
 
 **Then ask for more, in the same turn.** `CHECK next --evals <evals-run> --run <run>` returns
 the question, as accuracy-check's [ask for more](../../accuracy-check/references/run.md#ask-for-more)
-describes. Ask it as one native question whose text is the result, a blank line and its `lead`,
-as plain lines with no Markdown and the banner as plain lines, so the result reaches the person
-whole. When the person just replied "keep" to a score message, they have seen the score: the
+describes. Draw the result's card first where you have `show_widget` (`ACC result --widget`), then ask one
+native question whose text is the result, a blank line and its `lead`, as plain lines with no
+Markdown, as [show the score](../../accuracy-check/references/run.md#show-the-score) says. When the person just replied "keep" to a score message, they have seen the score: the
 text is the released lines, if any, and the `lead`. On a demo, its options are Add questions of
 your own, Save this score to Atlan (5 questions or more) and I'm done.
 

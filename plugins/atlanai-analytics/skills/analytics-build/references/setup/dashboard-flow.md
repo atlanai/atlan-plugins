@@ -168,8 +168,8 @@ found, and why anything is left out."
 **The chat is the same as in every flow**, as [drafts as they land](progress.md#drafts-as-they-land)
 sets out: before the side page opens, each step's chip when it ends; once it is open, the task
 list carries the build where you keep one, with the one line `visual next` gives at each step's
-end, and with no task list each step's end shows its chip. Never a "still" line. A step that
-starts with no chip naming it (the review of the translations, the questions for the tiles) gets
+end, and with no task list each step's end shows its chip, as [when to talk](progress.md#when-to-talk)
+says. A step that starts with no chip naming it (the review of the translations, the questions for the tiles) gets
 its start line from the table below, once.
 
 As the build starts, start the helper and run `PROJECT drafts --wait --engine-dir engine` in the
@@ -269,18 +269,13 @@ separate install starts.
 The person is a builder in another organization, using this for the first time. Every line they
 see, at every moment:
 
-- **No internal words**: engine, gate, helper, subagent, export, hold, alias, run directory,
-  candidate, Registry, statement, staged copy, packing, draft, chip, so-far, or a file
-  or command name. Say what it means: "the build", "a step", "held back", "needs your review",
-  "your report's tiles", "a metric", "merge duplicate metrics", "its definition".
-- **Before the build, whenever something is happening, say what it is and why, and roughly how
-  long**, once: "Checking that I can read your 9 tables on Snowflake, so your agent only uses
-  data you can read. Read-only, about a minute." A rough range from the work's size; never a percentage, and never that
-  something is still going. From the build's start, the chips, the task list and the line
-  `visual next` gives say it: add none of your own.
-- **Only what the person needs**: results, waits, decisions, and problems that change something
-  for them. A step that went as expected gets its start line and its chip, nothing more.
-- **One line per problem**, with the count and what happens next, in the grammar the count
+- **Words** are [the conventions'](../conventions.md#words-the-person-reads), and when to write a
+  line is [when to talk](progress.md#when-to-talk). Say what a thing means: "the build", "a step",
+  "held back", "needs your review", "your report's tiles", "a metric", "its definition".
+- **Before the build**, a line also says roughly how long, from the work's size: "Checking that I
+  can read your 9 tables on Snowflake, so your agent only uses data you can read. Read-only, about
+  a minute."
+- **A problem** gets one line with the count and what happens next, in the grammar the count
   needs: "`<N>` metrics name a specific person in their SQL. They're held back until you
   confirm the value is fine to keep." or "`<N>` metrics didn't pass their check. I'm rewriting
   them, and the other `<M>` are done."
