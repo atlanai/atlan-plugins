@@ -8,7 +8,7 @@ execution:
     answer. The local run is /workspace/.atlan-metrics/example-run, pending publication.
     The core atlanai plugin is not installed. This host has no shell, browser control or
     background-task capability this turn, so automatic sign-in cannot be started.
-    Do not make Registry calls or try to execute SQL; the following is the supplied checkpoint.
+    Do not make Atlan Trident calls or try to execute SQL; the following is the supplied checkpoint.
 
     Two local metric candidates, schema checked with example SQL executed:
     - Shipped units: sum of units on shipped orders, SUM(s.units), mandatory filter
@@ -38,7 +38,7 @@ graders:
     criteria: |
       PASS if it gives copyable Codex commands to add marketplace atlanai/atlan-plugins,
       install atlanai@atlan, and sign in with codex mcp login atlan, plus a resume prompt
-      containing /workspace/.atlan-metrics/example-run. FAIL if it only says enable Registry,
+      containing /workspace/.atlan-metrics/example-run. FAIL if it only says enable Atlan Trident,
       substitutes aireg or a different catalog plugin, claims Chrome/a watcher was started,
       or says these commands guarantee tools appear in this already-open chat.
   - name: plain-reply

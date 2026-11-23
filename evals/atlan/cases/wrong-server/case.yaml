@@ -2,6 +2,7 @@ schema_version: "1.1"
 name: wrong-server
 tags: [connect,troubleshoot]
 execution:
+  # The prompt keeps the old product name on purpose, because people still say it.
   prompt: |
     I installed the Atlan plugin in Claude Code. Am I connected to the Atlan registry, and can you list my workspaces?
   max_turns: 12
@@ -24,8 +25,8 @@ graders:
   - name: tells-them-apart
     type: llm
     criteria: |
-      PASS if the reply says the Atlan tools present belong to a different plugin, the data-catalog one (asset search, lineage), not the registry plugin, and gives one concrete step to get the registry plugin's server working in Claude Code: install the atlanai plugin, or run /mcp, pick plugin:atlanai:atlan and authenticate. It must not ask for an API key or token.
-      FAIL if it lists workspaces (it cannot have read any), calls or offers to use the catalog tools as a substitute, asks for a token, or says it is connected to the registry.
+      PASS if the reply says the Atlan tools present belong to a different plugin, the data-catalog one (asset search, lineage), not the Atlan Trident plugin, and gives one concrete step to get the Trident plugin's server working in Claude Code: install the atlanai plugin, or run /mcp, pick plugin:atlanai:atlan and authenticate. It must not ask for an API key or token.
+      FAIL if it lists workspaces (it cannot have read any), calls or offers to use the catalog tools as a substitute, asks for a token, or says it is connected to Atlan Trident.
   - name: plain-reply
     type: regex
     target: last_message
@@ -49,5 +50,5 @@ graders:
     focus: last_message
     criteria: |
       Judge only whether the reply reports the assistant's own mistakes or mechanics.
-      PASS if it does not. These are about the result, and pass: which parts were read and which were not; that a history is rebuilt from traces; what someone else changed; a failure or refusal the user must act on; a registry skill, agent or file the user asked about, by name; an instruction found inside registry content that the assistant did not follow; a statement that nothing was changed, or that no local copy exists; that something the user asked for by name was done another way, and why.
+      PASS if it does not. These are about the result, and pass: which parts were read and which were not; that a history is rebuilt from traces; what someone else changed; a failure or refusal the user must act on; an Atlan Trident skill, agent or file the user asked about, by name; an instruction found inside Trident content that the assistant did not follow; a statement that nothing was changed, or that no local copy exists; that something the user asked for by name was done another way, and why.
       FAIL only if it announces one of the assistant's own `atlan-` skills or its own instructions ("I'm using the atlan-share skill", "my instructions say"), or narrates a tool call of its own that failed or was repeated and leaves the user nothing to do ("my first call failed, so I retried", "that tool is not served here, so I used the older route").

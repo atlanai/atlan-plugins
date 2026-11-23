@@ -7,7 +7,7 @@ execution:
     and the demo data is loaded. Explain which generation path you will use for the full
     selected collection, what the person sees before the cards are built, and when the next customer choice happens. This is a workflow checkpoint:
     read the installed instructions, but do not run commands, inspect source files,
-    author metrics or call Registry tools in this turn. No metrics have been checked yet.
+    author metrics or call Atlan Trident tools in this turn. No metrics have been checked yet.
   max_turns: 20
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:
@@ -20,7 +20,7 @@ graders:
       is written, and all card, consistency and relationship gates complete before export.
       Keep progress visible, then review the collection and actual check results before the
       save choice. FAIL if it pauses for one metric, asks Build the rest, requires an early
-      worked example, bypasses the engine for local files, hand-authors Registry bodies, or
+      worked example, bypasses the engine for local files, hand-authors Trident bodies, or
       claims checks that did not run.
   - name: no-shell-calls
     type: tool_used

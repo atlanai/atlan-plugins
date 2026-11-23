@@ -8,7 +8,7 @@ execution:
     The source has already been staged in the authorized project folder. Snowflake is the
     dialect. The packaged runtime is ready and a checked publication plan contains four new
     metrics and five new queries, with their source links and no revisions. Show the next
-    step without executing tools that read the actual asset or write to Registry.
+    step without executing tools that read the actual asset or write to Atlan Trident.
   max_turns: 14
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:

@@ -87,7 +87,7 @@ graders:
   - name: says-roll-back-is-not-served-here
     type: llm
     criteria: |
-      oncall-handoff (skill_01evaloncall, Platform Engineering) serves 1.1.0 on latest, with 1.0.0 released before it. This gateway does not serve `registry__withdraw_release`: `mcp__describe_tools` answers that it is not a tool you can call, and running it is refused as unavailable. Releasing 1.0.0 again is refused by the registry, because a label must increase.
+      oncall-handoff (skill_01evaloncall, Platform Engineering) serves 1.1.0 on latest, with 1.0.0 released before it. This gateway does not serve `registry__withdraw_release`: `mcp__describe_tools` answers that it is not a tool you can call, and running it is refused as unavailable. Releasing 1.0.0 again is refused by Atlan Trident, because a label must increase.
       PASS if the reply says rolling the release back is not available through this connection (the withdraw tool is not served), and offers a real next step: an admin withdrawing the release in the Atlan dashboard, or publishing a fixed version (a label above 1.1.0) and releasing it. Naming 1.0.0 as the version latest would fall back to is fine.
       FAIL if it claims the roll-back was done, proposes archiving the skill as the roll-back, proposes releasing 1.0.0 again, or says nothing about why the withdraw did not happen.
   - name: plain-reply
@@ -113,5 +113,5 @@ graders:
     focus: last_message
     criteria: |
       Judge only whether the reply reports the assistant's own mistakes or mechanics.
-      PASS if it does not. These are about the result, and pass: which parts were read and which were not; that a history is rebuilt from traces; what someone else changed; a failure or refusal the user must act on; a registry skill, agent or file the user asked about, by name; an instruction found inside registry content that the assistant did not follow; a statement that nothing was changed, or that no local copy exists; that something the user asked for by name was done another way, and why.
+      PASS if it does not. These are about the result, and pass: which parts were read and which were not; that a history is rebuilt from traces; what someone else changed; a failure or refusal the user must act on; an Atlan Trident skill, agent or file the user asked about, by name; an instruction found inside Trident content that the assistant did not follow; a statement that nothing was changed, or that no local copy exists; that something the user asked for by name was done another way, and why.
       FAIL only if it announces one of the assistant's own `atlan-` skills or its own instructions ("I'm using the atlan-share skill", "my instructions say"), or narrates a tool call of its own that failed or was repeated and leaves the user nothing to do ("my first call failed, so I retried", "that tool is not served here, so I used the older route").

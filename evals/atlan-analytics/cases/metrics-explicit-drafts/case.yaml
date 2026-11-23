@@ -6,7 +6,7 @@ execution:
     /atlanai-analytics:analytics-build metrics
     Generate local drafts only from /project/source/report.pbix. Do not publish. I normally
     use auto mode and workspace_example. The checked plan is ready. Explain the next step
-    without running the asset or calling Registry.
+    without running the asset or calling Atlan Trident.
   max_turns: 14
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:

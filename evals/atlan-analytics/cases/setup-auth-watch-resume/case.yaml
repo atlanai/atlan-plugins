@@ -4,7 +4,7 @@ tags: [analytics, setup, auth, resume, no-registry]
 execution:
   prompt: |
     Use the Atlan Analytics skill to explain the next actions for this synthetic recovery
-    checkpoint. Do not start a real sign-in, access a registry or run commands in this test.
+    checkpoint. Do not start a real sign-in, access Atlan Trident or run commands in this test.
     We are in Claude Code, with the core plugin installed and enabled. Its observed
     plugin:atlanai:atlan server explicitly requires OAuth. The current run is saved at
     /workspace/.atlan-metrics/example-run and should resume at publication. Shell, Chrome
@@ -23,7 +23,7 @@ graders:
       PASS if the plan uses the existing host login command/task, lets the client open its
       actual issued authorization URL and opens that same URL itself only when the client did
       not (in Chrome when the host controls it; the skill never switches the person's browser), retains/polls the real task handle with a finite timeout,
-      and requires a successful current-host Registry read after CLI completion before
+      and requires a successful current-host Trident read after CLI completion before
       resuming the same saved stage automatically. It must not require 'done', claim the
       helper alone runs the watcher, schedule an automation/daemon, read credentials, or
       claim the hypothetical browser/task actually started in this test.
@@ -33,7 +33,7 @@ graders:
       PASS if disabled state requires host enablement rather than overriding controls or
       retrying login, and timeout ends the owned watch, preserves the run, and provides
       a manual sign-in/installation fallback. A signed-in CLI with unloaded host tools must
-      trigger supported reload/reconnect or a saved-run handoff, not a claim of Registry access.
+      trigger supported reload/reconnect or a saved-run handoff, not a claim of Trident access.
   - name: plain-reply
     type: llm
     criteria: |

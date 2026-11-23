@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate synthetic first-use presentation fixtures, not an engine or Registry run.
+"""Generate synthetic first-use presentation fixtures, not an engine or Atlan Trident run.
 
 python3 tools/analytics_ux_prototype.py --out /absolute/empty/output
 Uses only the standard library and existing presentation helpers. Participant inputs and
@@ -27,7 +27,7 @@ import metric_preview  # noqa: E402
 from project import Project  # noqa: E402
 
 STAMP = '2026-11-08T00:00:00+00:00'
-NOTICE = ('Synthetic fixture replay; no live Registry publication. '
+NOTICE = ('Synthetic fixture replay; no live Atlan Trident publication. '
           'Candidate and check states are seeded, not engine-generated or SQL-executed.')
 COLUMNS = ('shipment_id', 'region', 'status', 'units', 'shipping_cost', 'weight_kg')
 DATASETS = {
@@ -259,7 +259,7 @@ def build(out):
     output.write(output.root / 'comparison' / 'measurement.json', measurement)
     output.write_text(output.root / 'README.md', '# Analytics UX fixture replay\n\n' + NOTICE + '\n\n'
                       'Open index.html for the four checkpoints. Each snapshot is static and labels saved evidence.\n'
-                      'No engine, SQL executor, model API or Registry call ran. There is no published-state fixture.\n'
+                      'No engine, SQL executor, model API or Atlan Trident call ran. There is no published-state fixture.\n'
                       'participant-inputs/data-x and data-y are the only folders to give a study participant or assistant.\n'
                       'Keep observer-only, replays and comparison out of their input scope. Participant testing has not run.\n'
                       'The two input folders have model measures, query history and CSVs, but no report pages.\n'

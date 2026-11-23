@@ -6,7 +6,7 @@ execution:
     Use Atlan Analytics to help me ask questions about the dashboards and query history
     in /workspace/analytics-input. This is a start-of-setup checkpoint: do what you would do
     before the survey starts, then stop. Do not inspect the folder, run commands, make
-    Registry calls or claim you found its contents in this test. Use the plugin's workflow.
+    Atlan Trident calls or claim you found its contents in this test. Use the plugin's workflow.
     Don't mention this test's limits in your reply.
   max_turns: 20
   allowed_tools: [Read, Glob, Grep, Skill, TaskCreate, TaskUpdate]

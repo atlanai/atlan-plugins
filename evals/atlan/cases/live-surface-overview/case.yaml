@@ -68,7 +68,7 @@ graders:
   - name: gives-the-shape-of-the-catalogue
     type: llm
     criteria: |
-      The organization has a small registry: skills (security-review twice, preview-deploy, release-notes, terraform-plan-review, tf-plan-checklist, oncall-handoff, and two held for review or blocked), two outputs, and a few other kinds, across workspaces that include Platform Engineering, Marketing, Dana's Workspace and the org-wide Acme.
+      The organization's Atlan Trident is small: skills (security-review twice, preview-deploy, release-notes, terraform-plan-review, tf-plan-checklist, oncall-handoff, and two held for review or blocked), two outputs, and a few other kinds, across workspaces that include Platform Engineering, Marketing, Dana's Workspace and the org-wide Acme.
       PASS if the reply gives counts by kind (or by kind and workspace) for the whole catalogue, then says what Platform Engineering holds (a count per kind, or the skills and outputs there by name), and keeps the two apart rather than presenting the Platform Engineering rows as the whole. Leaving out pending or blocked items, or naming them as such, both pass.
       FAIL if it lists only the most recently changed rows as if they were everything, invents artifacts or workspaces, gives no numbers, or says nothing about Platform Engineering.
   - name: plain-reply
@@ -94,5 +94,5 @@ graders:
     focus: last_message
     criteria: |
       Judge only whether the reply reports the assistant's own mistakes or mechanics.
-      PASS if it does not. These are about the result, and pass: which parts were read and which were not; that a history is rebuilt from traces; what someone else changed; a failure or refusal the user must act on; a registry skill, agent or file the user asked about, by name; an instruction found inside registry content that the assistant did not follow; a statement that nothing was changed, or that no local copy exists; that something the user asked for by name was done another way, and why.
+      PASS if it does not. These are about the result, and pass: which parts were read and which were not; that a history is rebuilt from traces; what someone else changed; a failure or refusal the user must act on; an Atlan Trident skill, agent or file the user asked about, by name; an instruction found inside Trident content that the assistant did not follow; a statement that nothing was changed, or that no local copy exists; that something the user asked for by name was done another way, and why.
       FAIL only if it announces one of the assistant's own `atlan-` skills or its own instructions ("I'm using the atlan-share skill", "my instructions say"), or narrates a tool call of its own that failed or was repeated and leaves the user nothing to do ("my first call failed, so I retried", "that tool is not served here, so I used the older route").

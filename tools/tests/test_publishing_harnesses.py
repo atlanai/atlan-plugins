@@ -116,7 +116,7 @@ class PublishingHarnesses(unittest.TestCase):
 
     def test_a_shared_output_holding_a_credential_is_refused_on_every_adapter_without_repeating_it(self):
         key = 'AKIA' + 'ABCDEFGHIJKLMNOP'  # built here so no credential shape is committed
-        # The agent app's tool, and the registry's copy on a gateway that predates the move.
+        # The agent app's tool, and Atlan Trident's copy on a gateway that predates the move.
         for host, name in [(host, name) for host in ('codex', 'cursor', 'copilot')
                            for name in ('extension__agent__publish_output', 'registry__publish_output')]:
             with self.subTest(host=host, name=name):

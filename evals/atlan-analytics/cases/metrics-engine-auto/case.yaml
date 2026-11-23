@@ -7,7 +7,7 @@ execution:
     We already selected example-analytics as the workspace, demo.main.orders as the table,
     a local query-history export as the source, and DuckDB as the dialect. Use auto approval
     for routine local work. Show the next implementation step without running tools that
-    install packages or write to Registry. Do not ask these same scope questions again.
+    install packages or write to Atlan Trident. Do not ask these same scope questions again.
   max_turns: 14
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:
@@ -23,4 +23,4 @@ graders:
       existing gates, and carries auto approval to routine local steps without another
       scope interview. It may identify an actually missing path or runtime. FAIL if it
       asks for the already selected workspace/table/dialect, skips quality gates, runs
-      the old independent generation recipe, or treats auto approval as Registry access.
+      the old independent generation recipe, or treats auto approval as Trident access.

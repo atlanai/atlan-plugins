@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the installed-style dashboard journey in Claude Code against offline test services.
 
-Uses existing Claude authentication. No live BI, warehouse or Registry writes. No global
+Uses existing Claude authentication. No live BI, warehouse or Atlan Trident writes. No global
 plugin, MCP, permission or authentication configuration is changed. The manifest copy omits
 the core dependency because its connection is replaced by the explicit synthetic adapter.
 """
@@ -38,9 +38,9 @@ https://app.powerbi.com/groups/11111111-1111-1111-1111-111111111111/reports/2222
 Acceptance test environment: use the installed atlanai-analytics skill, including its new
 dashboard run commands. The dashboard_fixture MCP server supplies a sanctioned synthetic
 Power BI export, its verified scope and mapping, independent parity references, a read-only
-SQLite warehouse and an isolated Registry test adapter. There is no live customer data.
+SQLite warehouse and an isolated Atlan Trident test adapter. There is no live customer data.
 Use fixture_source instead of browsing. Use fixture_query for actual SQL execution.
-Use fixture_registry for Registry calls and fixture_release for the test-only release step.
+Use fixture_registry for Atlan Trident calls and fixture_release for the test-only release step.
 The workspace is workspace_demo. I approve saving and releasing the usable synthetic metrics
 and registering the proposed example-agent in that fixture workspace. Keep known incorrect
 and unsupported metrics out of ordinary questions. A snapshot mismatch is a warning.

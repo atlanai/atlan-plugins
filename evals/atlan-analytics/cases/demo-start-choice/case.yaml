@@ -4,7 +4,7 @@ tags: [analytics, demo, ux, checklist]
 execution:
   prompt: |
     Show me an Atlan Analytics demo. This is the demo's first checkpoint: do what you would do
-    before anything is downloaded, then stop. Do not clone, run commands or make Registry calls
+    before anything is downloaded, then stop. Do not clone, run commands or make Atlan Trident calls
     in this test.
   max_turns: 16
   allowed_tools: [Read, Glob, Grep, Skill, TaskCreate, TaskUpdate]

@@ -4,7 +4,7 @@ tags: [analytics, setup, preview, reuse]
 execution:
   prompt: |
     Use the Atlan Analytics skill to continue setup from this checkpoint. Do not make
-    new Registry calls or execute SQL this turn. The destination is
+    new Atlan Trident calls or execute SQL this turn. The destination is
     already selected. Complete release readbacks were verified in the earlier turn.
     The previous assistant only linked an HTML file; no definitions appeared in chat.
 

@@ -55,7 +55,7 @@ graders:
       to enable the existing connection, with a natural ending. No machine status footer,
       internal gate dump, repeated pipeline plan, robot-like retry tally or generic offer.
       Honest local/unexecuted status and a brief explanation that retries stopped are useful.
-  # Checkpoint prompts authorize instruction reads, not new execution or Registry calls.
+  # Checkpoint prompts authorize instruction reads, not new execution or Atlan Trident calls.
   - name: no-shell-calls
     type: tool_used
     tool: Bash

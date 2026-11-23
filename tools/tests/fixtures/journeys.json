@@ -177,7 +177,7 @@
    "id": "registry-use-skill",
    "plugin": "atlanai",
    "skill": "atlan-use-skill",
-   "title": "Use a registry skill now, found by description",
+   "title": "Use an Atlan Trident skill now, found by description",
    "route": "Search, then the release's manifest and pinned SKILL.md in one read",
    "calls": {
     "cold": [

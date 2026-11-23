@@ -36,4 +36,4 @@ graders:
   - name: answers-without-atlan
     type: llm
     criteria: |
-      PASS if the reply gives a working Python function and an example call, with no mention of Atlan, skills or a registry. FAIL if it searches or offers to search Atlan first.
+      PASS if the reply gives a working Python function and an example call, with no mention of Atlan, skills, Atlan Trident or a registry. FAIL if it searches or offers to search Atlan first.

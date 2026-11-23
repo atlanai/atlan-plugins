@@ -1,5 +1,5 @@
 """The gateway emulator's 2.21.0 surfaces (evals/atlan/emulator/atlan_emulator.py), driven in process:
-batch reads, direct `registry__` calls, the `gateway` block, disabled servers, the richer registry
+batch reads, direct `registry__` calls, the `gateway` block, disabled servers, the richer Atlan Trident
 reads, the publish version conflict and the absent `withdraw_release`. No subprocess, no network."""
 import importlib.util
 import json
@@ -255,7 +255,7 @@ class WithdrawReleaseTest(unittest.TestCase):
 
 
 class RegistryToolCoverageTest(unittest.TestCase):
-    """The registry tools the skills name beyond the first set: several files in one read, a bulk
+    """The Trident tools the skills name beyond the first set: several files in one read, a bulk
     create, an edge, a create with its edge, and a scan run again."""
 
     def setUp(self) -> None:
@@ -517,7 +517,7 @@ if __name__ == "__main__":
 
 
 class OwnerTransferTest(unittest.TestCase):
-    """`registry__list_users` and an owner-moving `registry__patch_artifact`, held to the registry's
+    """`registry__list_users` and an owner-moving `registry__patch_artifact`, held to Trident's
     rule: the current owner or a workspace admin may move it, an artifact with no owner takes one
     only from an admin, the new owner is a person in the directory, and `if_match` fences it."""
 

@@ -8,7 +8,7 @@ execution:
     Use January 2026. The packaged runtime with its Snowflake feature is ready and the
     approved connection is configured in the environment. My role can read Account Usage.
     I have no shape table. Explain the next step and the relevant configuration only;
-    do not execute the extraction or call warehouse or Registry tools.
+    do not execute the extraction or call warehouse or Atlan Trident tools.
   max_turns: 14
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:
