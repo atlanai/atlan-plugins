@@ -214,8 +214,9 @@ WAITED = {
     'quiet': "Nothing new has reached the screen for a while. Check that each subagent is working. When nothing has "
              "shown for about 3 minutes, write one line: the current step and what is done so far, never a line "
              "you already wrote. Then run `PROJECT drafts --wait` again.",
-    'done': "Add no words of your own until the build's card: export the build into the run and run `PROJECT check` for "
-            "the structural pass, as build and check says, then draw the build's card before any question.",
+    'done': "Add no words of your own: export the build into the run and run `PROJECT check` for the structural pass, "
+            "as build and check says. The build's card comes once, right before the save question.",
+    'again': "Add no words of your own: the wait timed out while new things were showing. Run `PROJECT drafts --wait` again.",
 }
 
 
@@ -282,6 +283,9 @@ def wait(root, engine_dir=None, timeout=540, quiet=240, interval=2.0, out=None, 
                 and visuals.keeps_tasks(root)):
             _save_record(engine, dict(record, waited=now, waited_at=time.time()))
             return say('batch', task_list=task_list(root, engine_dir))
-        if time.monotonic() - start >= timeout or time.monotonic() - last >= quiet:
+        if time.monotonic() - last >= quiet:
             return say('quiet')
+        if time.monotonic() - start >= timeout:
+            # A timeout while things still move is not a quiet spell: no line for the person.
+            return say('again')
         time.sleep(interval)

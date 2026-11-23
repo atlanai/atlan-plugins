@@ -49,7 +49,7 @@ Codex), send it again in every turn about the run, as the turn's first call: a w
 helper reports back and an answer to "what's happening" too, unchanged when no step moved. A
 turn without it leaves the person with no list. A turn about something else leaves the list
 to the host and that work; it comes back, rebuilt from the run, when the person returns to it.
-When each step starts, show the full tracker in chat. Finished steps carry their actual
+Where there is no task list, show the full tracker in chat when each step starts. Finished steps carry their actual
 results; the current step says `now`, with `your choice` when it needs an answer; the next
 step says `next`. In a demo, step 2 is `Choose what to build your agent from`, because focus and purpose
 are already set, and the build steps run through validation without an extra decision, on own
@@ -86,9 +86,9 @@ name a helper you ran or did not run.
 
 ## When a step ends
 
-When a step completes, say its result in one line of chat, in the past tense, with its
-counts: "Read 4 sources: 23 measures and 412 past queries." Skip the line when nothing new
-is known. Follow [the presentation flow](presentation.md) for the collection review, context-built
+When a step completes and no chip or card shows its result, say it in one line of chat, in the
+past tense, with its counts: "Read 4 sources: 23 measures and 412 past queries." Skip the line
+when nothing new is known. Follow [the presentation flow](presentation.md) for the collection review, context-built
 celebration and ready block. A step-complete line never replaces those moments.
 
 ## Without a task tool

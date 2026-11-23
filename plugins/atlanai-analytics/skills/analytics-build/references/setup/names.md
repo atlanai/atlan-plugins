@@ -28,7 +28,7 @@ one line saying that a pick starts the build, and roughly how long it takes, fro
 size:
 
 "Most used on Snowflake in the last 7 days.
-Picking one starts building your agent, about 15 minutes."
+Picking a use case starts building your agent, about 15 minutes."
 
 Then "What should your agent answer?", one option per use case, with multiple selection where the
 host allows it:

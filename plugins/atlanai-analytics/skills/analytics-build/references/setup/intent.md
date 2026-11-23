@@ -150,7 +150,8 @@ Add a dashboard?"
 | Add a dashboard | "Share a link or file. I'll read it and update your agent from it." |
 | Not now | "Leave your agent as it is, and choose where to store your context." |
 
-- **Add a dashboard**: ask for it with branch B's card, open it and check access (signing
+- **Add a dashboard**: ask for its link or file (branch B's card, with only the files found as
+  options), open it and check access (signing
   the person in when a link needs it), then build with the dashboard added: picking it is the go-ahead. Metrics the
   dashboard also defines are reconciled with it and any change is shown as news; the rest
   stay as built. Then continue to the save question.
@@ -278,14 +279,13 @@ discovery, picking a use case; from tables, their message naming the tables, onc
 reads. When the access check finds something it cannot read, its question above comes first,
 and "Continue with the rest" is the go-ahead. The dashboard branch has its readiness check.
 
-In the same turn, write the build's start line, the Doing and Why of
-[when to talk](progress.md#when-to-talk): what it builds from and what it will answer, about
+In the same turn, write the build's start line, which is the build's Doing and Why for
+[when to talk](progress.md#when-to-talk) and replaces any other pair for it: what it builds from and what it will answer, about
 how long, then, when there are any, the choices you made that change the numbers, ending
 "Tell me to change any of these.":
 
-"Building your agent from 4 tables and their past queries, to answer pod and AE target
-questions. About 15 minutes. Leaving out inactive reps. Quarters are calendar quarters, as the
-targets table uses. Tell me to change any of these."
+"Building your agent from 4 tables and their past queries, for pod and AE targets. About 15
+minutes. Leaving out inactive reps; calendar quarters. Tell me to change any of these."
 
 - **Sources**: a dashboard first, then past queries on the tables, then the tables. Counts,
   never a schema name.

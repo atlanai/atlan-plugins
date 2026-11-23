@@ -19,7 +19,7 @@ the first question, asks before a release and replaces step 5's ending.
 sentences, in this order, naming only the decisions that are theirs: I pick 8 questions from
 `<firm>`'s dashboard and the queries its analysts already run, and show each with where it
 came from and its expected answer; you decide once whether to run them, change some or skip;
-each question goes to a fresh agent with your context and again with schema only, so the score
+each question goes to a fresh agent with your context and again with column names only, so the score
 shows beside that comparison; with a miss, you decide whether I find the fix; and only after
 the score, whether to save the check to Atlan or store it on this machine. Nothing else.
 
@@ -288,8 +288,8 @@ Saved to <workspace>:
 See the scores in Atlan: <runs link>
 ```
 
-On **I'm done**: the same question, whose text is one line: "The check stays on this
-machine." On **Add questions of your own**, follow ask for more, then test again.
+On **I'm done**: the closing message, as [ready](../../analytics-build/references/setup/ready.md)
+says. On **Add questions of your own**, follow ask for more, then test again.
 
 A run with no person to answer (a scheduled or headless check) saves nothing and says the
 check stays on this machine.

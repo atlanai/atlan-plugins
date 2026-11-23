@@ -1,6 +1,6 @@
 ---
 name: analytics-demo
-description: Guided Atlan Analytics demo on made-up data: build an agent for a sample firm, save its metrics, ask it, then design a dashboard. Use when someone wants to try, see or learn Atlan Analytics. Not for their own data (analytics-build).
+description: Guided Atlan Analytics demo on made-up data: build an agent for a sample firm, save its metrics, ask it, then build a dashboard. Use when someone wants to try, see or learn Atlan Analytics. Not for their own data (analytics-build).
 ---
 
 # Atlan Analytics demo: guided steps

@@ -234,7 +234,7 @@ class SidePageView(unittest.TestCase):
         # opens on the notes, so the chat's count and the page agree.
         q = dict(SNAPSHOT['queries'][0], review='read', notes=['Returns blank rather than 0 when no job is late.'])
         snap = dict(SNAPSHOT, queries=[q])
-        self.assertIn('Past query, used 12 times · worth knowing', self.text(self.render(snap, list='queries')))
+        self.assertIn('Past query, used 12 times · good to know', self.text(self.render(snap, list='queries')))
         html = self.render(snap, query='h-1')
         self.assertIn('data-tog="p:notes" data-k="t:p:notes" aria-expanded="true"', html)
         self.assertIn('Good to know Read this before you rely on it. Returns blank rather than 0 when no job is '

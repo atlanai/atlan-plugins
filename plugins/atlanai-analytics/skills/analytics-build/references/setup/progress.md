@@ -98,8 +98,8 @@ page shows each batch as it lands; the chat shows each step's end:
      `task_list` in the same message as the next wait, and write nothing: the person sees the list.
    - **Every share of the definitions back**: run `ENGINE advance` once.
    - **A quiet spell**: check that each subagent is working, then wait again.
-   - **Done**: export the build into the run and run `PROJECT check` before any question, then
-     draw the build's card.
+   - **Done**: export the build into the run and run `PROJECT check` before any question. The
+     build's card comes once, right before the save question, as [save](save.md) says.
 
    Add no words of your own between these, as [when to talk](#when-to-talk) says: a step's own
    chip or line names the step that starts, and the engine's results, counts and tooling are
@@ -118,7 +118,7 @@ before its check.
 Use native chat, its choice controls and [the setup checklist](checklist.md) in chat and
 the host's task list when available. The first time you print the tracker, record once whether you keep a task list:
 `PROJECT journey tasks --answer yes` when you have a task-list tool (TaskCreate and TaskUpdate, or TodoWrite), else
-`--answer no`; the desktop app needs none. Show the full tracker when a step starts; refresh
+`--answer no`; the desktop app needs none. Show the full tracker in chat only where there is no task list; refresh
 `PROJECT checklist` with real counts during long work. Save phase changes and intent answers to the run, so the checklist stays
 true. Open no panel or view unless the person asks for [a visual view](render.md), apart from
 the run's own [side page](visuals.md). Do not

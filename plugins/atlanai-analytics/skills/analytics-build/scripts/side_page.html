@@ -458,7 +458,7 @@ function queriesList(S, UI) {
   const tabs = pills('qflt', 'Show', [['all', 'All', qs.length], ...QTABS.filter(s => (s !== 'untested' && s !== 'kept') || counts[s]).map(s => [s, QLABEL[s], counts[s] || 0])], f);
   const rows = qs.filter(q => f === 'all' || qstateOf(q) === f).map(q => {
     const s = qstateOf(q), pend = pendingOf(S, s);
-    return `<button type="button" class="row qr${pend ? ' pend' : ''}" data-act="q" data-q="${esc(q.id)}" data-k="q:${esc(q.id)}" data-f="q:${esc(q.id)}" data-s="${s}">${named(qsaid(q), pend, sourceSaid(q) + (q.review === 'read' ? ' · worth knowing' : ''), 'cl2')}${s === 'checked' && txt(q.value) ? `<span class="v num">${esc(fixMinus(q.value))}</span>` : ''}${badgeOf(QLABEL[s], STATE[s][1])}</button>`;
+    return `<button type="button" class="row qr${pend ? ' pend' : ''}" data-act="q" data-q="${esc(q.id)}" data-k="q:${esc(q.id)}" data-f="q:${esc(q.id)}" data-s="${s}">${named(qsaid(q), pend, sourceSaid(q) + (q.review === 'read' ? ' · good to know' : ''), 'cl2')}${s === 'checked' && txt(q.value) ? `<span class="v num">${esc(fixMinus(q.value))}</span>` : ''}${badgeOf(QLABEL[s], STATE[s][1])}</button>`;
   });
   return [qs.length, tabs + `<div class="lst">${rows.join('')}</div>`];
 }

@@ -129,7 +129,7 @@ One statement for the columns of the use cases' tables, at most twelve. From the
 
 | What | How to tell | If it cannot be told |
 | --- | --- | --- |
-| Entities | Tables that hold one row per thing: an account, a user, an order | Return the two candidates; the caller asks which the person means |
+| Entities | Tables that hold one row per thing: an account, a user, an order | Take the one more queried, and return the other as its alternative; the caller states the choice |
 | Identifiers and joins | Key columns shared between tables | Leave the join out and say so |
 | Numbers people ask for | The report's measures; otherwise the aggregates that recur in query history | Suggest none; generation mines them |
 | What to leave out | Flag and status columns such as `IS_TEST`, `IS_INTERNAL`, `IS_DELETED`, a `status` with a deleted value | Apply none and say none was found |
@@ -145,7 +145,8 @@ Never sample rows to answer these, and never print a value that identifies a per
   at most twelve words on what it answers, and its two to five tables by name.
 - Kept in the run, not returned for display: per table, how much it is used, what it holds,
   how it links and what will be left out. The caller shows these only when asked.
-- Anything the warehouse could not settle, as at most one question for the caller.
+- Anything the warehouse could not settle, as the choice made and its alternative, never a
+  question: the caller states it in the build's start line.
 
 Bounds: one statement each for schemas, search and columns, and one per usage rung tried; at
 most four use cases and twelve tables in all. Stop earlier when the suggestion is clear. Query history itself is pulled later, by

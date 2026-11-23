@@ -57,8 +57,7 @@ says. **Build a dashboard** follows [the dashboard](../../../analytics-ask/refer
 show an Ask AI menu or real-data transition before this first question list.
 
 **The closing message.** Every finished flow ends with it, once: after "I'm done",
-after the accuracy check's last question on own data (a demo goes back to its
-"What would you like to do next?", whose "I'm done" ends with it), and after a dashboard is built on own
+after "I'm done" in the accuracy check's last question, and after a dashboard is built on own
 data, the last step, right after its two lines. Run `PROJECT question close`, adding `--score <percent> --scored <count>`
 when the accuracy check ran, and `--data` for a demo. Print its `text` as it is, as the last
 thing in the reply: what was built, how to use it from now on, and how to share it. Then, only
@@ -84,8 +83,8 @@ the table each time rather than copying an example: after a demo dashboard, Chan
 and see what happens takes Build a dashboard's place; own-data setup leaves out Build one
 on your own data. Treat the person's reply as the matching option. Ask the native
 "What would you like to do next?" question only when the person replies without choosing,
-and then with no answer text in that turn. The same rule ends the turn after a built
-dashboard and after the edit-metric block.
+and then with no answer text in that turn. The same rule ends the turn after the edit-metric
+block; a built dashboard ends as [the dashboard](../../../analytics-ask/references/dashboard.md) says.
 
 | Option | Description |
 | --- | --- |
