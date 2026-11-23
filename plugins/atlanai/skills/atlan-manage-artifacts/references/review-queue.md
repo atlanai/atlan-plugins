@@ -82,5 +82,5 @@ depends on it. Then ask once: approve this exact version, yes or no.
 After an approval, offer once to tell the owner. With a Slack connection through Atlan, that is
 one message the user approves (`atlan-use-mcp-servers`); otherwise give the text to send.
 
-There is no reject action in the registry yet. To turn a version down, tell the user to send the
+There is no reject action in Atlan Trident yet. To turn a version down, tell the user to send the
 owner the reason, and leave the version pending.

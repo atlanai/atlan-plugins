@@ -1,4 +1,4 @@
-# Installing a registry skill
+# Installing an Atlan Trident skill
 
 Open this only when the user asked to install, add, download or keep a skill. You have already
 read the released version (step 2): `release.release_id` names it and `metadata.files` is its
@@ -19,8 +19,8 @@ its environment notes; when unsure, ask where they are running.
 
 ## With aireg
 
-aireg is Atlan's registry CLI. Its installer currently names the command `brain`; the two take
-the same commands. It verifies every file against the registry's digests and keeps a user-scope
+aireg is Atlan Trident's CLI. Its installer currently names the command `brain`; the two take
+the same commands. It verifies every file against Trident's digests and keeps a user-scope
 install current in the background, so prefer it for a lasting install on the user's computer.
 It is an upgrade, never a requirement.
 
@@ -30,7 +30,7 @@ It is an upgrade, never a requirement.
    `curl -fsSL -o install.sh https://app.atlan.com/brain/cli/install.sh`, then `sh install.sh`.
    Where the user's or their organization's rules forbid running downloaded installers, offer
    only the MCP route. Never run the installer without a yes.
-2. Find the Atlan registry's local name: `aireg registry list -g --json`, the entry whose
+2. Find Atlan Trident's local name: `aireg registry list -g --json`, the entry whose
    source is `https://api.atlan.com`. If there is none, connecting the CLI is the user's own
    sign-in step; offer the MCP route instead.
 3. Install: `aireg add -g <registry>/skill/<name> --yes --json`, with `<name>` the skill's

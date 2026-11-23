@@ -8,7 +8,7 @@ connection reply:
 > a short rule to this project in `.cursor/rules/atlan-skill-checks.mdc`.
 
 Do not offer it in other tools. Codex has its own note (`codex-skill-checks.md`), and in Claude
-Code the Registry Mods plugin (`atlanai-mods`) does this on its own.
+Code the Trident Mods plugin (`atlanai-mods`) does this on its own.
 
 **On a yes**, with a workspace open:
 
@@ -23,17 +23,18 @@ Code the Registry Mods plugin (`atlanai-mods`) does this on its own.
 For every project, Cursor keeps user rules in its settings, which no file reaches: give the
 block between the markers for the user to paste under Cursor Settings, Rules. Do the same when
 no workspace is open. When the user asks to stop, delete the file and nothing else, or name
-the pasted rule for them to remove.
+the pasted rule, headed `## Atlan Trident skills` or the earlier `## Atlan registry skills`, for
+them to remove.
 
 ```markdown
 ---
-description: Check the Atlan registry for a fitting skill at the start of each task
+description: Check Atlan Trident for a fitting skill at the start of each task
 alwaysApply: true
 ---
 <!-- atlanai:skill-checks:start -->
-## Atlan registry skills
+## Atlan Trident skills
 
-At the start of each task, check whether my organization's Atlan registry has a skill for it,
+At the start of each task, check whether my organization's Atlan Trident has a skill for it,
 with the atlan-use-skill skill. Use a single clear match without asking and name it in one
 line. Ask me when more than one fits, and say nothing when none does. Skip quick questions and
 tasks a skill installed here already covers.

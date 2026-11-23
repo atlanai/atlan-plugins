@@ -127,7 +127,7 @@ https://platform.atlan.com/gateway/mcp/how-tos/connect-a-client, with pages for
 
 ## Other Atlan plugins you may already have
 
-- **The registry's own marketplace** (`https://api.atlan.com/public/marketplace.git`) serves
+- **Atlan Trident's own marketplace** (`https://api.atlan.com/public/marketplace.git`) serves
   this same plugin, also named `atlanai`, with the same `atlan` server. A machine that added
   that marketplace by hand, or kept it from an older Atlan desktop app, lists every skill
   twice. Keep one of the two; this marketplace's copy is the one that also installs in Codex,

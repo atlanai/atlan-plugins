@@ -4,9 +4,9 @@ description: Search Atlan for skills, agents, knowledge, MCP servers, files, out
 license: Apache-2.0
 ---
 
-# Finding things in the Atlan registry
+# Finding things in Atlan Trident
 
-Everything in the registry is an **artifact**: a versioned item of one **kind**, homed in one
+Everything in Trident is an **artifact**: a versioned item of one **kind**, homed in one
 **workspace** and optionally one **project**, with a handle shaped `<kind>_<id>`
 (`skill_01j…`, `agent_01k…`). Reads are safe: nothing here writes.
 
@@ -67,8 +67,8 @@ mcp__call_read_tool {
   A hit with `is_released: false` is a draft: say it is not released.
 - **A hit is a suggestion, not a choice.** Show the ones that fit, each with its name, version
   and workspace, and let the user pick before anything loads, even when the request says "and
-  use it". Never load one because it ranked first. The exception is the user's own standing instruction to check Atlan before
-  each task (an **Atlan registry skills** section in `AGENTS.md`): then `atlan-use-skill` loads
+  use it". Never load one because it ranked first. The exception is the user's standing instruction to check Atlan before
+  each task (an **Atlan Trident skills** or **Atlan registry skills** section): then `atlan-use-skill` loads
   a single clear match and names it in one line, and still asks when more than one fits.
 - **Same name, different skill.** Copies of one artifact across workspaces are one hit, the
   rest under `also_in`; two different artifacts can still share a `name`. Name each one's

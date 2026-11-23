@@ -5,7 +5,7 @@ Do not require or create an agent for a skills-only request. For a one-off agent
 with no source checkout, use `skills/atlan-author-agents/references/register.md` instead.
 Read [the manifest contract](agent-manifest.md) before authoring. This file is
 the shared part: what done means, the interview that picks the mode, discovery,
-the Registry target, credentials and verification. The writes live in
+the Atlan Trident target, credentials and verification. The writes live in
 [the Git-backed flow](link-git-backed-agent.md) or [the local flow](link-local-agent.md).
 Follow existing user authorization: assessment is read-only, explicit setup
 permits scoped local preparation. Ask only about unresolved scope/new actions.
@@ -14,10 +14,10 @@ This skill links configuration. It does not deploy or run the agent.
 
 ## Definition of done
 
-In both modes, the link is complete when one active Registry `agent` exists in
+In both modes, the link is complete when one active Trident `agent` exists in
 the selected workspace, its framework, model, skills, and owned files match the
-repository evidence, its `uses_skill` relationships are read back from the
-Registry, and the agent is read back by ID and the result reports which
+repository evidence, its `uses_skill` relationships are read back from
+Trident, and the agent is read back by ID and the result reports which
 downstream capabilities are ready.
 
 **Git-backed** (CI keeps the agent in sync):
@@ -34,7 +34,7 @@ downstream capabilities are ready.
 
 - `.atlan/agents/<slug>.yaml` describes the agent and matches the live `agent`
   kind schema (directly, or through its non-secret projection);
-- the agent is bound to the Registry `repo` for the checkout's canonical remote
+- the agent is bound to the Trident `repo` for the checkout's canonical remote
   through an active `sourced_from` edge with the declaration path in
   `attributes.path`, and uses that path as its `source_id`;
 - the agent's `skills` manifest pins every requested skill; and
@@ -50,7 +50,7 @@ telemetry.
 
 Use the highest-level surface available for each job:
 
-- **Registry MCP tools** for workspace and schema discovery, exact artifact reads,
+- **Trident MCP tools** for workspace and schema discovery, exact artifact reads,
   relationships, and read-back. Open one audited session and pass its
   `session_id` and a concrete first-person `rationale` on every later call, as
   the calling rules at the top of this skill say.
@@ -75,7 +75,7 @@ each command before running it; if installed help
 disagrees with an example here, follow the help and keep this skill's safety
 boundaries. Do not reach for `curl` or raw HTTP, and never inspect backend
 source, generated clients, OpenAPI files or tests to infer request fields. Never
-discover contracts by failed mutations. Require usable auth before Registry
+discover contracts by failed mutations. Require usable auth before Trident
 access and use existing CLI authentication without reading its store. If no
 surface listed here covers a required step, stop and name the missing capability.
 
@@ -89,12 +89,12 @@ Use names rather than asking the user to find IDs. Exclude this setup skill from
 publishing by default.
 
 Determine the publishing authority for every selected repository skill and
-agent before any Registry write. Preserve an already verified Git-backed or
+agent before any Trident write. Preserve an already verified Git-backed or
 local-backed identity unless the user asks to change it. Otherwise ask:
 
 > Should GitHub remain the source of truth for these skills and agents, so
 > merged changes, including the agent's own files, are published to the
-> Registry automatically?
+> Atlan Trident automatically?
 
 Recommend Git-backed publication for anything intended to stay synchronized.
 This is an identity choice, not a follow-up convenience:
@@ -154,7 +154,7 @@ Do not drop requested skills or ask users to copy IDs. Fill agent fields from
 repository evidence using the manifest reference's field mapping; omit a field
 the evidence does not support rather than inventing one.
 
-## Resolve the Registry target
+## Resolve the Atlan Trident target
 
 Read workspaces with `registry__list_workspaces` and select the one the user
 named. If several writable workspaces remain plausible, ask one concise question.
@@ -233,7 +233,7 @@ Read back the final state instead of trusting write responses:
 
 ## Completion
 
-Report Registry verification and local declaration changes separately. Follow
+Report Trident verification and local declaration changes separately. Follow
 existing Git authorization; stage neither credentials nor unrelated work. A
 failed Git operation resumes Git, not agent creation.
 
