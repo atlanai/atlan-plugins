@@ -78,7 +78,7 @@ message names the card and the field.
 | `description` containing SQL | it is the third retrieval tier; spend it on words somebody would type |
 | `domain` that is a warehouse schema | a business domain is not a path |
 | `source.sql` starting with `SELECT` | it is the FROM clause |
-| `source.sql` aliasing a named table | it makes every qualified reference on the card unresolvable |
+| `source.sql` aliasing a named table directly in the outer FROM or JOIN | use full table names there. A derived source or a parenthesized join can supply aliases visible to the card |
 | a declared join with no FROM clause | the join's kind has nowhere else to live |
 | `aggregation.type` disagreeing with `formula` | `count` over a `COUNT(DISTINCT …)` says something untrue about itself |
 | a name that carries its own cut : `X by <one of its dimensions>` | nobody searching for the measure can find it |

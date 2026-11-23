@@ -25,6 +25,7 @@ for a SQL check) fails, naming both, when the session has no current database.
 """
 from __future__ import annotations
 
+import json
 import os
 import pathlib
 import re
@@ -32,6 +33,8 @@ from typing import Any, Iterator
 
 from metrics_agent import sockets as S
 from metrics_agent.lib.querylog import shape_table_records
+
+from metrics_agent_snowflake import metric_catalogue
 
 # Keep native history separate from the three-column shape-table contract.
 _ACCOUNT_USAGE = re.compile(r'^"?SNOWFLAKE"?\."?ACCOUNT_USAGE"?\."?QUERY_HISTORY"?$',
@@ -138,7 +141,7 @@ class SnowflakeDirect:
     bi_vendor = "snowflake-semantic-view"
     # With `semantic_views` and no `bi`, the run fetches their DDL itself (`s_fetch_bi`, the
     # first step of `metrics-agent run`) into the run directory, so S0 never reaches out.
-    fetch_settings = ("semantic_views",)
+    fetch_settings = ("semantic_views", "metric_catalogue")
     setup_questions = {
         "history": (S.SetupQuestion("shape_table", "Existing shape table, DB.SCHEMA.TABLE "
                                        "(blank: read native Account Usage history)", required=False),
@@ -149,7 +152,9 @@ class SnowflakeDirect:
                                       "SCHEMA.TABLE resolves against it, and Snowflake cannot "
                                       "check one without it (blank only when the DSN sets "
                                       "database=)", required=False),),
-        "bi": (S.SetupQuestion("semantic_views", "Semantic views to read, DB.SCHEMA.VIEW "
+        "bi": (S.SetupQuestion("metric_catalogue", "Governed metric catalogue to read "
+                               "(DB.SCHEMA.TABLE, before query history)", required=False),
+               S.SetupQuestion("semantic_views", "Semantic views to read, DB.SCHEMA.VIEW "
                                "(comma-separated; blank: a file on disk)", required=False,
                                kind="list"),
                S.SetupQuestion("bi", "Path to a semantic view's DDL or YAML on disk (blank when "
@@ -179,7 +184,7 @@ class SnowflakeDirect:
         table (`tables`) or of the shape table, when one is named."""
         if not os.environ.get("METRICS_AGENT_WAREHOUSE_DSN"):
             return S.env_refusal(self.name, ("METRICS_AGENT_WAREHOUSE_DSN",))
-        probe = (settings.get("tables") or [None])[0] or settings.get("shape_table")
+        probe = (settings.get("tables") or [None])[0] or settings.get("shape_table") or settings.get("metric_catalogue")
         try:
             from metrics_agent.socket_gates import ReadOnlyRunner  # noqa: PLC0415
 
@@ -317,22 +322,28 @@ class SnowflakeDirect:
             root = pathlib.Path(str(self.settings["bi"])).expanduser()
             if root.is_dir():
                 return sorted(p for p in root.rglob("*")
-                              if p.is_file() and p.suffix.lower() in (".sql", ".yaml", ".yml"))
+                              if p.is_file() and (p.suffix.lower() in (".sql", ".yaml", ".yml")
+                                                  or metric_catalogue.is_catalogue_path(p)))
             return [root]
         views = [str(v).strip() for v in (assets or []) if str(v).strip()]
         if not views:
             raw = self.settings.get("semantic_views") or []
             views = [v.strip() for v in (raw.split(",") if isinstance(raw, str) else raw)
                      if str(v).strip()]
-        if not views:
-            raise S.NotSupported("snowflake-direct: set `semantic_views` (DB.SCHEMA.VIEW, ...) "
-                                 "or `bi` (a semantic view file) to read BI definitions")
+        catalogue = str(self.settings.get("metric_catalogue") or "").strip()
+        if not views and not catalogue:
+            raise S.NotSupported("snowflake-direct: set `metric_catalogue`, `semantic_views`, "
+                                 "or `bi` to read BI definitions")
         bad = [v for v in views if len(v.split(".")) != 3 or not plain_table_name(v)]
         if bad:
             raise ValueError(f"not a DB.SCHEMA.VIEW identifier: {bad[0]!r}")
+        if catalogue and (len(catalogue.split(".")) != 3 or not plain_table_name(catalogue)):
+            raise ValueError("metric_catalogue must be a DB.SCHEMA.TABLE identifier")
         dest = pathlib.Path(dest)
         out: list[pathlib.Path] = []
         with ReadOnlyRunner(self.sql_runner(), self.dialect) as ro:
+            if catalogue:
+                out.append(self._fetch_metric_catalogue(ro, catalogue, dest))
             for view in views:
                 _cols, rows = ro.fetch(f"SELECT GET_DDL('SEMANTIC_VIEW', '{view}')", 1)
                 ddl = rows[0][0] if rows and rows[0] else None
@@ -342,6 +353,43 @@ class SnowflakeDirect:
                 path.write_text(str(ddl), encoding="utf-8")
                 out.append(path)
         return out
+
+    def _fetch_metric_catalogue(self, ro, table: str, dest: pathlib.Path) -> pathlib.Path:
+        from metrics_agent.lib.policy import load  # noqa: PLC0415
+        from metrics_agent.socket_gates import quote_part  # noqa: PLC0415
+
+        columns = {str(c).lower() for c in ro.columns_of(table)}
+        mapping = self.settings.get("metric_catalogue_columns") or {}
+        if not isinstance(mapping, dict) or set(mapping) - set(metric_catalogue.COLUMNS):
+            raise ValueError("metric_catalogue_columns must map supported fields to column names")
+        selected = {}
+        for key, aliases in metric_catalogue.DEFAULT_COLUMNS.items():
+            options = (str(mapping[key]).lower(),) if key in mapping else aliases
+            match = next((name for name in options if name in columns), None)
+            if match:
+                selected[key] = quote_part(match, self.dialect)
+            elif key in mapping or key in ("metric_name", "sql"):
+                raise ValueError(f"metric catalogue has no column for {key}; set "
+                                 "metric_catalogue_columns to specify the column")
+        source = ".".join(quote_part(part, self.dialect) for part in table.split("."))
+        limit = load().get("metric_catalogue.max_rows")
+        _, rows = ro.fetch(f"SELECT {', '.join(selected.values())} FROM {source}", limit + 1)
+        if len(rows) > limit:
+            raise ValueError("metric catalogue exceeds the metric_catalogue.max_rows policy")
+        if not rows:
+            raise ValueError("metric catalogue is empty")
+        records = []
+        for row in rows:
+            record = dict(zip(selected, row, strict=True))
+            for key in ("expected_value", "expected_tolerance"):
+                if record.get(key) is not None:
+                    record[key] = str(record[key])
+            records.append(record)
+        records.sort(key=lambda row: str(row["metric_name"]).casefold())
+        path = dest / (table.upper() + metric_catalogue.SUFFIX)
+        path.write_text(json.dumps({"model_name": table.upper(), "rows": records}, indent=2)
+                        + "\n", encoding="utf-8")
+        return path
 
     def resolve_scope(self, refs: list[str]) -> S.Scope:
         raise S.NotSupported("snowflake-direct does not resolve asset names; list the tables")

@@ -32,7 +32,7 @@ judgment well : not a checklist to apply.
    "verdict": "metrics",
    "metrics": [
      {"name": "<business name>",
-      "expression": "<copied VERBATIM from the statement>",
+      "expression": "<copied from the statement, or SUM(named_output_column)>",
       "entity": "<ONE table from the statement's tables, fully qualified, nothing else: no joins, no notes>",
       "why_a_metric": "<one sentence: what the business does with this number>",
       "definition": "<what it counts or measures, over what population>",
@@ -48,8 +48,9 @@ judgment well : not a checklist to apply.
 ```
 
 `verdict` is `metrics` or `none`, and **every statement gets one.** `none` is a real answer.
-`expression` must appear verbatim in the statement : you are reading what runs, never
-rewriting it.
+Quote an expression from the statement. When the business needs a total over a named output
+column, propose `SUM(column)` with `aggregation: sum`. The engine keeps the source query as
+the input to that sum. Use `custom` for a value the metric reads as-is.
 
 ## Save in batches of about five statements
 
