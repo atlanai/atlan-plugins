@@ -43,8 +43,8 @@ give the layout in words and stop. Keep it real and small:
 - **What comes after.** In own-data setup the dashboard is the last step: record `PROJECT
   journey dashboard --answer built`, then end with [the closing message](../../analytics-build/references/setup/ready.md)
   (`PROJECT question close`), printed as it is, as the last thing in the reply. In a demo,
-  end with its `Next:` line from [ready](../../analytics-build/references/setup/ready.md)
-  instead. Outside a guided flow, end on the two lines above. Nothing else in that reply: no
-  headings, no list of what the page can do, no "before you share it" notes. A caveat the
-  person must know goes in the closing message's "Good to know", once. No native question
-  in that turn.
+  end on the demo's "What would you like to do next?" question instead, as
+  [the demo](../../analytics-demo/SKILL.md) says. Outside a guided flow, end on the two lines
+  above. Nothing else in that reply: no headings, no list of what the page can do, no "before
+  you share it" notes. A caveat the person must know goes in the closing message's "Good to
+  know", once. Outside the demo, no native question in that turn.

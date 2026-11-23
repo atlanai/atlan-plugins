@@ -114,7 +114,7 @@ class Drafts(unittest.TestCase):
         self.run.write(self.run.root / 'progress.json', {'stage': 'build', 'status': 'running'})
         self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': 'm2_ingest', 'verdict': 'ok'}]})
         said = self.wait()['next']
-        self.assertIn("not even the next step's start", said)
+        self.assertIn("Only a step that no chip names gets a start line", said)
         # h18t set the next subagent up first, wrote its own line meanwhile, and dropped the step's chip.
         self.assertLess(said.index('`visual next`'), said.index('subagent'), 'the chip first')
 
@@ -169,8 +169,12 @@ class Drafts(unittest.TestCase):
         sys.path.insert(0, str(fixtures.SCRIPTS))
         import drafts
         for event, said in drafts.WAITED.items():
-            self.assertTrue(said.startswith('Add no words of your own'), event)
+            if event != 'quiet':
+                self.assertTrue(said.startswith('Add no words of your own'), event)
             self.assertNotIn('still', said.lower(), event)
+        # The one exception (PR 205's review: 12 to 18 minute silences): after about 3 quiet minutes, one line, never repeated.
+        self.assertIn('about 3 minutes, write one line', drafts.WAITED['quiet'])
+        self.assertIn('never a line you already wrote', drafts.WAITED['quiet'])
 
 
 if __name__ == '__main__':

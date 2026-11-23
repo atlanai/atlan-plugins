@@ -1,7 +1,7 @@
 # One setup presentation flow
 
 Use the demo's presentation flow for every setup, with the actual sources and results of
-the selected run. There is no separate compact setup flow or word limit. Technical stage
+the selected run. There is no separate compact setup flow. Technical stage
 procedures control execution, validation and publication; these moment files control what
 the person sees and how it reaches the host's visible surface.
 

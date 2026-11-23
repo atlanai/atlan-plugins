@@ -141,7 +141,7 @@ a customer's personal details.
 **Words** are the conventions' [words the person reads](../../analytics-build/references/conventions.md#words-the-person-reads):
 metrics and saved queries, counted the same way every time ("Your agent answers from 7 metrics and
 12 saved queries"), your agent for the whole and your context for what it answers from. Say "what
-this answer is based on". Never say reconciliation, hold or Registry to the person.
+this answer is based on".
 
 ## Step 2: ask what to build from
 

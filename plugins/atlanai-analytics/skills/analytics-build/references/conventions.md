@@ -120,6 +120,10 @@ never "my" ("Use your own data").
   on your data"); its result is **tested** and **passed**. What did not pass **needs your review**;
   what the save left out is **held back**. The run's own page is the **side page**.
 - A BI file is a **dashboard**, or a **report** where the person's tool calls it one (Power BI).
+- How the work is done stays out of shown copy, the one list every flow uses: never engine, gate,
+  helper, subagent, chip, Registry, statement, export, hold, alias, reconciliation, staged copy,
+  run directory, draft, so-far, or a count of query patterns or shapes. Say what it means: "the
+  build", "a step", "held back", "your report's tiles", "its definition".
 
 **Sentences and labels**, in shown copy. At most 30 words, one idea each. No dashes or semicolons as
 punctuation, no "not X but Y", no exclamation marks and no filler words. Counts are digits with

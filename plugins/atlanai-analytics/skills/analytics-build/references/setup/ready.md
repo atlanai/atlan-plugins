@@ -94,8 +94,8 @@ dashboard and after the edit-metric block.
 | Build one on your own data | Start with your own dashboard link, local folder or BI export, here in this chat. |
 | I'm done | Finish the demo here. |
 
-Offer these options in the `Next:` line after answering the person's request and after a
-dashboard is built. Ask more questions waits for the person's next question. Own-data setup omits the
+Offer these options in the `Next:` line after answering the person's request. A built
+dashboard ends as [the dashboard](../../../analytics-ask/references/dashboard.md) says. Ask more questions waits for the person's next question. Own-data setup omits the
 real-data transition option, and offers the accuracy check only until it has run, through
 [check accuracy](accuracy.md). A supplied question or explicit next action takes precedence
 over asking again. Never start a flow until chosen.

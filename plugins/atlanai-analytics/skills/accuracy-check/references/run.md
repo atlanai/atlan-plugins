@@ -186,7 +186,7 @@ again, each to a fresh agent with only the source tables' schema and no addition
 ## Show the score
 
 The result is a win moment: write it warm, specific and celebratory wherever it truthfully can
-be, a small set included. It comes first, with nothing around it: no setup recap, no list of
+be, a small set included. It comes first, after its card where one is drawn, with nothing else around it: no setup recap, no list of
 commands, no closing summary. I build and test, you choose, your agent answers: say it that
 way, in plain words, with no tool or file names.
 
@@ -223,7 +223,8 @@ for a reader who asks.
   difference. Below 100%, the misses say what to sharpen.
 - **behind**: stay upbeat and say what to fix. Never explain it away.
 
-Examples, each a whole result:
+Examples, each a whole result as it reads where no card is drawn (with a card, drop the banner and
+the before-and-after line):
 
 ```
 Ahead (8 questions):

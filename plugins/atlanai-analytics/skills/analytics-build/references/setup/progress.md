@@ -9,21 +9,25 @@ files link here and do not restate it. **A line earns its place only when it tel
 something the screen does not already show**: the task list, a chip or card, the side page, and
 the app's own labels for each command and helper.
 
-- **Before work starts**, at each moment [the presentation flow](presentation.md) names: one Doing
+- **Before work starts**, at each moment [the presentation flow](presentation.md) names (a demo's are
+  in [the tour](../../../analytics-demo/references/tour.md)): one Doing
   and Why pair, at most 35 words together, once. When a question follows, the pair is the
   question's own text.
 - **While a build or a check runs**, the task list, the chips and the side page carry it. Write
   nothing of your own: no heartbeat, no "still", no line that repeats a chip, no count the list
-  already shows. A wake that changed nothing on screen gets no words. Three things break the
+  already shows. A wake that changed nothing on screen gets no words. Four things break the
   silence, each in one line:
   - a step that no chip names starts: its start line, once, where the flow's file gives one;
   - a problem that changes something for the person: what happened, the count, what happens next;
-  - the person asks ("what's happening?", "is it stuck?"): the current step and its real counts
-    from `PROJECT checklist`, then keep waiting in the same turn.
+  - the person asks ("what's happening?", "is it stuck?"): the current step and its real counts,
+    then keep waiting in the same turn;
+  - nothing new has reached the screen for about 3 minutes: the current step and what is done so
+    far, never a line you already wrote. Then quiet again until the screen moves or 3 more
+    minutes pass.
+
+  Real counts come from `PROJECT checklist`, or `EVAL todo` during an accuracy check.
 - **When it ends**: its result, once, as its chip or card, or one line in the past tense with
   counts where there is none.
-- **On a host with no task list**, where no chip comes for minutes: one line when a count has
-  moved since your last line, never the same count twice.
 
 Use `PROJECT progress --stage <stage> --status <status>` at parent-owned stage transitions.
 `PROJECT progress` reads the latest state. Inspect/check operations also checkpoint their

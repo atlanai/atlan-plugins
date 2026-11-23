@@ -203,15 +203,17 @@ WAITED = {
              "batch. Set your task list to `task_list`, each step's "
              "text and status as given (load the task-list tool first if it is deferred), in the same message as your "
              "next `PROJECT drafts --wait`, so the turn goes on.",
-    'step': "Add no words of your own, not even the next step's start: run `visual next` with the flags of every `visual` "
+    'step': "Add no words of your own beyond what `visual next` gives: run it with the flags of every `visual` "
             "call now (it is quick) and show what it gives in the same message that starts the next step's subagent, "
-            "if its gate result asks for one, in this same turn.",
+            "if its gate result asks for one, in this same turn. Only a step that no chip names gets a start line, "
+            "the one its flow's file gives.",
     'due': "Add no words of your own: something is ready to show, and no step has ended. Run `visual next` with the "
            "flags of every `visual` call now and do what it says, then run `PROJECT drafts --wait` again.",
     'ready': "Add no words of your own: every share of the definitions is back. Run `ENGINE advance` once, send each "
              "refused card to the subagent whose share holds its task number, then run `PROJECT drafts --wait` again.",
-    'quiet': "Add no words of your own: nothing new for a while. Check that each subagent is working, then run "
-             "`PROJECT drafts --wait` again.",
+    'quiet': "Nothing new has reached the screen for a while. Check that each subagent is working. When nothing has "
+             "shown for about 3 minutes, write one line: the current step and what is done so far, never a line "
+             "you already wrote. Then run `PROJECT drafts --wait` again.",
     'done': "Add no words of your own until the build's card: export the build into the run and run `PROJECT check` for "
             "the structural pass, as build and check says, then draw the build's card before any question.",
 }

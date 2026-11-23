@@ -183,10 +183,6 @@ Rough times, from a 37-tile report; scale by the number of tiles:
 | --- | --- | --- |
 | Review of the translations | "Checking each tile's SQL against what your report calculates. About `<time>`." | 5 minutes |
 | Questions for the tiles | "Writing the question each tile answers. Each becomes a saved query: the question, kept with the SQL that answers it." | 4 minutes |
-| Finding metrics | "Now finding the metrics behind each question. Each is defined once. Your agent answers from each metric's definition, so the same question gets the same number and you can trace it." | 4 minutes |
-| Merging | "Merging duplicate metrics across tiles into one metric each, so the count drops." | 3 minutes |
-| Adding information | "Adding detailed information to each metric: what it counts and what it leaves out. About `<time>`." | 10 minutes |
-| Links | "Linking metrics that build on each other." | 1 minute |
 
 ## 4. Validate the context on your data: the person's choice
 

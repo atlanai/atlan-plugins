@@ -272,7 +272,7 @@ def main(argv=None) -> int:
     c.add_argument("--agent", help="unused; accepted so an older call still runs")
     c.add_argument("--firm", help="unused; accepted so an older call still runs")
     c.add_argument("--generated", action="store_true", help="CHECK load returned generated: true")
-    c.add_argument("--widget", action="store_true", help="also return the comparison's widget, for a side page")
+    c.add_argument("--widget", action="store_true", help="also return the comparison's widget: the result card, drawn before the result")
     c.set_defaults(func=cmd_result)
     c = s.add_parser("saved", help="what saving the check put in Atlan, word for word")
     c.add_argument("--evals", required=True)

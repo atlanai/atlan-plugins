@@ -87,7 +87,7 @@ Keep the parent turn alive with as few turns as the host allows. Prefer the task
 notification; without one, check the native task handle at most every 30 seconds. This is
 the background watcher: a real host task with a retained handle, not a promise to check
 later. Continue independent survey/authoring work while waiting; serialize run mutations.
-Give status only when it changes, or once a minute at most. Do not schedule an automation,
+Give status as [when to talk](setup/progress.md#when-to-talk) says. Do not schedule an automation,
 create an OS daemon, add an agent, inspect credential files or start hidden model calls.
 
 A host with no background task or browser tool gets the core sign-in step for that host in

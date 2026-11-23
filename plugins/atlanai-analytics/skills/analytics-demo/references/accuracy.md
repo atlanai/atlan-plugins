@@ -128,10 +128,10 @@ context pass. With every question right, go to step 5: the result carries the co
 **With misses, the turn ends on the score, in the chat.** It is the turn's last message, which
 always prints whole, with no native question after it: text written just before a question can
 be cut to a short note. Write it from `ACC result --evals <evals-run>` (add `--generated` when
-`CHECK load` returned `generated: true`) as accuracy-check's
-[show the score](../../accuracy-check/references/run.md#show-the-score) describes: the accuracy,
-before and after as percentages, what made the difference, the misses under their numbers, then
-this last line. Send one message, filled in, with nothing before it and nothing after it:
+`CHECK load` returned `generated: true`, and `--widget` where you have `show_widget`) as
+accuracy-check's [show the score](../../accuracy-check/references/run.md#show-the-score) describes,
+its card drawn first where there is one, then this last line. Send one message, filled in, with
+nothing before it but the card and nothing after it:
 
 ```
 <the result, as show the score describes>
@@ -247,20 +247,19 @@ the score again as step 3 describes, with the new score; "fix" finds the next fi
 
 The result is the win moment of the check. `ACC result --evals <evals-run>` (add `--generated`
 when `CHECK load` returned `generated: true`) computes every number: `banner` when every question
-is right, `accuracy`, `baseline`, `lift`, `outcome`, `questions`, `misses`, `lines` (the number
+is right (shown only where no card is drawn), `accuracy`, `baseline`, `lift`, `outcome`, `questions`, `misses`, `lines` (the number
 lines, worded once, with `fixed`, "Up from <p>% before the fix.", after a fix) and `source`. Write
 the result from them as accuracy-check's
-[show the score](../../accuracy-check/references/run.md#show-the-score) describes: celebratory and
-specific wherever it truthfully can be, the accuracy first, then before and after as
-percentages, one line on what made the difference (after a fix, the rule it changed, in plain
-words), the misses under their numbers, and the small-set line when `small_set` is true. Then one
+[show the score](../../accuracy-check/references/run.md#show-the-score) describes, card first where
+you have `show_widget`; after a fix, its line on what made the difference names the rule it
+changed, in plain words. Then one
 line per version a fix released: "<metric> version <v> is released in <workspace>." No other
 line: not a significance test, a note on saved queries or past queries that still follow the old
 rule, or an offer to change a saved query, another metric or the set.
 
 **Then ask for more, in the same turn.** `CHECK next --evals <evals-run> --run <run>` returns
 the question, as accuracy-check's [ask for more](../../accuracy-check/references/run.md#ask-for-more)
-describes. Draw the result's card first where you have `show_widget` (`ACC result --widget`), then ask one
+describes. Draw the result's card first where you have `show_widget` (`ACC result --evals <evals-run> --widget`), then ask one
 native question whose text is the result, a blank line and its `lead`, as plain lines with no
 Markdown, as [show the score](../../accuracy-check/references/run.md#show-the-score) says. When the person just replied "keep" to a score message, they have seen the score: the
 text is the released lines, if any, and the `lead`. On a demo, its options are Add questions of
