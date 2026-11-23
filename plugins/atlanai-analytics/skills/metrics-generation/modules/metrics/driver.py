@@ -1,7 +1,7 @@
 """Standard-library host driver for the maintained Analytics metrics runtime.
 
 Only setup installs dependencies, after an explicit request. All other commands are local
-except reads performed by the input plugs selected in run.yml. No Registry transport.
+except reads performed by the input plugs selected in run.yml. No Atlan Trident transport.
 """
 import argparse
 from contextlib import contextmanager

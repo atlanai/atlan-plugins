@@ -44,7 +44,7 @@ native chat. No additional MCP server is installed.
    selected history inputs, keeping original filters, security scope and source refresh
    evidence. The original reader/compiler produces SQL, and the assistant answers the
    original reviewed gates. Unsupported constructs remain named gaps. The module exports
-   the existing context files; it makes no Registry calls.
+   the existing context files; it makes no Atlan Trident calls.
 4. **Check dashboard parity independently.** When exact source values are reachable, compare
    them against the generated SQL for the same filter, security and snapshot scope. Use
    `ENGINE parity-plan` and the private evidence contract in the metrics-module reference,

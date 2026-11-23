@@ -1,7 +1,7 @@
-"""Push and pull eval datasets against the Atlan agent registry.
+"""Push and pull eval datasets against Atlan Trident.
 
 Auth rides on the `atlanai` CLI rather than a token this package manages. The
-CLI is already authenticated wherever the workflow runs — Registry triggers the
+CLI is already authenticated wherever the workflow runs — Trident triggers the
 skill into a harness on a machine where `atlanai auth login` has happened — so
 minting a second credential path would add something the doctor has to check
 and the user has to rotate, for no capability gain.
@@ -11,8 +11,8 @@ the prose docs. They disagree, and the docs lose: the body takes `expected` and
 `extra`, not `expected_output` and `metadata`.
 
 Only approved records are pushed. An eval set nobody read is generated content
-wearing ground truth's clothes, and pushing it to a shared registry launders
-that provenance away.
+wearing ground truth's clothes, and pushing it to Trident, where others read
+it, launders that provenance away.
 """
 
 from __future__ import annotations
@@ -398,7 +398,7 @@ def _with_workspace(record: dict, workspace_id: str) -> dict:
 
 def link_dataset_to_agent(dataset_id: str, agent_name: str,
                           workspace_id: str) -> tuple[bool, str]:
-    """Record in the registry that this dataset evaluates that agent.
+    """Record in Trident that this dataset evaluates that agent.
 
     Without it the binding lives only in a local run.json, and the runner — which
     expects to fetch evals and agent together — has nothing to follow. Both ends
@@ -433,7 +433,7 @@ def _agents_in(workspace_id: str) -> list[dict]:
 
 
 def pull(dataset_name_or_id: str) -> EvalSpec:
-    """Read a dataset back out of the registry as a local spec."""
+    """Read a dataset back out of Trident as a local spec."""
     if dataset_name_or_id.startswith("dataset_"):
         dataset = api("GET", f"/eval/v1/datasets/{dataset_name_or_id}")
     else:
@@ -489,11 +489,11 @@ def _from_registry_record(item: dict, input_key: str) -> EvalRecord:
 #
 # A dataset with no scorer and no run is a list of questions in a database. The
 # eval extension carries all three, and the skill was pushing only the first —
-# so nothing in the registry said how a set is judged, and nothing recorded that
+# so nothing in Trident said how a set is judged, and nothing recorded that
 # the suite had ever passed.
 #
 # The division: a `code` scorer is cataloged here and executed by whoever runs
-# it. The registry stores the definition and the scores; it does not run the
+# it. Trident stores the definition and the scores; it does not run the
 # grader. So `spec` must say precisely where the implementation lives, or the
 # artifact is a claim nobody can reproduce.
 # ---------------------------------------------------------------------------

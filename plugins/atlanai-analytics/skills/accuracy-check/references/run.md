@@ -95,8 +95,8 @@ trusted results come from the warehouse, and no model copies a value:
       released versions, never from files on this machine; the run folder is only for the query
       runner". On this machine: "the context on this
       machine, in the analytics run at <run-dir>: its metrics and queries are in that run's
-      context folder and are not in Atlan Trident, so do not search the registry; unreleased
-      local definitions are the ones to use". A small model answers from the registry unless told.
+      context folder and are not in Atlan Trident, so do not search Atlan Trident; unreleased
+      local definitions are the ones to use". A small model answers from Trident unless told.
       Never name the eval folder in the prompt: an agent told to avoid it writes the name into
       its own search filters, and the audit then marks the run contaminated. Keep the Agent
       tool's `output_file`: it is the transcript.

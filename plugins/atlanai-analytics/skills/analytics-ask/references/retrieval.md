@@ -20,7 +20,7 @@ and apply [explanation checks](answer-checks.md). When the run has no local data
 checks ran on a warehouse, run the definition through the recorded warehouse query tool
 instead. Label the answer "Local sample data" for a local database, or "Local definition, not
 yet saved to Atlan Trident" for a warehouse, and cite the local definition and check limitations. No sign-in or publication is needed.
-Do not record a Registry receipt, claim team availability or call a local draft a released
+Do not record an Atlan Trident receipt, claim team availability or call a local draft a released
 definition. This explicit local route is never a fallback for a missing, withdrawn, rejected
 or changed release. Requests for managed/team answers still follow the release path below.
 
@@ -45,7 +45,7 @@ For a saved-query answer, run `PROJECT answer "<request.json>"`:
 Replace the illustrative array with actual complete objects. The helper checks the released
 revision against the setup receipt, uses its SQL, checks parameter names and selects execution:
 
-- **SQLite or DuckDB:** converts Registry placeholders outside literals/comments into native
+- **SQLite or DuckDB:** converts Trident placeholders outside literals/comments into native
   bindings (`:name` or `$name`), executes read-only against the recorded database and returns
   fresh results.
 - **Warehouse:** returns `status: execute_in_host`, the SQL, separate parameters, limit,

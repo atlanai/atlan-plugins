@@ -5,7 +5,7 @@
 The D/R tracks this module serves exist because the first ones answered a different
 question. They grouped candidates by the **output alias** a query happened to give its
 column, so one measure written by five analysts became five metrics, and they derived each
-metric's registry identity from that grouping — so changing how we group changed every
+metric's Atlan Trident identity from that grouping — so changing how we group changed every
 identity, and a re-push replaced the layer instead of revising it.
 
 Three decisions live here, and nothing else in the pipeline may re-make them:
@@ -57,9 +57,9 @@ def measure_identity(formula: str, entity: str) -> str:
 
     IDENTITY MUST OUTLIVE THE PIPELINE THAT DERIVED IT. The old key was
     `family_key(name, aggregation_type, base_tables)` — every part of which changes when the
-    grouping rules change. Regrouping therefore minted 514 new identities, the registry saw a
+    grouping rules change. Regrouping therefore minted 514 new identities, Trident saw a
     layer it had never met, and 581 artifacts were archived instead of revised. A metric that
-    is still the same measure over the same table keeps this key, so the registry appends a
+    is still the same measure over the same table keeps this key, so Trident appends a
     revision and bumps `definition.version`, which is what it is for.
 
     `count(*)` over forty tables is forty metrics, so the entity is in the key; the name,

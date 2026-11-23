@@ -23,7 +23,7 @@ For useful count changes between those moments, give a factual update. Read
 `--engine-dir <within-run-engine>` so its manifest supplies engine progress. Use an absolute
 engine path or `--engine-dir engine`, which is relative to the selected run.
 When access evidence spans hosts, pass `--host <claude_code-or-codex> --server <observed-id>`
-to `PROJECT experience` and `PROJECT journey`. Only a matching successful Registry read
+to `PROJECT experience` and `PROJECT journey`. Only a matching successful Atlan Trident read
 can establish that host's readiness. It cannot clear another host's sign-in request.
 Do not pass a cwd-relative engine path unchanged. For long work,
 provide a factual heartbeat every 30 to 60 seconds, except while a subagent writes the gates: then the

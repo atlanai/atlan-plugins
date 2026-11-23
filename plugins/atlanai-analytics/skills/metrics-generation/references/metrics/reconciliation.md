@@ -5,7 +5,7 @@ Read complete existing definitions into `existing.json` for the chosen workspace
 enough. The checker reuses exact contracts, keeps the full existing definition and updates
 typed relationship endpoints. It never treats matching sample totals as proof of equivalence.
 Preserve `id`, `kind`, `name`, `display_name`, `description`, `source_id` and `definition`.
-Registry compact reads may omit repeated descriptions: use `registry__get_artifact` with
+Atlan Trident compact reads may omit repeated descriptions: use `registry__get_artifact` with
 `verbose: true` for missing body fields. Never fill missing live prose from the local candidate.
 
 For saved queries the checker compares the executable contract: `spec_version`, `dialect`,

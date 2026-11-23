@@ -217,7 +217,7 @@ Each was settled the conservative way for now; reviewers may prefer another.
   path cannot fan out, so the number is unchanged; a path through a one-to-many step is refused.
 - **Declared types.** A declared dimension's `datatype` is the type the model declares, mapped
   onto the card's vocabulary (`string`, `integer`, `decimal`, `boolean`, `date`, `timestamp`),
-  `unknown` when it declares none: the registry does not require it, and it is never read from
+  `unknown` when it declares none: Atlan Trident does not require it, and it is never read from
   a warehouse.
 - **Role names on the card.** A table that plays two roles is a derived table under each role
   name, and X3 accepts a name the card's own FROM clause gives a derived table as a qualifier.

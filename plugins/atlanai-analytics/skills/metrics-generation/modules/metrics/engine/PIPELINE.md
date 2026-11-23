@@ -34,7 +34,7 @@ bounded, refuse regressions and retain accepted outputs.
 
 The plugin selects publish: [files] and no observers. The validated bundle contains verified
 queries, metric cards and metric relationships. It stays on disk. The Analytics adapter
-projects that common bundle into the existing publication contract. Registry authentication,
+projects that common bundle into the existing publication contract. Atlan Trident authentication,
 publication, reconciliation and releases remain outside this engine.
 
 ## Quality and access
@@ -51,5 +51,5 @@ flowchart LR
     C --> D["Authored gates"]
     D --> E["Validated metric layer"]
     E --> F["Analytics export"]
-    F --> G["Existing Registry publisher"]
+    F --> G["Existing Trident publisher"]
 ```

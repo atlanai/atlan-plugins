@@ -285,7 +285,7 @@ class Service:
             definition['provenance'] = {'source': 'powerbi_report', 'proposed_by': 'trident-dashboard',
                                         'derived_from': [measure['evidence_ref']]}
             validation = validate_definition(definition)
-            require(validation['valid'], 'Generated definition failed the Registry structural contract.')
+            require(validation['valid'], 'Generated definition failed the Atlan Trident structural contract.')
             metrics.append({'id': artifact_name, 'name': label, 'description': measure.get('description', ''), 'source_id': source_id, 'definition': definition,
                 'definition_hash': digest(definition), 'identity_stable': stable, 'validation': validation,
                 'readiness': 'source_bound', 'runtime': 'powerbi', 'warehouse_portable': False})

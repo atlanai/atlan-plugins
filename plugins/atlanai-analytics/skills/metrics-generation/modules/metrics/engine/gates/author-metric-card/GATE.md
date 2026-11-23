@@ -411,7 +411,7 @@ YES   Responding Accounts
 
 **The FROM clause : the source this metric is measured over.**
 
-The registry's `Source` is "a table or SQL source" and says to supply exactly one of
+Atlan Trident's `Source` is "a table or SQL source" and says to supply exactly one of
 `table` and `sql`. So this is not a worked example of the query: it is the text that goes
 **after `FROM`**, and the compiler pastes it there untouched.
 
@@ -426,8 +426,8 @@ NO    SELECT COUNT(*) FROM SALES.MARTS.FCT_ORDERS WHERE …
 **Never alias a table here.** Every expression on the card is fully qualified, and an alias
 makes a qualified name unresolvable. Name tables in full on both sides of every `ON`.
 
-**This is where a join's `INNER` or `LEFT` lives**, because it is the only place the
-registry has for it : `joins[]` carries name, to, sql, cardinality and origin, and nothing
+**This is where a join's `INNER` or `LEFT` lives**, because it is the only place
+Trident has for it : `joins[]` carries name, to, sql, cardinality and origin, and nothing
 else. Write the join you mean, in full:
 
 - `INNER JOIN` drops rows with no match. It filters, and it changes the number.
@@ -465,7 +465,7 @@ to move is a parameter, written `{{name}}` in `filters` and declared in
 `dimensions[].required_join`. The join itself is written in `source.sql`; this is the
 description of it, not the thing that builds the query.
 
-The registry refuses a join missing any of its five fields:
+Trident refuses a join missing any of its five fields:
 
 | field | what it holds |
 |---|---|
@@ -530,7 +530,7 @@ evidence of nothing.
 Choose examples that show different *shapes*: a different population, a different breakdown, a
 different scope. Four takes on one report teach a reader one thing.
 
-`group_by` may name only dimensions you declared : the registry refuses an unknown reference.
+`group_by` may name only dimensions you declared : Trident refuses an unknown reference.
 
 ### `aggregation.type`
 
@@ -607,14 +607,14 @@ The vocabulary is the one above : no `avg`; a mean is `custom`. What the compile
 the agreement check: `count_distinct` over a formula with no DISTINCT is refused, and so
 is a type that claims to aggregate over a formula that does not.
 
-### Every field is one the registry declares
+### Every field is one Trident declares
 
 The compiler reads `formula`, `grain`, `aggregation`, `joins`, `dimensions`,
 `mandatory_filters`, `filters`, `source` and `dialect`. **That is the whole list, and every
 one of them is a field `MetricDefinition` declares.** There is no `steps`, no
 `joins[].type`, no `extensions` block : a card that would need one of those is a card this
-estate cannot publish, and the answer is to express it in `source.sql`, which is the
-registry's own field for a source it does not model.
+estate cannot publish, and the answer is to express it in `source.sql`, which is
+Trident's own field for a source it does not model.
 
 A card is matched to its task by `name`. The task's `metric_id` is the prompt's own key: do not
 copy it onto the card, which takes no field its schema does not list.
@@ -708,8 +708,8 @@ does not. An either/or is one bracketed entry: `"(A OR (B AND C))"`.
 
 ### When the measure needs two passes
 
-It goes in `source.sql`, as derived tables joined together : see that field above. The
-registry has no `steps`, and inventing one in `extensions` buys nothing: the same SQL fits
+It goes in `source.sql`, as derived tables joined together : see that field above.
+Trident has no `steps`, and inventing one in `extensions` buys nothing: the same SQL fits
 in a field that already exists and that a consumer is allowed to rely on.
 
 The same answer covers a source this model does not decompose : a `LATERAL FLATTEN`, a

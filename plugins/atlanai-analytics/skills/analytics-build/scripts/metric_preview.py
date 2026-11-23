@@ -157,7 +157,7 @@ def markdown(run, limit=5, kind='metric'):
     selected = choose(items, limit)
     label = 'metrics' if kind == 'metric' else 'queries'
     if not selected:
-        return f'No {label} are ready to preview. Complete source inspection and author candidates, then preview again. No Registry writes were made.\n'
+        return f'No {label} are ready to preview. Complete source inspection and author candidates, then preview again. No Atlan Trident writes were made.\n'
     lines = [f'Showing {len(selected)} of {len(items)} {label}. Local candidates are provisional until destination reconciliation.', '']
     if limit and len(items) < limit:
         lines += [f'Only {len(items)} {label} are available; all are shown.', '']

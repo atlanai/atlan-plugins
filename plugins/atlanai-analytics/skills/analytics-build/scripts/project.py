@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Survey a local analytics project and retain its data binding and Atlan receipts.
 
-The metrics engine owns authoring; Registry calls use authenticated MCP.
+The metrics engine owns authoring; Atlan Trident calls use authenticated MCP.
 This helper never publishes, executes repository scripts, installs software or runs evals.
 """
 import argparse

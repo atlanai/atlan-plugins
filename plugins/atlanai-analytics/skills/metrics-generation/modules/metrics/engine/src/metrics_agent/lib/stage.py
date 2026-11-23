@@ -145,8 +145,8 @@ class Ctx:
 
         It goes to the trace as well. What a stage says out loud is usually the one sentence
         explaining a number that surprises someone later — "115 refused as label
-        pass-throughs", "the corpus dropped 40% as automation" — and an operator reading the
-        registry months afterwards does not have the terminal it was printed to.
+        pass-throughs", "the corpus dropped 40% as automation" — and an operator reading
+        Atlan Trident months afterwards does not have the terminal it was printed to.
         """
         # A message can quote what a driver was given (a DSN, a URL with a password in it);
         # no credential value in the environment is ever printed or traced (guardrail 19).

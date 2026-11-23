@@ -2,7 +2,7 @@
 # Copyright 2026 Atlan Pte. Ltd.
 """Deterministic identity: artifact names and source_ids.
 
-`source_id` is the registry's reconciliation key. A create naming a live line in
+`source_id` is Atlan Trident's reconciliation key. A create naming a live line in
 (workspace, kind, source_type, source_id) becomes an APPEND — on the bulk path too, since
 create_batch and create_one share prepare_one and identity is reconciled before dispatch.
 
@@ -17,9 +17,9 @@ import hashlib
 import re
 import unicodedata
 
-MAX_NAME = 512  # the registry's artifact-name length limit
+MAX_NAME = 512  # Trident's artifact-name length limit
 _KEBAB_STRIP = re.compile(r"[^a-z0-9]+")
-# The registry refuses a name containing control characters. Built with chr() rather than
+# Trident refuses a name containing control characters. Built with chr() rather than
 # written as escapes so the source file itself stays free of control bytes.
 _CONTROL_CHARS = frozenset(chr(i) for i in range(0x20)) | {chr(0x7F)}
 _SEP = chr(0x1F)  # unit separator: cannot occur in a table or column name
@@ -51,14 +51,14 @@ def column_alias(name: str) -> str:
 
 
 def artifact_name(*parts: str, max_len: int = MAX_NAME) -> str:
-    """Join parts into one handle and enforce the registry's actual rule.
+    """Join parts into one handle and enforce Trident's actual rule.
 
     `kebab` IS CALLED WITH THIS BUDGET, NOT ITS OWN DEFAULT. It caps each part at 80
     characters unless told otherwise, so this function advertised 512 and delivered 80 per
     part — and `MAX_NAME` never bound anything. Measured on a real layer: 4,100 of 5,197
     record names (79%) were cut mid-word, losing 195,478 characters in total.
 
-    That text is not cosmetic. `name` is the registry's HIGHEST-weighted search field, so
+    That text is not cosmetic. `name` is Trident's HIGHEST-weighted search field, so
     every question's tail — where the qualifying words usually live — was demoted out of it.
     The full question survives at weight B in `display_name`, which is why this degrades
     ranking rather than breaking it, and why it went unnoticed.

@@ -1,4 +1,4 @@
-"""Offline typed admission from checked-in Registry definition schemas; no network calls."""
+"""Offline typed admission from checked-in Atlan Trident definition schemas; no network calls."""
 import json
 import math
 from functools import lru_cache

@@ -7,7 +7,7 @@ description: "Atlan Analytics Ask: answer data questions from published Atlan me
 
 Read [shared conventions](../analytics-build/references/conventions.md) first; its **Source of
 truth**, read-only SQL and safety rules apply. Answer here without creating a project,
-eval, agent or registry write. No subagents are needed.
+eval, agent or Atlan Trident write. No subagents are needed.
 
 If a setup run was selected, or this folder holds one kept local, follow
 [setup retrieval](references/retrieval.md) and return. Resolve ambiguity only among relevant runs in this project. Otherwise continue
@@ -23,7 +23,7 @@ otherwise take the narrowest reasonable reading and say so in the answer.
 
 ## 2. Find the definitions
 
-1. Open a registry session as **Registry calls** in the conventions describes, with the question
+1. Open a session as **Atlan Trident calls** in the conventions describes, with the question
    as the `objective`. Its first call is step 2's search; send nothing else until it returns the
    session id.
 2. Search released metrics in every workspace at once: call

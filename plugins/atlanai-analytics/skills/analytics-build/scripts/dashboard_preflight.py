@@ -64,7 +64,7 @@ def preflight(source='unknown', registry='unknown', warehouse='snowflake'):
     return {'status': 'ready' if not actions else 'setup_needed', 'checks': checks,
             'next_setup_action': actions[0] if actions else None, 'setup_actions': actions,
             'helper': str(Path(__file__).with_name('dashboard.py')), 'network_auth_performed': False,
-            'instruction': 'Use checks.python.executable for every helper call. Show only the setup action needed by the next stage. This check does not authenticate or verify source or Registry access.'}
+            'instruction': 'Use checks.python.executable for every helper call. Show only the setup action needed by the next stage. This check does not authenticate or verify source or Atlan Trident access.'}
 
 
 def main():

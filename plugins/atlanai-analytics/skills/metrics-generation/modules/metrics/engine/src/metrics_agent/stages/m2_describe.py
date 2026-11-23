@@ -52,13 +52,13 @@ PROMPT = "m2_prompt.json"
 
 # ONE FIELD, AND IT CARRIES EVERY QUESTION THE STATEMENT ANSWERS. A statement is reached from
 # several angles and each phrasing is a separate way in — but `display_name` is ONE string, and
-# it is the highest human-readable weight the registry ranks (B, above `description` at C). A
+# it is the highest human-readable weight Atlan Trident ranks (B, above `description` at C). A
 # list would have to pick one of them to put there and drop the rest to a weaker tier. So the
 # questions are concatenated into this single field instead: "How many X? What share of Y?"
 # All of them, at the weight that matters.
 REQUIRED = ("question",)
-# NAME AND DESCRIPTION, AND NOTHING ELSE. `grain` and `gotchas` were here and are gone: the
-# registry ranks four fields and neither is one of them, so a `gotchas` list was prose nobody
+# NAME AND DESCRIPTION, AND NOTHING ELSE. `grain` and `gotchas` were here and are gone:
+# Trident ranks four fields and neither is one of them, so a `gotchas` list was prose nobody
 # could search for and nobody was shown. The statement's grain is derivable from the statement.
 OPTIONAL = ("name", "description")
 
@@ -354,7 +354,7 @@ def _ingest(ctx: stage.Ctx) -> None:
             described[vq] = row
 
     # A NAME COLLISION IS NOT COSMETIC, AND IT IS CAUGHT HERE RATHER THAN SURVIVED DOWNSTREAM.
-    # The registry requires `name` unique per (workspace, kind), so the envelope disambiguates
+    # Trident requires `name` unique per (workspace, kind), so the envelope disambiguates
     # a repeat by appending part of the vq_id — publishing `Account Name Value Check-90a1a485`
     # into WEIGHT A, the highest-ranked field there is. That is the machine artefact this whole
     # stage exists to remove, reintroduced at the last moment. Two statements that genuinely

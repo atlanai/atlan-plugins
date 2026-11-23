@@ -63,7 +63,7 @@ save plan are already authorized, do not add another confirmation.
 ## Recovery and the first real answer
 
 On access failure, retain the visible sample and local work. Follow connection recovery using
-the current host's sign-in, then verify a Registry read before continuing. Never reopen a
+the current host's sign-in, then verify an Atlan Trident read before continuing. Never reopen a
 dismissed snapshot or restart extraction to repair sign-in. On a held definition, show its
 missing input and next repair step; published alternatives require an explicit selection.
 

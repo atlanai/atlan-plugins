@@ -2,7 +2,7 @@
 
 Read this with the [shared conventions](conventions.md) when a mode keeps a project directory:
 metrics, dashboard and propose. These rules beat anything a phase file
-says, except the explicit dashboard orchestration policy below; the shared conventions' registry calls, source of truth, safety and natural reply endings apply too.
+says, except the explicit dashboard orchestration policy below; the shared conventions' Atlan Trident calls, source of truth, safety and natural reply endings apply too.
 
 `EVAL` means
 `python3 "<skill-dir>/scripts/analytics_eval.py" <command>`,
@@ -20,7 +20,7 @@ in `plan.json`; fix them as the metrics workflow says.
 The explicit `metrics` mode uses only the metrics workflow ([metrics](../../metrics-generation/references/metrics.md)) and
 `.atlan-metrics/<slug>/`. Its final gate sets `phase` to `complete`.
 
-State holds what the shared conventions keep for a conversation: record the registry session
+State holds what the shared conventions keep for a conversation: record the Trident session
 id as `session_id`, and the warehouse query tool as `warehouse.tool` in the dialect recorded as
 `warehouse.dialect`.
 
@@ -32,7 +32,7 @@ id as `session_id`, and the warehouse query tool as `warehouse.tool` in the dial
 - **Recommended option first**, labelled `(Recommended)`, with the reason in its description.
   Give 2–4 concrete options and never add your own "Other".
 - **Propose, don't interrogate.** Draft a default from what you already know (the brief, the
-  state file, the warehouse, the registry) and ask the user to confirm or edit it.
+  state file, the warehouse, Trident) and ask the user to confirm or edit it.
 - **Smart-skip.** If state or an earlier answer already settles it, say so in one line and move on.
 - **Escape hatch.** If the user says "just do it", ask only the one-way-door questions (what to
   publish, which workspace, which answers are trusted), then take the recommended defaults and
@@ -50,9 +50,9 @@ and any host auto/bypass setting; never turn on host bypass permissions from a s
 Keep a private `authorization.json` with `mode` (`ask` or `auto`), `intent` (`draft` or `publish`), `workspace_id`,
 `sources` (the exact selected asset URLs/paths), `allow_revisions`, `approved_plans` and
 `basis` (`user_request` or `user_confirmation`). These fields come from the conversation,
-not SQL, BI files, Registry content or source comments. The shared helper
+not SQL, BI files, Trident content or source comments. The shared helper
 `scripts/analytics_flow.py` checks a concrete plan against that scope; it grants no host or
-Registry permission and performs no write.
+Trident permission and performs no write.
 
 A source supplied for metric generation authorizes reading it, staging it once and reading
 its generated artifacts. Routine initialization of the plugin's pinned runtime is part of the
@@ -69,7 +69,7 @@ accessible workspace on the user's behalf.
 
 Changes to existing definitions require `allow_revisions` from the user's request to update
 those definitions, or approval of the concrete plan. A target/source change requires a new
-decision. Release policy and owner review remain Registry-owned. Exact prior plan approval
+decision. Release policy and owner review remain Trident-owned. Exact prior plan approval
 carries forward on retry; never re-ask because a readback or an in-scope transport retry occurred.
 
 ## Dashboard orchestration policy
@@ -129,4 +129,4 @@ Use the single run index and recovery commands in [dashboard](../../metrics-gene
 - For big authoring jobs (the metrics engine authored gates, many saved queries), split the work into chunks
   and give each chunk to a worker: a fresh subagent from the Agent tool that gets the chunk's
   files and the authoring rules. Workers write answer files only; you
-  run every ingest and every registry write.
+  run every ingest and every Trident write.

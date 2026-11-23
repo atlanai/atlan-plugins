@@ -4,7 +4,7 @@ The Analytics plugin owns this engine, its input plugs, BI readers, schemas, com
 authored-gate instructions. Runtime packaging is generated from these readable files.
 
 The core consumes common formats. Inputs and readers are discovered through Python entry
-points. The plugin runs the engine with local file output, then uses its existing Registry
+points. The plugin runs the engine with local file output, then uses its existing Atlan Trident
 publisher. See the plugin's module guide for the customer workflow.
 
 The Snowflake input reads bounded native `SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY` and

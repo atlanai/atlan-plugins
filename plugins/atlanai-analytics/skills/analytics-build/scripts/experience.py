@@ -473,10 +473,10 @@ def snapshot(run, engine_dir=None, focus=None, host=None, server=None):
         phase['status'] = 'access_needed'
         next_text = {'waiting_auth': ('Finish sign-in in the opened browser. The saved run is preserved.' if auth.get('browser_opened') is True
                                       else 'Sign-in is pending. Open the sign-in page issued by the client.'),
-                     'checking_mcp': 'Sign-in finished; confirm Registry access before resuming.',
+                     'checking_mcp': 'Sign-in finished; confirm Atlan Trident access before resuming.',
                      'disabled': 'Enable the selected connection in your host to continue.',
                      'permission_denied': 'Choose an accessible existing workspace or request access.',
-                     'unverified': 'Check Registry access in the selected host before asking with published context.',
+                     'unverified': 'Check Atlan Trident access in the selected host before asking with published context.',
                      'timed_out': 'Sign-in timed out. The saved run is preserved.',
                      'canceled': 'Sign-in stopped. The saved run is preserved.'}.get(auth_status, 'Restore the selected Atlan connection to continue.')
         prompt = 'Resume this saved run after checking the existing Atlan connection.'

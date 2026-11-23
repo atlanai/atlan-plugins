@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One-shot local dashboard helper. Registry calls stay in the host's OAuth connection.
+"""One-shot local dashboard helper. Atlan Trident calls stay in the host's OAuth connection.
 
 No daemon, listener, MCP registration, credential reader or automatic dependency install.
 The original companion MCP UI can use the same job directory, but is never required.
@@ -68,7 +68,7 @@ def run(args):
         service.write(root, observed)
         return {**{k:v for k,v in observed.items() if k != '_manifest'},
                 'status':'ok','schema_file':str(root),'remote_writes':False,
-                'next':'Read the complete metric inventory and prepare the publication plan. This read grants no new access and writes nothing to Registry.'}
+                'next':'Read the complete metric inventory and prepare the publication plan. This read grants no new access and writes nothing to Atlan Trident.'}
     if args.command.startswith("registry-"):
         from dashboard_publish import Publisher
         publisher = Publisher(Path(args.context))

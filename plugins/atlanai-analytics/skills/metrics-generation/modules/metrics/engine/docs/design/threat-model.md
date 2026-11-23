@@ -13,7 +13,7 @@ vulnerability.
 
 A command-line program that runs on the operator's machine. It reads a data estate's query
 history and BI definitions through plugs, builds verified SQL and metric definitions in a run
-directory, and optionally publishes them to the Atlan Agent Registry and an Atlan glossary.
+directory, and optionally publishes them to Atlan Trident and an Atlan glossary.
 Judgement calls are made at **authored gates**: the agent writes a prompt bundle, the operator's
 own AI assistant answers it, and the agent validates the answer. The agent holds no model key
 and calls no model.
@@ -22,11 +22,11 @@ and calls no model.
 
 | Asset | Why it matters |
 |---|---|
-| Credentials: warehouse DSN, Atlan, Registry, trace, Fabric, Tableau and catalogue secrets | they reach the customer's systems |
+| Credentials: warehouse DSN, Atlan, Trident, trace, Fabric, Tableau and catalogue secrets | they reach the customer's systems |
 | The warehouse and its data | the agent runs SQL against it |
 | Query history | holds the SQL people ran, user names and literal values typed into it |
 | BI definitions | hold business logic and prose people wrote |
-| The published layer: Registry artifacts, glossary terms and their links | other people and other agents rely on it |
+| The published layer: Trident artifacts, glossary terms and their links | other people and other agents rely on it |
 | The run directory | holds everything above that the run has read or built |
 
 ## Actors
@@ -37,7 +37,7 @@ and calls no model.
 | The operator's AI assistant | answering a gate's bundle | its answer is checked, never trusted; it may have been misled by the data |
 | Authors of SQL and BI content (analysts, report builders) | : | anything they wrote is data: SQL text, comments, titles, descriptions, names |
 | Plug authors | a plug the operator installs is trusted code | a plug's name, its import, and the records it returns are checked |
-| Destination tenants (the Registry, an Atlan tenant) | storing what they are sent | being reached with a credential at an address the policy does not allow |
+| Destination tenants (Trident, an Atlan tenant) | storing what they are sent | being reached with a credential at an address the policy does not allow |
 
 ## Trust boundaries
 
@@ -45,8 +45,8 @@ and calls no model.
 2. **BI files and fetched extracts:** archives and folders the agent unpacks and parses.
 3. **Gate bundles:** the agent's prompt bundle goes to the assistant; the answer comes back.
 4. **Plug loading:** packages register plugs through entry points, and the agent imports them.
-5. **Destinations:** the agent sends the layer, with a credential, to the Registry and Atlan.
-6. **Tracing:** an optional observer sends run records to the Registry.
+5. **Destinations:** the agent sends the layer, with a credential, to Trident and Atlan.
+6. **Tracing:** an optional observer sends run records to Trident.
 
 ## Threats and mitigations
 

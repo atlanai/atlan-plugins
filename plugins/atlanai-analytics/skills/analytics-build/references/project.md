@@ -18,7 +18,7 @@ Do not ask the person to repeat a supplied folder or business question.
 "<project>/.atlan-metrics/<slug>"`. Use the metrics engine's pinned Python runtime for generation and CSV preparation. The helper
 records the interpreter for later queries. Prepare missing data as section 2 describes. Do not add dependencies or run
 unreviewed repository code simply because a README recommends it.
-The helper only writes local state; Registry operations use the existing Atlan MCP connection.
+The helper only writes local state; Atlan Trident operations use the existing Atlan MCP connection.
 `PROJECT` is documentation shorthand: pass the interpreter, quoted script path and arguments
 directly to the shell. Do not store a whole command in a string variable; zsh does not split it.
 If the host has no shell, preserve the task and name that prerequisite once. Do not delegate
@@ -45,7 +45,7 @@ to another Analytics prototype's configured sample task or hosted-dashboard pref
 local PBIT is inspected as a file; do not pass its GitHub blob URL to dashboard URL capture.
 Do not create a project-specific `agent.py`, `SKILL.md`, plugin, server or chat application.
 
-Check that the selected Atlan MCP connection is authenticated before Registry discovery.
+Check that the selected Atlan MCP connection is authenticated before Trident discovery.
 If its tools are absent or it reports sign-in required, follow [connection recovery](auth-recovery.md).
 Keep the run active while the host sign-in task is being watched, let the client open its issued
 sign-in URL and resume after a successful current-host read. Distinguish an absent/disabled plugin
@@ -139,13 +139,13 @@ Follow [build and check](setup/build-check.md) and [the metrics engine](../../me
 for the full selected collection. Reuse the combined survey and
 interview; preserve this run's scope, workspace and state. Model compilation, proposal,
 merge, whole-card review and relationships have exactly one implementation in the engine.
-Do not call a standalone dashboard translator or author Registry bodies by hand.
+Do not call a standalone dashboard translator or author Trident bodies by hand.
 
 Run `PROJECT check` for provisional local schema checks before a workspace is selected.
 Run `CONTEXT check` against the actual workspace schemas and existing definitions before publishing. For local execution checks, save an
 ordinary JSON request with `sql`, separate `parameters` and optional `limit` (1 to 1000), then
 run `PROJECT execute "<request.json>"`. Use schema-qualified base tables and native `$name`
-bindings; convert Registry `{{name}}` placeholders outside SQL literals to native bindings,
+bindings; convert Trident `{{name}}` placeholders outside SQL literals to native bindings,
 never interpolate values. Check the exact SQL/formula and mandatory filters being published.
 Record execution evidence against that definition revision. Failed items are held; untested
 items cannot be advertised as verified. PBIT parity stays unmeasured without source values.
@@ -195,7 +195,7 @@ and records the same durable publication state. It does not skip release or link
 }
 ```
 
-The example illustrates the envelope, not a Registry write schema or a field allowlist.
+The example illustrates the envelope, not a Trident write schema or a field allowlist.
 Keep every field of the actual artifact response, including the entire definition, dimensions,
 examples, extensions, parameters and usage notes. Use saved tool-result files when the host
 provides them. Inline responses are equally usable: serialize the complete actual responses

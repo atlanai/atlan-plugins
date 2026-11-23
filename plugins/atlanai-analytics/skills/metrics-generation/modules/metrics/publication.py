@@ -1,6 +1,6 @@
 """Bind review decisions to the metrics publisher's checked context files.
 
-This module computes an identity and revision count; Registry transport stays in the plugin.
+This module computes an identity and revision count; Atlan Trident transport stays in the plugin.
 """
 import hashlib
 import json

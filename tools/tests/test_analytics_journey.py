@@ -139,7 +139,7 @@ class ConversationChoices(unittest.TestCase):
 @unittest.skipUnless(importlib.util.find_spec('duckdb'), 'Requires the existing approved DuckDB runtime.')
 class FirstAnswerRehearsal(unittest.TestCase):
     def test_survey_history_check_preview_restart_release_retrieve_and_fresh_answer(self):
-        # Source data and authored gate outputs are synthetic; Registry transport is a double.
+        # Source data and authored gate outputs are synthetic; Atlan Trident transport is a double.
         # Survey, preparation, schema checks, SQL checks, receipts and answers execute for real.
         sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
         import analytics_ux_prototype as prototype
