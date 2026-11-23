@@ -4,8 +4,8 @@ The interview belongs to `analytics-build`. `source-survey` reads and reports an
 the person anything. This file is every question asked before metric generation starts.
 
 ```
-warehouse ─ what to build from ─┬─ Suggest from your warehouse ─ use cases ────────────────┬─ confirm ─ build
-                                ├─ Start from tables ─────────── tell me ───── access check ┘
+warehouse ─ what to build from ─┬─ Suggest from your warehouse ─ use cases ───────────────────────── build
+                                ├─ Start from tables ─────────── tell me ───── access check ─ confirm ─ build
                                 └─ Start from a dashboard ────── share it ─ pick report and pages ─ check what can be built ─ build
 ```
 
@@ -129,10 +129,9 @@ file; say so if they chose A or C, and mention `analytics-demo`.
 3. **Settle the rest yourself, and ask nothing.** Where the chosen use cases leave something
    open that changes the numbers (which table is the main one, rows to leave out, fiscal or
    calendar quarters, which column is the main amount), choose from what discovery found and
-   state each choice in the confirmation's Assumptions line. The person changes one there,
-   through "Change something": a question here would come before anything is built, about
-   things the person has not seen yet.
-4. **Confirm and trigger**, below.
+   state each choice in the build's start line, which the person can change: a question here
+   would come before anything is built, about things the person has not seen yet.
+4. **Build on the pick.** Picking a use case is the go-ahead, as [the use cases](names.md#3-then-build) say.
 5. **After the build, offer a dashboard**, next.
 
 ### After the build, in this branch only: offer a dashboard
@@ -152,7 +151,7 @@ Add a dashboard?"
 | Not now | "Leave your agent as it is, and choose where to store your context." |
 
 - **Add a dashboard**: ask for it with branch B's card, open it and check access (signing
-  the person in when a link needs it), then confirm and build with the dashboard added. Metrics the
+  the person in when a link needs it), then build with the dashboard added: picking it is the go-ahead. Metrics the
   dashboard also defines are reconciled with it and any change is shown as news; the rest
   stay as built. Then continue to the save question.
 - **Not now**, or the dashboard cannot be read: continue to the save question. Do not ask
@@ -272,7 +271,7 @@ Ask one question that names it and offers the ways forward:
 Name the tables that failed, never a credential, role secret or connection string. Saving
 to Atlan is a later sign-in and is not checked here.
 
-## Confirm and trigger: discovery and known tables
+## Confirm and trigger: known tables
 
 One question, as its own text, before anything is built. The dashboard branch skips it: its
 readiness check is the go-ahead.

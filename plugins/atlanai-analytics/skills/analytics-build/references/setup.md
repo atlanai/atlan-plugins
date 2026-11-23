@@ -42,7 +42,8 @@ run waits for an explicit resume; details requests do not resume work.
 Ask [the interview](setup/intent.md) before reading any data: card 1, then the chosen
 branch's ask, skipping what the request already answered. The discovery branch
 [offers use cases with their tables](setup/names.md); the other two check access to what the
-person named. Every branch ends with the interview's "Build your agent?" before authoring.
+person named. Nothing is authored before the branch's go-ahead: the use-case pick in discovery,
+"Build your agent?" from tables, the readiness check from a dashboard.
 Demos use their preset intent and source question instead. Retain answers already given.
 The purpose sets the stopping point. Understanding-only intent ends with requested evidence;
 it does not require a destination or publication question. Render the question itself, without

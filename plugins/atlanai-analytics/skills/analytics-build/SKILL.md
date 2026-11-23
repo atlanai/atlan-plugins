@@ -35,8 +35,8 @@ concrete plan. Respect explicit draft or review requests.
    | Start from a dashboard | One card for the dashboard: files in the folder as options, a link or path as free text. Then [the dashboard branch](references/setup/dashboard-flow.md), which replaces the steps below and the confirmation |
    | Start from tables | One card asking for the use case and tables as free text, with a skip to discovery, then `source-survey` `access` on them |
 
-3. **Confirm and trigger**, in the other two branches: one line of what will be built and
-   from what, then "Build your agent?". Nothing is built before the yes.
+3. **The go-ahead.** In discovery, picking a use case starts the build. From tables, one line of
+   what will be built and from what, then "Build your agent?". Nothing is built before either.
 
 A question the request already answers is not asked. Before card 1, look silently at what is
 already connected (`source-survey` `connections`) and at BI file names in the working folder
@@ -78,7 +78,7 @@ the first survey on, as [visuals](references/setup/visuals.md) says.
    tables the person named. The side page opens once the queries are in plain words,
    when `PROJECT visual next` names `connect`.
 3. **Pick tables and dashboards.** In the discovery branch,
-   [the use cases](references/setup/names.md). In every branch, the
+   [the use cases](references/setup/names.md), whose pick starts the build. From tables, the
    interview's confirmation, "Build your agent?", whose text opens with the `found` visual's line in a
    terminal. A report is built whole.
 4. **Build your context: metrics and saved queries.** `metrics-generation` `generate` and `check` with the selection

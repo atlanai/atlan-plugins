@@ -1,8 +1,8 @@
 # Offer the use cases, each with its tables
 
 Read in the "Suggest from your warehouse" branch, after discovery. The other two branches do not
-use this file: the person already named the dashboard or the tables, so they go from the
-access check straight to the confirmation in [the interview](intent.md). Demos skip it too,
+use this file: the person already named the dashboard or the tables, so they go on to
+[the interview](intent.md)'s confirmation (known tables) or readiness check (a dashboard). Demos skip it too,
 and so does a resume with a saved selection.
 
 Discovery ends in a short menu of use cases, never a single suggestion, with one more
@@ -23,9 +23,12 @@ Neither generates SQL or runs a check on a metric.
 
 ## 2. One card, kept short
 
-The question's own text is one line of what was found and where the usage came from:
+The question's own text is one line of what was found and where the usage came from, then
+one line saying that a pick starts the build, and roughly how long it takes, from the work's
+size:
 
-"Most used on Snowflake in the last 7 days."
+"Most used on Snowflake in the last 7 days.
+Picking one starts building your agent, about 15 minutes."
 
 Then "What should your agent answer?", one option per use case, with multiple selection where the
 host allows it:
@@ -52,7 +55,7 @@ check on the tables it reads. Then:
 
 - picked alone: the dashboard is what gets built, as in the dashboard branch;
 - picked with use cases: the dashboard is added to them. Its report is built whole, and its
-  tables join the chosen use cases' tables. Say so in the confirmation.
+  tables join the chosen use cases' tables. Say so in the build's start line.
 
 If the dashboard cannot be read, say why once and carry on with the use cases they picked;
 with none picked, show the menu again without asking for the dashboard a second time.
@@ -82,15 +85,23 @@ questions from 3 tables, leaving out test accounts."
 
 For an understanding-only request, the menu is the result; no build follows unless asked.
 
-## 3. Then confirm
+## 3. Then build
 
-With the choice made, ask [the interview's confirmation](intent.md#confirm-and-trigger-discovery-and-known-tables),
-with what discovery left open chosen by you and stated in its Assumptions line. Record the selection in
-the run. After the yes, enter [Build](build-check.md): call `metrics-generation` `generate`
+The pick is the go-ahead: this branch asks no "Build your agent?". Record the selection in the
+run and, in the same turn, write the build's start line, then enter [Build](build-check.md).
+The start line is the Doing and Why of [when to talk](progress.md#when-to-talk): what it builds
+from and what it will answer, then, when there are any, the choices you made where the use
+cases left something open that changes the numbers, ending "Tell me to change any of these.":
+
+"Building your agent from 4 tables and their past queries, to answer pod and AE target
+questions. Leaving out inactive reps. Quarters are calendar quarters, as the targets table
+uses. Tell me to change any of these."
+
+A change the person asks for restarts the build with it. Call `metrics-generation` `generate`
 with the tables of every chosen use case and the whole of any dashboard named on them. A
 report is built whole, every page and measure, and query history is scoped to the chosen
 tables. The collection review's representative metric is the one closest to the first chosen
 use case.
 
-When discovery finds nothing to build from, do not ask this question. Say the one thing that
+When discovery finds nothing to build from, start nothing. Say the one thing that
 is missing and offer `analytics-demo`.
