@@ -306,7 +306,18 @@ def wait(root, engine_dir=None, timeout=540, quiet=180, interval=2.0, out=None, 
     seen_now = None
 
     def say(event, **extra):
-        print(json.dumps({'event': event, **extra, 'next': WAITED[event]}, ensure_ascii=False), file=out, flush=True)
+        # Every result carries the list as the run's files now have it, where the session keeps one: the side page reads
+        # those files live, and a list moved only by some events sat at "3 of 4" beside a page showing all 4 defined.
+        nxt = WAITED[event]
+        if 'task_list' not in extra and event != 'done':
+            import visuals
+            if visuals.keeps_tasks(root):
+                try:
+                    extra['task_list'] = task_list(root, engine_dir)
+                    nxt += ' Set your task list to `task_list` in the same message.'
+                except Exception:  # noqa: BLE001 - the event still goes out; the list catches up at the next one
+                    pass
+        print(json.dumps({'event': event, **extra, 'next': nxt}, ensure_ascii=False), file=out, flush=True)
 
     while True:
         record = engine.json(engine.root / REPORTED)

@@ -179,6 +179,9 @@ class Drafts(unittest.TestCase):
         self.answer('x3', '02.json', {'metrics': [{'name': 'B'}]})
         ready = self.wait(tasks=True, quiet=30)
         self.assertEqual(ready['event'], 'ready', 'before any task-list update')
+        # The list comes with it: it sat at "3 of 4" beside a side page showing all 4 defined.
+        row = [r for r in ready['task_list'] if r['status'] == 'in_progress'][0]['content']
+        self.assertIn('2 of 2 written', row)
         self.assertIn('`ENGINE advance` once', ready['next'])
         self.assertEqual(self.wait(tasks=False)['event'], 'quiet', 'said once')
         later = time.time() + 5
