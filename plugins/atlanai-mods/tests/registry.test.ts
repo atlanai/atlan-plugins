@@ -173,7 +173,7 @@ describe('gateway tool names', () => {
 })
 
 describe('repairRails', () => {
-  test('moves registry rails out of arguments and reuses the open session', () => {
+  test('moves Atlan Trident rails out of arguments and reuses the open session', () => {
     const { input, changes } = repairRails(
       { name: 'registry__get_artifact', arguments: { artifact_id: 'skill_01x', rationale: 'Reading it.' } },
       SESSION,
@@ -299,7 +299,7 @@ describe('a batch of reads', () => {
 })
 
 describe('the guard', () => {
-  test('lets a batch of registry reads run without a prompt (B1)', async ($, on) => {
+  test('lets a batch of Trident reads run without a prompt (B1)', async ($, on) => {
     engine(on)
     on('tool.check', () => ({ decision: 'ask' }))
     const calls = [
@@ -336,7 +336,7 @@ describe('the guard', () => {
     expect(asked.decision).toBe('ask')
   })
 
-  test('lets a registry read called by name run without a prompt (B1)', async ($, on) => {
+  test('lets a Trident read called by name run without a prompt (B1)', async ($, on) => {
     engine(on)
     on('tool.check', () => ({ decision: 'ask' }))
     const verdict = await $.tool.check({ tool: GET, input: { artifact_id: 'skill_01target', rationale: 'r' } })
@@ -346,7 +346,7 @@ describe('the guard', () => {
     expect(denied.decision).toBe('ask')
   })
 
-  test('asks for a tool listed by name once the registry no longer marks it read-only (B1)', async ($, on) => {
+  test('asks for a tool listed by name once Trident no longer marks it read-only (B1)', async ($, on) => {
     engine(on)
     on('tool.check', () => ({ decision: 'allow' }))
     on('tool.call', () => ({ result: 'ok', text: JSON.stringify({ tools: [{ name: 'registry__get_file_content', annotations: { readOnlyHint: false } }] }) }))
@@ -355,7 +355,7 @@ describe('the guard', () => {
     expect(verdict.decision).toBe('ask')
   })
 
-  test('lets a registry read run without a prompt', async ($, on) => {
+  test('lets a Trident read run without a prompt', async ($, on) => {
     engine(on)
     on('tool.check', () => ({ decision: 'ask' }))
     const verdict = await $.tool.check({ tool: CALL, input: { name: 'registry__search_artifacts', arguments: { query: 'pii' }, rationale: 'r' } })
@@ -474,7 +474,7 @@ describe('the guard', () => {
     expect(verdict.reason).toContain('2 artifacts depend on it')
   })
 
-  test('still guards an archive when the registry cannot be read', async ($, on) => {
+  test('still guards an archive when Trident cannot be read', async ($, on) => {
     engine(on)
     on('tool.check', () => ({ decision: 'allow' }))
     on('mcp.call', () => {
@@ -659,7 +659,7 @@ describe('/atlan', () => {
     expect(ran.text).toContain('cannot reach api.atlan.com')
   })
 
-  test('searches the registry without a model turn', async ($, on) => {
+  test('searches Trident without a model turn', async ($, on) => {
     engine(on)
     on('mcp.call', () => ({
       value: text(`${JSON.stringify({ items: [{ id: 'skill_01a', display_name: 'pii-scrub', version_label: '1.0.0', artifact_status: 'active' }], page: { total: 1 } })}${RECEIPT}`),
@@ -741,7 +741,7 @@ describe('a release and its roll-back', () => {
     expect(asked).toContain('back to the previous release')
     expect(describeBlastRadius('registry__release_artifact', 'skill_01target', summaryOf(ARTIFACT), { count: 0, dependents: [] })).toContain('Releasing makes this version')
     // A plain write keeps its one sentence.
-    expect(describeWrite('registry__patch_artifact', { artifact_id: 'skill_01x' })).toBe('Atlan registry write: patch artifact skill_01x.')
+    expect(describeWrite('registry__patch_artifact', { artifact_id: 'skill_01x' })).toBe('Atlan Trident write: patch artifact skill_01x.')
   })
 
   test('asks before a withdrawal with the release in the question (B2)', async ($, on) => {

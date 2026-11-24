@@ -1,7 +1,7 @@
 {
   "name": "atlanai",
-  "version": "0.5.63",
-  "description": "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key.",
+  "version": "0.5.65",
+  "description": "Your organization's skills, agents, knowledge and MCP servers, from Atlan Trident. One sign-in, no API key.",
   "author": {
     "name": "Atlan",
     "url": "https://atlan.com"
@@ -11,6 +11,7 @@
   "license": "Apache-2.0",
   "keywords": [
     "atlan",
+    "trident",
     "registry",
     "skills",
     "agents",

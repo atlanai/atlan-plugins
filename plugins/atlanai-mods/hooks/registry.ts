@@ -5,7 +5,7 @@
  * server was added with: `mcp__plugin_atlanai_atlan__mcp__call_tool` for the plugin's server,
  * `mcp__atlan__mcp__call_tool` for one added by hand, and `mcp__atlan-prod__mcp__call_tool` for a
  * gateway someone registered under another name. They are search mode's six helpers
- * (`mcp__call_tool` inside the server's namespace) and the six registry reads search mode lists
+ * (`mcp__call_tool` inside the server's namespace) and the six Atlan Trident reads search mode lists
  * by name (`registry__get_artifact`). The tool names are the gateway's own, so they identify it
  * without the key. */
 export const GATEWAY_TOOL =
@@ -16,8 +16,8 @@ export const GATEWAY_TOOL =
 export const CALL_TOOL = /^mcp__[A-Za-z0-9_-]+?__mcp__call(?:_read|_write)?_tool$/
 /** The batch runner: up to eight reads in one call, each run as `mcp__call_read_tool` runs it. */
 export const BATCH_TOOL = /^mcp__[A-Za-z0-9_-]+?__mcp__call_read_tools$/
-/** The registry reads search mode lists by name. Their input is the tool's own arguments, with
- * `session_id` and `rationale` among them. The gateway lists a name here only while the registry
+/** The Trident reads search mode lists by name. Their input is the tool's own arguments, with
+ * `session_id` and `rationale` among them. The gateway lists a name here only while Trident
  * declares it read-only; this mod still classifies each call by its annotations. */
 export const DIRECT_READ =
   /^mcp__[A-Za-z0-9_-]+?__registry__(?:search_artifacts|get_artifact|list_workspaces|get_artifact_counts|get_related_artifacts|get_file_content)$/
@@ -67,14 +67,14 @@ export function probeServers(seen: string | undefined): string[] {
   return [...own, ...PROBE_SERVERS]
 }
 
-/** What a call through `mcp__call_tool` does to the registry. */
+/** What a call through `mcp__call_tool` does to Trident. */
 export type Effect = 'read' | 'write' | 'destructive' | 'unknown'
 
 /** A tool's annotations as `mcp__describe_tools` and `mcp__search_tools` return them. */
 export type Hints = { readOnly?: boolean; destructive?: boolean }
 export type HintTable = Record<string, Hints>
 
-/** The registry tools that change what other people get, whatever their annotations say and
+/** The Trident tools that change what other people get, whatever their annotations say and
  * whether or not the mod has read them yet: `move_artifact` is annotated non-destructive, but it
  * removes the artifact from everyone in its current workspace, and a release or its withdrawal
  * moves everyone who follows the channel. */
@@ -82,7 +82,7 @@ const ALWAYS_CONFIRM = /^registry__(?:archive_artifact|approve_artifact|move_art
 const REGISTRY_READ = /^registry__(?:get|list|search|query)_\w+$/
 /** The gateway's own discovery tools, which read the catalogue and change nothing. */
 const GATEWAY_READ = /^mcp__(?:search_tools|describe_tools)$/
-/** Tools the Atlan gateway itself serves: the registry's, and the apps' (`extension__skill__create`).
+/** Tools the Atlan gateway itself serves: Trident's, and the apps' (`extension__skill__create`).
  * Only their annotations are trusted: another server's `readOnlyHint` is its own claim. */
 const GATEWAY_OWNED = /^(?:registry|extension)__/
 
@@ -92,7 +92,7 @@ export function canonical(name: string): string {
 }
 
 /**
- * Decides a call's effect from the registry's naming and annotations.
+ * Decides a call's effect from Trident's naming and annotations.
  *
  * Annotations count only for the gateway's own tools. Another server's tool is `unknown`, so the
  * session's own rules decide it, unless its server marks it destructive, which can only add a
@@ -355,7 +355,7 @@ export function describeWrite(name: string, args: unknown): string {
   const release = isText(record.release_id) ? record.release_id : ''
   const target = name.includes('create') ? creation(record) : (artifactOf(record) ?? release)
   const consequence = CONSEQUENCE[canonical(name)]
-  return `Atlan registry write: ${verb}${target ? ` ${target}` : ''}.${consequence ? ` ${consequence}` : ''}`
+  return `Atlan Trident write: ${verb}${target ? ` ${target}` : ''}.${consequence ? ` ${consequence}` : ''}`
 }
 
 export type Related = { count: number; dependents: { id: string; kind: string; rel: string }[] }
@@ -428,7 +428,7 @@ export function releasesOf(text: string, artifact: string): Release[] {
 
 /** What a withdrawal does to the release's channel, from the releases this session has listed:
  * nothing when it is not current, else the newest earlier release that is not withdrawn. The
- * registry also needs that version to be active still, which a release row does not say. */
+ * Trident also needs that version to be active still, which a release row does not say. */
 export function fallbackOf(release: Release, known: readonly Release[]): string {
   const channel = release.channel ? `"${release.channel}"` : 'its channel'
   if (!release.isCurrent) return `It is not the current release on ${channel}, so nobody moves.`
@@ -461,7 +461,7 @@ export function describeBlastRadius(name: string, id: string, summary?: Summary,
     : [`Atlan: ${verb} ${label}${version}${where}.`]
   if (fallback) parts.push(fallback)
   if (related === undefined) parts.push('Could not read what depends on it.')
-  else if (related.count === 0) parts.push('Nothing in the registry depends on it.')
+  else if (related.count === 0) parts.push('Nothing in Atlan Trident depends on it.')
   else {
     const shown = related.dependents.slice(0, 3).map(d => `${d.kind} ${d.id}`)
     const more = related.count > 3 ? ` and ${related.count - 3} more` : ''
@@ -495,7 +495,7 @@ export type AtlanHealth = {
 
 /** The fix for each state, in one line. */
 export const FIX: Record<string, string> = {
-  ready: 'Connected. Registry reads run without a prompt; writes ask first.',
+  ready: 'Connected. Atlan Trident reads run without a prompt; writes ask first.',
   'sign-in': 'Run /mcp, choose plugin:atlanai:atlan, then Authenticate.',
   missing: 'Install the atlanai plugin: /plugin install atlanai@atlan, then run /mcp to sign in.',
   unreachable: 'Claude Code cannot reach api.atlan.com. Check your network or proxy, then run /atlan again.',

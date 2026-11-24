@@ -173,7 +173,7 @@ def lint_skill(directory: Path, owned: bool, skills: set[str], root: Path = ROOT
         errors.append(f"{relative}/SKILL.md: body is empty")
 
     if owned:
-        # The description is what a harness matches a request against and what registry search
+        # The description is what a harness matches a request against and what Atlan Trident search
         # ranks, so it says when to use the skill, not only what the skill is.
         if description and not WHEN.search(description):
             errors.append(f"{relative}/SKILL.md: description does not say when to use the skill (\"Use when\" or \"Use for\")")

@@ -1,6 +1,6 @@
-# AI Registry
+# Atlan Trident
 
-Connects your coding agent to the Atlan registry: your organization's skills, agents,
+Connects your coding agent to Atlan Trident: your organization's skills, agents,
 knowledge, MCP servers and agent runs. It adds Atlan's MCP server, with one OAuth sign-in, and
 skills that teach the agent to find what the organization already has, use it in the current
 project, and publish new work back. Atlan's documentation is at
@@ -28,7 +28,7 @@ The first thing to type: *"Connect me to Atlan."*
 `atlan`, at `https://api.atlan.com/mcp` (Streamable HTTP, OAuth). This is Atlan's MCP gateway in
 search mode. A few helpers (`mcp__search_tools`, `mcp__describe_tools`, the runners
 `mcp__call_read_tool`, `mcp__call_write_tool` and `mcp__call_tool`, and the batch runner
-`mcp__call_read_tools`) reach the registry's own tools, every Atlan app's tools, and every MCP
+`mcp__call_read_tools`) reach Atlan Trident's own tools, every Atlan app's tools, and every MCP
 server your organization registered. Atlan checks the permissions on each call and records each
 call in a session you can review.
 
@@ -38,12 +38,12 @@ call in a session you can review.
 |---|---|
 | `atlan-get-started` | Check the connection, learn how calls work, and find the right skill |
 | `atlan-find-artifacts` | Search skills, agents, knowledge, MCP servers, files and outputs |
-| `atlan-use-skill` | Run a registry skill now, or install it in this project |
+| `atlan-use-skill` | Run an Atlan Trident skill now, or install it in this project |
 | `atlan-use-mcp-servers` | Call Slack, Linear or any other server registered in Atlan, or register a new one |
 | `atlan-manage-artifacts` | Archive, move, deprecate, roll back or approve an artifact, showing what depends on it first, and see what waits for review |
 | `atlan-continue` | Pick up an artifact handed over from the Atlan dashboard |
 | `atlan-troubleshoot` | Diagnose sign-in errors, refusals, conflicts, rate limits and failed uploads |
-| `atlan-content` | Upload, read and version files in the registry, including a skill's files |
+| `atlan-content` | Upload, read and version files in Atlan Trident, including a skill's files |
 | `atlan-author-skills` | Publish a skill, or a new version of one |
 | `atlan-author-agents` | Register an agent or harness, or link a repository's agent and its skills |
 | `atlan-author-knowledge` | Create, read or edit a knowledge bundle |
@@ -51,7 +51,7 @@ call in a session you can review.
 | `atlan-share` | Share, save or record a deliverable as an Atlan output, and post the hand-off to Slack |
 
 The five from `atlan-content` to `atlan-connect-repo`, and `atlan-share`'s recording of a run's
-output, began as the registry's own apps' recipes, and the gateway also serves them as MCP resources.
+output, began as Atlan Trident's own apps' recipes, and the gateway also serves them as MCP resources.
 
 ## Commands
 
@@ -69,7 +69,7 @@ It never changes background sync. The other skills are invoked by name
 
 ## Alongside other Atlan plugins
 
-- The registry's own marketplace, `https://api.atlan.com/public/marketplace.git`, serves this
+- Atlan Trident's own marketplace, `https://api.atlan.com/public/marketplace.git`, serves this
   same plugin under the same name, with the same `atlan` server. A machine that added it by
   hand, or kept it from an older Atlan desktop app, lists the skills twice: keep one of the two.
   The desktop app itself installs no plugin; its `aireg` CLI installs each workspace as its own
@@ -118,7 +118,7 @@ relationship reads. The helper removes that field before the Atlan call and reco
 native response in immutable private files inside the working tree. The same standard-library
 Python writer runs on all three hosts, with atomic writes and no symbolic links. Command
 hooks retain a small tool-id mapping in `.atlan-receipt-pending/` so the post-call event can
-find the destination. Receipt failure never retries a Registry write or marks a run complete.
+find the destination. Receipt failure never retries an Atlan Trident write or marks a run complete.
 
 The same hook adds two notes for the agent, never for Atlan:
 
@@ -132,11 +132,11 @@ The same hook adds two notes for the agent, never for Atlan:
   feedback. You see the draft and send it yourself from your mail app, to ask@atlan.com;
   no hook sends it. `DO_NOT_TRACK=1` or `DISABLE_TELEMETRY=1` turns the offer off.
 
-In Claude Code, the separate [Registry Mods](../atlanai-mods/README.md) plugin (`atlanai-mods`)
-changes how this plugin's calls behave: registry reads run without a prompt, writes, archives,
+In Claude Code, the separate [Trident Mods](../atlanai-mods/README.md) plugin (`atlanai-mods`)
+changes how this plugin's calls behave: Atlan Trident reads run without a prompt, writes, archives,
 approvals and moves ask first and name what they touch, a `session_id` or `rationale` put inside
 `arguments` is moved beside them, temporary gateway errors tell Claude how to retry, and a
-fitting registry skill is named beside your request. This plugin works the same without it.
+fitting Atlan Trident skill is named beside your request. This plugin works the same without it.
 Requests to Atlan carry your sign-in and one header, `X-Atlan-Client: atlan-plugin/<version>`,
 which tells Atlan the session came from this plugin. See Atlan's
 [privacy notice](https://atlan.com/privacy-policy/).

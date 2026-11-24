@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Make the eval emulator and the tool-name fixture follow the gateway's registry tool catalogue.
+"""Make the eval emulator and the tool-name fixture follow the gateway's Atlan Trident tool catalogue.
 
     python3 tools/sync_gateway_tools.py           # rewrite the two files
     python3 tools/sync_gateway_tools.py --check   # fail when either differs (run by `make check`)
 
-`tools/tests/fixtures/gateway-catalogue.json` holds the registry tools as the gateway defines
+`tools/tests/fixtures/gateway-catalogue.json` holds the Trident tools as the gateway defines
 them. The emulator answers `mcp__search_tools` and `mcp__describe_tools` from
 `evals/atlan/emulator/world.json`, and a model picks tools and fills arguments from those
 descriptions and schemas, so an eval run against stale ones measures a gateway that no longer

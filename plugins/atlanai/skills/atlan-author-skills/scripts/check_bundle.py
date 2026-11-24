@@ -10,7 +10,7 @@ when the folders can be sent as they are, 1 when one cannot, 2 when a folder doe
 
 It catches what the server cannot see or refuses only after a round trip:
 
-- no root `SKILL.md`, frontmatter without `name` or `description`, frontmatter the registry's
+- no root `SKILL.md`, frontmatter without `name` or `description`, frontmatter Atlan Trident's
   YAML parser refuses (a plain value holding `: `, an unclosed quote or bracket, a tab used to
   indent, a key given twice), or no Markdown body after the closing `---`;
 - a path the create refuses (absolute, `..`, a backslash or colon, more than eight levels);
@@ -189,7 +189,7 @@ def _closes(value: str, quote: str) -> int | None:
 
 
 def _value_problem(value: str) -> str | None:
-    """Why a top-level value, with any continuation lines joined, is not YAML the registry reads."""
+    """Why a top-level value, with any continuation lines joined, is not YAML Trident reads."""
     v = value.strip()
     if not v or v[0] == "#":
         return None
@@ -228,8 +228,8 @@ def _value_problem(value: str) -> str | None:
 
 
 def frontmatter_problems(text: str) -> list[tuple[int, int, str, str]]:
-    """What the registry's parser refuses in SKILL.md's frontmatter and body, as (line, column,
-    rule, fix). The registry reads the block as YAML with duplicate keys refused, and needs a
+    """What Trident's parser refuses in SKILL.md's frontmatter and body, as (line, column,
+    rule, fix). Trident reads the block as YAML with duplicate keys refused, and needs a
     non-empty body; this checks the subset of YAML a SKILL.md uses, not the whole language."""
     lines = text.splitlines()
     end = next((i for i, line in enumerate(lines[1:], 1) if line.strip() == "---"), None)
@@ -267,7 +267,7 @@ def frontmatter_problems(text: str) -> list[tuple[int, int, str, str]]:
         if why:
             found.append((number, line.index(":") + 2, "frontmatter-yaml", f"{why}"))
     if not "\n".join(lines[end + 1:]).strip():
-        found.append((end + 1, 1, "no-body", "nothing follows the frontmatter; the registry needs Markdown instructions after the closing `---`"))
+        found.append((end + 1, 1, "no-body", "nothing follows the frontmatter; Atlan Trident needs Markdown instructions after the closing `---`"))
     return found
 
 
