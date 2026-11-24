@@ -103,8 +103,9 @@ page shows each batch as it lands; the chat shows each step's end:
    - **Every share of the definitions back**: run `ENGINE advance` once.
    - **A quiet spell**: check that each subagent is working, write its `say` line word for word when
      it gives one, then wait again.
-   - **Done**: export the build into the run and run `PROJECT check` before any question. The
-     build's card comes once, right before the save question, as [save](save.md) says.
+   - **Done**: export the build into the run and run `PROJECT check`, then draw the build's card
+     (`PROJECT visual build --widget`) before any question: it closes the build, before the
+     question about testing it.
 
    Add no words of your own between these, as [when to talk](#when-to-talk) says: a step's own
    chip or line names the step that starts, and the engine's results, counts and tooling are

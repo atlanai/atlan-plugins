@@ -211,9 +211,10 @@ a skip they did not choose, and never say "as you asked" about anything they did
   stop checking.
 - **Skip**: item 7 reads "skipped, as you chose"; go straight on.
 
-Either way, item 7 ends with the build's card (and, after tests, the checks chip): `PROJECT visual build context --widget`, drawn before
-the save question every time, so the build always closes on a result the person can see.
-When anything is held back, say once with the card: "Held back means it stays out of your
+The build's card comes before this question, as the build's last moment: `PROJECT visual build
+--widget` once `PROJECT check` has run, so the build closes on a result the person can see. After
+the tests, the checks chip comes before the save question, as [save](save.md) says; a skip has
+no chip. When anything is held back, say once with the card: "Held back means it stays out of your
 agent, so no answer uses it. To fix one, tell me here and I'll rebuild it."
 
 ## 5. Choose where to store your context

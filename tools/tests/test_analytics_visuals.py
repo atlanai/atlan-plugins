@@ -651,11 +651,12 @@ class Helper(unittest.TestCase):
         verdicts = checks.read_text(encoding='utf-8')
         checks.unlink()
         at(self.run, 'check', 'running')
-        self.assertNotIn('build', side_view.due(self.run), 'no card before the checks')
-        checks.write_text(verdicts, encoding='utf-8')
-        self.assertIn('build', side_view.due(self.run))
+        # The card closes the build once it is saved into the run, before the question about testing it (the person's
+        # call): it counts what the run keeps, never the merged list.
+        self.assertIn('build', side_view.due(self.run), 'the card before the tests')
         card = visuals.render('build', visuals.build_spec('build', self.run), plain=True)
         self.assertTrue(card.startswith('%d metrics ' % kept), card.split('\n', 1)[0])
+        checks.write_text(verdicts, encoding='utf-8')
 
     def test_the_checks_chip_waits_for_every_verdict(self):
         # A desktop chip drawn mid-checks read "24/81 checked, 57 need a look" and the final one was never drawn.

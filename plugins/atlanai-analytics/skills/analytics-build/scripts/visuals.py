@@ -151,7 +151,9 @@ def collect(kind, facts):
         return {'warehouse': facts.warehouse, 'history': facts.history, 'scoped': facts.scoped_tables}
     # Built means checked: metrics merged mid-build are not the build's result, and the checks can still hold some back.
     # The card counts the context the checks left, the list the save question counts too.
-    if kind == 'build' and facts.funnel.get('metrics') and _checked(facts):
+    # The card closes the build once it is saved into the run and its structural check has run: its counts (metrics,
+    # saved queries, held back) are known then, so it comes before the question about testing, not after the tests.
+    if kind == 'build' and facts.funnel.get('metrics') and (_checked(facts) or facts.file('context', 'metrics.json', kind=list)):
         kept = [sentence(m.get('display_name') or m['name']) for m in facts.file('context', 'metrics.json', kind=list)
                 if isinstance(m, dict) and m.get('name')]
         names = {n.lower() for n in kept}

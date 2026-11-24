@@ -275,7 +275,8 @@ WAITED = {
              "is given, write it word for word as your only words; when it is null, write nothing. Then run "
              "`PROJECT drafts --wait` again.",
     'done': "Add no words of your own: export the build into the run and run `PROJECT check` for the structural pass, "
-            "as build and check says. The build's card comes once, right before the save question.",
+            "as build and check says, then draw the build's card, `PROJECT visual build --widget` where you have "
+            "`show_widget`, before any question: it closes the build.",
     'again': "Add no words of your own: the wait timed out while new things were showing. Run `PROJECT drafts --wait` again.",
 }
 
