@@ -50,6 +50,15 @@ def column_alias(name: str) -> str:
     return kebab(name).replace("-", "_")
 
 
+def metric_ref(name: str) -> str:
+    """A metric's handle within a run: kebab case with a symbol kept as a word, so `Margin ($)`
+    and `Margin (%)` (`margin-usd`, `margin-pct`) are two metrics, as the registry holds them,
+    not one collision."""
+    for sym, word in _ALIAS_WORDS:
+        name = str(name).replace(sym, word)
+    return kebab(name)
+
+
 def artifact_name(*parts: str, max_len: int = MAX_NAME) -> str:
     """Join parts into one handle and enforce the registry's actual rule.
 

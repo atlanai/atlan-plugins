@@ -1221,20 +1221,20 @@ def _authored_words(card: dict, as_written: dict) -> dict:
 
 def _name_by_declaration(cards: list[dict], declared_of: dict) -> dict[str, str]:
     """{author's name: declared name} for every card renamed as its model declares."""
-    taken = {slugs.kebab(c["name"]) for c in cards}
+    taken = {slugs.metric_ref(c["name"]) for c in cards}
     renamed: dict[str, str] = {}
     for c in cards:
         d = declared_of.get(c["name"])
         if not d:
             continue
         name = _declared.title(d["metric"])
-        if name == c["name"] or slugs.kebab(name) in taken:
+        if name == c["name"] or slugs.metric_ref(name) in taken:
             continue
-        taken.add(slugs.kebab(name))
+        taken.add(slugs.metric_ref(name))
         renamed[c["name"]] = name
         c["synonyms"] = sorted(set(c.get("synonyms") or []) | {c["name"]})
         c["name"] = c["display_name"] = name
-        c["metric_ref"] = slugs.kebab(name)
+        c["metric_ref"] = slugs.metric_ref(name)
     for c in cards:
         if c.get("depends_on"):
             c["depends_on"] = [renamed.get(x, x) if isinstance(x, str) else x
@@ -1394,7 +1394,7 @@ def _project(a: dict, m: dict, stmts: dict, evidence: dict, scope: str,
     body_lane = next((l for l in ("merged", "bi", "history") if l in set(lanes)), None)
     tier, tier_basis = measures.tier_of(body_lane, lanes)
     return {
-        "metric_ref": slugs.kebab(a["name"]),
+        "metric_ref": slugs.metric_ref(a["name"]),
         "measure_id": measure_id,
         "source_id": slugs.metric_source_id(scope, measure_id),
         "name": a["name"],

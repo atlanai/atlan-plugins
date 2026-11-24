@@ -304,7 +304,10 @@ STRUCT_FIELDS = {
 }
 BODY_FIELDS = {"name", "display_name", "description", "search_text", "source_id", "source_type", "source_version",
                "definition", "owner_id"}
-_DATE = re.compile(r"'\d{4}-\d{2}-\d{2}")
+# A fixed date is a reporting period that should move, so it is refused. DAX's zero date,
+# 30 December 1899, is not one: it is how a compiled DAX measure compares a blank date, a
+# constant that carries the measure's meaning and never names a period.
+_DATE = re.compile(r"'(?!1899-12-30')\d{4}-\d{2}-\d{2}")
 _PARAM = re.compile(r"\{\{\s*(\w+)\s*\}\}")
 _EMAIL = _SHARED_PII["email"]
 _SQL_IN_PROSE = re.compile(r"\bselect\b[\s\S]+\bfrom\b|\b(?:count|sum)\s*\(", re.I)
