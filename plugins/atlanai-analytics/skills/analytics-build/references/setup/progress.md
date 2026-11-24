@@ -90,10 +90,11 @@ page shows each batch as it lands; the chat shows each step's end:
    same message. Never end the turn between waits: a turn that ends without words is sent back
    for them, while a turn that keeps going is not.
    - **A step ended**: run `visual next`, then show what it gives in the same message that starts
-     the next gate's subagent. Before the side page opens, it draws the step's chip. Once the page is open, where you keep a task list
-     (the desktop app always does; in a terminal, as you recorded with `PROJECT journey
-     tasks`), it hands back the task list and `say`, one line to write word for word as your
-     only words; with no task list, each step's end shows its chip.
+     the next gate's subagent. With `show_widget` it draws the step's one-line chip, before and
+     after the side page opens. In a terminal that keeps a task list (as you recorded with
+     `PROJECT journey tasks`), once the page is open it hands back the task list and `say`, one
+     line to write word for word as your only words; with no task list, each step's end shows
+     its chip.
    - **Something ready to show**, with no step ended (the side page ready to open, or a chip a
      helper's step made due): run `visual next` and do what it says.
    - **A batch**, where you keep a task list, at most every 20 seconds: set your task list to its

@@ -399,23 +399,14 @@ class Helper(unittest.TestCase):
         self.host = ''
         self.assertFalse(self.project('visual', 'sources').startswith('<style>'), 'a terminal keeps its text chips')
 
-    def test_once_the_side_page_is_open_a_widget_host_ticks_the_task_list_instead_of_a_metric_chip(self):
-        # The team, 2026-11-19: what the side page shows stays out of the chat, and the task list carries the build.
+    def test_once_the_side_page_is_open_a_widget_host_still_draws_each_step_chip(self):
+        # The person follows the build by its one-line chips, side page open or not (2026-11-23); the build's card
+        # still closes it.
         import side_view
         self.project('visual', 'connect', '--widget')
         out = self.project('visual', 'drafted', '--widget')
-        self.assertTrue(out.startswith('side view: '), 'no chip in the chat')
-        side = self.side(out)
-        # Runs wrote their own line at each step's end ("the build continues"): it gets the step's line, in plain words.
-        self.assertIn('word for word', side['next'])
-        # d7 read each result through a filter that kept its last 700 to 1,500 characters: the task list, never the
-        # instruction before it. What to do comes last.
-        self.assertEqual(list(side)[-2:], ['say', 'next'])
-        self.assertIn('metrics found', side['say'])
-        self.assertFalse(set('*◆❝▦»·') & set(side['say'][:2]), side['say'])
-        self.assertIn('drafts --wait', side['next'])
-        self.assertTrue(any(r['status'] == 'completed' and r['content'].startswith('Build your context: ') for r in side['task_list']),
-                        side['task_list'])
+        self.assertTrue(out.startswith('<style>'), 'the chip as a widget')
+        self.assertIn('metrics found', out)
         self.assertIn('drafted', side_view.seen(self.run), 'settled, so it is not named as due again')
         self.assertTrue(self.project('visual', 'build', '--widget').startswith('<style>'), "the build's card still closes the build")
 

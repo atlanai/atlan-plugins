@@ -78,7 +78,8 @@ about.
    the same workspace from earlier is reused only when it is under an hour old, and the line
    says so: "Using your workspace as it was at 19:01." Otherwise fetch again: a report
    edited since would be built from old definitions.
-4. **Ask.** A workspace link asks "Which report should I build your agent from?" first, the reports as options
+4. **Ask.** Draw the sources chip first, `PROJECT visual found --widget` (what was read: the report
+   and the warehouse). A workspace link asks "Which report should I build your agent from?" first, the reports as options
    with their counts in each description. Then one multi-select question, "Which pages matter
    to you?": up to three pages as options, largest first, plus "All pages". With more pages,
    the question's own text lists them all and the free-text entry takes any page by name.
@@ -171,10 +172,8 @@ say once: "A page has opened beside this chat. It lists each metric and saved qu
 found, and why anything is left out."
 
 **The chat is the same as in every flow**, as [drafts as they land](progress.md#drafts-as-they-land)
-sets out: before the side page opens, each step's chip when it ends; once it is open, the task
-list carries the build where you keep one, with the one line `visual next` gives at each step's
-end, and with no task list each step's end shows its chip, as [when to talk](progress.md#when-to-talk)
-says. A step that starts with no chip naming it (the review of the translations, the questions for the tiles) gets
+sets out: each step's one-line chip when it ends, before and after the side page opens, with the
+task list beside it, as [when to talk](progress.md#when-to-talk) says. A step that starts with no chip naming it (the review of the translations, the questions for the tiles) gets
 its start line from the table below, once.
 
 As the build starts, start the helper and run `PROJECT drafts --wait --engine-dir engine` in the

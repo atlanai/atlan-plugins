@@ -1036,9 +1036,10 @@ def main():
                 print('side view: ' + json.dumps({**{k: opened[k] for k in ('url', 'error') if k in opened},
                                                   'next': side_page.instruction(opened, args.widget) + more}, ensure_ascii=False))
                 return 0
-            if (args.widget or visuals.keeps_tasks(run)) and args.kind in visuals.ON_PAGE and 'connect' in side_view.seen(run):
-                # The team, 2026-11-19: once the side page beside the chat is open, it carries each metric step, and the
-                # task list carries the build's progress; the build's card closes it in the chat.
+            if not args.widget and visuals.keeps_tasks(run) and args.kind in visuals.ON_PAGE and 'connect' in side_view.seen(run):
+                # In a terminal with a task list and the side page open, a metric step's end is one plain line. A host that
+                # draws widgets keeps each step's one-line chip in the chat even once the side page is open: the person
+                # follows the build by them (their call, 2026-11-23).
                 import drafts
                 try:
                     say = visuals.plain_line(visuals.render(args.kind, visuals.build_spec(args.kind, run, data, args.engine_dir), False))
