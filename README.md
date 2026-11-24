@@ -82,7 +82,7 @@ covers each agent in detail.
 | Plugin | What it adds |
 |---|---|
 | [**Atlan Trident**](plugins/atlanai) (`atlanai`) | Atlan's remote MCP server and the skills to find, use and publish what is in Atlan Trident. Every other plugin here builds on it. |
-| [**Analytics**](plugins/atlanai-analytics) (`atlanai-analytics`) | Answers data questions from your managed metrics, mines your warehouse's query history into metrics and saved SQL queries, and builds, evaluates and improves a talk-to-data agent on them. Works with Snowflake, Databricks or another warehouse. |
+| [**Analytics**](plugins/atlanai-analytics) (`atlanai-analytics`) | Answers data questions from your managed metrics, mines your warehouse's query history into metrics and saved queries, and builds, evaluates and improves a talk-to-data agent on them. Works with Snowflake, Databricks or another warehouse. |
 | [**Trident Mods**](plugins/atlanai-mods) (`atlanai-mods`) | Claude Code only. Atlan Trident reads run without a prompt, writes ask first, and an archive or move shows what depends on the artifact. Fixes misplaced session ids and rationales, shows each Atlan call as one readable line, lists what the session read and changed in a pane, follows a skill publish in a band above the prompt, and picks a skill to load with `/atlan skills`. Reports a broken connection on the status line. |
 
 ### Atlan Trident
