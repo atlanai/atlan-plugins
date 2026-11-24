@@ -31,6 +31,7 @@ the request could mean several files, ask which. Then route by what it is:
 | A skill folder (it has a `SKILL.md`) | Load `atlan-author-skills` and publish it; return here at step 4 with its handle |
 | An agent definition | Load `atlan-author-agents`; return at step 4 |
 | A glossary, runbook or reference notes meant for agents to read | Load `atlan-author-knowledge`; return at step 4 |
+| This session's own trace, pushed to an organization or as feedback on a skill | Follow [pushing this session's trace](references/trace.md) instead of steps 2 to 5 |
 | Anything else: a report, document, notebook, CSV, HTML page, deck, diagram | Share it as an `output`, steps 2 to 5 |
 
 Read the content before sharing it. Stop and show the user, with values masked, anything that

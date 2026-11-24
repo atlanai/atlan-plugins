@@ -60,7 +60,11 @@ Claude Code and Cursor run these as `/atlanai:<command>`: `get-started`, `use-sk
 `atlan-use-skill`, `atlan-continue`, `atlan-share`). Those four skills hide their own slash
 entries, and the commands hide themselves from the model, so the menu and the model's skill list
 each show every task once. `feedback [what happened]` drafts feedback for Atlan from the
-conversation with `atlan-troubleshoot`, shows it, and leaves sending it to you. The other skills are invoked by name
+conversation with `atlan-troubleshoot`, shows it, and leaves sending it to you.
+`share-trace [artifact or note] [organization]` first says whether the Atlan desktop app's
+background sync already uploads this session to that organization, then, on your yes, uploads
+this one session with `aireg trace export`, optionally recorded as feedback on a skill or output.
+It never changes background sync. The other skills are invoked by name
 (`/atlanai:atlan-author-skills`), or simply by asking.
 
 ## Alongside other Atlan plugins
