@@ -155,7 +155,7 @@ ROW_OF = {'m2': 'draft', 'x1': 'draft', 'x2': 'merge', 'x3': 'write'}
 SHORT = {'draft': 'Build your context: metrics and saved queries', 'merge': 'Merge duplicate metrics'}
 
 
-def _live(engine, under):
+def _live(engine, under, with_left=True):
     """The step under way as its task-list row says it: what has landed so far, and time left when the pace is known."""
     gate, _, describe, files = under
     c = describe(engine, files)
@@ -175,7 +175,7 @@ def _live(engine, under):
     else:
         done, total = c.get('defined') or 0, c.get('total')
         said = '%d of %d written' % (done, total) if total else '%d written' % done
-    left = _left(engine, gate, done, total)
+    left = _left(engine, gate, done, total) if with_left else None
     return said + (' (%s)' % left if left else '')
 
 
@@ -214,10 +214,14 @@ def quiet_line(engine):
     doing = DOING.get(ROW_OF.get(under[0]))
     if not doing:
         return None
-    live = _live(engine, under)
-    if under[0] == 'x2' or not live:
+    if under[0] == 'x2':
         return doing + '.'
-    return '%s%s %s.' % (doing, ',' if ':' in live else ':', live)
+    # The count only: a time left grows while nothing lands, so the same count would come back with a worse estimate.
+    # Nothing done yet is nothing to report ("finding metrics: 0 metrics in 0 of 2 questions").
+    if not under[3]:
+        return None
+    live = _live(engine, under, with_left=False)
+    return '%s%s %s.' % (doing, ',' if ':' in live else ':', live) if live else doing + '.'
 
 
 def task_list(root, engine_dir=None):
@@ -294,7 +298,8 @@ def wait(root, engine_dir=None, timeout=540, quiet=180, interval=2.0, out=None, 
         accepted = {s.get('stage') for s in stages if isinstance(s, dict) and s.get('verdict') == 'ok'}
         for stage in WAKES:
             if stage in accepted and stage not in done:
-                _save_record(engine, dict(record, steps=sorted(done | {stage})))
+                # A step's end starts the quiet line's memory afresh: a step run again may say its count again.
+                _save_record(engine, dict(record, steps=sorted(done | {stage}), said=None))
                 return say('step')
         # The links step comes after the definitions: the build is done once it has a verdict, kept or skipped.
         if 'x3_ingest' in accepted and any(isinstance(s, dict) and s.get('stage') == 'x4_ingest' and s.get('verdict') for s in stages):
