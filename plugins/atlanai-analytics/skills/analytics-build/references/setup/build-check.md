@@ -72,6 +72,11 @@ the source calculation and relevant edge cases separately.
 Run `check-query` on every saved query and `check-metric` on every metric: a query left at
 `schema_checked` has not run. Their request files are `{"name": "<query>", "parameters": {}}`
 and `{"name": "<metric>", "example_index": 0, "parameters": {}}`.
+For a metric with no dimensions, the check looks for a second row and holds the metric if it
+finds one. For a trusted reference for the same filters and period, include `expected_value`
+and, if needed, `expected_tolerance` in the check request. For a warehouse check request at
+least two rows and keep the reference with the recorded result.
+
 Both types of checks
 are bound to definition hashes. On a warehouse the same commands answer `run_on_warehouse` with
 the statement to run: run it with the recorded read-only tool, then send the same request again

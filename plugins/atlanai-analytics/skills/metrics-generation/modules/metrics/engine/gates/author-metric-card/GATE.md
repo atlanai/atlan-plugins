@@ -120,6 +120,18 @@ synonyms), `examples`, `timeframe_column`, `description` (the metric's comment) 
   SQL or question;
 * the card takes the model's name for the metric; yours is kept as a synonym.
 
+## A task with a rollup or catalogue declaration
+
+For `rollup_source`, the gate builds the sum over that query and keeps its returned column.
+Write the business description and use the source outputs for any additional filters.
+For a catalogue declaration, use its formula and entity. The gate keeps the exact saved
+query in the card's source and keeps its required predicates in that query.
+
+Operators can give check evidence in `metric_checks.json` in the engine run. Use
+`{"contract_version":"1.0","metrics":{"Monthly Active Users":{"snapshot_period_column":"DB.S.ACTIVITY.SNAPSHOT_MONTH","expected_value":120}}}`
+with the merged metric name. Use `expected_tolerance` only with a trusted expected value for
+the same filters and period. This evidence stays outside the Trident card.
+
 ## A task with `derived_source`
 
 The source statements read a BI model's native query, not the table it names: their columns

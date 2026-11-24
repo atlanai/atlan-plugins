@@ -46,6 +46,7 @@ from metrics_agent.lib import artifacts  # noqa: E402
 from metrics_agent.lib import declared as _declared  # noqa: E402
 from metrics_agent.lib import bi_tags as _bi_tags  # noqa: E402
 from metrics_agent.lib import card_sql as _card_sql  # noqa: E402
+from metrics_agent.lib.metric_validation import sum_over_output
 from metrics_agent.lib import stage  # noqa: E402
 
 STAGE = "x1_propose"
@@ -174,6 +175,7 @@ def _emit(ctx: stage.Ctx) -> None:
 def _ingest(ctx: stage.Ctx) -> None:
     layer = ctx.read(IN_LAYER, "verified_queries.schema.json")
     known = {o["vq_id"]: o for o in layer["objects"]}
+    dialect = layer["dialect"]
 
     # WHAT THE BUNDLE HANDED OVER COUNTS AS THE STATEMENT'S OWN. Each aggregate is printed by
     # the parser, not copied from the source, so it can differ in spacing, aliasing and
@@ -247,10 +249,11 @@ def _ingest(ctx: stage.Ctx) -> None:
                 for f in PROPOSAL_REQUIRED:
                     if not str(m.get(f) or "").strip():
                         problems.append(f"{path.name}: {vq} metric {i} has no `{f}`")
-                # THE EXPRESSION MUST BE THE STATEMENT'S OWN. A proposal is a reading of what
-                # runs, never a rewrite of it — an invented expression would publish a number
-                # the estate has never computed.
+                # A proposal quotes the statement, or explicitly sums a named output using
+                # the entire statement as its source. X3 checks that new query separately.
                 expr = str(m.get("expression") or "")
+                rollup = None
+                agg = str(m.get("aggregation") or "").strip().lower()
                 if expr:
                     # A quotation is matched on its TOKENS, not on its spacing. The bundle
                     # offers each aggregate as sqlglot prints it, while the statement may pad
@@ -258,9 +261,12 @@ def _ingest(ctx: stage.Ctx) -> None:
                     # would refuse the evidence the bundle itself handed over.
                     if (_squash(expr) not in _squash(known[vq]["sql"])
                             and _squash(expr) not in offered.get(vq, set())):
-                        problems.append(
-                            f"{path.name}: {vq} metric {i} expression {expr[:60]!r} does not "
-                            f"appear in the statement. Quote what runs; do not rewrite it.")
+                        if not decl and agg == "sum":
+                            rollup = sum_over_output(expr, known[vq]["sql"], dialect)
+                        if not rollup:
+                            problems.append(
+                                f"{path.name}: {vq} metric {i} expression {expr[:60]!r} does not "
+                                f"appear in the statement. Quote it or sum a named output column.")
                     elif expr.lstrip().startswith("--"):
                         # A COMMENT IS NOT A FORMULA. The line above a projection explains it;
                         # quoting it publishes the explanation as the thing that runs.
@@ -289,8 +295,7 @@ def _ingest(ctx: stage.Ctx) -> None:
                         f"runs over.")
                 # THE AGGREGATION MUST BE WHAT THE FORMULA DOES. `max` declared over a bare
                 # column read is the card describing an aggregate that is not there; the
-                # value was aggregated upstream and the honest word is `none`.
-                agg = str(m.get("aggregation") or "").strip().lower()
+                # value was aggregated upstream and the honest word is `custom`.
                 if agg in ("sum", "count", "count_distinct", "min", "max", "avg"):
                     head = "count" if agg.startswith("count") else agg
                     bare = re.sub(r"\b[A-Za-z_]\w*\.", "", expr).lower()
@@ -298,7 +303,7 @@ def _ingest(ctx: stage.Ctx) -> None:
                         problems.append(
                             f"{path.name}: {vq} metric {i} declares {agg!r} but the "
                             f"expression calls no {head}(): {expr[:50]!r}. If the value was "
-                            f"aggregated upstream, the aggregation is 'none'.")
+                            f"aggregated upstream, the aggregation is 'custom'.")
                 # THE ROWS THE TABLE ITSELF KEEPS ARE MANDATORY. A predicate inside the derived
                 # table the statement reads from defines that table; a metric without it
                 # describes rows the statement never reads. Each such filter's column must be
@@ -336,6 +341,8 @@ def _ingest(ctx: stage.Ctx) -> None:
                     "vq_id": vq,
                     **{k: m.get(k) for k in PROPOSAL_REQUIRED + PROPOSAL_OPTIONAL
                        if m.get(k) is not None},
+                    **({"aggregation": "custom"} if agg == "none" else {}),
+                    **({"rollup_source": rollup[1]} if rollup else {}),
                 })
                 seen_names.setdefault(nm.lower(), vq)
 

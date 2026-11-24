@@ -719,7 +719,8 @@ def key_of(decl: dict) -> str:
 def identity(decl: dict) -> tuple[str, str]:
     """What the declared metric computes: its entity and its formula. Two declarations that
     agree on both are one metric declared twice."""
-    return str(decl.get("entity") or "").upper(), code_norm(decl.get("formula"))
+    return (str(decl.get("entity") or "").upper(),
+            code_norm(decl.get("statement_sql") or decl.get("formula")))
 
 
 def brief(decl: dict) -> dict:

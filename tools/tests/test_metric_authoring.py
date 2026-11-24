@@ -106,3 +106,34 @@ class CardExecution(unittest.TestCase):
         self.run.check_metric({'name': 'cost', 'parameters': {'kind': 'rework'}})
         check = self.run.read(self.run.context / 'candidate-checks.json')['metric:cost']
         self.assertEqual(check['composition']['rows'], [[34.75]])
+
+
+    def test_scalar_lookup_checks_for_a_second_row_even_with_limit_one(self):
+        card = self.card()
+        card['definition'].update(formula='site.work.cost', aggregation={'type': 'custom'},
+                                 source={'entity': 'site.work', 'alias': 'work', 'table': 'site.work'})
+        self.save(card)
+        result = self.run.check_metric({'name': 'cost', 'limit': 1})
+        self.assertFalse(result['passed'])
+        self.assertIn('more than one row', result['errors'][0])
+        self.run.check()
+        check = self.run.read(self.run.context / 'candidate-checks.json')['metric:cost']
+        self.assertEqual(check['status'], 'held')
+        self.assertIn('more than one row', check['errors'][0])
+
+    def test_local_and_warehouse_metrics_use_expected_values(self):
+        self.save(self.card())
+        result = self.run.check_metric({'name': 'cost', 'expected_value': 100})
+        self.assertFalse(result['passed'])
+        self.assertIn('differs from the expected value', result['errors'][0])
+        result = self.run.check_metric({'name': 'cost', 'expected_value': 14.75})
+        self.assertEqual(result['rows'], [[14.75]])
+
+        import metric_preview
+        item = metric_preview.candidates(self.run)[0]
+        result = self.run.record_warehouse_check(
+            item, 'metric', {'result': {'rows': [[4500000]], 'expected': 107000}}, [])
+        self.assertFalse(result['passed'])
+        result = self.run.record_warehouse_check(
+            item, 'metric', {'result': {'rows': [[107000]], 'expected': 107000}}, [])
+        self.assertTrue(result['passed'])
