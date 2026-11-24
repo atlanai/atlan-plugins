@@ -71,10 +71,9 @@ about.
 3. **Fetch what can be picked.** A background helper fetches the link or reads the file and
    returns names and counts only: for a **workspace link**, its reports with their page and
    measure counts; for a **report link or file**, its pages with their tile counts. For a
-   Power BI report link, step 2's command already fetched it. When it exits, the person has
-   waited since they signed in, so the first thing is one chat line, before any other call:
-   "Signed in, and your report is read. Here's what it holds." (with `sign_in` `saved`, "Your
-   report is read. Here's what it holds."). Then `PROJECT tiles --engine-dir engine` gives the
+   Power BI report link, step 2's command already fetched it. The sign-in was said when it
+   happened (the wait's `signed_in` line); when the command exits, the first thing is one chat
+   line, before any other call: "Your report is read. Here's what it holds." Then `PROJECT tiles --engine-dir engine` gives the
    pages and their tile counts. A fetch of
    the same workspace from earlier is reused only when it is under an hour old, and the line
    says so: "Using your workspace as it was at 19:01." Otherwise fetch again: a report

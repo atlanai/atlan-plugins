@@ -119,6 +119,11 @@ def wait_task(output, after=0, timeout=540, interval=2.0):
         complete = text[:text.rfind('\n') + 1]
         new = complete[seen:] if len(complete) > seen else ''
         for line in new.splitlines(keepends=True):
+            if line.strip() == 'Signed in.':
+                # The person just finished in their browser: say so now, not a minute later when the report is read.
+                return {'status': 'signed_in', 'after': seen + new.index(line) + len(line),
+                        'say': "You're signed in. Reading your report now, about a minute.",
+                        'next': 'Write `say` word for word, then run this command again with --after, in this same turn.'}
             if re.search(r'devicelogin|enter the code|use a web browser to open', line, re.I):
                 return {'status': 'sign_in', 'line': line.strip()[:300], 'after': seen + new.index(line) + len(line),
                         'next': 'Relay this line to the person once, then run this command again with --after.'}

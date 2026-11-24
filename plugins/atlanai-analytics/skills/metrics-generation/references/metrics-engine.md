@@ -75,8 +75,9 @@ browser opens on its own and the command listens on localhost for the answer, so
 typed. **Then wait for it in the same turn**, so the turn, and the host's task list with it, does
 not end while the person signs in: run `python3 "<analytics-build>/scripts/project.py" wait-task
 --output <its output file>` in the foreground with a ten-minute timeout. It returns `done` with
-the command's last line, `sign_in` with a device-code line, or `waiting`; after the last two,
-run it again with the `--after` it gives.
+the command's last line, `signed_in` the moment the person finishes signing in (write its `say`
+line, word for word), `sign_in` with a device-code line, or `waiting`; after any but `done`, run
+it again with the `--after` it gives.
 
 It signs in as the person: in their browser (authorization code with PKCE: single sign-on,
 nothing to copy) where one can open on this machine, else by device code (an SSH or cloud
@@ -97,9 +98,9 @@ Its last line is the advance result (section 3), plus `sign_in`, `source_id`, `e
 show its normal end as failed; its `status` says `paused`) continues at section 3; exit 2 names a
 `reason` and a `fix`. **Say the person is signed in only when `sign_in` is `signed_in`**: the
 connector printed "Signed in." Never when the command starts, and never from a browser tab
-opening. `saved` means an earlier sign-in was reused. When it exits, say what it did in one
-line before any other call ("Signed in, and your report is read."): the person signed in a
-minute ago and has seen nothing since. Running the same command again resumes
+opening. `saved` means an earlier sign-in was reused. The sign-in itself is said the moment it
+happens, from `wait-task`'s `signed_in` result; when the command exits, say in one line before
+any other call that the report is read ("Your report is read."). Running the same command again resumes
 the same build; other settings for the same run are refused.
 
 Fall back to [browser capture](dashboard/powerbi-capture.md) only when the plug cannot run
