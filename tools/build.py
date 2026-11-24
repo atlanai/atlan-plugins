@@ -296,6 +296,7 @@ def addon_readme(source: dict, addon: dict) -> str:
         return ask[:1].upper() + ask[1:]
 
     needs = "\n".join(f"- {need}" for need in readme["needs"])
+    steps = "\n".join(f"{n}. {step}" for n, step in enumerate(readme["quick_start"], 3))
     skills = "\n".join(f"| `{name}` | {source['skills'][name]['short_description']} | *\"{example(name)}\"* |"
                        for name in readme["skills"])
     troubles = "\n".join(f"| {symptom} | {fix} |" for symptom, fix in readme["troubleshooting"])
@@ -311,7 +312,7 @@ def addon_readme(source: dict, addon: dict) -> str:
 
 1. Install it, as below.
 2. Type *"{addon['default_prompts'][0]}"*.
-3. {readme['quick_start']}
+{steps}
 
 ## Skills
 

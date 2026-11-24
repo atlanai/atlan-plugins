@@ -1,21 +1,27 @@
 # Analytics
 
-Build an agent that answers your team's data questions from metrics and saved queries it can
-show you. Analytics builds them from the dashboards and past queries your team already uses,
-tests each one on your data, and saves them to Atlan, so every answer names what it is based on.
-For data teams on Snowflake, Databricks or another warehouse.
+Analytics builds an agent that answers your data questions in plain English. Each answer comes
+from a metric or saved query you can open, and names the one it used.
+
+It builds those metrics and saved queries from what your team already relies on: dashboards
+first, then past queries, then table definitions. It tests each one on your data before you keep
+it on this machine or save it to Atlan.
+
+Try it on a demo with made-up data first, or point it at your own warehouse.
 
 ## You need
 
-- An Atlan account, signed in through the `atlanai` plugin, to save to Atlan and answer from it. The demo can keep everything on this machine.
-- Python 3.11 or 3.12 for the metrics runtime the build sets up: `python3.12` or `python3.11` on your `PATH`, or `py -3.12` on Windows.
-- For your own data: a warehouse (Snowflake, Databricks or another) reachable through Atlan or a connector in your coding agent, with read access to the tables, and to past queries if you build from them. The demo brings its own data.
+- **To build metrics, including the demo:** Python 3.11 or 3.12. Put `python3.12` or `python3.11` on your `PATH`, or use `py -3.12` on Windows.
+- **To save to Atlan and ask from it:** an Atlan account, signed in through the `atlanai` plugin. The demo can keep everything on this machine instead.
+- **For your own data:** a warehouse that Atlan or your coding agent can reach, such as Snowflake or Databricks, with read access to its tables. To build from past queries, you also need read access to those.
 
 ## Quick start
 
 1. Install it, as below.
 2. Type *"Show me an Atlan Analytics demo"*.
-3. Pick Fixit & Co. or Ticketfuddle. In about 15 to 20 minutes it builds the firm's metrics and saved queries from its dashboard, tests them on the demo data, asks where to keep them, then answers your first question.
+3. Pick Fixit & Co. or Ticketfuddle.
+4. In about 15 to 20 minutes, it builds the firm's metrics and saved queries from its dashboard and tests them on the demo data.
+5. Choose where to keep them, then ask your first question.
 
 ## Skills
 
