@@ -1290,7 +1290,48 @@ class _Parser:
         key = frozenset(cols)
         if ctx is None or key not in ctx.relationships_used:
             raise CompileError(f"{head} names a relationship the model does not declare")
+        if n == 3:
+            self._check_one_way(str(parts[2][0][1]).strip("'\"").upper(), cols, key)
         self.used.append("engine.dax_userelationship" if n == 2 else "engine.dax_crossfilter")
+
+    def _check_one_way(self, how: str, cols: list, key: frozenset) -> None:
+        """CROSSFILTER's one-way directions the relationship's cardinality does not take, each
+        refused by name. Microsoft's CROSSFILTER reference
+        (learn.microsoft.com/dax/crossfilter-function-dax), in its own terms: OneWay is the
+        one (lookup) side filtering the other, is not for a one-to-one relationship, and on a
+        many-to-many one leaves unclear which side is the lookup side;
+        OneWay_LeftFiltersRight and OneWay_RightFiltersLeft name the filtering side and are
+        not for a one-to-one or many-to-one relationship. Seen against Power BI: a one-way
+        direction on a one-to-one relationship is an error, and so is the many side alone
+        filtering the one side, while the one side named as the filtering side is OneWay
+        itself. The join plan read every one of them as the relationship's single direction
+        and gave a number."""
+        if not how.startswith("ONEWAY"):
+            return
+        hit = _spec_edge(self.ctx.graph, key)
+        if hit is None:
+            return
+        edge = self.ctx.graph[hit]
+        fs, ts = _card_ends(edge.get("cardinality"))
+        if fs == ts == "one":
+            raise CompileError("CROSSFILTER with a one-way direction on a one-to-one "
+                               "relationship: Power BI rejects it (Both or None are its "
+                               "directions)")
+        if how == "ONEWAY":
+            if fs == ts == "many":
+                raise CompileError("CROSSFILTER OneWay on a many-to-many relationship: which "
+                                   "side filters the other is not defined")
+            return
+        ends = {_bare(edge.get("from_table")): fs, _bare(edge.get("to_table")): ts}
+        filtering = cols[0 if how == "ONEWAY_LEFTFILTERSRIGHT" else 1][1]
+        side = ends.get(filtering) if len(ends) == 2 else None
+        if side == "one" and "many" in (fs, ts):
+            return                      # the one side filters the many side: OneWay itself
+        if side == "many" and "one" in (fs, ts):
+            raise CompileError("CROSSFILTER with the many side of a many-to-one relationship "
+                               "alone filtering the one side: Power BI rejects it")
+        raise CompileError(f"CROSSFILTER {how.title()} on a relationship that is not "
+                           f"many-to-one: no exact rule")
 
     def _filter_table(self, inner, overrides) -> str:
         """`FILTER(T, predicate)` as a CALCULATE filter. Over the measure's own table it is
@@ -4091,20 +4132,7 @@ class _UnitContext:
         """The tables whose filters reach `table` (it included): along active relationships
         from the one side to the many side, and both ways where the relationship filters
         both ways."""
-        out, frontier = {_bare(table)}, [_bare(table)]
-        while frontier:
-            cur = frontier.pop()
-            for e in self.graph:
-                if e.get("is_active") is False or str(e.get("kind") or "") in _NOT_WALKED:
-                    continue
-                fs, ts = _card_ends(e.get("cardinality"))
-                a, b = _bare(e.get("from_table")), _bare(e.get("to_table"))
-                both = str(e.get("cross_filter") or "").lower() in ("both", "bothdirections")
-                for near, far, far_end in ((a, b, ts), (b, a, fs)):
-                    if near == cur and (far_end == "one" or both) and far not in out:
-                        out.add(far)
-                        frontier.append(far)
-        return out
+        return _filtered_by(self.graph, table)
 
     def place(self, column: str, table: str) -> str | None:
         if self.plan is None:
@@ -4620,14 +4648,26 @@ def _compile_unit(unit: dict, rules, dialect: str, *, alias: str = "t",
                         unit, m, treatas[m["name"]], again)))
             return _joined_statements(unit, parts, rules, dialect)
         homes = _measure_homes(unit, source, measures, table_of)
-        if homes and not unit.get("top_n"):
+        rowless_names = set()
+        if measures is not None and table_of and unit.get("group_by") \
+                and unit.get("blank_rows") == "hidden":
+            rowless_names = {m["name"] for m in unit.get("measures") or []
+                             if m.get("formula_language") == "dax" and m.get("formula")
+                             and not _tables_read(m["formula"], measures, table_of,
+                                                  rows_only=True)}
+        mixed = bool(rowless_names) and len(rowless_names) < len(unit.get("measures") or [])
+        if (homes or mixed) and not unit.get("top_n"):
             # Measures of different tables (two facts beside one dimension): each table's
             # measures are a statement of their own over that table, joined on the rows.
-            by_home: dict[str, list[dict]] = {}
+            # A measure that reads no row (a test of the context alone) is a statement of
+            # its own beside the table's aggregates: it has a value on the table's blank
+            # member, which a statement over the table's rows does not list.
+            by_home: dict[tuple, list[dict]] = {}
             for m in unit.get("measures") or []:
-                by_home.setdefault(homes.get(m["name"], source), []).append(m)
+                by_home.setdefault((homes.get(m["name"], source),
+                                    m["name"] in rowless_names), []).append(m)
             parts = []
-            for home, ms in by_home.items():
+            for (home, _rowless), ms in by_home.items():
                 sub = dict(unit, measures=ms, warehouse_tables=[home] + [
                     t for t in tables if t != home])
                 parts.append((sub, _compile_unit(
@@ -4692,7 +4732,8 @@ def _compile_unit(unit: dict, rules, dialect: str, *, alias: str = "t",
             return _detached_statement(unit, plan, graph, lambda u: _compile_unit(
                 u, rules, dialect, alias=alias, columns=columns, measures=measures,
                 table_of=table_of, logical=logical, model=model, model_graph=model_graph,
-                types=types, row_formulas=row_formulas, text_key=text_key_in, renames=renames))
+                types=types, row_formulas=row_formulas, text_key=text_key_in, renames=renames),
+                measures=measures, table_of=table_of)
         if plan.unreachable:
             gb = {str(g).lower() for g in unit.get("group_by") or []}
             kind = ("grouping column(s)" if plan.unreachable <= gb else "column(s)")
@@ -5015,6 +5056,33 @@ def _compile_unit(unit: dict, rules, dialect: str, *, alias: str = "t",
                     f"a statement over {source}'s rows does not have them")
                 return res
 
+    # The statement's own table's BLANK member (a key a relationship into it holds and it
+    # lacks) has no row of the table, so a statement over its rows lists it nowhere. A measure
+    # not BLANK there (a test of the context: ISFILTERED of the grouped column is TRUE on
+    # every row the visual lists) shows that row too: its value on an empty row, where every
+    # such measure has one that reads no row. Only where no measure of the statement reads a
+    # row: an aggregate's value on the blank member is not its value on an empty row (the
+    # member's own blank value is one distinct value of each of the table's columns).
+    own_blank: dict[str, str] | None = None
+    if not shown and not native and unit.get("group_by") and not failed \
+            and unit.get("blank_rows") == "hidden" and measures is not None and table_of:
+        own_blank = {}
+        for m in unit.get("measures", []):
+            if m.get("formula_language") != "dax" or not m.get("formula") \
+                    or m["name"] in placed \
+                    or _tables_read(m["formula"], measures, table_of, rows_only=True):
+                own_blank = None
+                break
+            if _blank_on_empty(m, rules, alias, dialect, measures, unit, table_of, source,
+                               ctx) is True:
+                continue
+            empty = _empty_value(m, rules, alias, dialect, measures, unit, table_of, source,
+                                 ctx)
+            if empty is None:
+                own_blank = None
+                break
+            own_blank[_measure_alias(m["name"])] = empty
+
     if failed and not any(" AS " in x for x in select):
         # Nothing was translated. PARTIAL means "a statement, with a named gap"; with no
         # statement there is nothing partial about it, and calling it partial would let a
@@ -5317,6 +5385,10 @@ def _compile_unit(unit: dict, rules, dialect: str, *, alias: str = "t",
             having.append(hide)
             res.rules_used.append("engine.blank_rows_hidden")
     windowed = any(" OVER (" in x for x in select)
+    # A value computed across the visual's rows (a window) cannot be tested by a HAVING: the
+    # empty rows are left out of the finished rows instead (`_hide_blank_rows_after`).
+    hide_after = (unit.get("blank_rows") == "hidden" and n_groups and windowed
+                  and len(select) > n_groups)
     if special["display"] and not windowed:
         # Hidden members with nothing computed across the view's rows: leaving their rows out
         # of the statement leaves every other row as it is.
@@ -5338,6 +5410,20 @@ def _compile_unit(unit: dict, rules, dialect: str, *, alias: str = "t",
         sql += "\nGROUP BY " + ", ".join(_gkey(g, i) for i, g in enumerate(unit["group_by"]))
     if having:
         sql += "\nHAVING " + "\n  AND  ".join(having)
+    if hide_after and not padded:
+        if unit.get("top_n") and not top_done:
+            res.coverage = REFUSED
+            res.reason = ("a Top N kept by the statement's LIMIT beside a value computed "
+                          "across the visual's rows: the rows with every value empty are "
+                          "left out before the ranking, which this statement cannot order")
+            return res
+        if any(r["mode"] == "grain" for r in lod_reg):
+            res.coverage = REFUSED
+            res.reason = ("an aggregate over a level-of-detail expression beside a value "
+                          "computed across the visual's rows, with empty rows hidden")
+            return res
+        sql = _hide_blank_rows_after(sql, select, n_groups)
+        res.rules_used.append("engine.blank_rows_hidden")
     def _with_wider(sql_: str) -> str:
         """The every-member statement with the value on an empty row of each measure that
         reads a wider context (`on_empty_ctx`): that context's own statement, grouped by the
@@ -5529,6 +5615,25 @@ def _compile_unit(unit: dict, rules, dialect: str, *, alias: str = "t",
             res.gotchas.append("the table's blank member is not listed: a filter of the "
                                "visual whose test of a blank is not read here")
 
+    if own_blank and n_groups and not windowed and not padded and not grain \
+            and not unit.get("top_n") and not unit.get("distinct_rows"):
+        test = _blank_member_test(source, list(model_graph or graph or []))
+        kept_blank = [_blank_in(f) for f in unit.get("filters") or []]
+        names = [_out_name(x) for x in select]
+        if test and all(k is True for k in kept_blank) and len(set(names)) == len(names):
+            # One blank row, as the visual shows one: where the table's own rows already
+            # make a row of empty grouping values, the blank member is that row.
+            cols = [f"NULL AS {n}" for n in names[:n_groups]] \
+                + [f"{own_blank.get(n, 'NULL')} AS {n}" for n in names[n_groups:]]
+            is_blank = " AND ".join(f"r_.{n} IS NULL" for n in names[:n_groups])
+            some = " OR ".join(f"b_.{n} IS NOT NULL" for n in names[n_groups:])
+            sql = (f"SELECT r_.*\nFROM   (\n{sql}\n) r_\nUNION ALL\nSELECT b_.*\nFROM   (\n"
+                   f"SELECT {', '.join(cols)}\n) b_\nWHERE  ({test})\n  AND  ({some})"
+                   f"\n  AND  NOT EXISTS (\nSELECT 1\nFROM   (\n{sql}\n) r_\nWHERE  {is_blank})")
+            res.rules_used.append("engine.blank_member_value")
+        elif test and None in kept_blank:
+            res.gotchas.append("the table's blank member is not listed: a filter of the "
+                               "visual whose test of a blank is not read here")
     if not n_groups and select and not windowed and not unit.get("top_n") \
             and not unit.get("distinct_rows") and all(_constant_item(x, alias) for x in select):
         # A card of measures that read no row (a constant, a parameter written in as its
@@ -5834,7 +5939,64 @@ def _leaf_names(res: Result, unit: dict) -> tuple[list[str], list[str]]:
     return groups, vals
 
 
-def _detached_statement(unit: dict, plan: _JoinPlan, graph: list[dict], again) -> Result:
+def _filtered_by(graph: list[dict], table: str) -> set[str]:
+    """The tables whose filters reach `table` (it included): along active relationships from
+    the one side to the many side, both ways where the relationship filters both ways, and
+    along a many-to-many one (or one whose multiplicity the model does not state) from its
+    `to` table to its `from` table, the direction the join plan walks it (`_plan_joins`)."""
+    out, frontier = {_bare(table)}, [_bare(table)]
+    while frontier:
+        cur = frontier.pop()
+        for e in graph:
+            if e.get("is_active") is False \
+                    or str(e.get("kind") or "relationship") in _NOT_WALKED:
+                continue
+            fs, ts = _card_ends(e.get("cardinality"))
+            a, b = _bare(e.get("from_table")), _bare(e.get("to_table"))
+            both = str(e.get("cross_filter") or "").lower() in ("both", "bothdirections")
+            for near, far, near_end, far_end, forward in ((a, b, fs, ts, True),
+                                                          (b, a, ts, fs, False)):
+                if near != cur or far in out:
+                    continue
+                unstated = far_end is None or (far_end == "many" and near_end == "many")
+                if far_end == "one" or both or (forward and unstated):
+                    out.add(far)
+                    frontier.append(far)
+    return out
+
+
+def _context_tested(formula: str, measures: dict[str, str] | None,
+                    table_of: dict[str, str] | None) -> set[str]:
+    """The warehouse tables (bare) whose context a DAX formula tests (`_CONTEXT_TESTS`),
+    through the measures it names."""
+    tmap = {k.lower(): v for k, v in (table_of or {}).items()}
+    out: set[str] = set()
+    try:
+        toks = _expanded_tokens(formula, measures)
+    except CompileError:
+        return out
+    for i, (k, v) in enumerate(toks):
+        if not (k == "func" and v.upper() in _CONTEXT_TESTS and i + 1 < len(toks)
+                and toks[i + 1][0] == "lparen"):
+            continue
+        end, args = _call_args(toks, i + 1)
+        for ak, av in (args[0] if end is not None and args else []):
+            t = None
+            if ak in ("qualified", "quoted_qualified"):
+                t = _table_ref(av)
+            elif ak == "str" and av.startswith("'"):
+                t = av[1:-1].replace("''", "'")
+            elif ak == "func" and av.lower() in tmap:
+                t = av
+            phys = tmap.get(str(t or "").lower())
+            if phys:
+                out.add(_bare(phys))
+    return out
+
+
+def _detached_statement(unit: dict, plan: _JoinPlan, graph: list[dict], again,
+                        measures: dict[str, str] | None = None,
+                        table_of: dict[str, str] | None = None) -> Result:
     """A visual that groups by a column of a table its measures' rows do not reach in the
     direction filters flow (one-to-many against a single-direction relationship, or along an
     inactive one). That table filters nothing: every measure has the value of the rows the
@@ -5869,6 +6031,24 @@ def _detached_statement(unit: dict, plan: _JoinPlan, graph: list[dict], again) -
             leaf_filters.append(f)
         else:
             on_table.setdefault(_bare(t), []).append(f)
+    # A test of the visual's context (ISFILTERED, HASONEVALUE, ...) reads the grouping and
+    # the filters the leaf statement is compiled without. That changes nothing for a table
+    # the detached tables do not filter (the statement's own, by definition); for one they do
+    # filter, the detached table itself included, the test would read a context without
+    # them: refused by name.
+    apart = {_bare(t) for _i, _g, t in own} | set(on_table)
+    for m in unit.get("measures") or []:
+        if m.get("formula_language") != "dax" or not m.get("formula"):
+            continue
+        for tested in sorted(_context_tested(m["formula"], measures, table_of)):
+            if apart & _filtered_by(graph, tested):
+                res = Result()
+                res.coverage = REFUSED
+                res.reason = (f"measure {m['name']!r} tests the context of {tested} (ISFILTERED, "
+                              f"HASONEVALUE, SELECTEDVALUE and their kin) beside a column of "
+                              f"{sorted(apart & _filtered_by(graph, tested))[0]}, which does "
+                              f"not filter the measure's rows and is listed apart from them")
+                return res
     leaf_unit = dict(unit, group_by=leaf_gb, filters=leaf_filters)
     leaf_unit.pop("group_by_tables", None)
     if any(leaf_gbt):
@@ -8390,6 +8570,9 @@ def _compile_time_unit(unit: dict, rules, dialect: str, *, alias: str, columns, 
         if hide:
             sql += f"\nHAVING {hide}"
             res.rules_used.append("engine.blank_rows_hidden")
+        elif len(sel) > len(groups):
+            sql = _hide_blank_rows_after(sql, sel, len(groups))
+            res.rules_used.append("engine.blank_rows_hidden")
     res.sql = sql
     if failed:
         res.reason = "; ".join(f"measure {f}" for f in failed)
@@ -9437,6 +9620,21 @@ def _blank_rows_having(values: list[str]) -> str | None:
     return "(" + "\n       OR ".join(f"{e} IS NOT NULL" for e in exprs) + ")"
 
 
+def _hide_blank_rows_after(sql: str, select: list[str], n_groups: int) -> str:
+    """The statement's rows without those whose every value is empty, where a value is a
+    window (computed across the visual's rows), which a HAVING cannot test. Power BI leaves a
+    row out of a visual when every measure on it is BLANK, whatever the measure reads
+    (SUMMARIZECOLUMNS keeps a row only where at least one of its expressions is not blank:
+    learn.microsoft.com/dax/summarizecolumns-function-dax). The window is computed first, over
+    every grouped row: a total over a wider context reads the model's rows, not the rows the
+    visual goes on to show (seen against Power BI: a city with no red sales has no share of
+    the red total and no row)."""
+    names = [_out_name(x) for x in select]
+    cols = ",\n       ".join(f"b_.{n}" for n in names)
+    shown = "\n    OR ".join(f"b_.{n} IS NOT NULL" for n in names[n_groups:])
+    return f"SELECT {cols}\nFROM   (\n{sql}\n) b_\nWHERE  ({shown})"
+
+
 _JOIN_CLAUSE = re.compile(r"^\s*(?:LEFT\s+|FULL\s+(?:OUTER\s+)?|INNER\s+)?JOIN\s+(.+?)\s+(\w+)"
                           r"\s+ON\s+(.*)$", re.S | re.I)
 
@@ -9710,6 +9908,32 @@ def _expand_branches(sql: str, plan: _JoinPlan, rules, dialect: str) -> str:
                           for i, (sc, _dc) in enumerate(pairs))
         sql = head + f"INNER JOIN (\n    {body}\n  ) {a} ON {on}" + tail
     return sql
+
+
+def _branch_many_hop(step: "_Step", a: str, prev: str, on: str, root: str,
+                     prev_step: "_Step") -> str:
+    """A hop inside a branch onto an end that is NOT one row (one-to-many filtering both ways,
+    or many-to-many), as an INNER JOIN. A row with no row of the reached table reaches no
+    member of the tables beyond it; kept by a LEFT JOIN its NULLs read as their BLANK member
+    (seen against Power BI: a store with no sales counted its country for the blank customer).
+
+    From a ONE end, the reached table's rows whose key that end lacks belong to its blank
+    member, the row whose key is NULL here (the branch's own blank row, or a row a LEFT JOIN
+    left unmatched): they are joined to it. Where the end left was itself reached as many
+    rows, its blank member is no row of the join, so those rows would be lost: refused."""
+    fs, ts = _card_ends(step.edge.get("cardinality"))
+    near = fs if step.forward else ts
+    if near != "one":
+        return f"INNER JOIN {step.table} {a} ON {on}"
+    if prev != root and prev_step.distinct:
+        raise CompileError("a both-ways path that leaves a table reached as many rows for "
+                           "its own many side: the rows its blank member holds are not "
+                           "placed")
+    near_table = step.edge["from_table"] if step.forward else step.edge["to_table"]
+    lost = " AND ".join(f"{prev}.{sc} IS NULL" for sc, _dc in step.pairs)
+    match = " AND ".join(f"y_.{sc} = {a}.{dc}" for sc, dc in step.pairs)
+    return (f"INNER JOIN {step.table} {a} ON ({on} OR ({lost} AND NOT EXISTS "
+            f"(SELECT 1 FROM {near_table} y_ WHERE {match})))")
 
 
 def _tuple_columns(f: dict) -> list[dict]:
@@ -10047,9 +10271,13 @@ def _plan_joins(unit: dict, source: str, alias: str, columns: dict[str, set[str]
                 plan.clauses.append(f"__BRANCH_{a}__")
             else:
                 # Inside the branch every hop is a plain join: the distinct set it is read
-                # as already counts each member once.
-                plan.branches[root]["clauses"].append(
-                    f"LEFT JOIN {step.table} {a} ON {on}")
+                # as already counts each member once. A hop to a ONE end keeps a row with no
+                # match (LEFT JOIN: its NULL is that table's blank member).
+                clause = f"LEFT JOIN {step.table} {a} ON {on}"
+                if step.distinct:
+                    clause = _branch_many_hop(step, a, prev, on, root,
+                                              next(s for x, s, _p in hops if x == prev))
+                plan.branches[root]["clauses"].append(clause)
             continue
         plan.full = plan.full or step.keep_far
         if step.distinct:
@@ -10153,21 +10381,27 @@ def _measure_homes(unit: dict, source: str, measures: dict[str, str] | None,
     for m in unit.get("measures") or []:
         if m.get("formula_language") != "dax" or not m.get("formula"):
             continue
-        reads = []
         # A context test of another table (SELECTEDVALUE(Article[Brand])) reads none of its
-        # rows: the measure's own table is the one it aggregates.
-        for k, v in _row_tokens(_expanded_tokens(m["formula"], measures)):
-            t = None
-            if k in ("qualified", "quoted_qualified"):
-                t = _table_ref(v)
-            elif k == "str" and v.startswith("'"):
-                t = v[1:-1].replace("''", "'")
-            elif k == "func" and v.lower() in tmap:
-                t = v
-            phys = tmap.get(str(t or "").lower())
-            if phys:
-                reads.append(phys)
-        named = {_bare(p): p for p in reads}
+        # rows: the measure's own table is the one it aggregates. A measure that aggregates
+        # no table at all (ISFILTERED(Customer[City]) alone) is a statement over the table
+        # its test names: on any other, a grouping column that does not filter that table
+        # is listed beside the statement, out of the context the test reads.
+        expanded = _expanded_tokens(m["formula"], measures)
+        named: dict[str, str] = {}
+        for toks in (_row_tokens(expanded), expanded):
+            for k, v in toks:
+                t = None
+                if k in ("qualified", "quoted_qualified"):
+                    t = _table_ref(v)
+                elif k == "str" and v.startswith("'"):
+                    t = v[1:-1].replace("''", "'")
+                elif k == "func" and v.lower() in tmap:
+                    t = v
+                phys = tmap.get(str(t or "").lower())
+                if phys:
+                    named[_bare(phys)] = phys
+            if named:
+                break
         if not named or src in named:
             continue
         if len(named) == 1:
