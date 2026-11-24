@@ -17,13 +17,6 @@ never need them: [query history](warehouses/query-history.md) (metrics mode's pu
 fallbacks and the view an admin can create), [through a CLI](warehouses/cli.md) and
 [adding a server here](warehouses/add-server.md).
 
-## Contents
-
-- Snowflake
-- Databricks
-- SQLite
-- Another warehouse
-
 ## Snowflake
 
 - **Check:** `select current_role(), current_warehouse()`
