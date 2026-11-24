@@ -5,8 +5,8 @@ English: metrics and saved queries. Each answer names the metric or saved query 
 when it had to write new SQL for the question.
 
 It builds that context from what your team already relies on: dashboards first, then past
-queries, then table definitions. It tests each metric and saved query on your data before you
-keep them on this machine or save them to share with your team.
+queries, then table definitions. It tests each metric and saved query on your data, when it can reach
+your data, before you keep them on this machine or save them to share with your team.
 
 ## You need
 

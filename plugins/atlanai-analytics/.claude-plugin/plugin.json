@@ -1,7 +1,7 @@
 {
   "name": "atlanai-analytics",
   "version": "0.9.90",
-  "description": "Build an agent that answers your data questions, on a demo or your own data: I extract the context in your dashboards and past queries, add detailed information to it and validate it, then you store it here or save it to Atlan, ask it questions and build a dashboard.",
+  "description": "Build the context your coding agent answers data questions from, on a sample or your own data: metrics and saved queries from your dashboards and past queries, tested on your data, kept on this machine or saved to Atlan.",
   "author": {
     "name": "Atlan",
     "url": "https://atlan.com"

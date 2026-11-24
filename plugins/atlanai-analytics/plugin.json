@@ -2,7 +2,7 @@
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "atlanai-analytics",
   "version": "0.9.90",
-  "description": "Build an agent that answers your data questions, on a demo or your own data: I extract the context in your dashboards and past queries, add detailed information to it and validate it, then you store it here or save it to Atlan, ask it questions and build a dashboard.",
+  "description": "Build the context your coding agent answers data questions from, on a sample or your own data: metrics and saved queries from your dashboards and past queries, tested on your data, kept on this machine or saved to Atlan.",
   "author": {
     "name": "Atlan",
     "url": "https://atlan.com"
@@ -24,8 +24,8 @@
     "com.openai": {
       "interface": {
         "displayName": "Analytics",
-        "shortDescription": "Build an agent that answers your data questions",
-        "longDescription": "The analytics workload on Atlan Trident, as seven skills. analytics-demo walks through a made-up firm end to end. analytics-build does the same on your own data, starting from nothing, a dashboard or a subject: it surveys what you already have, asks what you want to answer, and builds from dashboards first, then past queries, then table definitions. source-survey says what a setup, a subject or a source holds, what can be built from it, and which metric names it offers. metrics-generation builds, tests, edits, proposes and saves metrics and saved queries. analytics-ask answers a data question from saved metrics, names what each answer is based on, and turns answers into a dashboard. eval-generation turns the questions a team already asks into test questions with known answers, kept here or saved to Atlan. accuracy-check tests your agent on those questions and scores it, saying why each miss failed. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection.",
+        "shortDescription": "Build the context your agent answers data questions from",
+        "longDescription": "Seven skills that build and test the context your coding agent answers data questions from: metrics and saved queries. analytics-demo builds it for one of two fictional companies on made-up data. analytics-build builds it on your own data, starting from nothing, a dashboard or a subject: dashboards first, then past queries, then table definitions. source-survey says what a source holds and what can be built from it. metrics-generation builds, tests, edits and saves metrics and saved queries. analytics-ask answers a data question from them, names what each answer is based on, and turns answers into a dashboard. eval-generation turns the questions a team already asks into test questions with known answers. accuracy-check tests the context on those questions and says why each miss failed.",
         "developerName": "Atlan",
         "category": "Data & Analytics",
         "capabilities": [
