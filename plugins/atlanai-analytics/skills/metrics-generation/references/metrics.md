@@ -24,6 +24,16 @@ locally, then fetch the live schema and existing definitions and run `CONTEXT ch
 the destination. Do not report create/revise/reuse counts before that reconciliation.
 Explicit metrics mode retains its entry contract below.
 
+## Contents
+
+- 0. Metrics-mode entry
+- 1. Pick the sources
+- 2. Generate through the main metrics engine
+- 3. Export accepted context
+- 4. Check
+- 5. Publish
+- 6. STOP gate
+
 ## 0. Metrics-mode entry
 
 1. Reuse the requested destination and publication intent. Local draft requests need no

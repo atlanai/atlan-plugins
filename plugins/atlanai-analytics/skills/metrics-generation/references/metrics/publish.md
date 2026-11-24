@@ -17,6 +17,16 @@ Preserve the hold manifest and source receipt; never reintroduce held bodies or 
 status from prose, or delete evidence to make a plan pass. Repair through the engine gates
 and export a new context. A held-only export stops with its reasons and sends no write.
 
+## Contents
+
+- Contract preflight
+- One connection, from inventory to readback
+- 1. Preview
+- 2. Metrics
+- 3. Saved queries
+- 4. Links
+- 5. Verify
+
 ## Contract preflight
 
 Follow the [publication contract](../../modules/metrics/contracts/README.md) for every

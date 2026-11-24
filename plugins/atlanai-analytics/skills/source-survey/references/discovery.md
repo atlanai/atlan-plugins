@@ -10,6 +10,12 @@ people ask for and what must always be filtered out. Where that method would ask
 discovery reads the answer from the warehouse and states it; it leaves a question for the
 caller only where the warehouse cannot settle it.
 
+## Contents
+
+- `connections`: what is already configured
+- `discover`: suggest the tables
+- `access`: can the named sources be read
+
 ## `connections`: what is already configured
 
 Return the warehouse connections this machine has, without reading any data:
