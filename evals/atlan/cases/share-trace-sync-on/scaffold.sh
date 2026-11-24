@@ -1,25 +1,34 @@
 #!/usr/bin/env bash
 # A computer signed in to one organization, ice-eval, whose desktop traces job is on: this session is already uploaded.
-# `aireg` is a stub on PATH (through the project's settings) that answers from canned JSON and
-# logs every call to .aireg-calls.log. Session rows come from this project's own transcripts.
+# `aireg` is a stub installed where the real installer puts the CLI, in the eval's own home
+# (~/.aireg/cli/current/aireg, which the installer's ~/.aireg/bin/aireg launcher runs, and the
+# launcher's path itself). It answers from canned JSON; session rows come from this project's
+# own transcripts.
 set -euo pipefail
-mkdir -p bin .claude
-cat > bin/aireg <<'STUB'
+# The eval runs in <sandbox>/home/cwd with that home as HOME. Refuse anywhere else, so a real
+# installation is never overwritten.
+SANDBOX_HOME="$(cd .. && pwd)"
+if [ "$(basename "$PWD")" != cwd ] || [ "$(basename "$SANDBOX_HOME")" != home ]; then
+  echo "scaffold: expected to run in <sandbox>/home/cwd, not $PWD" >&2
+  exit 1
+fi
+mkdir -p "$SANDBOX_HOME/.aireg/cli/current" "$SANDBOX_HOME/.aireg/bin"
+STUB_PATH="$SANDBOX_HOME/.aireg/cli/current/aireg"
+cat > "$STUB_PATH" <<'STUB'
 #!/usr/bin/env bash
 set -euo pipefail
-echo "$*" >> "${AIREG_STUB_LOG:-/dev/null}"
 SYNC_ENABLED=true
 JOBS_READABLE=true
 UPLOADED=finalized
 rows() {
-  local dir="$HOME/.claude/projects/$(printf '%s' "$PWD" | sed 's/[^A-Za-z0-9]/-/g')" first=1
+  local dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/$(printf '%s' "$PWD" | sed 's/[^A-Za-z0-9]/-/g')" first=1
   printf '['
   for f in "$dir"/*.jsonl; do
     [ -e "$f" ] || continue
     [ $first -eq 1 ] || printf ','
     first=0
     printf '{"harness":"claude","relative":"%s","sessionId":"%s","size":%s,"state":"%s"}' \
-      "${f#"$HOME"/.claude/}" "$(basename "$f" .jsonl)" "$(wc -c < "$f" | tr -d ' ')" "$UPLOADED"
+      "${f#"${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/}" "$(basename "$f" .jsonl)" "$(wc -c < "$f" | tr -d ' ')" "$UPLOADED"
   done
   printf ']'
 }
@@ -42,7 +51,5 @@ case "$*" in
     echo '{"ok":true,"data":{}}' ;;
 esac
 STUB
-chmod +x bin/aireg
-cat > .claude/settings.json <<JSON
-{ "env": { "PATH": "$PWD/bin:$PATH", "AIREG_STUB_LOG": "$PWD/.aireg-calls.log" } }
-JSON
+chmod +x "$STUB_PATH"
+cp "$STUB_PATH" "$SANDBOX_HOME/.aireg/bin/aireg"

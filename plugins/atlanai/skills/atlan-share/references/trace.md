@@ -47,9 +47,9 @@ session needs Atlan's CLI on the person's computer, and stop.
 
 ## 2. Find this session
 
-- **Claude Code:** the newest `*.jsonl` in `~/.claude/projects/<working folder with every
-  character other than a letter or digit replaced by ->/`, for example `/Users/sam/my.app` is
-  `-Users-sam-my-app`. The file name is the session id. `--for claude-code`.
+- **Claude Code:** the newest `*.jsonl` in `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/<working
+  folder with every character other than a letter or digit replaced by ->/`, for example
+  `/Users/sam/my.app` is `-Users-sam-my-app`. The file name is the session id. `--for claude-code`.
 - **Codex:** the newest `rollout-*.jsonl` under `~/.codex/sessions/`. `--for codex`.
 
 No such file, or two modified in the same minute: ask which session, naming each file's first
