@@ -345,33 +345,20 @@ def addon_readme(source: dict, addon: dict) -> str:
 
 ## Install
 
-In Claude Code, one command installs Analytics{installs} automatically:
+| Host | Install |
+|---|---|
+| Claude Code | `claude plugin install {addon['name']} --marketplace {slug}` installs Analytics{installs} |
+| Codex | `codex plugin marketplace add {slug}`, then `codex plugin add {plugin['name']}@{market}`, then `codex plugin add {addon['name']}@{market}` |
+| Cursor | On a Teams or Enterprise plan, an admin adds `https://github.com/{slug}` under **Dashboard**, **Plugins & MCPs**, **Add Marketplace**, **Import from Repo**. Each developer then installs `{plugin['name']}` and `{addon['name']}` from **Customize**. |
+| Cortex Code | Send `/github-plugin-installer https://github.com/{slug}/tree/main/{core_dir(source)}`, then `/github-plugin-installer https://github.com/{slug}/tree/main/{addon_dir(addon)}`, as two messages |
 
-```
-claude plugin install {addon['name']} --marketplace {slug}
-```
+Only Claude Code installs a plugin's dependencies. Elsewhere, install `{plugin['name']}` first. Without
+it, the setup skills show how to install it.
+
+To update, run `claude plugin update {addon['name']}` and restart Claude Code, or in Codex run
+`codex plugin marketplace upgrade {market}`.
 
 {view_note}
-Only Claude Code installs a plugin's dependencies. Other hosts install plugins one at a time, so
-add `{plugin['name']}` first. Without it, the setup skills show how to install it. In Codex:
-
-```
-codex plugin marketplace add {slug}
-codex plugin add {plugin['name']}@{market}
-codex plugin add {addon['name']}@{market}
-```
-
-In Cursor, on a Teams or Enterprise plan, an admin adds `https://github.com/{slug}` under
-**Dashboard**, **Plugins & MCPs**, **Add Marketplace**, **Import from Repo**. Each developer then
-installs `{plugin['name']}` and `{addon['name']}` from **Customize**.
-
-In Cortex Code, install each from its folder, one chat message each:
-
-```
-/github-plugin-installer https://github.com/{slug}/tree/main/{core_dir(source)}
-/github-plugin-installer https://github.com/{slug}/tree/main/{addon_dir(addon)}
-```
-
 ## When it goes wrong
 
 | What you see | What to do |

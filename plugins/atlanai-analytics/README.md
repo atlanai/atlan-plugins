@@ -63,13 +63,20 @@ Two fictional companies, with made-up data, ship with the plugin. Each sample bu
 
 ## Install
 
-In Claude Code, one command installs Analytics and `atlanai` automatically:
+| Host | Install |
+|---|---|
+| Claude Code | `claude plugin install atlanai-analytics --marketplace atlanai/atlan-plugins` installs Analytics and `atlanai` |
+| Codex | `codex plugin marketplace add atlanai/atlan-plugins`, then `codex plugin add atlanai@atlan`, then `codex plugin add atlanai-analytics@atlan` |
+| Cursor | On a Teams or Enterprise plan, an admin adds `https://github.com/atlanai/atlan-plugins` under **Dashboard**, **Plugins & MCPs**, **Add Marketplace**, **Import from Repo**. Each developer then installs `atlanai` and `atlanai-analytics` from **Customize**. |
+| Cortex Code | Send `/github-plugin-installer https://github.com/atlanai/atlan-plugins/tree/main/plugins/atlanai`, then `/github-plugin-installer https://github.com/atlanai/atlan-plugins/tree/main/plugins/atlanai-analytics`, as two messages |
 
-```
-claude plugin install atlanai-analytics --marketplace atlanai/atlan-plugins
-```
+Only Claude Code installs a plugin's dependencies. Elsewhere, install `atlanai` first. Without
+it, the setup skills show how to install it.
 
-In Claude Code's terminal, a build's progress shows in Claude Code's own task list. Some models have the task list on
+To update, run `claude plugin update atlanai-analytics` and restart Claude Code, or in Codex run
+`codex plugin marketplace upgrade atlan`.
+
+**Build progress in Claude Code.** In the terminal, a build's progress shows in Claude Code's own task list. Some models have the task list on
 by default. If yours shows no task list, add this to the `env` in your Claude Code settings
 (`~/.claude/settings.json`) once, then start a new session:
 
@@ -78,26 +85,6 @@ by default. If yours shows no task list, add this to the `env` in your Claude Co
 ```
 
 Without it, each finished build step shows as one line in the chat.
-
-Only Claude Code installs a plugin's dependencies. Other hosts install plugins one at a time, so
-add `atlanai` first. Without it, the setup skills show how to install it. In Codex:
-
-```
-codex plugin marketplace add atlanai/atlan-plugins
-codex plugin add atlanai@atlan
-codex plugin add atlanai-analytics@atlan
-```
-
-In Cursor, on a Teams or Enterprise plan, an admin adds `https://github.com/atlanai/atlan-plugins` under
-**Dashboard**, **Plugins & MCPs**, **Add Marketplace**, **Import from Repo**. Each developer then
-installs `atlanai` and `atlanai-analytics` from **Customize**.
-
-In Cortex Code, install each from its folder, one chat message each:
-
-```
-/github-plugin-installer https://github.com/atlanai/atlan-plugins/tree/main/plugins/atlanai
-/github-plugin-installer https://github.com/atlanai/atlan-plugins/tree/main/plugins/atlanai-analytics
-```
 
 ## When it goes wrong
 

@@ -98,7 +98,7 @@ keywords = ["atlan", "analytics", "metrics", "text-to-sql", "talk-to-data", "sno
 category = "Data & Analytics"
 claude_category = "data"
 install_note = """
-In Claude Code's terminal, a build's progress shows in Claude Code's own task list. Some models have the task list on
+**Build progress in Claude Code.** In the terminal, a build's progress shows in Claude Code's own task list. Some models have the task list on
 by default. If yours shows no task list, add this to the `env` in your Claude Code settings
 (`~/.claude/settings.json`) once, then start a new session:
 
