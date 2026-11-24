@@ -74,7 +74,10 @@ def number(value, unit=None):
     if value is None or isinstance(value, bool):
         return 'blank'
     if isinstance(value, str):
-        return value
+        # A warehouse can return a number as text ("12.277778"): it reads as a number, rounded like one.
+        if not re.fullmatch(r'\s*-?\d+(\.\d+)?\s*', value):
+            return value
+        value = float(value) if '.' in value else int(value)
     if not isinstance(value, (int, float)) or not math.isfinite(value):
         return 'blank'
     unit = (unit or '').strip()

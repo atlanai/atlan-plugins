@@ -24,7 +24,7 @@ shows beside that comparison; with a miss, you decide whether I find the fix; an
 the score, whether to save the check to Atlan or store it on this machine. Nothing else.
 
 When the host keeps a task list, its items are these, in the person's words, whichever questions
-are picked: **Verify your evaluation questions**, **Run your agent on each question**, **Score
+are picked: **Check your test questions**, **Run your agent on each question**, **Score
 the answers**.
 When the person replies "fix", add **Find what to fix**, **Apply the fix** and **Test again**
 to the list before diagnosing, and mark each done as it finishes.
@@ -41,7 +41,7 @@ look up Trident, a workspace or saved evals for the questions, the run or the sc
 `context_saved_to` (from `CHECK start` and `CHECK load`) says where the context lives; `null` means
 this machine only.
 
-## 1. Verify your evaluation questions
+## 1. Check your test questions
 
 Run `CHECK start` at the start of every check, even a later one in the same session: where the
 context lives can change, so never reuse an earlier answer. `CHECK start --project <project> --questions 8` returns the built run, `context_saved_to`, `execution`, the project's

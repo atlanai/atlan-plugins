@@ -118,8 +118,14 @@ def _under_way(engine):
     accepted = {s.get('stage') for s in stages if isinstance(s, dict) and s.get('verdict') == 'ok'}
     for gate, step, describe in GATES:
         files = _saved(engine, gate)
-        if files:
-            return None if gate + '_ingest' in accepted else (gate, step, describe, files)
+        if gate + '_ingest' in accepted:
+            if files:
+                return None
+            continue
+        # A step whose prompt is written is under way before its first batch lands: its row counts from 0, so the list
+        # never sits on a bare step name while its helper writes (a live run showed no count for two minutes).
+        if files or (engine.dir / ('%s_prompt.json' % gate)).is_file():
+            return (gate, step, describe, files)
     return None
 
 
@@ -138,8 +144,9 @@ def _save_record(engine, record):
 # The steps whose end wakes the session: the tile review and the tile questions (a helper may write them), queries
 # described, drafts found, drafts merged, metrics defined.
 WAKES = ('a3b_ingest', 'c3_ingest', 'm2_ingest', 'x1_ingest', 'x2_ingest', 'x3_ingest')
-# The task list moves at most this often: an update for every batch woke the session 24 times in eight minutes.
-BATCH_SECONDS = 60
+# The task list moves at most this often: an update for every batch woke the session 24 times in eight minutes, and
+# once a minute left it at "3 of 7" while the side page, which reads the same files live, said 6 of 7 (2026-11-23).
+BATCH_SECONDS = 20
 
 
 # Where the session keeps a task list, it carries the build: the step under way counts its batches, from the same files
@@ -153,20 +160,39 @@ def _live(engine, under):
     gate, _, describe, files = under
     c = describe(engine, files)
     # Each part of a step says which part it is, so a new count reads as the next part, never as the count going back
-    # ("32 of 50 questions written (nearly done)", then "6 metrics found so far, 8 of 50 questions read"). Counts only:
-    # a time left from the pace so far went 14, 25, 13, 5, 7 and 2 minutes in one live step (2026-11-23).
+    # ("32 of 50 questions written (nearly done)", then "6 metrics found so far, 8 of 50 questions read"). The time left
+    # follows the step's own pace since it started, so it moves as the work does (the person's call, 2026-11-23).
     if gate == 'm2':
         done, total = c.get('described') or 0, c.get('total')
-        return 'writing questions: %d of %d' % (done, total) if total else 'writing questions: %d' % done
-    if gate == 'x1':
+        said = 'writing questions: %d of %d' % (done, total) if total else 'writing questions: %d' % done
+    elif gate == 'x1':
         done, total = c.get('queries_read') or 0, c.get('queries_total')
-        return 'finding metrics: %s in %s' % (_plural(c.get('drafts') or 0, 'metric'),
+        said = 'finding metrics: %s in %s' % (_plural(c.get('drafts') or 0, 'metric'),
                                               '%d of %d questions' % (done, total) if total else _plural(done, 'question'))
-    if gate == 'x2':
+    elif gate == 'x2':
         # How many metrics the drafts make is only known once they are all combined: no count until then.
         return 'combining duplicates'
-    done, total = c.get('defined') or 0, c.get('total')
-    return '%d of %d written' % (done, total) if total else '%d written' % done
+    else:
+        done, total = c.get('defined') or 0, c.get('total')
+        said = '%d of %d written' % (done, total) if total else '%d written' % done
+    left = _left(engine, gate, done, total)
+    return said + (' (%s)' % left if left else '')
+
+
+def _left(engine, gate, done, total):
+    """Time left at the step's pace so far: the time since its prompt was written, per item done, for the items still to
+    come. None before the first item, when there is no pace yet."""
+    import time
+    if not total or not done:
+        return None
+    if done >= total:
+        return 'nearly done'
+    try:
+        started = (engine.dir / ('%s_prompt.json' % gate)).stat().st_mtime
+    except OSError:
+        return None
+    seconds = (time.time() - started) / done * (total - done)
+    return 'nearly done' if seconds < 45 else 'about %d min left' % max(1, round(seconds / 60))
 
 
 def task_list(root, engine_dir=None):
@@ -268,7 +294,9 @@ def wait(root, engine_dir=None, timeout=540, quiet=240, interval=2.0, out=None, 
             seen_now, last = now, time.monotonic()
         import visuals
         moved = record.get('waited_at') if isinstance(record.get('waited_at'), (int, float)) else 0
-        if (now != record.get('waited') and time.time() - moved >= batch_every and _under_way(engine)
+        # A new batch moves the list; a step that has only started (its prompt written, nothing saved) does not.
+        under = _under_way(engine)
+        if (now != record.get('waited') and time.time() - moved >= batch_every and under and under[3]
                 and visuals.keeps_tasks(root)):
             _save_record(engine, dict(record, waited=now, waited_at=time.time()))
             return say('batch', task_list=task_list(root, engine_dir))

@@ -825,7 +825,6 @@ def _parts(kind, s):
                     ' and ' + count(s['saved_queries'], 'saved query', 'saved queries') if s.get('saved_queries') else ''),
                 'line': _source_line(f, s.get('report') or ''),
                 'held': 'Held back: %s. The side page says why.' % held if held else '',
-                'next': 'Next: choose where to keep it.',
                 'funnel': [r for r in (('Past queries read', f.get('queries'), [('fp', f.get('queries'))]) if f.get('queries') else None,
                                        ('Questions written', f.get('questions'), [('fq', max(asked, 0)), ('ft', tiles)]) if f.get('questions') else None,
                                        ('Metrics', f['metrics'], [('fm', f['metrics'])])) if r],

@@ -96,6 +96,19 @@ class Drafts(unittest.TestCase):
             self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': stage, 'verdict': 'ok'}]})
             self.assertEqual(self.wait(quiet=30)['event'], 'step', stage)
 
+    def test_a_step_counts_from_zero_as_soon_as_its_prompt_is_written(self):
+        # A live run showed the build row without a count for two minutes while its helper wrote the first questions.
+        sys.path.insert(0, str(fixtures.SCRIPTS))
+        import drafts
+        (self.engine / 'x1_prompt.json').unlink()
+        self.run.write(self.engine / 'm2_prompt.json', {'tasks': [{'queries': [{'vq_id': 'q1'}, {'vq_id': 'q2'}]}]})
+        engine = drafts._Engine(self.run.root, 'engine')
+        under = drafts._under_way(engine)
+        self.assertEqual((under[0], under[3]), ('m2', []))
+        self.assertEqual(drafts._live(engine, under), 'writing questions: 0 of 2')
+        self.answer('m2', '01.json', {'queries': [{'vq_id': 'q1'}]})
+        self.assertTrue(drafts._live(engine, drafts._under_way(engine)).startswith('writing questions: 1 of 2'))
+
     def test_a_chip_that_comes_due_is_reported_once(self):
         # The dashboard flow's helpers advance every step, so its tiles, its questions and the side page's opening come
         # due without a step end the session sees.
@@ -118,10 +131,11 @@ class Drafts(unittest.TestCase):
         # h18t set the next subagent up first, wrote its own line meanwhile, and dropped the step's chip.
         self.assertLess(said.index('`visual next`'), said.index('subagent'), 'the chip first')
 
-    def test_a_step_under_way_shows_its_count_and_no_time_left(self):
-        # A live step's time left from its own pace went 14, 25, 13, 5, 7 and 2 minutes (2026-11-23): counts only.
+    def test_a_step_under_way_shows_its_count_and_a_time_left_from_its_own_pace(self):
+        # The time left follows the step's pace since its prompt was written, so it moves as the work does.
         import os, time
         self.run.write(self.engine / 'x3_prompt.json', {'n_metrics': 4, 'tasks': []})
+        os.utime(self.engine / 'x3_prompt.json', (time.time() - 180, time.time() - 180))
         earlier = ['m2_ingest', 'x1_ingest', 'x2_ingest']
         self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': s, 'verdict': 'ok'} for s in earlier]})
         self.run.write(self.run.root / 'drafts-reported.json', {'steps': earlier})
@@ -130,12 +144,11 @@ class Drafts(unittest.TestCase):
             self.answer('x3', '%02d.json' % i, {'metrics': [{'name': name}]})
             os.utime(self.engine / 'answers' / 'x3' / ('%02d.json' % i), (now - 120 + 60 * i, now - 120 + 60 * i))
         row = [r for r in self.wait()['task_list'] if r['status'] == 'in_progress'][0]['content']
-        self.assertTrue(row.endswith('3 of 4 written'), row)
-        self.assertNotIn('min left', row)
+        self.assertTrue(row.endswith('3 of 4 written (about 1 min left)'), row)
         self.answer('x3', '03.json', {'metrics': [{'name': 'D'}]})
         self.assertEqual(self.wait()['event'], 'ready', 'every share back comes first')
         row =[r for r in self.wait()['task_list'] if r['status'] == 'in_progress'][0]['content']
-        self.assertTrue(row.endswith('4 of 4 written'), row)
+        self.assertTrue(row.endswith('4 of 4 written (nearly done)'), row)
 
 
     def test_every_share_of_the_definitions_back_wakes_the_session_at_once(self):

@@ -876,6 +876,9 @@ def main():
     import visuals
     visual = sub.add_parser('visual', help="A moment of the run: its chip or mini card for the chat; connect opens the side page")
     visual.add_argument('kind', choices=visuals.KINDS + ('next',), help='A moment, or `next` for the next one the run has reached')
+    visual.add_argument('also', nargs='*', choices=visuals.KINDS, metavar='kind',
+                        help='More moments drawn in the same call, in order (the build card, then the checks chip), each '
+                             'printed whole under its own heading, so no script ever has to split them')
     visual.add_argument('--widget', action='store_true', help='A mini card as HTML, for a host with an inline visual tool')
     visual.add_argument('--data', type=Path, action='append', default=[],
                         help="Facts the run's files cannot hold, such as a demo's firm and title; what the run's files prove always wins")
@@ -961,6 +964,20 @@ def main():
             temp.replace(path)
             print(json.dumps({'status': 'ok', 'warehouse': record,
                               'next': 'Recorded: the tests, answers, side page and ready block now read this warehouse.'}))
+            return 0
+        if args.command == 'visual' and args.also:
+            # Two moments in a row each ran as their own call, and sessions joined them with a shell separator (which zsh
+            # refuses) or cut them apart with a script, three live runs in a row (2026-11-23). One call prints both.
+            flags = (['--widget'] if args.widget else []) + [x for d in args.data for x in ('--data', str(d))] + (
+                ['--engine-dir', str(args.engine_dir)] if args.engine_dir else [])
+            import subprocess
+            kinds = [args.kind] + list(args.also)
+            for n, kind in enumerate(kinds, 1):
+                done = subprocess.run([sys.executable, str(Path(__file__).resolve()), '--run-dir', str(args.run_dir),
+                                       'visual', kind, *flags], capture_output=True, text=True)
+                print('Moment %d of %d: %s' % (n, len(kinds), kind))
+                print((done.stdout or '').rstrip() + ('\n' + done.stderr.rstrip() if done.returncode and done.stderr else ''))
+                print()
             return 0
         if args.command == 'visual':
             import side_page
@@ -1136,11 +1153,13 @@ def main():
                 # The flow ends here: a dashboard step still open was declined. Recorded by the run, so the task list
                 # says "skipped" and the host's closing call cannot tick it as done (a live run, 2026-11-23).
                 try:
+                    import drafts
                     interaction = json.loads((run / 'interaction.json').read_text(encoding='utf-8'))
                     if isinstance(interaction, dict) and not interaction.get('dashboard_result'):
-                        import drafts
                         Project(run).journey('dashboard', answer='declined')
-                        asked['task_list'] = drafts.task_list(run, args.engine_dir)
+                    # The flow's own list, every step's result, always: after an accuracy check it had replaced the
+                    # setup's steps and the progress so far was gone at the end (2026-11-23).
+                    asked['task_list'] = drafts.task_list(run, args.engine_dir)
                 except Exception:  # noqa: BLE001 - the closing message still goes out; the list stays as it was
                     pass
                 asked['next'] = ('Set your task list to `task_list` first, where it is given. ' if asked.get('task_list') else '') + ('Print this `text` exactly as given, with its line breaks, as the last thing in your reply. '

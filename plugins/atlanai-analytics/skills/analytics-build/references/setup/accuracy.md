@@ -46,9 +46,12 @@ sources do not name it.
 
 ## Differences from the demo
 
-- **Tracker.** Keep the setup's steps. While the check runs, add its items (Verify your evaluation
+- **Tracker.** Keep the setup's steps. While the check runs, add its items (Check your test
   questions, Run your agent on each question, Score the answers, and the fix items when the person
-  replies "fix") to the host task list between Save and Ask a question. The check ticks none of the setup's steps.
+  replies "fix") to the host task list between Save and Ask a question. The check ticks none of the
+  setup's steps. When it ends, with its result or "I'm done", set the list back to the setup's own
+  steps from `PROJECT checklist`, everything done so far ticked, in the same message: the check's
+  items go, and the progress stays on screen (it was lost after a live check).
 - **Size.** 20 questions, not the demo's 8: `CHECK start` without `--questions`, and
   `eval-generation`'s `SCOPE pick` without `--limit`.
 - **The run.** Pass `--run <run-dir>` to every `CHECK start`, `CHECK load` and `SCOPE inputs`,

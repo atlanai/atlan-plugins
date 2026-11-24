@@ -100,7 +100,9 @@ def _three(row, model, flow):
             elif key == 'merge' and made['merge'] is not None:
                 content = 'Merge duplicate metrics: ' + _plural(made['merge'], 'metric')
             elif key == 'write' and not totals.get('metrics') and _count(counts, 'x3_ingest', 'cards'):
-                content = content.split(' each')[0] + ' ' + _plural(_count(counts, 'x3_ingest', 'cards'), 'metric')
+                described = _count(counts, 'm2_ingest', 'described')
+                content = content.split(' each')[0] + ' ' + _plural(_count(counts, 'x3_ingest', 'cards'), 'metric') + (
+                    ' and ' + _plural(described, 'saved query', 'saved queries') if described else '')
             elif key == 'write' and totals.get('metrics'):
                 content = content.split(' each')[0] + ' ' + _plural(totals['metrics'], 'metric') + \
                     ((' and ' + _plural(totals['queries'], 'saved query', 'saved queries')) if totals.get('queries') else '')
