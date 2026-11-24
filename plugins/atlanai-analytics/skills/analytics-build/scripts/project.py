@@ -96,7 +96,7 @@ def sample_errors(samples):
 
 RUN_README = '''# Atlan Analytics setup run
 
-This folder is a saved Atlan Analytics setup: the metrics and saved SQL built from your sources,
+This folder is a saved Atlan Analytics setup: the metrics and saved queries built from your sources,
 their checks, and what was saved to Atlan. To show a metric's details, what is ready or the next
 step, load the `analytics-build` skill (in Claude Code, `/atlanai-analytics:analytics-build`)
 before reading these files. Its helper reads them on this machine and sends nothing to Atlan
@@ -561,7 +561,7 @@ class Project(ContextState):
         if tables:
             self.write_text(self.context / 'history-tables.txt', '\n'.join(tables))
         if not inputs:
-            return {'status': 'not_available', 'next': 'Continue with models or saved SQL.'}
+            return {'status': 'not_available', 'next': 'Continue with models or SQL files.'}
         raw = self.context / 'querylog.jsonl'
         cleaned = self.context / 'querylog.clean.jsonl'
         for p in (raw, cleaned):

@@ -300,13 +300,18 @@ claude plugin install {addon['name']} --marketplace {slug}
 
 {view_note}
 
-Other hosts install plugins one at a time, so add `{plugin['name']}` first. In Codex:
+Only Claude Code installs a plugin's dependencies. Other hosts install plugins one at a time, so
+add `{plugin['name']}` first. Without it, the setup skills show how to install it. In Codex:
 
 ```
 codex plugin marketplace add {slug}
 codex plugin add {plugin['name']}@{market}
 codex plugin add {addon['name']}@{market}
 ```
+
+In Cursor, on a Teams or Enterprise plan, an admin adds `https://github.com/{slug}` under
+**Dashboard**, **Plugins & MCPs**, **Add Marketplace**, **Import from Repo**. Each developer then
+installs `{plugin['name']}` and `{addon['name']}` from **Customize**.
 
 In Cortex Code, install each from its folder, one chat message each:
 
@@ -327,8 +332,7 @@ writes use the `{plugin['name']}` plugin's connection, signed in as you. See Atl
 ## Source
 
 `tools/build.py` generates this README and the manifests from `[[addons]]` in `plugin.toml`.
-The skills, commands, agents and scripts in this folder are the only source: nothing else serves
-or copies them.
+The skills and scripts in this folder are the only source.
 """
 
 

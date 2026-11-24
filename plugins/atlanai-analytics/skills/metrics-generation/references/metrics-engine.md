@@ -20,6 +20,14 @@ This procedure requires the complete Analytics plugin, including its `modules/` 
 standalone skill download without those resources cannot initialize the engine; refresh the
 plugin package when the dispatcher reports missing module files.
 
+## Contents
+
+- 1. Select sources and reuse decisions
+- 2. Prepare one engine run
+- 3. Let the assistant answer the original gates
+- 4. Export, then use the unchanged publisher
+- 5. Compatibility and limits
+
 ## 1. Select sources and reuse decisions
 
 Read the existing metrics workflow's section 0 for a metrics-only workspace and scope, or use

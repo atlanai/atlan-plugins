@@ -60,7 +60,7 @@ shows the progress. Review the collection after its checks, using
 
 Run `PROJECT check` for local structural validation. It requires no workspace and reports
 `schema_checked`, not certification or execution. Use `PROJECT check-query "<request.json>"`
-with a candidate `name` and separate `parameters` to execute exact saved SQL on the bound SQLite or DuckDB file. Checks
+with a candidate `name` and separate `parameters` to execute a saved query's exact SQL on the bound SQLite or DuckDB file. Checks
 for metrics use `PROJECT check-metric` with `name`, `example_index` (zero-based) and parameters.
 It executes that exact authored SQL example and the calculation composed from the card's
 formula, source and mandatory filters, including an empty-population probe. Its `rows` are the

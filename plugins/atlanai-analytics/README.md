@@ -21,13 +21,18 @@ by default; for the others, such as Opus 5.5, add this to the `env` in your Clau
 Without it, each finished build step shows as one line in the chat.
 
 
-Other hosts install plugins one at a time, so add `atlanai` first. In Codex:
+Only Claude Code installs a plugin's dependencies. Other hosts install plugins one at a time, so
+add `atlanai` first. Without it, the setup skills show how to install it. In Codex:
 
 ```
 codex plugin marketplace add atlanai/atlan-plugins
 codex plugin add atlanai@atlan
 codex plugin add atlanai-analytics@atlan
 ```
+
+In Cursor, on a Teams or Enterprise plan, an admin adds `https://github.com/atlanai/atlan-plugins` under
+**Dashboard**, **Plugins & MCPs**, **Add Marketplace**, **Import from Repo**. Each developer then
+installs `atlanai` and `atlanai-analytics` from **Customize**.
 
 In Cortex Code, install each from its folder, one chat message each:
 
@@ -47,5 +52,4 @@ writes use the `atlanai` plugin's connection, signed in as you. See Atlan's
 ## Source
 
 `tools/build.py` generates this README and the manifests from `[[addons]]` in `plugin.toml`.
-The skills, commands, agents and scripts in this folder are the only source: nothing else serves
-or copies them.
+The skills and scripts in this folder are the only source.
