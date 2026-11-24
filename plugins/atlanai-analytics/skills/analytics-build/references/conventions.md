@@ -103,7 +103,8 @@ context pieces, saved questions or `saved SQL`, and do not switch words between 
 analysts ran before is **query history**; a dashboard has tiles or measures of its own. A
 metric or query in Atlan is **managed**, never governed; an answer with none is **not
 managed**. The place they are saved is **Atlan Trident**: write "saved in Atlan Trident",
-"Save to Atlan Trident".
+"Save to Atlan Trident". Where a query could be read as query history (a skill description, a
+README, a first mention), write **saved query**.
 
 Every line in the chat is in the person's words, in every flow, as the demo's are. Never a file name, folder, path
 or command name, nor a helper you ran, skipped or could not run; never how the work is split among helpers ("three at a time", "the third set"), that a step is still
