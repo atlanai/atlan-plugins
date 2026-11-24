@@ -296,7 +296,8 @@ def addon_readme(source: dict, addon: dict) -> str:
         return ask[:1].upper() + ask[1:]
 
     needs = "\n".join(f"- {need}" for need in readme["needs"])
-    steps = "\n".join(f"{n}. {step}" for n, step in enumerate(readme["quick_start"], 3))
+    starts = "\n".join(f"| {want} | *\"{ask}\"* |" for want, ask in readme["starts"])
+    samples = "\n".join(f"| {name} | {answers} | [Tour]({url}) |" for name, answers, url in readme["samples"])
     skills = "\n".join(f"| `{name}` | {source['skills'][name]['short_description']} | *\"{example(name)}\"* |"
                        for name in readme["skills"])
     troubles = "\n".join(f"| {symptom} | {fix} |" for symptom, fix in readme["troubleshooting"])
@@ -311,8 +312,21 @@ def addon_readme(source: dict, addon: dict) -> str:
 ## Quick start
 
 1. Install it, as below.
-2. Type *"{addon['default_prompts'][0]}"*.
-{steps}
+2. Type what you want to do:
+
+   | You want to | Type |
+   |---|---|
+{chr(10).join("   " + row for row in starts.splitlines())}
+
+3. {readme['quick_start']}
+
+## Samples
+
+{readme['samples_intro']}
+
+| Sample | What its agent answers | See it |
+|---|---|---|
+{samples}
 
 ## Skills
 

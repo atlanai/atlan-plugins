@@ -5,33 +5,46 @@ from a metric or saved query you can open, and names the one it used.
 
 It builds those metrics and saved queries from what your team already relies on: dashboards
 first, then past queries, then table definitions. It tests each one on your data before you keep
-it on this machine or save it to Atlan.
-
-Try it on a demo with made-up data first, or point it at your own warehouse.
+it on this machine or save it to share with your team.
 
 ## You need
 
-- **To build metrics, including the demo:** Python 3.11 or 3.12. Put `python3.12` or `python3.11` on your `PATH`, or use `py -3.12` on Windows.
-- **To save to Atlan and ask from it:** an Atlan account, signed in through the `atlanai` plugin. The demo can keep everything on this machine instead.
-- **For your own data:** a warehouse that Atlan or your coding agent can reach, such as Snowflake or Databricks, with read access to its tables. To build from past queries, you also need read access to those.
+- **To build metrics:** Python 3.11 or 3.12. Put `python3.12` or `python3.11` on your `PATH`, or use `py -3.12` on Windows.
+- **For your own data:** a warehouse your coding agent can reach, such as Snowflake or Databricks, with read access to its tables. To build from past queries, you also need read access to those.
+- **To connect and share:** the build signs in through the `atlanai` plugin with an Atlan account. You still choose whether the results stay on this machine or are saved for your team.
+- **For a sample:** nothing else. Samples bring their own data and can keep everything on this machine.
 
 ## Quick start
 
 1. Install it, as below.
-2. Type *"Show me an Atlan Analytics demo"*.
-3. Pick Fixit & Co. or Ticketfuddle.
-4. In about 15 to 20 minutes, it builds the firm's metrics and saved queries from its dashboard and tests them on the demo data.
-5. Choose where to keep them, then ask your first question.
+2. Type what you want to do:
+
+   | You want to | Type |
+   |---|---|
+   | Build an agent for a question your team asks | *"Set up metrics on our support tickets data so I can ask questions about it"* |
+   | Turn a dashboard you already use into an agent | *"Help me use this dashboard to ask questions about my data"* |
+   | Learn how it works first | *"Show me how this works on a sample use case"* |
+
+3. It shows its steps as it goes, and asks before it saves anything.
+
+## Samples
+
+Two fictional companies, with made-up data, ship with the plugin. Each sample builds the company's metrics and saved queries from its dashboard, tests them on the sample data, asks where to keep them, then answers your first question.
+
+| Sample | What its agent answers | See it |
+|---|---|---|
+| Fixit & Co., a builder's yard | Which jobs lost money, and why, from a Power BI dashboard. About 15 minutes. | [Tour](https://atlanai.github.io/analytics-agent-accelerator/yard-tour/) |
+| Ticketfuddle, a ticketing firm | How much of what fans paid went on fees, from a Tableau dashboard. About 15 to 20 minutes. | [Tour](https://atlanai.github.io/analytics-agent-accelerator/box-office-tour/) |
 
 ## Skills
 
 | Skill | Use it to | Try |
 |---|---|---|
-| `analytics-demo` | Build your agent on made-up data, step by step | *"Show me how Atlan Analytics works on a demo."* |
-| `analytics-build` | Set up analytics on your own data, step by step | *"Set up this project so I can ask questions about its data."* |
+| `analytics-demo` | Build your agent on made-up data, step by step | *"Show me how this works on a sample use case."* |
+| `analytics-build` | Build the context your agent answers from, on your own data | *"Set up this project so I can ask questions about its data."* |
 | `source-survey` | See what data, dashboards and past queries you can build from | *"Tell me what this folder's dashboards and past queries cover."* |
 | `metrics-generation` | Turn dashboards and past queries into metrics your agent answers from | *"Build metrics from our warehouse's past queries."* |
-| `analytics-ask` | Answer data questions from your metrics and saved queries in Atlan | *"What was revenue last quarter, by region?"* |
+| `analytics-ask` | Answer data questions from your metrics and saved queries | *"What was revenue last quarter, by region?"* |
 | `eval-generation` | Write test questions, with known answers, from what your team asks | *"Write test questions for our agent from what our team already asks."* |
 | `accuracy-check` | Test your agent on questions with known answers | *"Test our agent on the test questions in this project."* |
 
@@ -78,11 +91,11 @@ In Cortex Code, install each from its folder, one chat message each:
 
 | What you see | What to do |
 |---|---|
-| The Atlan tools are missing | Outside Claude Code, install `atlanai` first. In Claude Code, run `/reload-plugins`. |
+| The skills say the `atlanai` tools are missing | Outside Claude Code, install `atlanai` first. In Claude Code, run `/reload-plugins`. |
 | Sign-in is needed or has expired | In Claude Code: `/mcp`, pick `plugin:atlanai:atlan`, **Authenticate**. In Codex: `codex mcp login atlan`. |
-| No warehouse is found | Analytics asks to connect one: through Atlan, your coding agent's own connector, or a vendor CLI where there is a shell. |
+| No warehouse is found | Analytics asks to connect one: your coding agent's own connector, a vendor CLI where there is a shell, or the `atlanai` connection. |
 | Python 3.11 or 3.12 is not found | Install one so `python3.12` or `python3.11` is on your `PATH`, then ask Analytics to continue. |
-| There is no workspace to save to | Ask for access to an existing Atlan workspace, or keep the work on this machine. New workspaces are made in Atlan or by an admin. |
+| There is nowhere to save for your team | Keep the work on this machine, or ask for access to an existing Atlan workspace. An admin makes new ones. |
 
 ## Help
 
