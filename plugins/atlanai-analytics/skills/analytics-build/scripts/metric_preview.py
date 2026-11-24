@@ -147,7 +147,7 @@ def chat(run, limit=5):
         if definition.get('parameters'):
             lines += ['Parameters: ' + display(', '.join(p['name'] for p in definition['parameters'])), '']
     if not queries:
-        lines += ['No saved SQL queries authored yet; the calculations above are metric expressions.', '']
+        lines += ['No saved queries authored yet; the calculations above are metric expressions.', '']
     lines += ['You can inspect all definitions or a specific metric before continuing.', '']
     return '\n'.join(lines)
 
