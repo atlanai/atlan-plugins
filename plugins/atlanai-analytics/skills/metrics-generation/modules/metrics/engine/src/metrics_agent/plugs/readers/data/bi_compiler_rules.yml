@@ -438,9 +438,12 @@ rules:
     tier: stable
     evidence: dax
 
+  # `date_args`: the arguments DAX reads as a date. A text there is converted by the model's
+  # culture ("3/5/2024" is 5 March in en-US, 3 May in en-GB), so a text literal is refused by
+  # name rather than handed to the warehouse.
   - id: dax.year
     match: {language: dax, function: YEAR}
-    emit: {template: "YEAR({0})"}
+    emit: {template: "YEAR({0})", date_args: [0]}
     tier: stable
     evidence: dax
 
@@ -461,7 +464,7 @@ rules:
     dialects: [snowflake, duckdb, redshift, databricks, postgres, bigquery, tsql]
     tier: stable
     evidence: dax
-    note: a date from its parts, month and day rolling over as DAX's do (a year below 100 is not moved by 1900 here)
+    note: a date from its parts, month and day rolling over as DAX's do; the compiler windows a two-digit year first (0-49 to 20xx, 50-99 to 19xx) before placing it
 
   # EDATE(date, n): the date n months on, the day kept or cut to the month's last.
   - id: dax.edate
@@ -504,13 +507,13 @@ rules:
 
   - id: dax.month
     match: {language: dax, function: MONTH}
-    emit: {template: "MONTH({0})"}
+    emit: {template: "MONTH({0})", date_args: [0]}
     tier: stable
     evidence: dax
 
   - id: dax.day
     match: {language: dax, function: DAY}
-    emit: {template: "DAY({0})"}
+    emit: {template: "DAY({0})", date_args: [0]}
     tier: stable
     evidence: dax
 

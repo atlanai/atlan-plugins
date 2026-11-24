@@ -91,3 +91,41 @@ def partitions(facts: dict[str, Any]) -> list[tuple[str | None, dict[str, Any]]]
 def model_of_units(facts: dict[str, Any]) -> dict[str, str | None]:
     """unit id -> the model it belongs to (None for a document of one model)."""
     return {u["unit_id"]: u.get("model") for u in facts.get("usage") or []}
+
+
+def edges_on_source_columns(relationships: list[dict[str, Any]],
+                            tables: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The model's relationships with each key named as its table READS it.
+
+    A relationship names its key columns by their MODEL names (`Account ID`); the table may
+    read the column under another (`ACCOUNT_ID_QC`, renamed in Power Query or in the model).
+    A join is written over the warehouse, so it needs the latter: left as the model name, the
+    statement joined on `j1.Account ID`, which does not parse. Each end is mapped through its
+    OWN table (a relationship names the logical table, so two model tables over one warehouse
+    table never share a map). A calculated column and an unrenamed one are left as they are."""
+    by_table: dict[str, dict[str, str]] = {}
+    for t in tables:
+        renames = {str(c["name"]).lower(): str(c["source_column"]) for c in t.get("columns") or []
+                   if c.get("source_column") and not c.get("is_calculated")
+                   and str(c["name"]).lower() != str(c["source_column"]).lower()}
+        for key in {str(t.get("logical_name") or "").lower(), str(t.get("name") or "").lower()} - {""}:
+            by_table.setdefault(key, renames)
+
+    def col(table: Any, name: Any) -> Any:
+        if name is None:
+            return name
+        return by_table.get(str(table or "").lower(), {}).get(str(name).lower(), name)
+
+    out = []
+    for r in relationships or []:
+        e = dict(r)
+        ft, tt = r.get("from_table"), r.get("to_table")
+        if "from_column" in e:
+            e["from_column"] = col(ft, e["from_column"])
+        if "to_column" in e:
+            e["to_column"] = col(tt, e["to_column"])
+        if e.get("columns"):
+            e["columns"] = [{**p, "from_column": col(ft, p.get("from_column")),
+                             "to_column": col(tt, p.get("to_column"))} for p in e["columns"]]
+        out.append(e)
+    return out

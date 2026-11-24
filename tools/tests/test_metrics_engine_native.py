@@ -294,13 +294,11 @@ class DetailTableTest(unittest.TestCase):
     def test_a_filter_on_a_table_no_relationship_reaches_does_not_apply(self):
         rels = [{'from_table': 'Activity', 'to_table': 'Snapshot', 'is_active': True},
                 {'from_table': 'Orders', 'to_table': 'Snapshot', 'is_active': False}]
-        phys = {'activity': 'db.m.activity', 'snapshot': 'db.m.snapshot', 'orders': 'db.m.orders',
-                'funnel': 'db.m.funnel'}
-        self.assertTrue(a2._related('db.m.snapshot', ['db.m.activity'], rels, phys))
-        self.assertTrue(a2._related('db.m.activity', ['db.m.snapshot'], rels, phys))
-        self.assertFalse(a2._related('db.m.snapshot', ['db.m.funnel'], rels, phys))
+        self.assertTrue(a2._related('snapshot', {'activity'}, rels))
+        self.assertTrue(a2._related('Activity', {'snapshot'}, rels))
+        self.assertFalse(a2._related('snapshot', {'funnel'}, rels))
         # An inactive relationship carries no filter either.
-        self.assertFalse(a2._related('db.m.snapshot', ['db.m.orders'], rels, phys))
+        self.assertFalse(a2._related('snapshot', {'orders'}, rels))
 
     def test_a_column_name_that_cannot_be_bare_is_quoted_and_a_bare_one_is_left_as_written(self):
         self.assertEqual(bicompile._legal('ACCOUNT_ID'), 'ACCOUNT_ID')
