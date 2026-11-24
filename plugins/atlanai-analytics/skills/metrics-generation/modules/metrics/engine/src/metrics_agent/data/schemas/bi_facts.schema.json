@@ -517,6 +517,7 @@
               "target": {"type": ["string", "null"]},
               "status": {"type": ["string", "null"]},
               "status_graphic": {"type": ["string", "null"]},
+              "trend": {"type": ["string", "null"], "description": "The KPI's trend formula, verbatim. Carried as context; nothing compiles it."},
               "target_measure": {"type": ["string", "null"]},
               "status_measure": {"type": ["string", "null"]}
             }

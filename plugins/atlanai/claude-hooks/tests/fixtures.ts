@@ -244,7 +244,7 @@ export const CASES: readonly Case[] = [
   },
   {
     "name": "colon-in-a-plain-description",
-    "about": "YAML refuses `: ` inside a plain value, and the registry's parser is real YAML",
+    "about": "YAML refuses `: ` inside a plain value, and Atlan Trident's parser is real YAML",
     "files": {
       "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when: asked to do it.\n---\nFollow the steps.\n"
     },
@@ -287,7 +287,7 @@ export const CASES: readonly Case[] = [
   },
   {
     "name": "duplicate-key",
-    "about": "The registry refuses a key given twice rather than pick one",
+    "about": "Atlan Trident refuses a key given twice rather than pick one",
     "files": {
       "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\ndescription: Another.\n---\nFollow the steps.\n"
     },

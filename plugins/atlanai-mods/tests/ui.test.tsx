@@ -89,7 +89,7 @@ const atlan = (args: string) => ({
 })
 
 describe('what a call did, in words', () => {
-  test('names registry calls, publishes and other servers', () => {
+  test('names Atlan Trident calls, publishes and other servers', () => {
     expect(describeCall(CALL, { name: 'registry__search_artifacts', arguments: { query: 'churn', kind: 'skill' } })).toBe('searched skills for "churn"')
     expect(describeCall(CALL, { name: 'registry__get_artifact', arguments: { artifact_id: 'skill_01x' } })).toBe('read skill_01x')
     expect(describeCall(CALL, { name: 'registry__list_workspaces', arguments: {} })).toBe('listed workspaces')
@@ -125,7 +125,7 @@ describe('what a call did, in words', () => {
     expect(describeCall(CALL, { name: 'registry__withdraw_release', arguments: { release_id: 'rel_01shipped' } })).toBe('withdrew release rel_01shipped')
     expect(describeCall(CALL, { name: 'registry__retrigger_artifact_action', arguments: { artifact_id: 'skill_01x', action_name: 'scan' } })).toBe('reran scan on skill_01x')
     const reply = JSON.stringify({ output: { id: 'output_01q3', kind: 'output', name: 'Q3 churn report', version_ordinal: 1 }, file: { id: 'file_01q3' }, created: true })
-    // The agent app's tool, and the registry's copy on a gateway that predates the move.
+    // The agent app's tool, and Trident's copy on a gateway that predates the move.
     for (const name of ['extension__agent__publish_output', 'registry__publish_output']) {
       expect(describeCall(CALL, { name, arguments: { output: { name: 'Q3 churn report' } } })).toBe('shared output "Q3 churn report"')
       const shared = touchesOf(name, {}, reply, false)
@@ -363,11 +363,11 @@ describe('/atlan skills', () => {
   })
 })
 
-describe('registry text from other people', () => {
+describe('Trident text from other people', () => {
   test('cannot move the cursor or reorder what is drawn', () => {
     const hostile = { ...ARTIFACT, display_name: 'evil\u001b[2J‮name' }
     expect(summarizeResult(JSON.stringify(hostile), false)).toBe('skill evil [2J name 0.2.0')
-    expect(describeCall(CALL, { name: 'registry__search_artifacts', arguments: { query: 'a\u0007b' } })).toBe('searched the registry for "a b"')
+    expect(describeCall(CALL, { name: 'registry__search_artifacts', arguments: { query: 'a\u0007b' } })).toBe('searched Atlan Trident for "a b"')
   })
 })
 

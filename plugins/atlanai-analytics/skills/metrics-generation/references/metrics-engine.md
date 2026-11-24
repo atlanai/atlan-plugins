@@ -204,8 +204,11 @@ the main engine applies this bound while grouping and admitting captured history
 This example has no SQL check, so it sets `witness_mode: parse`. With a SQL check (for
 example `"sql_check": "local-files"` and the database in its settings), set `execute` to run
 each statement read-only, or omit the key for the default `explain`; `parse` checks nothing
-against the data. For BI definitions, `bi` is a file (`.pbit`, `.bim`) or a folder of `.tmdl`
-files, never a folder holding a `.pbit`.
+against the data. For BI definitions, `bi` is a file (`.pbix`, `.pbit`, `.bim`) or a folder of `.tmdl`
+files, never a folder holding a `.pbit`. A Power BI project from a repository is read as
+its author saves it: set `bi` to the `.pbip`, its `.Report` or `.SemanticModel` folder, or
+the folder that holds one project. A folder of several projects is refused with their
+names; set `bi` to one `.pbip`.
 
 Run `ENGINE prepare --run <engine-dir> --config <private-config> --approval-mode auto`.
 It runs the maintained configuration and plug checks, without the terminal interview.

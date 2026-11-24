@@ -8,11 +8,11 @@ const isText = (value: unknown): value is string => typeof value === 'string' &&
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-/** Control, escape and direction-changing characters: registry text is written by other people, and
+/** Control, escape and direction-changing characters: Atlan Trident text is written by other people, and
  * one of these in a name could move the terminal's cursor or reorder what is drawn around it. */
 const UNSAFE = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069\ufeff]/g
 
-/** Registry text made safe to draw: unsafe characters become spaces. */
+/** Trident text made safe to draw: unsafe characters become spaces. */
 export function plain(text: string): string {
   return text.replace(UNSAFE, ' ')
 }
@@ -78,7 +78,7 @@ function describeRaw(tool: string, input: unknown): string {
   return describeNamed(isText(call.name) ? call.name : '', argsOf(call.arguments))
 }
 
-/** The shared output's one-call tool: the agent app's, or the registry's on a gateway that predates the move. */
+/** The shared output's one-call tool: the agent app's, or Trident's on a gateway that predates the move. */
 const isShare = (name: string): boolean => name === 'extension__agent__publish_output' || name === 'registry__publish_output'
 
 /** What one named gateway tool does with these arguments. */
@@ -89,7 +89,7 @@ function describeNamed(name: string, args: Record<string, unknown>): string {
     return names.length > 0 ? `published ${names.length === 1 ? 'skill' : 'skills'} ${names.join(', ')}` : 'published a skill'
   }
   if (name === 'registry__search_artifacts') {
-    const what = isText(args.kind) ? plural(args.kind) : 'the registry'
+    const what = isText(args.kind) ? plural(args.kind) : 'Atlan Trident'
     return isText(args.query) ? `searched ${what} for "${clip(args.query, 60)}"` : `searched ${what}`
   }
   if (name === 'registry__get_artifact') return `read ${artifactOf(args) ?? 'an artifact'}`
@@ -362,7 +362,7 @@ export type Card = {
   consequence: string
 }
 
-/** The card for an archive, approve or move, from what the registry said about the artifact. */
+/** The card for an archive, approve or move, from what Trident said about the artifact. */
 export function cardOf(callId: string, name: string, artifactId: string, summary?: Summary, related?: Related, release?: Release, fallback?: string): Card {
   const verb = name.replace(/^registry__/, '').replace(/_artifact$/, '')
   const what = summary?.name ? `${summary.kind || 'artifact'} "${summary.name}"` : artifactId

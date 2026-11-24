@@ -1,20 +1,20 @@
 {
   "$schema": "https://code.claude.com/schemas/marketplace.json",
   "name": "atlan",
-  "description": "Atlan's plugins for coding agents: the Atlan registry's MCP server, the skills to use it, and workloads built on it.",
+  "description": "Atlan's plugins for coding agents: Atlan Trident's MCP server, the skills to use it, and workloads built on it.",
   "owner": {
     "name": "Atlan",
     "url": "https://atlan.com"
   },
   "metadata": {
-    "description": "Atlan's plugins for coding agents: the Atlan registry's MCP server, the skills to use it, and workloads built on it."
+    "description": "Atlan's plugins for coding agents: Atlan Trident's MCP server, the skills to use it, and workloads built on it."
   },
   "plugins": [
     {
       "name": "atlanai",
-      "displayName": "AI Registry",
+      "displayName": "Atlan Trident",
       "source": "./plugins/atlanai",
-      "description": "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key.",
+      "description": "Your organization's skills, agents, knowledge and MCP servers, from Atlan Trident. One sign-in, no API key.",
       "author": {
         "name": "Atlan",
         "url": "https://atlan.com"
@@ -24,6 +24,7 @@
       "license": "Apache-2.0",
       "keywords": [
         "atlan",
+        "trident",
         "registry",
         "skills",
         "agents",
@@ -60,9 +61,9 @@
     },
     {
       "name": "atlanai-mods",
-      "displayName": "Registry Mods",
+      "displayName": "Trident Mods",
       "source": "./plugins/atlanai-mods",
-      "description": "Claude Code mod for the Atlan registry: registry reads run without a prompt, writes ask first, archive and move show what depends on the artifact, temporary gateway errors tell Claude how to retry, Atlan calls read as one line in the transcript, a pane lists what the session touched, a band follows a skill publish, /atlan skills picks a skill to load, a registry skill that clearly fits a request is named to Claude, and the status line reports a broken or degraded Atlan connection.",
+      "description": "Claude Code mod for Atlan Trident: Atlan Trident reads run without a prompt, writes ask first, archive and move show what depends on the artifact, temporary gateway errors tell Claude how to retry, Atlan calls read as one line in the transcript, a pane lists what the session touched, a band follows a skill publish, /atlan skills picks a skill to load, an Atlan Trident skill that clearly fits a request is named to Claude, and the status line reports a broken or degraded Atlan connection.",
       "author": {
         "name": "Atlan",
         "url": "https://atlan.com"
@@ -72,6 +73,7 @@
       "license": "Apache-2.0",
       "keywords": [
         "atlan",
+        "trident",
         "registry",
         "mods",
         "permissions"

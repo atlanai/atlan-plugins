@@ -279,7 +279,7 @@ describe('the prompt-time skill hint', () => {
     expect(seen.searches).toHaveLength(3)
   })
 
-  test('searches nothing while a registry call has just failed with a temporary error', async ($, on) => {
+  test('searches nothing while an Atlan Trident call has just failed with a temporary error', async ($, on) => {
     const { seen, clock } = engine(on)
     on('tool.call', () => ({ result: '503 Service Unavailable', text: 'HTTP 503 Service Unavailable', isError: true }))
     await connect($, clock)

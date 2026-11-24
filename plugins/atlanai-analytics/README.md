@@ -1,6 +1,6 @@
 # Analytics
 
-The analytics workload on the Atlan registry, as seven skills. analytics-demo walks through a made-up firm end to end. analytics-build does the same on your own data, starting from nothing, a dashboard or a subject: it surveys what you already have, asks what you want to answer, and builds from dashboards first, then past queries, then table definitions. source-survey says what a setup, a subject or a source holds, what can be built from it, and which metric names it offers. metrics-generation builds, tests, edits, proposes and saves metrics and saved queries. analytics-ask answers a data question from saved metrics, names what each answer is based on, and turns answers into a dashboard. eval-generation turns the questions a team already asks into test questions with known answers, kept here or saved to Atlan. accuracy-check tests your agent on those questions and scores it, saying why each miss failed. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection.
+The analytics workload on Atlan Trident, as seven skills. analytics-demo walks through a made-up firm end to end. analytics-build does the same on your own data, starting from nothing, a dashboard or a subject: it surveys what you already have, asks what you want to answer, and builds from dashboards first, then past queries, then table definitions. source-survey says what a setup, a subject or a source holds, what can be built from it, and which metric names it offers. metrics-generation builds, tests, edits, proposes and saves metrics and saved queries. analytics-ask answers a data question from saved metrics, names what each answer is based on, and turns answers into a dashboard. eval-generation turns the questions a team already asks into test questions with known answers, kept here or saved to Atlan. accuracy-check tests your agent on those questions and scores it, saying why each miss failed. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection.
 
 ## Install
 
@@ -40,7 +40,7 @@ In Cortex Code, install each from its folder, one chat message each:
 
 Analytics itself has no hooks or shipped executable binaries. Its skills run bundled Python helpers and may
 set up an isolated metrics-agent environment with pinned dependencies after authorization.
-Working files stay in your project. Input plugs use the source connections you select; Registry
+Working files stay in your project. Input plugs use the source connections you select; Atlan Trident
 writes use the `atlanai` plugin's connection, signed in as you. See Atlan's
 [privacy notice](https://atlan.com/privacy-policy/).
 

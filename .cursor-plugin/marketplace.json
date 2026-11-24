@@ -5,13 +5,13 @@
     "url": "https://atlan.com"
   },
   "metadata": {
-    "description": "Atlan's plugins for coding agents: the Atlan registry's MCP server, the skills to use it, and workloads built on it."
+    "description": "Atlan's plugins for coding agents: Atlan Trident's MCP server, the skills to use it, and workloads built on it."
   },
   "plugins": [
     {
       "name": "atlanai",
       "source": "./plugins/atlanai",
-      "description": "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key."
+      "description": "Your organization's skills, agents, knowledge and MCP servers, from Atlan Trident. One sign-in, no API key."
     },
     {
       "name": "atlanai-analytics",
