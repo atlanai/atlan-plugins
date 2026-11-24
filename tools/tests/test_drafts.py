@@ -188,9 +188,21 @@ class Drafts(unittest.TestCase):
             if event != 'quiet':
                 self.assertTrue(said.startswith('Add no words of your own'), event)
             self.assertNotIn('still', said.lower(), event)
-        # The one exception (PR 205's review: 12 to 18 minute silences): after about 3 quiet minutes, one line, never repeated.
-        self.assertIn('about 3 minutes, write one line', drafts.WAITED['quiet'])
-        self.assertIn('never a line you already wrote', drafts.WAITED['quiet'])
+        # The one exception: after about 3 quiet minutes, the line the helper composes, word for word, or nothing.
+        self.assertIn('When `say` is given, write it word for word', drafts.WAITED['quiet'])
+        self.assertIn('when it is null, write nothing', drafts.WAITED['quiet'])
+
+    def test_a_quiet_spell_hands_over_the_step_and_its_count_once(self):
+        # A session wrote its own line after a quiet spell ("Run split now."): the helper composes it from the list's count.
+        import os, time
+        self.run.write(self.engine / 'x3_prompt.json', {'n_metrics': 4, 'tasks': []})
+        earlier = ['m2_ingest', 'x1_ingest', 'x2_ingest']
+        self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': s, 'verdict': 'ok'} for s in earlier]})
+        self.run.write(self.run.root / 'drafts-reported.json', {'steps': earlier})
+        self.answer('x3', '01.json', {'metrics': [{'name': 'A'}]})
+        quiet = self.wait(tasks=False)
+        self.assertEqual((quiet['event'], quiet['say']), ('quiet', 'Adding detailed information: 1 of 4 written.'))
+        self.assertIsNone(self.wait(tasks=False)['say'], 'never the same line twice')
 
 
 if __name__ == '__main__':

@@ -21,10 +21,10 @@ the app's own labels for each command and helper.
   - a problem that changes something for the person: what happened, the count, what happens next;
   - the person asks ("what's happening?", "is it stuck?"): the current step and its real counts,
     then keep waiting in the same turn;
-  - nothing new has reached the screen for about 3 minutes: the step under way and its count, in
-    the task list's own words ("Adding detailed information: 10 of 22 written."), never what you
-    are about to do and never a line you already wrote. Then quiet again until the screen moves
-    or 3 more minutes pass.
+  - nothing new has reached the screen for about 3 minutes: during the build, the line the wait
+    hands over in `say`, word for word, and nothing when it gives none. The helper composes it from
+    the task list's count and never repeats one; at other waits, the same shape: the step under
+    way and its count, once.
 
   Real counts come from `PROJECT checklist`, or `EVAL todo` during an accuracy check.
 - **When it ends**: its result, once, as its chip or card, or one line in the past tense with
@@ -98,7 +98,8 @@ page shows each batch as it lands; the chat shows each step's end:
    - **A batch**, where you keep a task list, at most every 20 seconds: set your task list to its
      `task_list` in the same message as the next wait, and write nothing: the person sees the list.
    - **Every share of the definitions back**: run `ENGINE advance` once.
-   - **A quiet spell**: check that each subagent is working, then wait again.
+   - **A quiet spell**: check that each subagent is working, write its `say` line word for word when
+     it gives one, then wait again.
    - **Done**: export the build into the run and run `PROJECT check` before any question. The
      build's card comes once, right before the save question, as [save](save.md) says.
 

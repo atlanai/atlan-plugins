@@ -200,6 +200,26 @@ def _left(engine, gate, done, total):
     return 'nearly done' if seconds < 45 else 'about %d min left' % max(1, round(seconds / 60))
 
 
+# The step under way, as the line after a quiet spell names it.
+DOING = {'draft': 'Building your context', 'merge': 'Merging duplicate metrics', 'write': 'Adding detailed information'}
+
+
+def quiet_line(engine):
+    """The one line a quiet spell may add, composed here from the same count the task list shows, so the session never
+    writes its own ("Run split now." was a session's own note): the step under way and how far it has got. None between
+    steps, when there is nothing under way to name."""
+    under = _under_way(engine)
+    if not under:
+        return None
+    doing = DOING.get(ROW_OF.get(under[0]))
+    if not doing:
+        return None
+    live = _live(engine, under)
+    if under[0] == 'x2' or not live:
+        return doing + '.'
+    return '%s%s %s.' % (doing, ',' if ':' in live else ':', live)
+
+
 def task_list(root, engine_dir=None):
     """The host's task list as the checklist gives it, with the step under way saying how far it has got."""
     import checklist
@@ -230,10 +250,9 @@ WAITED = {
            "flags of every `visual` call now and do what it says, then run `PROJECT drafts --wait` again.",
     'ready': "Add no words of your own: every share of the definitions is back. Run `ENGINE advance` once, send each "
              "refused card to the subagent whose share holds its task number, then run `PROJECT drafts --wait` again.",
-    'quiet': "Nothing new has reached the screen for a while. Check that each subagent is working. When nothing has "
-             "shown for about 3 minutes, write one line for the person, in the task list's own words: the step under "
-             "way and its count (\"Adding detailed information: 10 of 22 written.\"), never a word about waiting, never what you are about to do "
-             "and never a line you already wrote. Then run `PROJECT drafts --wait` again.",
+    'quiet': "Nothing new has reached the screen for about 3 minutes. Check that each subagent is working. When `say` "
+             "is given, write it word for word as your only words; when it is null, write nothing. Then run "
+             "`PROJECT drafts --wait` again.",
     'done': "Add no words of your own: export the build into the run and run `PROJECT check` for the structural pass, "
             "as build and check says. The build's card comes once, right before the save question.",
     'again': "Add no words of your own: the wait timed out while new things were showing. Run `PROJECT drafts --wait` again.",
@@ -252,7 +271,7 @@ def _all_back(engine):
     return [len(under[3]), max(f.stat().st_mtime_ns for f in under[3])]
 
 
-def wait(root, engine_dir=None, timeout=540, quiet=240, interval=2.0, out=None, batch_every=BATCH_SECONDS):
+def wait(root, engine_dir=None, timeout=540, quiet=180, interval=2.0, out=None, batch_every=BATCH_SECONDS):
     """Wait in the foreground until the build has something to act on, print it as one JSON line and return, so the
     session acts on it and waits again in the same turn: a turn that ends without words is sent back for them, while a
     turn that keeps going is not. It reports a step's end once, every share of the definitions back once per set of
@@ -306,7 +325,12 @@ def wait(root, engine_dir=None, timeout=540, quiet=240, interval=2.0, out=None, 
             _save_record(engine, dict(record, waited=now, waited_at=time.time()))
             return say('batch', task_list=task_list(root, engine_dir))
         if time.monotonic() - last >= quiet:
-            return say('quiet')
+            line = quiet_line(engine)
+            if line and line == record.get('said'):
+                line = None
+            if line:
+                _save_record(engine, dict(record, said=line))
+            return say('quiet', say=line)
         if time.monotonic() - start >= timeout:
             # A timeout while things still move is not a quiet spell: no line for the person.
             return say('again')
