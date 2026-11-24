@@ -332,8 +332,7 @@ writes use the `{plugin['name']}` plugin's connection, signed in as you. See Atl
 ## Source
 
 `tools/build.py` generates this README and the manifests from `[[addons]]` in `plugin.toml`.
-The skills and scripts in this folder are the only source. Atlan's metric service serves a copy
-of `analytics-build` pinned to a commit of this repository.
+The skills and scripts in this folder are the only source.
 """
 
 
