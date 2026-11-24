@@ -117,6 +117,7 @@ class Drafts(unittest.TestCase):
         self.run.write(self.run.root / 'drafts-reported.json', {'steps': earlier[:2]})
         ended = self.wait()
         self.assertEqual((ended['event'], ended['start']['gate']), ('step', 'x3'))
+        self.assertIn('split', ended['start']['first'], 'the definitions are shared out first')
         self.assertIn('start that step', ended['next'])
         self.assertEqual(self.wait(tasks=False)['start']['gate'], 'x3', 'a quiet spell names it again')
         self.answer('x3', '01.json', {'metrics': [{'name': 'A'}]})

@@ -206,7 +206,11 @@ def _to_start(engine):
     under = _under_way(engine)
     if not under or under[3]:
         return None
-    return {'gate': under[0], 'prompt': str(engine.dir / ('%s_prompt.json' % under[0]))}
+    out = {'gate': under[0], 'prompt': str(engine.dir / ('%s_prompt.json' % under[0]))}
+    if under[0] == 'x3':
+        # The definitions are shared out first: one brief per helper, started all at once.
+        out['first'] = 'PROJECT split --engine-dir %s' % engine.dir.name
+    return out
 
 
 # The step under way, as the line after a quiet spell names it.
@@ -258,7 +262,8 @@ WAITED = {
     'step': "Add no words of your own beyond what `visual next` gives: run it with the flags of every `visual` "
             "call now (it is quick) and show what it gives in the same message that starts the next step's subagent, "
             "if its gate result asks for one, in this same turn. When `start` names a step, its prompt is written and "
-            "nothing answers it yet: start that step's subagent on `start.prompt` in that same message, never just wait. "
+            "nothing answers it yet: start that step's subagent on `start.prompt` in that same message (when `start.first` is given, run it first "
+            "and start one subagent per share it gives), never just wait. "
             "Only a step that no chip names gets a start line, the one its flow's file gives.",
     'due': "Add no words of your own: something is ready to show, and no step has ended. Run `visual next` with the "
            "flags of every `visual` call now and do what it says, then run `PROJECT drafts --wait` again.",
