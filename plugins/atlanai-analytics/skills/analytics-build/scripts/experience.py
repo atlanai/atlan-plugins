@@ -226,7 +226,7 @@ def _context_items(reader, state):
                           'name': _text(body.get('display_name'), 200) or name,
                           'meaning': _text(body.get('description') or definition.get('question')),
                           'population': _population(definition),
-                          'calculation': calculation, 'sql': sql, 'sql_label': 'Saved SQL example',
+                          'calculation': calculation, 'sql': sql, 'sql_label': 'Saved query example',
                           'detail_notes': evidence_notes + [n for n in (calculation_note, sql_note) if n],
                           # A release keeps the check it passed: "Saved to Atlan" alone reads as no check at all.
                           'status': status, 'status_label': LABELS[status]
