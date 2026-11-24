@@ -29,11 +29,13 @@ session needs Atlan's CLI on the person's computer, and stop.
    `extra.harnesses` (or `extra.targets`) is `all` or includes this tool (`claude` for Claude
    Code, `codex` for Codex), and its `select` is empty or one entry's `from` is this session's
    working folder or a parent of it.
-4. `aireg trace list --account <registry> --for <claude-code|codex> --json`: the `data.files[]`
-   row whose `sessionId` is this session's (step 2). `state` `finalized` is "already uploaded",
-   `partial` "partly uploaded", `unseen` or no row "not uploaded yet". A failure is "cannot tell
-   whether this session was uploaded already".
-5. The reply's first line, before any other step or question, joins the two:
+4. Find this session and preview it, as [section 2](#2-find-this-session) says. The preview
+   uploads nothing.
+5. `aireg trace list --account <registry> --for <claude-code|codex> --json`: the `data.files[]`
+   row whose `sessionId` is this session's. `state` `finalized` is "already uploaded", `partial`
+   "partly uploaded", `unseen` "not uploaded yet". A failure, or no row for this session, is
+   "cannot tell whether this session was uploaded already".
+6. The reply's first line, before any other step or question, joins the two:
 
    | State | First line |
    |---|---|
@@ -47,25 +49,29 @@ session needs Atlan's CLI on the person's computer, and stop.
 
 ## 2. Find this session
 
-- **Claude Code:** the newest `*.jsonl` in `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/<working
-  folder with every character other than a letter or digit replaced by ->/`, for example
-  `/Users/sam/my.app` is `-Users-sam-my-app`. The file name is the session id. `--for claude-code`.
-- **Codex:** the newest `rollout-*.jsonl` under `~/.codex/sessions/`. `--for codex`.
+**Claude Code** gives this session's id where the command or skill says `${CLAUDE_SESSION_ID}`.
+Pass that id to the preview and aireg finds the transcript itself; never pick a file by date in
+its place:
 
-No such file, or two modified in the same minute: ask which session, naming each file's first
-prompt. Always pass the one transcript's path to `trace export`: with no selector it uploads every
+```
+aireg trace export <session id> --account <registry> --for claude-code --content <store|drop> --dry-run --json
+```
+
+Content is the job's `extra.content` when the target has a traces job, else `store`; the person
+saying "structure only" makes it `drop`. `files[0].path` is the transcript, `sessions[0]` the
+session. An error naming no transcript: say aireg cannot see this session's transcript, and stop.
+
+**Elsewhere** (Codex, or the id still reads as a placeholder): the newest `rollout-*.jsonl` under
+`~/.codex/sessions/` with `--for codex`, else ask which transcript, naming the first prompt of
+each candidate. Pass that one path in place of the id.
+
+The selector is always one session id or one path: with none, `trace export` uploads every
 session it finds. Never pass `--all` or `--since`.
 
 ## 3. Show exactly what leaves the computer, then ask once
 
-Content is the job's `extra.content` when the target has a traces job, else `store`; the person
-saying "structure only" makes it `drop`. Run the preview, which uploads nothing and moves no cursor:
-
-```
-aireg trace export <transcript path> --account <registry> --for <claude-code|codex> --content <store|drop> --dry-run --json
-```
-
-Show, in plain words, one line each:
+From the section 2 preview, which uploaded nothing and moved no cursor, and the transcript at
+`files[0].path`, show in plain words, one line each:
 
 - **Session:** its title (the transcript's last `custom-title` or `summary` record, else the first
   prompt, cut to 60 characters) and `sessions[0].sessionId`.
@@ -82,13 +88,14 @@ Show, in plain words, one line each:
 - `files[0].disposition.kind` `partial`: "The last turns stay on this computer until the session
   ends."
 
-End with one question: "Push this session to `<registry>`?" Upload only on a clear yes in the
+End with one question, and offer nothing else (no feedback note the request did not name, no
+sync change): "Push this session to `<registry>`?" Upload only on a clear yes in the
 person's next message. Anything else (a change, a question, silence) uploads nothing.
 
 ## 4. Push, then attach it when asked
 
 ```
-aireg trace export <transcript path> --account <registry> --for <claude-code|codex> --content <store|drop> --json
+aireg trace export <the same session id or path> --account <registry> --for <claude-code|codex> --content <store|drop> --json
 ```
 
 Read `sessions[0].state`, `traceId` and `policy`. `policy.content` `drop` after a `store` preview

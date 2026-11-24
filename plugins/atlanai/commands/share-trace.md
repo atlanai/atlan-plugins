@@ -11,5 +11,7 @@ The request:
 
 > $ARGUMENTS
 
+This session's id: `${CLAUDE_SESSION_ID}`.
+
 With no request, push this session to the organization `aireg` is signed in to; if it is signed
 in to more than one, ask which after saying whether each one already syncs this session.
