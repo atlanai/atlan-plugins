@@ -50,7 +50,7 @@ RECEIPT_CAPABILITY = "Atlan receipt helper is on: publication calls accept recei
 LOCAL_CAPABILITY = "Atlan local publish hooks are installed. Confirm support with one guarded empty-items batch; an explicit invalid_arguments refusal means use native arguments without local helper fields."
 # A shared output's one-call tool: its inline `file.content` is checked for credentials before it
 # leaves. The agent app serves it; a gateway that predates the move serves the same tool, with the
-# same arguments, under the registry's prefix, so the check holds it under either name.
+# same arguments, under Atlan Trident's prefix, so the check holds it under either name.
 OUTPUT = "extension__agent__publish_output"
 OUTPUTS = {OUTPUT, "registry__publish_output"}
 MAX_LISTED = 5
