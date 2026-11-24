@@ -4,7 +4,7 @@ Use seven stages: **Inspect, Scope, Build, Check, Preview, Publish, Ready to ask
 The person sees them as the guided flow's steps in [the checklist](setup/checklist.md): nine
 in the task list for own data (`analytics-build`), seven for a demo (`analytics-demo`), the build
 shown as three steps in each.
-The result is released metrics and saved SQL in Atlan, used by this chat through MCP.
+The result is released metrics and saved queries in Atlan, used by this chat through MCP.
 An input folder is ordinary customer context. Never depend on a particular repository,
 sample schema or database name. Explicit agent and evaluation modes remain separate.
 

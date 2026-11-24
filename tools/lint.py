@@ -113,6 +113,13 @@ DRIFT = [
     (re.compile(r'"client":\s*"claude-code"'),
      "name the client as a placeholder; the recipe runs in other tools too"),
 ]
+# Analytics' own words for what it builds and where it saves it (analytics-build's
+# references/conventions.md, "Words the person reads"). The vendored engine keeps its own
+# vocabulary; a word quoted in code, as the conventions' banned list does, is exempt.
+TERMS_ROOT = PLUGINS / "atlanai-analytics"
+TERMS = [
+    (re.compile(r"\bsaved[ -]SQL\b", re.IGNORECASE), "say saved queries (conventions.md, Words the person reads)"),
+]
 # What the voice check reads: the Markdown people and models read, and the manifest strings.
 VOICE_SUFFIXES = {".md", ".toml"}
 VOICE_SKIPPED = ("evals/", ".github/", "assets/")
@@ -434,6 +441,19 @@ def lint_drift(path: Path, text: str) -> list[str]:
     ]
 
 
+def lint_terms(path: Path, text: str) -> list[str]:
+    """Analytics' banned synonyms, outside code and outside the vendored engine."""
+    if not path.is_relative_to(TERMS_ROOT) or "modules" in path.relative_to(TERMS_ROOT).parts:
+        return []
+    relative = path.relative_to(ROOT)
+    return [
+        f"{relative}:{number}: {match.group(0)!r}: {why}"
+        for number, line in enumerate(text.splitlines(), 1)
+        for pattern, why in TERMS
+        for match in pattern.finditer(INLINE_CODE.sub("", line))
+    ]
+
+
 def lint_repository(files: list[Path]) -> list[str]:
     errors = [
         f"{name}: plugin content lives in plugins/<plugin>/; the root is the marketplace"
@@ -474,6 +494,7 @@ def lint_repository(files: list[Path]) -> list[str]:
             errors += lint_voice(path, text)
         if path.suffix == ".md" and path.is_relative_to(PLUGINS):
             errors += lint_drift(path, text)
+            errors += lint_terms(path, text)
     return errors
 
 

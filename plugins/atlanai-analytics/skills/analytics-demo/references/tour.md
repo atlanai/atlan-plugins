@@ -140,7 +140,7 @@ a customer's personal details.
 metrics (a number the firm cares about, with its rule) and queries (a ready-made question
 about the data, such as margin by job). Count them that way every time: "Context built: 7
 metrics and 12 queries", "saving 3 new metrics". Never call them pieces, calculations,
-KPIs, measures, definitions, saved questions or saved SQL; the dashboard has tiles, and
+KPIs, measures, definitions, saved questions or `saved SQL`; the dashboard has tiles, and
 what analysts ran is past queries. Say "the context behind this answer". Never say
 candidate, engine, reconciliation, hold or Registry to the person.
 

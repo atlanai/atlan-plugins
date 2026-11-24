@@ -717,6 +717,22 @@ class DriftTest(unittest.TestCase):
         self.assertEqual(self.drift(text), [])
 
 
+class TermsTest(unittest.TestCase):
+    """Analytics' words for what it saves, held outside code and the vendored engine."""
+
+    def terms(self, text: str, *parts: str) -> list[str]:
+        return lint.lint_terms(lint.TERMS_ROOT.joinpath(*parts), text)
+
+    def test_flags_saved_sql(self) -> None:
+        errors = self.terms("Save metrics and saved SQL.\n", "skills", "x", "SKILL.md")
+        self.assertEqual([e.split(": ", 1)[0] for e in errors], ["plugins/atlanai-analytics/skills/x/SKILL.md:1"])
+
+    def test_leaves_quoted_terms_the_engine_and_other_plugins_alone(self) -> None:
+        self.assertEqual(self.terms("Never say `saved SQL`.\n", "skills", "x", "SKILL.md"), [])
+        self.assertEqual(self.terms("saved SQL\n", "skills", "x", "modules", "GATE.md"), [])
+        self.assertEqual(lint.lint_terms(lint.PLUGINS / "atlanai" / "x.md", "saved SQL\n"), [])
+
+
 class VoiceTest(unittest.TestCase):
     """The voice rule in AGENTS.md: no em dashes, no exclamations, no filler, outside code."""
 

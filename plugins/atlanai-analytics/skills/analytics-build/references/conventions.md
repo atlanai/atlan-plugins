@@ -99,7 +99,7 @@ than choosing silently.
 Two words for what Analytics builds and saves, in every reply, count and label: **metrics**
 and **queries**. A metric is a named number with its rule; a query is a saved, checked SQL
 question. Write "7 metrics and 12 queries". Never call them calculations, KPIs, measures,
-context pieces, saved questions or saved SQL, and do not switch words between replies. What
+context pieces, saved questions or `saved SQL`, and do not switch words between replies. What
 analysts ran before is **query history**; a dashboard has tiles or measures of its own. A
 metric or query in Atlan is **managed**, never governed; an answer with none is **not
 managed**. The place they are saved is **Atlan Trident**: write "saved in Atlan Trident",
