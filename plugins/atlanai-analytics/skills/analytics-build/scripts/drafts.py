@@ -200,6 +200,15 @@ def _left(engine, gate, done, total):
     return 'nearly done' if seconds < 45 else 'about %d min left' % max(1, round(seconds / 60))
 
 
+def _to_start(engine):
+    """The step whose prompt is written and that nothing has answered yet, as {gate, prompt}: the session starts its helper.
+    Told only "a step ended", sessions went back to waiting without starting the next step's helper, twice in one run."""
+    under = _under_way(engine)
+    if not under or under[3]:
+        return None
+    return {'gate': under[0], 'prompt': str(engine.dir / ('%s_prompt.json' % under[0]))}
+
+
 # The step under way, as the line after a quiet spell names it.
 DOING = {'draft': 'Building your context', 'merge': 'Merging duplicate metrics', 'write': 'Adding detailed information'}
 
@@ -248,13 +257,16 @@ WAITED = {
              "next `PROJECT drafts --wait`, so the turn goes on.",
     'step': "Add no words of your own beyond what `visual next` gives: run it with the flags of every `visual` "
             "call now (it is quick) and show what it gives in the same message that starts the next step's subagent, "
-            "if its gate result asks for one, in this same turn. Only a step that no chip names gets a start line, "
-            "the one its flow's file gives.",
+            "if its gate result asks for one, in this same turn. When `start` names a step, its prompt is written and "
+            "nothing answers it yet: start that step's subagent on `start.prompt` in that same message, never just wait. "
+            "Only a step that no chip names gets a start line, the one its flow's file gives.",
     'due': "Add no words of your own: something is ready to show, and no step has ended. Run `visual next` with the "
            "flags of every `visual` call now and do what it says, then run `PROJECT drafts --wait` again.",
     'ready': "Add no words of your own: every share of the definitions is back. Run `ENGINE advance` once, send each "
              "refused card to the subagent whose share holds its task number, then run `PROJECT drafts --wait` again.",
-    'quiet': "Nothing new has reached the screen for about 3 minutes. Check that each subagent is working. When `say` "
+    'quiet': "Nothing new has reached the screen for about 3 minutes. Check that each subagent is working; when `start` "
+             "names a step, nothing has saved an answer to it: start its subagent on `start.prompt` now unless one is "
+             "working on it. When `say` "
              "is given, write it word for word as your only words; when it is null, write nothing. Then run "
              "`PROJECT drafts --wait` again.",
     'done': "Add no words of your own: export the build into the run and run `PROJECT check` for the structural pass, "
@@ -300,7 +312,7 @@ def wait(root, engine_dir=None, timeout=540, quiet=180, interval=2.0, out=None, 
             if stage in accepted and stage not in done:
                 # A step's end starts the quiet line's memory afresh: a step run again may say its count again.
                 _save_record(engine, dict(record, steps=sorted(done | {stage}), said=None))
-                return say('step')
+                return say('step', start=_to_start(engine))
         # The links step comes after the definitions: the build is done once it has a verdict, kept or skipped.
         if 'x3_ingest' in accepted and any(isinstance(s, dict) and s.get('stage') == 'x4_ingest' and s.get('verdict') for s in stages):
             return say('done')
@@ -338,7 +350,7 @@ def wait(root, engine_dir=None, timeout=540, quiet=180, interval=2.0, out=None, 
                 line = None
             if line:
                 _save_record(engine, dict(record, said=line))
-            return say('quiet', say=line)
+            return say('quiet', say=line, start=_to_start(engine))
         if time.monotonic() - start >= timeout:
             # A timeout while things still move is not a quiet spell: no line for the person.
             return say('again')

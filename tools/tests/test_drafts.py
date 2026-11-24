@@ -109,6 +109,19 @@ class Drafts(unittest.TestCase):
         self.answer('m2', '01.json', {'queries': [{'vq_id': 'q1'}]})
         self.assertTrue(drafts._live(engine, drafts._under_way(engine)).startswith('writing questions: 1 of 2'))
 
+    def test_a_step_end_names_the_next_step_whose_helper_must_start(self):
+        # Told only "a step ended", a session went back to waiting with the next step's prompt unanswered, twice in a run.
+        earlier = ['m2_ingest', 'x1_ingest', 'x2_ingest']
+        self.run.write(self.engine / 'x3_prompt.json', {'n_metrics': 4, 'tasks': []})
+        self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': s, 'verdict': 'ok'} for s in earlier]})
+        self.run.write(self.run.root / 'drafts-reported.json', {'steps': earlier[:2]})
+        ended = self.wait()
+        self.assertEqual((ended['event'], ended['start']['gate']), ('step', 'x3'))
+        self.assertIn('start that step', ended['next'])
+        self.assertEqual(self.wait(tasks=False)['start']['gate'], 'x3', 'a quiet spell names it again')
+        self.answer('x3', '01.json', {'metrics': [{'name': 'A'}]})
+        self.assertIsNone(self.wait(tasks=False)['start'], 'once a helper saves an answer, nothing to start')
+
     def test_a_chip_that_comes_due_is_reported_once(self):
         # The dashboard flow's helpers advance every step, so its tiles, its questions and the side page's opening come
         # due without a step end the session sees.

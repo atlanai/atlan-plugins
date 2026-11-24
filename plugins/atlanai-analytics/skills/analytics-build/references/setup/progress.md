@@ -90,7 +90,8 @@ page shows each batch as it lands; the chat shows each step's end:
    same message. Never end the turn between waits: a turn that ends without words is sent back
    for them, while a turn that keeps going is not.
    - **A step ended**: run `visual next`, then show what it gives in the same message that starts
-     the next gate's subagent. With `show_widget` it draws the step's one-line chip, before and
+     the next gate's subagent: the wait names it in `start` (its prompt), and the build waits on
+     nothing else. With `show_widget` it draws the step's one-line chip, before and
      after the side page opens. In a terminal that keeps a task list (as you recorded with
      `PROJECT journey tasks`), once the page is open it hands back the task list and `say`, one
      line to write word for word as your only words; with no task list, each step's end shows
