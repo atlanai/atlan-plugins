@@ -1,7 +1,7 @@
 interface:
   display_name: "Eval Generation"
   short_description: "Write test questions, with known answers, from what your team asks"
-  default_prompt: "Use $eval-generation to write test questions from what our team already asks."
+  default_prompt: "Use $eval-generation to write test questions for our agent from what our team already asks."
 dependencies:
   tools:
     - type: "mcp"

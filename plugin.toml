@@ -91,9 +91,9 @@ default_prompts = [
 name = "atlanai-analytics"
 display_name = "Analytics"
 version = "0.9.90"
-description = "Build the context your coding agent answers data questions from, on a sample or your own data: metrics and saved queries from your dashboards and past queries, tested on your data, kept on this machine or saved to Atlan."
-short_description = "Build the context your agent answers data questions from"
-long_description = "Seven skills that build and test the context your coding agent answers data questions from: metrics and saved queries. analytics-demo builds it for one of two fictional companies on made-up data. analytics-build builds it on your own data, starting from nothing, a dashboard or a subject: dashboards first, then past queries, then table definitions. source-survey says what a source holds and what can be built from it. metrics-generation builds, tests, edits and saves metrics and saved queries. analytics-ask answers a data question from them, names what each answer is based on, and turns answers into a dashboard. eval-generation turns the questions a team already asks into test questions with known answers. accuracy-check tests the context on those questions and says why each miss failed."
+description = "Build an agent that answers your data questions, on a demo or your own data: I extract the context in your dashboards and past queries, add detailed information to it and validate it, then you store it here or save it to Atlan, ask it questions and build a dashboard."
+short_description = "Build an agent that answers your data questions"
+long_description = "The analytics workload on Atlan Trident, as seven skills. analytics-demo walks through a made-up firm end to end. analytics-build does the same on your own data, starting from nothing, a dashboard or a subject: it surveys what you already have, asks what you want to answer, and builds from dashboards first, then past queries, then table definitions. source-survey says what a setup, a subject or a source holds, what can be built from it, and which metric names it offers. metrics-generation builds, tests, edits, proposes and saves metrics and saved queries. analytics-ask answers a data question from saved metrics, names what each answer is based on, and turns answers into a dashboard. eval-generation turns the questions a team already asks into test questions with known answers, kept here or saved to Atlan. accuracy-check tests your agent on those questions and scores it, saying why each miss failed. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection."
 keywords = ["atlan", "analytics", "metrics", "text-to-sql", "talk-to-data", "snowflake", "databricks", "dashboards"]
 category = "Data & Analytics"
 claude_category = "data"
@@ -118,9 +118,9 @@ default_prompts = [
 # in the order `skills` names them, and the build fails when a skill folder is missing from it.
 [addons.readme]
 intro = """
-This plugin builds the context your coding agent needs to answer your data questions in plain
-English: metrics and saved queries. Each answer names the metric or saved query it used, or says
-when it had to write new SQL for the question.
+This plugin builds your agent: it answers your data questions in plain English from your
+context, the metrics and saved queries the plugin builds and tests. Each answer names the metric
+or saved query it used, or says when it had to write new SQL for the question.
 
 It builds that context from what your team already relies on: dashboards first, then past
 queries, then table definitions. It tests each metric and saved query on your data, when it can reach
@@ -134,18 +134,18 @@ needs = [
 how = """
 - A **metric** is a named number with its rule, such as revenue by month.
 - A **saved query** is a tested SQL question your agent can rerun, such as margin by job.
-- Together they are **your context**. Your coding agent (Claude Code, Codex or another) answers
-  from it, so there is no separate agent to deploy.
+- Together they are **your context**. **Your agent** answers from it, inside the coding agent
+  you already use (Claude Code, Codex or another), so there is nothing separate to deploy.
 - A **workspace** is where your team keeps that context when you save it, so others can ask
   from it too.
 """
 starts = [
   ["Learn how it works on a sample", "analytics-demo", "Show me how this works on a sample use case"],
-  ["Build context from your own data or a dashboard", "analytics-build", "Help me use this dashboard to ask questions about my data"],
+  ["Build your agent from your own data or a dashboard", "analytics-build", "Help me use this dashboard to ask questions about my data"],
   ["Ask a question once your context is built", "analytics-ask", "What was revenue last quarter, by region?"],
 ]
 quick_start = "The skill shows its steps as it goes, and asks before it saves anything to Atlan."
-samples_intro = "Two fictional companies, with made-up data, ship with the plugin. Each sample builds the company's context, its metrics and saved queries, from its dashboard, tests them on the sample data, asks where to keep them, then answers your first question."
+samples_intro = "Two fictional companies, with made-up data, ship with the plugin. Each sample builds your agent for the company: its context, the metrics and saved queries, from its dashboard, tests them on the sample data, asks where to keep them, then answers your first question."
 samples = [
   ["Fixit & Co., a builder's yard", "Which jobs lost money, and why. Built from a Power BI dashboard in about 15 minutes.", "https://atlanai.github.io/analytics-agent-accelerator/yard-tour/"],
   ["Ticketfuddle, a ticketing firm", "How much of what fans paid went on fees. Built from a Tableau dashboard in about 15 to 20 minutes.", "https://atlanai.github.io/analytics-agent-accelerator/box-office-tour/"],
@@ -275,7 +275,7 @@ prompt = "Use $atlan-author-agents to register the agent in this repository in A
 
 [skills.analytics-demo]
 display_name = "Analytics Demo"
-short_description = "Build context on made-up data, step by step"
+short_description = "Build your agent on made-up data, step by step"
 prompt = "Use $analytics-demo to show me how this works on a sample use case."
 
 [skills.analytics-build]
@@ -296,12 +296,12 @@ prompt = "Use $metrics-generation to build metrics from our warehouse's past que
 [skills.eval-generation]
 display_name = "Eval Generation"
 short_description = "Write test questions, with known answers, from what your team asks"
-prompt = "Use $eval-generation to write test questions from what our team already asks."
+prompt = "Use $eval-generation to write test questions for our agent from what our team already asks."
 
 [skills.accuracy-check]
 display_name = "Accuracy Check"
-short_description = "Test your context on questions with known answers"
-prompt = "Use $accuracy-check to test our context on the test questions in this project."
+short_description = "Test your agent on questions with known answers"
+prompt = "Use $accuracy-check to test our agent on the test questions in this project."
 
 [skills.analytics-ask]
 display_name = "Ask Your Data"
