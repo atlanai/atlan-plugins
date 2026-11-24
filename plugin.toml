@@ -134,15 +134,16 @@ needs = [
 how = """
 - A **metric** is a named number with its rule, such as revenue by month.
 - A **saved query** is a tested SQL question your agent can rerun, such as margin by job.
-- Together they are **your context**. **Your agent** answers from it, inside the coding agent
-  you already use (Claude Code, Codex or another), so there is nothing separate to deploy.
+- Together they are **your context**. **Your agent** answers from it, and finds the right
+  metric or saved query for each question. It runs in the coding agent you use, such as Claude
+  Code or Codex.
 - A **workspace** is where your team keeps that context when you save it, so others can ask
   from it too.
 """
 starts = [
   ["Learn how it works on a sample", "analytics-demo", "Show me how this works on a sample use case"],
   ["Build your agent from your own data or a dashboard", "analytics-build", "Help me use this dashboard to ask questions about my data"],
-  ["Ask a question once your context is built", "analytics-ask", "What was revenue last quarter, by region?"],
+  ["Ask your agent a question", "analytics-ask", "What was revenue last quarter, by region?"],
 ]
 quick_start = "The skill shows its steps as it goes, and asks before it saves anything to Atlan."
 samples_intro = "Two fictional companies, with made-up data, ship with the plugin. Each sample builds your agent for the company: its context, the metrics and saved queries, from its dashboard, tests them on the sample data, asks where to keep them, then answers your first question."
@@ -280,7 +281,7 @@ prompt = "Use $analytics-demo to show me how this works on a sample use case."
 
 [skills.analytics-build]
 display_name = "Atlan Analytics"
-short_description = "Build the context your agent answers from, on your own data"
+short_description = "Build your agent on your own data, step by step"
 prompt = "Use $analytics-build to set up this project so I can ask questions about its data."
 
 [skills.source-survey]

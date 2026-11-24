@@ -23,7 +23,7 @@ your data, before you keep them on this machine or save them to share with your 
    |---|---|---|---|
    | Learn how it works on a sample | `/atlanai-analytics:analytics-demo` | `$analytics-demo` | *"Show me how this works on a sample use case"* |
    | Build your agent from your own data or a dashboard | `/atlanai-analytics:analytics-build` | `$analytics-build` | *"Help me use this dashboard to ask questions about my data"* |
-   | Ask a question once your context is built | `/atlanai-analytics:analytics-ask` | `$analytics-ask` | *"What was revenue last quarter, by region?"* |
+   | Ask your agent a question | `/atlanai-analytics:analytics-ask` | `$analytics-ask` | *"What was revenue last quarter, by region?"* |
 
    In other hosts, name the skill: *"Use the analytics-demo skill"*. Your own words work too, but
    whether they reach the right skill depends on your model, your host and what else is loaded.
@@ -43,8 +43,9 @@ Two fictional companies, with made-up data, ship with the plugin. Each sample bu
 
 - A **metric** is a named number with its rule, such as revenue by month.
 - A **saved query** is a tested SQL question your agent can rerun, such as margin by job.
-- Together they are **your context**. **Your agent** answers from it, inside the coding agent
-  you already use (Claude Code, Codex or another), so there is nothing separate to deploy.
+- Together they are **your context**. **Your agent** answers from it, and finds the right
+  metric or saved query for each question. It runs in the coding agent you use, such as Claude
+  Code or Codex.
 - A **workspace** is where your team keeps that context when you save it, so others can ask
   from it too.
 
@@ -53,7 +54,7 @@ Two fictional companies, with made-up data, ship with the plugin. Each sample bu
 | Skill | Use it to | Try |
 |---|---|---|
 | `analytics-demo` | Build your agent on made-up data, step by step | *"Show me how this works on a sample use case."* |
-| `analytics-build` | Build the context your agent answers from, on your own data | *"Set up this project so I can ask questions about its data."* |
+| `analytics-build` | Build your agent on your own data, step by step | *"Set up this project so I can ask questions about its data."* |
 | `source-survey` | See what data, dashboards and past queries you can build from | *"Tell me what this folder's dashboards and past queries cover."* |
 | `metrics-generation` | Turn dashboards and past queries into metrics your agent answers from | *"Build metrics from our warehouse's past queries."* |
 | `analytics-ask` | Answer data questions from your metrics and saved queries | *"What was revenue last quarter, by region?"* |
