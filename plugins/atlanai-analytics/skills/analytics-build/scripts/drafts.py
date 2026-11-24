@@ -132,10 +132,17 @@ def _under_way(engine):
 REPORTED = 'drafts-reported.json'
 
 
+def _record(engine):
+    """What this build's waits have reported. A rebuild in a new engine folder (a dashboard added after the build) starts
+    afresh: the first build's step ends, kept, hid every step end of the second."""
+    record = engine.json(engine.root / REPORTED)
+    return record if record.get('engine') in (None, engine.dir.name) else {}
+
+
 def _save_record(engine, record):
     try:
         path = engine.root / REPORTED
-        path.write_text(json.dumps(record))
+        path.write_text(json.dumps(dict(record, engine=engine.dir.name)))
         path.chmod(0o600)
     except OSError:
         pass  # without the record the next wait repeats an event; it never skips one
@@ -262,7 +269,8 @@ WAITED = {
     'step': "Add no words of your own beyond what `visual next` gives: run it with the flags of every `visual` "
             "call now (it is quick) and show what it gives in the same message that starts the next step's subagent, "
             "if its gate result asks for one, in this same turn. When `start` names a step, its prompt is written and "
-            "nothing answers it yet: start that step's subagent on `start.prompt` in that same message (when `start.first` is given, run it first "
+            "nothing answers it yet: start that step's subagent on `start.prompt` in that same message unless one is "
+            "working on it (when `start.first` is given, run it first "
             "and start one subagent per share it gives), never just wait. "
             "Only a step that no chip names gets a start line, the one its flow's file gives.",
     'due': "Add no words of your own: something is ready to show, and no step has ended. Run `visual next` with the "
@@ -290,6 +298,16 @@ def _all_back(engine):
     c = _define(engine, under[3])
     if not c['total'] or c['defined'] < c['total']:
         return None
+    # A refusal sends cards back for repair: until the files that hold them are written again, the shares are not back.
+    # A live run was told "every share is back" for the files it had just advanced on, and ended its turn mid-build.
+    repair = engine.dir / 'x3_repair.json'
+    if repair.is_file():
+        since = repair.stat().st_mtime_ns
+        names = {str(t.get('name', '')).strip().lower() for t in engine.json(repair).get('tasks') or [] if isinstance(t, dict)}
+        refused = [f for f in under[3] if names & {str(card.get('name', '')).strip().lower()
+                                                   for card in engine.rows(f, 'metrics') if isinstance(card, dict)}]
+        if any(f.stat().st_mtime_ns <= since for f in refused) or all(f.stat().st_mtime_ns <= since for f in under[3]):
+            return None
     return [len(under[3]), max(f.stat().st_mtime_ns for f in under[3])]
 
 
@@ -297,16 +315,19 @@ def wait(root, engine_dir=None, timeout=540, quiet=180, interval=2.0, out=None, 
     """Wait in the foreground until the build has something to act on, print it as one JSON line and return, so the
     session acts on it and waits again in the same turn: a turn that ends without words is sent back for them, while a
     turn that keeps going is not. It reports a step's end once, every share of the definitions back once per set of
-    files, the task list at most every `batch_every` seconds where the session keeps one, and a quiet spell after `quiet`
-    seconds with nothing new or at `timeout`, which a host keeps under its own limit for a foreground command."""
+    files, the task list at most every `batch_every` seconds where the session keeps one, a quiet spell after `quiet`
+    seconds with nothing new, counted across calls, and `again` at `timeout`, which a host keeps under its own limit for
+    a foreground command."""
     import sys
     import time
     out = out or sys.stdout
     engine = _Engine(root, engine_dir)
-    start = last = time.monotonic()
-    seen_now = None
+    start = time.monotonic()
 
     def say(event, **extra):
+        # Anything shown starts the quiet spell afresh; a timeout shows nothing, so the spell runs on into the next call.
+        if event != 'again':
+            _save_record(engine, dict(_record(engine), quiet_from=time.time()))
         # Every result carries the list as the run's files now have it, where the session keeps one: the side page reads
         # those files live, and a list moved only by some events sat at "3 of 4" beside a page showing all 4 defined.
         nxt = WAITED[event]
@@ -321,15 +342,22 @@ def wait(root, engine_dir=None, timeout=540, quiet=180, interval=2.0, out=None, 
         print(json.dumps({'event': event, **extra, 'next': nxt}, ensure_ascii=False), file=out, flush=True)
 
     while True:
-        record = engine.json(engine.root / REPORTED)
+        record = _record(engine)
         done = set(record.get('steps') if isinstance(record.get('steps'), list) else [])
         stages = engine.json(engine.dir / 'manifest.json').get('stages') or []
         accepted = {s.get('stage') for s in stages if isinstance(s, dict) and s.get('verdict') == 'ok'}
         for stage in WAKES:
             if stage in accepted and stage not in done:
+                # A step named to start is named once: three step ends between waits each named the same next step, so
+                # a session started three helpers for it. A quiet spell names it again, with its guard.
+                begin = _to_start(engine)
+                started = set(record.get('started') if isinstance(record.get('started'), list) else [])
+                if begin and begin['gate'] in started:
+                    begin = None
                 # A step's end starts the quiet line's memory afresh: a step run again may say its count again.
-                _save_record(engine, dict(record, steps=sorted(done | {stage}), said=None))
-                return say('step', start=_to_start(engine))
+                _save_record(engine, dict(record, steps=sorted(done | {stage}), said=None,
+                                          started=sorted(started | ({begin['gate']} if begin else set()))))
+                return say('step', start=begin)
         # The links step comes after the definitions: the build is done once it has a verdict, kept or skipped.
         if 'x3_ingest' in accepted and any(isinstance(s, dict) and s.get('stage') == 'x4_ingest' and s.get('verdict') for s in stages):
             return say('done')
@@ -347,9 +375,12 @@ def wait(root, engine_dir=None, timeout=540, quiet=180, interval=2.0, out=None, 
         if back and back != record.get('ready'):
             _save_record(engine, dict(record, ready=back))
             return say('ready')
+        # Quiet is measured across calls: a host whose foreground limit is shorter than the spell timed out on every
+        # call, so a stalled helper was never noticed and the next step's helper never named.
         now = sum(len(_saved(engine, gate)) for gate, _, _ in GATES)
-        if now != seen_now:
-            seen_now, last = now, time.monotonic()
+        if now != record.get('seen') or not isinstance(record.get('quiet_from'), (int, float)):
+            record = dict(record, seen=now, quiet_from=time.time())
+            _save_record(engine, record)
         import visuals
         moved = record.get('waited_at') if isinstance(record.get('waited_at'), (int, float)) else 0
         # A new batch moves the list; a step that has only started (its prompt written, nothing saved) does not.
@@ -358,7 +389,7 @@ def wait(root, engine_dir=None, timeout=540, quiet=180, interval=2.0, out=None, 
                 and visuals.keeps_tasks(root)):
             _save_record(engine, dict(record, waited=now, waited_at=time.time()))
             return say('batch', task_list=task_list(root, engine_dir))
-        if time.monotonic() - last >= quiet:
+        if time.time() - record['quiet_from'] >= quiet:
             # Where a live task list and side page show the count, a printed line only repeats them and then goes stale
             # in the chat as they move on: the line is for a host with no task list, whose chat is the only progress.
             import visuals

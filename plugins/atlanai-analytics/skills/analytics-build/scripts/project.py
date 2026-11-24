@@ -881,7 +881,9 @@ def main():
     import visuals
     visual = sub.add_parser('visual', help="A moment of the run: its chip or mini card for the chat; connect opens the side page")
     visual.add_argument('kind', choices=visuals.KINDS + ('next',), help='A moment, or `next` for the next one the run has reached')
-    visual.add_argument('also', nargs='*', choices=visuals.KINDS, metavar='kind',
+    # No `choices` on a list: Python 3.10 and 3.11 check its empty default against them and refuse every single moment
+    # ("invalid choice: []"), and the build's Python is 3.11 or 3.12. Each moment named is checked after parsing.
+    visual.add_argument('also', nargs='*', metavar='kind',
                         help='More moments drawn in the same call, in order (the build card, then the checks chip), each '
                              'printed whole under its own heading, so no script ever has to split them')
     visual.add_argument('--widget', action='store_true', help='A mini card as HTML, for a host with an inline visual tool')
@@ -923,6 +925,10 @@ def main():
                  'reviewed-values'):
         sub.add_parser(name).add_argument('request', type=Path)
     args = p.parse_args()
+    if args.command == 'visual':
+        for kind in args.also:
+            if kind not in visuals.KINDS:
+                visual.error('argument kind: invalid choice: %r (choose from %s)' % (kind, ', '.join(map(repr, visuals.KINDS))))
     if args.command == 'wait-task':
         print(json.dumps(wait_task(args.output, args.after, max(1, min(args.timeout, 570))), ensure_ascii=False))
         return 0
@@ -1268,7 +1274,13 @@ def main():
         else:
             output = json.dumps(result, allow_nan=False)
             if len(output.encode()) > 4096 and not args.full:
-                target = project.root / (args.command + '-result.json')
+                # A file per call: the accuracy check runs its answers at once, and one file per command let a large
+                # result overwrite another, so an answer read another question's rows. A day's results are kept.
+                kept = project.root / 'results'
+                for old in kept.glob('*.json') if kept.is_dir() else []:
+                    if time.time() - old.stat().st_mtime > 86400:
+                        old.unlink(missing_ok=True)
+                target = kept / ('%s-%s.json' % (args.command, uuid.uuid4().hex[:12]))
                 project.write(target, result)
                 compact = {**{k: result[k] for k in ('side_page', 'visual') if k in result},
                            'status': result.get('status', 'ok'), 'result_file': str(target),

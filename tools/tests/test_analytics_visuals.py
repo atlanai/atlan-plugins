@@ -373,6 +373,21 @@ class Helper(unittest.TestCase):
         line = [l for l in out.splitlines() if l.startswith('side view: ')]
         return json.loads(line[0][len('side view: '):]) if line else None
 
+    def test_a_list_of_more_moments_carries_no_choices_for_older_pythons(self):
+        # Python 3.10 and 3.11 check a list argument's empty default against its choices, so `visual <kind>` alone was
+        # refused ("invalid choice: []"): no chip, card or side page. The build's Python is 3.11 or 3.12; CI runs 3.13.
+        import ast
+        for call in ast.walk(ast.parse(PROJECT.read_text())):
+            if (isinstance(call, ast.Call) and getattr(call.func, 'attr', '') == 'add_argument' and call.args
+                    and isinstance(call.args[0], ast.Constant) and not str(call.args[0].value).startswith('-')):
+                given = {k.arg: k.value for k in call.keywords}
+                if isinstance(given.get('nargs'), ast.Constant) and given['nargs'].value == '*':
+                    self.assertNotIn('choices', given, call.args[0].value)
+        done = subprocess.run([sys.executable, str(PROJECT), '--run-dir', str(self.run), 'visual', 'found', 'bogus'],
+                              capture_output=True, text=True, env=self.env())
+        self.assertEqual(done.returncode, 2, 'a moment that does not exist is still refused')
+        self.assertIn("invalid choice: 'bogus'", done.stderr)
+
     def test_each_metric_step_s_chip_hands_the_host_s_task_list_its_current_steps(self):
         # h7 built the task list once at the start and never again: the three steps never showed under way, and no
         # estimate ever reached the list. Each step's chip is the moment the agent acts, so it carries the list.

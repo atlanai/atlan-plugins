@@ -27,7 +27,7 @@ class Drafts(unittest.TestCase):
         (folder / name).write_text(payload if isinstance(payload, str) else json.dumps(payload))
 
 
-    def wait(self, due=(), tasks=True, **kw):
+    def wait(self, due=(), tasks=True, engine='engine', **kw):
         """One wait in a terminal that keeps a task list (or not), with the chips the run's files make due held to `due`,
         so each test sees only what it is about."""
         import io
@@ -40,7 +40,7 @@ class Drafts(unittest.TestCase):
         self.run.write(self.run.root / 'progress.json', {'stage': 'build', 'status': 'running'})
         self.run.write(self.run.root / 'interaction.json', {'version': 1, 'mode': 'active', 'focus': None, 'tasks': tasks})
         with mock.patch.object(side_view, 'due', return_value=list(due)), mock.patch.dict(os.environ, {'CLAUDE_CODE_ENTRYPOINT': ''}):
-            drafts.wait(self.run.root, 'engine', interval=0.05, out=out, **{'timeout': 5, 'quiet': 0.4, 'batch_every': 0, **kw})
+            drafts.wait(self.run.root, engine, interval=0.05, out=out, **{'timeout': 5, 'quiet': 0.4, 'batch_every': 0, **kw})
         return json.loads(out.getvalue())
 
     def test_wait_returns_the_task_list_with_the_count_for_each_batch(self):
@@ -229,6 +229,60 @@ class Drafts(unittest.TestCase):
         self.run.write(self.run.root / 'drafts-reported.json', dict(record, said=None, waited=1, waited_at=time.time()))
         live = self.wait(tasks=True, batch_every=999)
         self.assertEqual((live['event'], live['say']), ('quiet', None))
+
+    def test_a_host_with_a_short_time_limit_still_gets_its_quiet_spell(self):
+        # Quiet was measured within one call: with a foreground limit under the quiet spell, every call timed out first,
+        # so a stalled helper was never noticed and the next step's helper was never named.
+        self.answer('x1', '01.json', {'statements': [{'vq_id': 'q1', 'verdict': 'metrics', 'metrics': [{'name': 'Win rate'}]}]})
+        self.assertEqual(self.wait(tasks=False, timeout=0.3, quiet=0.5)['event'], 'again')
+        self.assertEqual(self.wait(tasks=False, timeout=0.3, quiet=0.5)['event'], 'quiet', 'nothing moved across both calls')
+        self.assertEqual(self.wait(tasks=False, timeout=0.3, quiet=0.5)['event'], 'again', 'the next quiet spell starts afresh')
+
+    def test_two_step_ends_between_waits_name_the_next_helper_once(self):
+        # Three steps accepted while the session was busy gave three step events, each naming the same next step: three
+        # helpers for one step, and for the definitions every share started twice.
+        accepted = [{'stage': s, 'verdict': 'ok'} for s in ('a3b_ingest', 'c3_ingest', 'm2_ingest')]
+        self.run.write(self.engine / 'manifest.json', {'stages': accepted})
+        first, second, third = self.wait(), self.wait(), self.wait()
+        self.assertEqual([e['event'] for e in (first, second, third)], ['step', 'step', 'step'])
+        self.assertEqual(first['start']['gate'], 'x1')
+        self.assertEqual((second['start'], third['start']), (None, None), 'named once')
+        self.assertIn('unless one is working on it', first['next'])
+        self.assertEqual(self.wait(tasks=False)['start']['gate'], 'x1', 'a quiet spell still names it, with its guard')
+
+    def test_a_rebuild_in_a_new_engine_folder_reports_its_own_steps(self):
+        # Adding a dashboard after the build runs a new engine folder in the same run: the first build's record of steps
+        # already shown kept the second build's step ends from ever being reported.
+        self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': 'm2_ingest', 'verdict': 'ok'}]})
+        self.assertEqual(self.wait()['event'], 'step')
+        again = self.run.root / 'engine-2'
+        again.mkdir()
+        self.run.write(again / 'x1_prompt.json', {'tasks': [{'domain': 'Sales', 'queries': [{'vq_id': 'q1'}]}]})
+        self.run.write(again / 'manifest.json', {'stages': [{'stage': 'm2_ingest', 'verdict': 'ok'}]})
+        ended = self.wait(engine='engine-2')
+        self.assertEqual((ended['event'], ended['start']['gate']), ('step', 'x1'))
+
+    def test_a_repair_round_is_not_reported_back_until_the_refused_cards_are_rewritten(self):
+        # A live run: the session advanced the definitions on its own, sent two refused cards back for repair, and the wait
+        # at once said every share was back, for the files it had just advanced on; the session ended its turn mid-build.
+        import os, time
+        self.run.write(self.engine / 'x3_prompt.json', {'n_metrics': 2, 'tasks': []})
+        earlier = ['m2_ingest', 'x1_ingest', 'x2_ingest']
+        self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': s, 'verdict': 'ok'} for s in earlier]})
+        self.run.write(self.run.root / 'drafts-reported.json', {'steps': earlier})
+        self.answer('x3', '01.json', {'metrics': [{'name': 'A'}]})
+        self.answer('x3', '02.json', {'metrics': [{'name': 'B'}]})
+        then = time.time() - 60
+        for name in ('01.json', '02.json'):
+            os.utime(self.engine / 'answers' / 'x3' / name, (then, then))
+        self.run.write(self.engine / 'x3_repair.json', {'files': [], 'tasks': [{'name': 'A', 'faults': []}]})
+        self.assertEqual(self.wait(tasks=False)['event'], 'quiet', 'the refused card is still being rewritten')
+        self.answer('x3', '02.json', {'metrics': [{'name': 'B'}]})
+        self.assertEqual(self.wait(tasks=False)['event'], 'quiet', 'another card changing is not the repair')
+        later = time.time() + 5
+        self.answer('x3', '01.json', {'metrics': [{'name': 'A'}]})
+        os.utime(self.engine / 'answers' / 'x3' / '01.json', (later, later))
+        self.assertEqual(self.wait(tasks=False, quiet=30)['event'], 'ready', 'the repaired card is back')
 
 
 if __name__ == '__main__':

@@ -305,6 +305,24 @@ class GenericSetup(unittest.TestCase):
         self.assertEqual(len(json.loads(path.read_text())['sources']), 40)
         self.assertEqual(path.stat().st_mode & 0o777, 0o600)
 
+    def test_each_large_result_keeps_a_file_of_its_own(self):
+        # The accuracy check runs its answers at once: one fixed file per command let a large result overwrite another,
+        # and an answer read the rows of another question.
+        cards = self.seed_candidates()
+        paths = []
+        for size in (150, 151):
+            for card in cards:
+                card['description'] = 'A long source description. ' * size
+            self.run.write(self.run.context / 'metrics.json', cards)
+            result = subprocess.run([sys.executable, '-I', str(SCRIPTS / 'project.py'), '--run-dir', str(self.run.root),
+                                     'preview', '--format', 'html'], text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            paths.append(Path(json.loads(result.stdout)['result_file']))
+        self.assertNotEqual(paths[0], paths[1])
+        said = [p.read_text().count('A long source description.') for p in paths]
+        self.assertTrue(said[0] and said[0] % 150 == 0 and said[1] % 151 == 0, 'the first result is still its own: %s' % said)
+        self.assertEqual(paths[1].stat().st_mode & 0o777, 0o600)
+
     def test_interrupted_inspection_resumes_completed_decode(self):
         (self.estate / 'model.bim').write_text(json.dumps(model()))
         update = progress.update
