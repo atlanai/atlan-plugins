@@ -65,7 +65,7 @@ export const RECEIPT_CAPABILITY = 'Atlan receipt helper is on: publication calls
 /**
  * A shared output's one-call tool: its inline `file.content` is checked for credentials before it
  * leaves. The agent app serves it; a gateway that predates the move serves the same tool, with the
- * same arguments, under the registry's prefix, so the check holds the tool under either server.
+ * same arguments, under Atlan Trident's prefix, so the check holds the tool under either server.
  */
 export const OUTPUT = 'extension__agent__publish_output'
 const OUTPUT_TOOL = /^(?:extension__agent|registry)__publish_output$/
@@ -80,7 +80,7 @@ export const CAPABILITY = 'Atlan publish helper is on: extension__skill__create 
 /** Which atlanai skill fits which ask, for hosts that drop skill descriptions from a crowded listing. */
 export const ROUTING =
   'Atlan skills by ask: find, browse or count what exists, or recent runs: atlan-find-artifacts; use, install or ' +
-  'update a registry skill: atlan-use-skill; publish a skill: atlan-author-skills; an agent: atlan-author-agents; ' +
+  'update an Atlan Trident skill: atlan-use-skill; publish a skill: atlan-author-skills; an agent: atlan-author-agents; ' +
   'a glossary, runbook or other knowledge: atlan-author-knowledge; share, save or record a report or other output: ' +
   'atlan-share; read or upload a raw file: atlan-content; archive, move, deprecate, release or approve: ' +
   'atlan-manage-artifacts; connect a GitHub repo or CI: atlan-connect-repo; another product through Atlan: ' +

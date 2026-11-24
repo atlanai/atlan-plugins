@@ -9,19 +9,19 @@
 # every tool (`atlanai:atlan-get-started` in Claude Code). It is `atlanai`, not `atlan`: Anthropic's
 # plugin directory lists a different plugin named `atlan` (atlanhq/agent-toolkit, Atlan's data
 # catalog), and two plugins of one name share a skill prefix and an MCP server slot, so one
-# silently replaces the other. `atlanai` is also the name of the registry's own plugin, which
+# silently replaces the other. `atlanai` is also the name of Atlan Trident's own plugin, which
 # serves the same `atlan` server, so installing both collapses to one server instead of two.
 name = "atlanai"
-display_name = "AI Registry"
+display_name = "Atlan Trident"
 # Bump on every release: Claude Code holds users on the version they installed.
-version = "0.5.62"
-description = "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key."
-short_description = "Atlan AI Registry"
-long_description = "Connect your coding agent to the Atlan registry with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install a registry skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with the registry's own authoring recipes."
+version = "0.5.63"
+description = "Your organization's skills, agents, knowledge and MCP servers, from Atlan Trident. One sign-in, no API key."
+short_description = "Skills, agents and tools"
+long_description = "Connect your coding agent to Atlan Trident with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install an Atlan Trident skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with Atlan Trident's own authoring recipes."
 license = "Apache-2.0"
 homepage = "https://github.com/atlanai/atlan-plugins"
 repository = "https://github.com/atlanai/atlan-plugins"
-keywords = ["atlan", "registry", "skills", "agents", "mcp", "knowledge", "catalog", "governance"]
+keywords = ["atlan", "trident", "registry", "skills", "agents", "mcp", "knowledge", "catalog", "governance"]
 # Codex's category, from its directory's set (Developer Tools, Productivity, Data & Analytics, ...).
 category = "Developer Tools"
 # Claude's category, from the slugs Anthropic's marketplaces use (development, productivity,
@@ -49,17 +49,17 @@ name = "Atlan"
 url = "https://atlan.com"
 
 [marketplace]
-# Claude lists each plugin "by <marketplace name>", so the name is the brand. The registry names
+# Claude lists each plugin "by <marketplace name>", so the name is the brand. Atlan Trident names
 # each organization's own marketplace after its org handle (`atlan-prod`, `atlan-com`); an org
 # handled exactly `atlan` would collide with this one on one machine.
 name = "atlan"
 display_name = "Atlan Trident"
-description = "Atlan's plugins for coding agents: the Atlan registry's MCP server, the skills to use it, and workloads built on it."
+description = "Atlan's plugins for coding agents: Atlan Trident's MCP server, the skills to use it, and workloads built on it."
 
 [mcp]
-# The server key every Atlan plugin uses, the registry's own umbrella plugin included.
+# The server key every Atlan plugin uses, Atlan Trident's own umbrella plugin included.
 server = "atlan"
-# The registry's public MCP endpoint (Streamable HTTP, OAuth 2.1 resource server). The bare
+# Atlan Trident's public MCP endpoint (Streamable HTTP, OAuth 2.1 resource server). The bare
 # URL is search mode: a few helper tools that reach the whole catalogue (see
 # plugins/atlanai/skills/atlan-get-started/references/full-mode.md).
 url = "https://api.atlan.com/mcp"
@@ -83,17 +83,17 @@ default_prompts = [
 # (plugins/atlanai/assets/), plugin-relative. `make codex-directory` says when none are set.
 # screenshots = ["./assets/screenshot-search.png"]
 
-# Add-ons: a workload built on the registry, as its own plugin under plugins/<name>/ in this
+# Add-ons: a workload built on Atlan Trident, as its own plugin under plugins/<name>/ in this
 # marketplace. It depends on this plugin and declares no MCP server, so it reaches Atlan through
 # this plugin's connection. Its skills, commands and agents are written in its folder; the app
 # behind the workload pins this repository. Bump an add-on's version on every release of it.
 [[addons]]
 name = "atlanai-analytics"
 display_name = "Analytics"
-version = "0.9.84"
+version = "0.9.90"
 description = "Try Atlan Analytics on a demo or set it up on your own data, step by step: survey dashboards and query history, generate and check metrics, save them locally or to Atlan, ask questions and build a dashboard."
 short_description = "Publish analytics context and ask your data with Atlan"
-long_description = "The analytics workload on the Atlan registry, as seven skills. analytics-demo walks through a made-up firm end to end. analytics-build does the same on your own data, starting from nothing, a dashboard or a subject: it surveys what you already have, asks what you want to answer, and builds from reports first, then query history, then table definitions. source-survey says what a setup, a subject or a source holds, what can be built from it, and which metric names it offers. metrics-generation generates, checks, edits, proposes and publishes metrics and saved queries with the metrics engine. analytics-ask answers a data question from published metrics, with the definition it used, and turns answers into a dashboard. eval-generation turns the questions a team already asks into an eval set with trusted SQL, kept locally or saved to Atlan. accuracy-check runs a set against the context and scores it, saying why each miss failed. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection."
+long_description = "The analytics workload on Atlan Trident, as seven skills. analytics-demo walks through a made-up firm end to end. analytics-build does the same on your own data, starting from nothing, a dashboard or a subject: it surveys what you already have, asks what you want to answer, and builds from reports first, then query history, then table definitions. source-survey says what a setup, a subject or a source holds, what can be built from it, and which metric names it offers. metrics-generation generates, checks, edits, proposes and publishes metrics and saved queries with the metrics engine. analytics-ask answers a data question from published metrics, with the definition it used, and turns answers into a dashboard. eval-generation turns the questions a team already asks into an eval set with trusted SQL, kept locally or saved to Atlan. accuracy-check runs a set against the context and scores it, saying why each miss failed. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection."
 keywords = ["atlan", "analytics", "metrics", "text-to-sql", "talk-to-data", "snowflake", "databricks", "dashboards"]
 category = "Data & Analytics"
 claude_category = "data"
@@ -123,21 +123,21 @@ default_prompts = [
 # desktop app does not read (tools/lint.py refuses it).
 [[mods]]
 name = "atlanai-mods"
-display_name = "Registry Mods"
-version = "0.4.10"
-description = "Claude Code mod for the Atlan registry: registry reads run without a prompt, writes ask first, archive and move show what depends on the artifact, temporary gateway errors tell Claude how to retry, Atlan calls read as one line in the transcript, a pane lists what the session touched, a band follows a skill publish, /atlan skills picks a skill to load, a registry skill that clearly fits a request is named to Claude, and the status line reports a broken or degraded Atlan connection."
-keywords = ["atlan", "registry", "mods", "permissions"]
+display_name = "Trident Mods"
+version = "0.4.11"
+description = "Claude Code mod for Atlan Trident: Atlan Trident reads run without a prompt, writes ask first, archive and move show what depends on the artifact, temporary gateway errors tell Claude how to retry, Atlan calls read as one line in the transcript, a pane lists what the session touched, a band follows a skill publish, /atlan skills picks a skill to load, an Atlan Trident skill that clearly fits a request is named to Claude, and the status line reports a broken or degraded Atlan connection."
+keywords = ["atlan", "trident", "registry", "mods", "permissions"]
 claude_category = "development"
 
 [mods.user_config.confirm_writes]
 type = "boolean"
-title = "Ask before registry writes"
+title = "Ask before Trident writes"
 description = "Ask before Claude creates or changes anything in Atlan. Archive, approve, move, release and roll-back always ask."
 default = true
 
 [mods.user_config.suggest_skills]
 type = "boolean"
-title = "Suggest registry skills"
+title = "Suggest Trident skills"
 description = "Search your organization's Atlan skills with each request, and name one to Claude when it clearly fits. The first 300 characters of the request are sent to Atlan's search."
 default = true
 
@@ -157,7 +157,7 @@ prompt = "Use $atlan-find-artifacts to find what my organization already has for
 
 [skills.atlan-use-skill]
 display_name = "Use an Atlan Skill"
-short_description = "Load or install a skill from the Atlan registry"
+short_description = "Load or install a skill from Atlan Trident"
 prompt = "Use $atlan-use-skill to find an Atlan skill for this task and use it here."
 
 [skills.atlan-use-mcp-servers]

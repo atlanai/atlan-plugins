@@ -10,7 +10,7 @@ is what stops the name, version and MCP URL drifting apart between tools.
 
 The repository is a marketplace: its root holds only the marketplace files, and every plugin is a
 folder under plugins/. The core, `[plugin]` in plugin.toml, is plugins/<name>/ and holds the one
-`atlan` MCP server. An add-on (`[[addons]]`) is a workload built on the registry, in its own folder
+`atlan` MCP server. An add-on (`[[addons]]`) is a workload built on Atlan Trident, in its own folder
 beside the core. It depends on the core and declares no MCP server, so it reaches Atlan through the
 core's one connection. A mod (`[[mods]]`) is a Claude Code plugin whose hooks module changes how
 Claude Code treats the core's tools; it is listed in the Claude marketplace alone, since no other
@@ -320,7 +320,7 @@ In Cortex Code, install each from its folder, one chat message each:
 Analytics itself has no hooks or shipped executable binaries. Its skills run bundled Python helpers and may
 set up an isolated metrics-agent environment with pinned dependencies after authorization.
 {view_privacy}\
-Working files stay in your project. Input plugs use the source connections you select; Registry
+Working files stay in your project. Input plugs use the source connections you select; Atlan Trident
 writes use the `{plugin['name']}` plugin's connection, signed in as you. See Atlan's
 [privacy notice]({plugin['privacy_policy_url']}).
 

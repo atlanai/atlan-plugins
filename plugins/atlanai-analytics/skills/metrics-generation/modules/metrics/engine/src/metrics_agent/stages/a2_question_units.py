@@ -140,6 +140,53 @@ def _with_table(f: dict, table: str | None) -> dict:
     return {**f, "table": table} if table else f
 
 
+def _columns_by_table(tables: list[dict]) -> dict[str, list[str]]:
+    """Warehouse table -> the columns the model reads from it. Several model tables may read
+    one warehouse table (the table itself and a native query over it, a role-playing copy):
+    their columns are the object's together, so a later table never replaces an earlier one's."""
+    out: dict[str, list[str]] = {}
+    for t in tables:
+        cols = out.setdefault(t["name"], [])
+        cols += [c for c in (x["source_column"] or x["name"] for x in t["columns"]) if c not in cols]
+    return out
+
+
+def _renames_by_table(tables: list[dict]) -> dict[str, dict[str, str]]:
+    """Warehouse table -> {model column name: the warehouse column it reads}, renamed columns
+    only.
+
+    Keyed by the warehouse table, which several model tables may share. A table read through
+    a native query renames to that QUERY's output columns, which are not the warehouse's and
+    are resolved from the query itself (`_unit_source_columns`): it contributes here only
+    when no table reads the object directly. Where two tables give one model name different
+    warehouse columns the name is left out, so the compiler refuses it by name instead of
+    reading whichever table was listed last. Before this was one dict comprehension, and a
+    native-query summary over a fact table silently erased the fact table's renames."""
+    def renames(t: dict) -> dict[str, str]:
+        return {str(c["name"]).lower(): c["source_column"] for c in t["columns"]
+                if c.get("source_column") and not c.get("is_calculated")
+                and str(c["name"]).lower() != str(c["source_column"]).lower()}
+
+    def native(t: dict) -> bool:
+        return bool((t.get("source_lineage") or {}).get("native_sql"))
+
+    by_name: dict[str, list[dict]] = {}
+    for t in tables:
+        by_name.setdefault(t["name"], []).append(t)
+    out: dict[str, dict[str, str]] = {}
+    for name, group in by_name.items():
+        direct = [t for t in group if not native(t)] or group
+        merged: dict[str, str] = {}
+        clash: set[str] = set()
+        for t in direct:
+            for k, v in renames(t).items():
+                if k in merged and str(merged[k]).lower() != str(v).lower():
+                    clash.add(k)
+                merged.setdefault(k, v)
+        out[name] = {k: v for k, v in merged.items() if k not in clash}
+    return out
+
+
 def _to_source_columns(names: list[str], wh: list[str],
                        source_of: dict[str, dict[str, str]]) -> list[str]:
     """Model column names -> the warehouse columns they read, where the model renamed them.
@@ -224,15 +271,11 @@ def body(ctx: stage.Ctx) -> None:
         # table name -> its resolved warehouse target and columns
         lineage: dict[str, dict] = {t["name"]: t.get("source_lineage") or {} for t in facts["tables"]}
         measures = {m["name"].lower(): m for m in facts["measures"]}
-        cols_of: dict[str, list[str]] = {
-            t["name"]: [c["source_column"] or c["name"] for c in t["columns"]]
-            for t in facts["tables"]}
+        # The relationships with each key as its table reads it (a join is over the warehouse).
+        relationships = _models.edges_on_source_columns(facts["relationships"], facts["tables"])
+        cols_of = _columns_by_table(facts["tables"])
         # table -> {model column name: the warehouse column it reads}, renamed columns only.
-        source_of: dict[str, dict[str, str]] = {
-            t["name"]: {str(c["name"]).lower(): c["source_column"] for c in t["columns"]
-                        if c.get("source_column") and not c.get("is_calculated")
-                        and str(c["name"]).lower() != str(c["source_column"]).lower()}
-            for t in facts["tables"]}
+        source_of = _renames_by_table(facts["tables"])
         # A measure's declared home table, resolved to the warehouse name the table now carries
         # (TMDL names the logical table; the partition renames it to the physical target).
         logical_to_physical = {}
@@ -430,13 +473,17 @@ def body(ctx: stage.Ctx) -> None:
             # it. Compiling it anyway refuses the visual (the column is not on its source) for
             # a filter the report never applies. Only an explicit table hint, only Power BI,
             # and only where no active relationship joins the two in either direction.
-            own = [t for t in measure_home + col_tables if t]
+            # Decided on the MODEL's tables, as the relationships name them: two model tables
+            # may read one warehouse table (a fact and a native-query summary over it), and
+            # only one of them is related to the filter's table.
+            own = ({str(t).lower() for t in u.get("column_tables") or [] if t}
+                   | {logical_home_of.get(m.lower()) for m in u["measures"]}) - {None, ""}
             if facts.get("vendor") == "powerbi" and own:
                 kept = []
                 for f in u["filters"]:
-                    ft = _wh_table(f.get("table"))
-                    if ft and ft not in own and not _related(
-                            ft, own, facts["relationships"], logical_to_physical):
+                    ft = str(f.get("table") or "").lower()
+                    if ft and _wh_table(f.get("table")) and ft not in own and not _related(
+                            ft, own, facts["relationships"]):
                         ctx.say(f"a2: {u['title']!r}: the filter on {f.get('column')!r} "
                                 f"({f.get('table')}) does not reach this visual: no "
                                 f"relationship joins that table to the visual's")
@@ -594,7 +641,7 @@ def body(ctx: stage.Ctx) -> None:
                 # empty graph — which downstream reads as "no relationship exists", so every
                 # cross-table grouping became unreachable. Matched on the bare name, and REWRITTEN
                 # to the physical names so no consumer has to repeat this translation.
-                "join_graph": _resolve_edges(facts["relationships"], wh,
+                "join_graph": _resolve_edges(relationships, wh,
                                              logical_to_physical, measure_home),
                 "container": {
                     "path": [facts.get("model_name") or "", u["container"], str(u["visual_id"])],
@@ -801,22 +848,22 @@ def _distinct_home(col_tables: list[str], relationships: list[dict],
     return None
 
 
-def _related(table: str, others: list[str], relationships: list[dict],
-             logical_to_physical: dict[str, str]) -> bool:
-    """Whether active relationships join `table` to any of `others`, in either direction and
-    through any number of tables. Undirected on purpose: it only decides that a filter has NO
-    path at all, so a path a cross-filter direction would block still keeps the filter."""
-    def phys(name: str) -> str:
-        return logical_to_physical.get(str(name).split(".")[-1].lower(), str(name))
+def _related(table: str, others, relationships: list[dict]) -> bool:
+    """Whether active relationships join the model table `table` to any of `others`, in either
+    direction and through any number of tables. Names are the model's own, compared without
+    case. Undirected on purpose: it only decides that a filter has NO path at all, so a path a
+    cross-filter direction would block still keeps the filter."""
     adj: dict[str, set[str]] = {}
     for r in relationships or []:
         if r.get("is_active") is False:
             continue
-        a, b = phys(r.get("from_table") or ""), phys(r.get("to_table") or "")
+        a, b = str(r.get("from_table") or "").lower(), str(r.get("to_table") or "").lower()
         if a and b:
             adj.setdefault(a, set()).add(b)
             adj.setdefault(b, set()).add(a)
-    targets, seen, todo = set(others), {table}, [table]
+    targets = {str(o).lower() for o in others}
+    start = str(table).lower()
+    seen, todo = {start}, [start]
     while todo:
         cur = todo.pop()
         if cur in targets:
