@@ -180,18 +180,23 @@ def _live(engine, under):
 
 
 def _left(engine, gate, done, total):
-    """Time left at the step's pace so far: the time since its prompt was written, per item done, for the items still to
-    come. None before the first item, when there is no pace yet."""
+    """Time left at the step's pace so far: the time since its first batch landed, per item done since, for the items
+    still to come. Measured from the batches, not the step's prompt: a run resumed hours later read "about 480 min left".
+    None until a second batch, when there is a pace."""
     import time
     if not total or not done:
         return None
     if done >= total:
         return 'nearly done'
-    try:
-        started = (engine.dir / ('%s_prompt.json' % gate)).stat().st_mtime
-    except OSError:
+    files = _saved(engine, gate)
+    if len(files) < 2:
         return None
-    seconds = (time.time() - started) / done * (total - done)
+    first = files[0]
+    head = {'m2': 'queries', 'x1': 'statements'}.get(gate, 'metrics')
+    since = done - len(engine.rows(first, head))
+    if since <= 0:
+        return None
+    seconds = (time.time() - first.stat().st_mtime) / since * (total - done)
     return 'nearly done' if seconds < 45 else 'about %d min left' % max(1, round(seconds / 60))
 
 
@@ -227,7 +232,7 @@ WAITED = {
              "refused card to the subagent whose share holds its task number, then run `PROJECT drafts --wait` again.",
     'quiet': "Nothing new has reached the screen for a while. Check that each subagent is working. When nothing has "
              "shown for about 3 minutes, write one line for the person, in the task list's own words: the step under "
-             "way and its count (\"Adding detailed information: 10 of 22 written.\"), never words about time passing, never what you are about to do "
+             "way and its count (\"Adding detailed information: 10 of 22 written.\"), never a word about waiting, never what you are about to do "
              "and never a line you already wrote. Then run `PROJECT drafts --wait` again.",
     'done': "Add no words of your own: export the build into the run and run `PROJECT check` for the structural pass, "
             "as build and check says. The build's card comes once, right before the save question.",

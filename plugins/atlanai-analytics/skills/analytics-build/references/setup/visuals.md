@@ -26,7 +26,8 @@ before going on. While the engine builds, its result after each gate says so too
      call and pass the HTML it prints to that tool, chips and cards alike, never in a
      question's text. Pass what a `visual` call prints before its `side view:` line as it is:
      never send it to a file, cut it with a script, or say that you need it. Two moments in a
-     row come from one call (`visual build context`), each under its own heading. Your own words reach the person there too, so the widget is the moment's
+     row come from one call (`visual build context`): each moment's HTML ends at its own
+     `side view:` line. Your own words reach the person there too, so the widget is the moment's
      result.
    - **Otherwise** (a terminal): the helper prints plain lines and says where they go. A moment
      that comes right before a native question goes in that question's own text, which is always

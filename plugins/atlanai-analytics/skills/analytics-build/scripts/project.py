@@ -968,17 +968,20 @@ def main():
         if args.command == 'visual' and args.also:
             # Two moments in a row each ran as their own call, and sessions joined them with a shell separator (which zsh
             # refuses) or cut them apart with a script, three live runs in a row (2026-11-23). One call prints both.
+            # Each moment ends at its own `side view:` line, so what comes before it is that moment, whole: no heading.
+            if args.input:
+                raise ProjectError('A moment read from stdin is drawn on its own: run `visual <kind> --input -` alone.')
             flags = (['--widget'] if args.widget else []) + [x for d in args.data for x in ('--data', str(d))] + (
                 ['--engine-dir', str(args.engine_dir)] if args.engine_dir else [])
             import subprocess
-            kinds = [args.kind] + list(args.also)
-            for n, kind in enumerate(kinds, 1):
+            worst = 0
+            for kind in [args.kind] + list(args.also):
                 done = subprocess.run([sys.executable, str(Path(__file__).resolve()), '--run-dir', str(args.run_dir),
                                        'visual', kind, *flags], capture_output=True, text=True)
-                print('Moment %d of %d: %s' % (n, len(kinds), kind))
                 print((done.stdout or '').rstrip() + ('\n' + done.stderr.rstrip() if done.returncode and done.stderr else ''))
                 print()
-            return 0
+                worst = max(worst, done.returncode)
+            return worst
         if args.command == 'visual':
             import side_page
             import side_view

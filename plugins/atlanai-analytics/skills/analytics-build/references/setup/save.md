@@ -34,8 +34,8 @@ When every check has run, before any save, sign-in or workspace step, run
 `PROJECT question save`, adding `--data` with the demo's facts file for a demo
 ([Fixit](../../../analytics-demo/references/yard.json),
 [Ticketfuddle](../../../analytics-demo/references/box-office.json)), and nothing for own data.
-With `show_widget`, first draw both with one call, `PROJECT visual build context --widget`: it prints
-each under its own heading, and each one's HTML goes to `show_widget` as printed. Then add
+With `show_widget`, first draw both with one call, `PROJECT visual build context --widget`: each
+moment's HTML ends at its own `side view:` line and goes to `show_widget` as printed. Then add
 `--widget` here. Ask
 one native question with the `header`, the `question` text and the `options` it prints, exactly
 as given. Without widgets the text says in sentences what the build card and the checks chip

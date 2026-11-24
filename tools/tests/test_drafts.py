@@ -135,7 +135,8 @@ class Drafts(unittest.TestCase):
         # The time left follows the step's pace since its prompt was written, so it moves as the work does.
         import os, time
         self.run.write(self.engine / 'x3_prompt.json', {'n_metrics': 4, 'tasks': []})
-        os.utime(self.engine / 'x3_prompt.json', (time.time() - 180, time.time() - 180))
+        # A step set up three hours before its helpers started (a resumed run) still reads its own pace.
+        os.utime(self.engine / 'x3_prompt.json', (time.time() - 10800, time.time() - 10800))
         earlier = ['m2_ingest', 'x1_ingest', 'x2_ingest']
         self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': s, 'verdict': 'ok'} for s in earlier]})
         self.run.write(self.run.root / 'drafts-reported.json', {'steps': earlier})
