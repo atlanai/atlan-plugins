@@ -136,9 +136,7 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   `bin/`: two plugins registering the `atlan` server would show every Atlan tool twice, and
   `make check` refuses it. Only Claude Code installs the dependency; in other hosts the add-on's
   skills check for the Atlan tools and say what to install. Rules every Analytics skill follows live in
-  `analytics-build/references/conventions.md`, and the other skills link to it: the metric
-  service copies `analytics-build`, so the rules travel with the copy. `make check` holds its
-  words (`TERMS` in `tools/lint.py`).
+  `analytics-build/references/conventions.md`.
 - **Cortex Code reads its own manifest.** CoCo reads `.cortex-plugin/plugin.json` before
   `.claude-plugin/`, so the build writes one for the core and each add-on (none for a mod) with no
   hooks: CoCo runs neither the hooks module nor the command hooks, whose `items_from` expansion
