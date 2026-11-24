@@ -22,7 +22,7 @@ Without it, each finished build step shows as one line in the chat.
 
 
 Only Claude Code installs a plugin's dependencies. Other hosts install plugins one at a time, so
-add `atlanai` first; without it, the setup skills show how to install it. In Codex:
+add `atlanai` first. Without it, the setup skills show how to install it. In Codex:
 
 ```
 codex plugin marketplace add atlanai/atlan-plugins
@@ -31,7 +31,7 @@ codex plugin add atlanai-analytics@atlan
 ```
 
 In Cursor, on a Teams or Enterprise plan, an admin adds `https://github.com/atlanai/atlan-plugins` under
-**Dashboard**, **Plugins & MCPs**, **Add Marketplace**, **Import from Repo**; each developer then
+**Dashboard**, **Plugins & MCPs**, **Add Marketplace**, **Import from Repo**. Each developer then
 installs `atlanai` and `atlanai-analytics` from **Customize**.
 
 In Cortex Code, install each from its folder, one chat message each:

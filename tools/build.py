@@ -301,7 +301,7 @@ claude plugin install {addon['name']} --marketplace {slug}
 {view_note}
 
 Only Claude Code installs a plugin's dependencies. Other hosts install plugins one at a time, so
-add `{plugin['name']}` first; without it, the setup skills show how to install it. In Codex:
+add `{plugin['name']}` first. Without it, the setup skills show how to install it. In Codex:
 
 ```
 codex plugin marketplace add {slug}
@@ -310,7 +310,7 @@ codex plugin add {addon['name']}@{market}
 ```
 
 In Cursor, on a Teams or Enterprise plan, an admin adds `https://github.com/{slug}` under
-**Dashboard**, **Plugins & MCPs**, **Add Marketplace**, **Import from Repo**; each developer then
+**Dashboard**, **Plugins & MCPs**, **Add Marketplace**, **Import from Repo**. Each developer then
 installs `{plugin['name']}` and `{addon['name']}` from **Customize**.
 
 In Cortex Code, install each from its folder, one chat message each:
