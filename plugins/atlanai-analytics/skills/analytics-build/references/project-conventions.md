@@ -24,15 +24,6 @@ State holds what the shared conventions keep for a conversation: record the regi
 id as `session_id`, and the warehouse query tool as `warehouse.tool` in the dialect recorded as
 `warehouse.dialect`.
 
-## Contents
-
-- Asking questions
-- Approval mode and task scope
-- Dashboard orchestration policy
-- Phases and gates
-- Safety (non-negotiable)
-- Talking to the user
-
 ## Asking questions
 
 - **One decision per `AskUserQuestion` call** (a plain chat question where the harness has no

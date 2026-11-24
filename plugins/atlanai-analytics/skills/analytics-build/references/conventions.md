@@ -6,15 +6,6 @@ A mode that keeps a project directory (metrics, dashboard, propose) also reads
 mode follow their own context-publication stages. Dashboard mode uses their
 explicit orchestration policy for phase approvals and continuation; these safety rules still apply.
 
-## Contents
-
-- Registry calls
-- Source of truth
-- Safety
-- Carry decisions forward
-- Words the person reads
-- Orientation, progress and endings
-
 ## Registry calls
 
 - **Search mode** (the default) lists `mcp__search_tools`, `mcp__describe_tools` and three

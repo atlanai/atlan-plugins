@@ -24,16 +24,6 @@ directly to the shell. Do not store a whole command in a string variable; zsh do
 If the host has no shell, preserve the task and name that prerequisite once. Do not delegate
 to another agent to obtain a capability this host does not provide.
 
-## Contents
-
-- 0. Prepare the source project, then keep ownership of the workflow
-- 1. Survey before choosing inputs
-- 2. Bind data once
-- 3. Combine evidence and author both context types
-- 4. Preview, publish and read back
-- 5. Suggest questions, then let the user ask
-- 6. Retrieval contract for every question
-
 ## 0. Prepare the source project, then keep ownership of the workflow
 
 For a repository URL, use the exact user-supplied repository. Inspect the current folder and

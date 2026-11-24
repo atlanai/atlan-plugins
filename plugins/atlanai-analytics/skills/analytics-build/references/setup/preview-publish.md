@@ -2,12 +2,6 @@
 
 `PROJECT` is the helper named in [setup](../setup.md). Read this file on entering Preview, including on resume.
 
-## Contents
-
-- 5. Show the metrics before asking where to publish
-- 6. Choose the destination, reconcile and publish
-- 7. Ready to ask here
-
 ## 5. Show the metrics before asking where to publish
 
 **No Atlan connection, no destination question.** Before offering Atlan, check that

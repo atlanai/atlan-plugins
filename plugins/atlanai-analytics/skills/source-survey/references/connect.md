@@ -8,16 +8,6 @@ Connecting is always the person's own sign-in. Never ask for, print or store a w
 password, key or token. The statements for each warehouse are in
 [warehouses](warehouses.md); read only the section for the warehouse in question.
 
-## Contents
-
-- 0. Reuse what state holds
-- 1. Look through Atlan first
-- 2. The harness's own connectors
-- 3. A vendor CLI, where there is a shell
-- 4. Ask for it to be added
-- 5. Check and record
-- 6. Bulk reads
-
 ## 0. Reuse what state holds
 
 For a selected local project setup run, inspect its `run.json` through `project.py status`.
