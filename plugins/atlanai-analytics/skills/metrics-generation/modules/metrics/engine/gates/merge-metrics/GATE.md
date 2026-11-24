@@ -33,6 +33,9 @@ compete with each other in search.
 Neither is decidable from the expression. Read the definitions, the `why_a_metric`, and the
 statements behind them.
 
+Keep a proposed sum over a named output column tied to its source query. Merge such proposals
+only when they use the same input rows. Use `custom` for values read as-is.
+
 ## Output
 
 ```json

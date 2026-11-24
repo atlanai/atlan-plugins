@@ -190,13 +190,20 @@ rules:
 
   - id: dax.divide
     match: {language: dax, function: DIVIDE}
-    emit: {template: "{0} / NULLIF({1}, 0)"}
+    emit:
+      template: "{0} / NULLIF({1}, 0)"
+      by_arity:
+        "3": "CASE WHEN COALESCE({1}, 0) = 0 THEN {2} ELSE {0} / {1} END"
     tier: stable
     evidence: dax
     note: >
       DIVIDE is a GUARDED division — that is its entire reason to exist. Emitting a bare `/`
       would turn a blank into a division-by-zero error, which is a different answer, not a
-      different spelling.
+      different spelling. DIVIDE(n, d, alternate) returns the alternate where the denominator
+      is zero or BLANK, and n / d otherwise (a BLANK numerator stays BLANK): `DIVIDE(x, 0, 0)`
+      is 0, `DIVIDE(x, BLANK(), -1)` is -1, `DIVIDE(BLANK(), 4, 0)` is BLANK. The two-argument
+      form is the same with BLANK as the alternate. Refusing the three-argument form blocked
+      every ratio written defensively (`DIVIDE([Sales], [Transactions], 0)`).
 
   # IFERROR(value, alt) returns alt only where value RAISES AN ERROR (seen live): a
   # division by zero or BLANK under a non-blank dividend is one (IFERROR(5 / 0, -1) is -1, as

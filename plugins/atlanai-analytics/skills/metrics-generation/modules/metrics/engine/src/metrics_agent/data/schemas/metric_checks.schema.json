@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/metric_checks.schema.json",
+  "title": "Operator-supplied metric validation inputs",
+  "description": "Optional X3 input keyed by merged metric name. These fields are used only to check a metric and are never part of a metric card.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "metrics"],
+  "properties": {
+    "contract_version": {"const": "1.0"},
+    "metrics": {
+      "type": "object",
+      "propertyNames": {"minLength": 1},
+      "additionalProperties": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "snapshot_period_column": {"type": "string", "minLength": 1},
+          "expected_value": {"type": "number"},
+          "expected_tolerance": {"type": "number", "minimum": 0}
+        },
+        "dependentRequired": {
+          "expected_tolerance": ["expected_value"]
+        }
+      }
+    }
+  }
+}

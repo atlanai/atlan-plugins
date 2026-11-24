@@ -1,0 +1,134 @@
+{
+  "name": "dax_selectedvalue_of_a_dimension_reads_the_dimension",
+  "dialect": "duckdb",
+  "unit": {
+    "filters": [],
+    "top_n": null,
+    "join_graph": [
+      {
+        "from_table": "retail.fct_sales",
+        "from_column": "date_sk",
+        "to_table": "retail.dim_date",
+        "to_column": "date_sk",
+        "cardinality": "M:1",
+        "kind": "relationship",
+        "is_active": true
+      },
+      {
+        "from_table": "retail.fct_budget",
+        "from_column": "date_sk",
+        "to_table": "retail.dim_date",
+        "to_column": "date_sk",
+        "cardinality": "M:1",
+        "kind": "relationship",
+        "is_active": true
+      },
+      {
+        "from_table": "retail.fct_sessions",
+        "from_column": "date_sk",
+        "to_table": "retail.dim_date",
+        "to_column": "date_sk",
+        "cardinality": "M:1",
+        "kind": "relationship",
+        "is_active": true
+      },
+      {
+        "from_table": "retail.fct_sales",
+        "from_column": "product_key",
+        "to_table": "retail.dim_product",
+        "to_column": "product_key",
+        "cardinality": "M:1",
+        "kind": "relationship",
+        "is_active": true
+      }
+    ],
+    "unit_id": "sv",
+    "warehouse_tables": [
+      "retail.fct_budget"
+    ],
+    "group_by": [],
+    "measures": [
+      {
+        "name": "Budget",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "VAR b = SUM(Budget[budget]) VAR p = SELECTEDVALUE(Product[brand_flag]) RETURN SWITCH(TRUE(), p = \"Y\", BLANK(), b)"
+      }
+    ]
+  },
+  "expect_sql": "SELECT (CASE\n  WHEN UPPER(COALESCE(((SELECT CASE WHEN COUNT(DISTINCT h.brand_flag) + MAX(CASE WHEN h.brand_flag IS NULL THEN 1 ELSE 0 END) = 1 THEN MIN(h.brand_flag) ELSE NULL END FROM retail.dim_product h)), '')) = UPPER('Y') THEN NULL\n  ELSE (SUM(t.budget))\nEND) AS budget\nFROM   retail.fct_budget t",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "dax.blank",
+    "dax.sum",
+    "engine.dax_blank_comparison",
+    "engine.dax_selectedvalue_dimension",
+    "engine.dax_switch",
+    "engine.dax_text_comparison"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "date_sk",
+      "amount",
+      "product_key",
+      "online",
+      "order_id"
+    ],
+    "retail.fct_budget": [
+      "date_sk",
+      "budget"
+    ],
+    "retail.fct_sessions": [
+      "date_sk",
+      "sessions"
+    ],
+    "retail.dim_date": [
+      "date_sk",
+      "calendar_date",
+      "month_start"
+    ],
+    "retail.dim_product": [
+      "product_key",
+      "brand_flag"
+    ]
+  },
+  "table_of": {
+    "sales": "retail.fct_sales",
+    "budget": "retail.fct_budget",
+    "sessions": "retail.fct_sessions",
+    "date": "retail.dim_date",
+    "product": "retail.dim_product"
+  },
+  "types": [
+    [
+      "date",
+      "calendar_date",
+      "dateTime"
+    ],
+    [
+      "date",
+      "month_start",
+      "dateTime"
+    ],
+    [
+      "date",
+      "date_sk",
+      "int64"
+    ],
+    [
+      "sales",
+      "date_sk",
+      "int64"
+    ],
+    [
+      "sales",
+      "online",
+      "string"
+    ],
+    [
+      "product",
+      "brand_flag",
+      "string"
+    ]
+  ]
+}

@@ -43,6 +43,16 @@ class DiscoverTest(unittest.TestCase):
             out = summarize(d, per_role=12)
             self.assertEqual((len(out['sources']['history']), out['omitted']['history']), (12, 3))
 
+    def test_catalogue_export_is_offered_before_history(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            (folder / 'DIM_MEASURE.csv').write_text('MEASURE_NAME,EXACT_SQL\n')
+            (folder / 'query_history.jsonl').write_text('{"sql": "select 1"}\n')
+            found = summarize(folder)
+            self.assertEqual(list(found['sources']), ['bi', 'history', 'data'])
+            [catalogue] = found['sources']['bi']
+            self.assertEqual(catalogue['kind'], 'metric_catalogue')
+
     def test_the_demo_folders_are_never_part_of_a_setup(self):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)

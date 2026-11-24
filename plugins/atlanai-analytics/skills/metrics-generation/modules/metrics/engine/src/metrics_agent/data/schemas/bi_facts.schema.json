@@ -129,6 +129,10 @@
                 ],
                 "description": "Set by the reader when the BI tool's own query steps change the table's rows or values (a row filter, a computed column, a value-changing type conversion, a grouping, a merge, an append, a de-duplication): one SQL statement over the warehouse, in the dialect of the warehouse the table is read through, returning exactly the rows and columns the model table holds, each column under the name its `source_column` says. A3 reads the table as this statement wherever it would read a warehouse table, joins included. The table's `name` is then the reader's own and is no warehouse table; `reads` lists the warehouse tables the statement reads."
               },
+              "mapped_from": {
+                "type": "string",
+                "description": "The name the reader gave this table before `bi_tables` (a run setting) mapped it to the warehouse table `database.schema.object` names: the model's own source could not say (a Direct Lake model names OneLake storage)."
+              },
               "refusal": {
                 "type": [
                   "string",
@@ -1543,6 +1547,24 @@
         "examples"
       ],
       "properties": {
+        "statement_sql": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mandatory_filters": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "expected_value": {
+          "type": "number"
+        },
+        "expected_tolerance": {
+          "type": "number",
+          "minimum": 0
+        },
         "entity": {
           "type": "string",
           "minLength": 1,
