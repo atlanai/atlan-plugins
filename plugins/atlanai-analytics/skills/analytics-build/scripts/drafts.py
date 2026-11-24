@@ -325,7 +325,10 @@ def wait(root, engine_dir=None, timeout=540, quiet=180, interval=2.0, out=None, 
             _save_record(engine, dict(record, waited=now, waited_at=time.time()))
             return say('batch', task_list=task_list(root, engine_dir))
         if time.monotonic() - last >= quiet:
-            line = quiet_line(engine)
+            # Where a live task list and side page show the count, a printed line only repeats them and then goes stale
+            # in the chat as they move on: the line is for a host with no task list, whose chat is the only progress.
+            import visuals
+            line = None if visuals.keeps_tasks(root) else quiet_line(engine)
             if line and line == record.get('said'):
                 line = None
             if line:

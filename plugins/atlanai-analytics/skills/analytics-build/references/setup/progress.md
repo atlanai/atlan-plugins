@@ -21,10 +21,11 @@ the app's own labels for each command and helper.
   - a problem that changes something for the person: what happened, the count, what happens next;
   - the person asks ("what's happening?", "is it stuck?"): the current step and its real counts,
     then keep waiting in the same turn;
-  - nothing new has reached the screen for about 3 minutes: during the build, the line the wait
-    hands over in `say`, word for word, and nothing when it gives none. The helper composes it from
-    the task list's count and never repeats one; at other waits, the same shape: the step under
-    way and its count, once.
+  - only where there is no task list (a terminal), when nothing new has reached the screen for
+    about 3 minutes: during the build, the line the wait hands over in `say`, word for word, and
+    nothing when it gives none; at other waits, the step under way and its count, once. Where a
+    task list and the side page show the count live, write nothing: a printed count stays in the
+    chat and reads wrong once they move on.
 
   Real counts come from `PROJECT checklist`, or `EVAL todo` during an accuracy check.
 - **When it ends**: its result, once, as its chip or card, or one line in the past tense with

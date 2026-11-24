@@ -203,6 +203,11 @@ class Drafts(unittest.TestCase):
         quiet = self.wait(tasks=False)
         self.assertEqual((quiet['event'], quiet['say']), ('quiet', 'Adding detailed information: 1 of 4 written.'))
         self.assertIsNone(self.wait(tasks=False)['say'], 'never the same line twice')
+        # With a live task list (its last update already sent), a printed count would only go stale in the chat.
+        record = json.loads((self.run.root / 'drafts-reported.json').read_text())
+        self.run.write(self.run.root / 'drafts-reported.json', dict(record, said=None, waited=1, waited_at=time.time()))
+        live = self.wait(tasks=True, batch_every=999)
+        self.assertEqual((live['event'], live['say']), ('quiet', None))
 
 
 if __name__ == '__main__':
