@@ -99,7 +99,7 @@ category = "Data & Analytics"
 claude_category = "data"
 install_note = """
 In Claude Code's terminal, a build's progress shows in Claude Code's own task list. Some models have the task list on
-by default; for the others, such as Opus 5.5, add this to the `env` in your Claude Code settings
+by default. If yours shows no task list, add this to the `env` in your Claude Code settings
 (`~/.claude/settings.json`) once, then start a new session:
 
 ```json
@@ -111,7 +111,50 @@ Without it, each finished build step shows as one line in the chat.
 default_prompts = [
   "Show me an Atlan Analytics demo",
   "Help me use this dashboard, folder or BI export to ask questions about my data",
-  "Build metrics and saved queries for our support tables from the warehouse's query history",
+  "Build metrics and saved queries for our support tables from the warehouse's past queries",
+]
+
+# The add-on README's own sections. The skills table comes from each skill's [skills.<name>] card,
+# in the order `skills` names them, and the build fails when a skill folder is missing from it.
+[addons.readme]
+intro = """
+Build an agent that answers your team's data questions from metrics and saved queries it can
+show you. Analytics builds them from the dashboards and past queries your team already uses,
+tests each one on your data, and saves them to Atlan, so every answer names what it is based on.
+For data teams on Snowflake, Databricks or another warehouse.
+"""
+needs = [
+  "An Atlan account, signed in through the `atlanai` plugin, to save to Atlan and answer from it. The demo can keep everything on this machine.",
+  "Python 3.11 or 3.12 for the metrics runtime the build sets up: `python3.12` or `python3.11` on your `PATH`, or `py -3.12` on Windows.",
+  "For your own data: a warehouse (Snowflake, Databricks or another) reachable through Atlan or a connector in your coding agent, with read access to the tables, and to past queries if you build from them. The demo brings its own data.",
+]
+quick_start = "Pick Fixit & Co. or Ticketfuddle. In about 15 to 20 minutes it builds the firm's metrics and saved queries from its dashboard, tests them on the demo data, asks where to keep them, then answers your first question."
+skills = ["analytics-demo", "analytics-build", "source-survey", "metrics-generation", "analytics-ask", "eval-generation", "accuracy-check"]
+privacy = """
+Analytics has no hooks and ships no executable binaries.
+
+- **Runs:** the Python helpers bundled with its skills, and a metrics runtime in its own virtual
+  environment, with pinned packages pip installs from your package index (PyPI unless pip is set
+  otherwise).
+- **Reads:** the sources you pick, your warehouse through read-only statements (SELECT, WITH, SHOW
+  or DESCRIBE, with a LIMIT on anything that returns rows), and a Power BI workspace through its
+  API when you point Analytics at one.
+- **Writes:** working files in your project: `.atlan-metrics/`, `.atlan-analytics/` for dashboards,
+  `.atlan-evals/` for test questions and `atlan-analytics-demo/` for a demo. Reading a Power BI
+  workspace caches its sign-in token under `~/.cache/pbi_definition_extract/`.
+- **Sends:** to Atlan, only what you approve saving, through the `atlanai` plugin's connection,
+  signed in as you.
+"""
+source = """
+The skills and scripts in this folder are the only source. Atlan's metric service serves a copy
+of `analytics-build` pinned to a commit of this repository.
+"""
+troubleshooting = [
+  ["The Atlan tools are missing", "Outside Claude Code, install `atlanai` first. In Claude Code, run `/reload-plugins`."],
+  ["Sign-in is needed or has expired", "In Claude Code: `/mcp`, pick `plugin:atlanai:atlan`, **Authenticate**. In Codex: `codex mcp login atlan`."],
+  ["No warehouse is found", "Analytics asks to connect one: through Atlan, your coding agent's own connector, or a vendor CLI where there is a shell."],
+  ["Python 3.11 or 3.12 is not found", "Install one so `python3.12` or `python3.11` is on your `PATH`, then ask Analytics to continue."],
+  ["There is no workspace to save to", "Ask for access to an existing Atlan workspace, or keep the work on this machine. New workspaces are made in Atlan or by an admin."],
 ]
 
 # Mods: Claude Code plugins whose hooks module changes how Claude Code handles the core's tools,
@@ -212,7 +255,7 @@ prompt = "Use $atlan-author-agents to register the agent in this repository in A
 
 [skills.analytics-demo]
 display_name = "Analytics Demo"
-short_description = "Build a data agent on made-up data, step by step"
+short_description = "Build your agent on made-up data, step by step"
 prompt = "Use $analytics-demo to show me how Atlan Analytics works on a demo."
 
 [skills.analytics-build]
@@ -238,7 +281,7 @@ prompt = "Use $eval-generation to write test questions for our agent from what o
 [skills.accuracy-check]
 display_name = "Accuracy Check"
 short_description = "Test your agent on questions with known answers"
-prompt = "Use $accuracy-check to test our agent on the eval set in this project."
+prompt = "Use $accuracy-check to test our agent on the test questions in this project."
 
 [skills.analytics-ask]
 display_name = "Ask Your Data"

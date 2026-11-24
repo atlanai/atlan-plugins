@@ -457,8 +457,8 @@ def lint_terms(path: Path, text: str) -> list[str]:
 def lint_contents(path: Path, text: str) -> list[str]:
     """An add-on reference over 100 lines with three or more sections opens them with a
     `## Contents` list, so a partial read still shows what the file covers (Anthropic's skill
-    authoring guidance). SKILL.md files and the vendored engine are exempt."""
-    if not path.is_relative_to(TERMS_ROOT) or path.name == "SKILL.md":
+    authoring guidance). SKILL.md, the README and the vendored engine are exempt."""
+    if not path.is_relative_to(TERMS_ROOT) or path.name in {"SKILL.md", "README.md"}:
         return []
     if "modules" in path.relative_to(TERMS_ROOT).parts:
         return []

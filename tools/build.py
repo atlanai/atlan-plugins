@@ -286,9 +286,38 @@ def addon_readme(source: dict, addon: dict) -> str:
     view_note = "No separate view installation is needed in Claude Code Desktop or CLI.\n" if addon.get("claude_companions") else ""
     view_note += addon.get("install_note", "").strip() + "\n" if addon.get("install_note") else ""
     view_privacy = "The included Claude view uses native presentation hooks to display saved progress and prepare chat requests.\n" if addon.get("claude_companions") else ""
+    readme = addon["readme"]
+    folders = sorted(p.name for p in (ROOT / addon_dir(addon) / "skills").iterdir() if (p / "SKILL.md").is_file())
+    if sorted(readme["skills"]) != folders:
+        raise SystemExit(f"[addons.readme] skills must name every skill in {addon_dir(addon)}/skills once: {folders}")
+
+    def example(name: str) -> str:
+        ask = re.sub(rf"^Use \${re.escape(name)} to (answer: )?", "", source["skills"][name]["prompt"])
+        return ask[:1].upper() + ask[1:]
+
+    needs = "\n".join(f"- {need}" for need in readme["needs"])
+    skills = "\n".join(f"| `{name}` | {source['skills'][name]['short_description']} | *\"{example(name)}\"* |"
+                       for name in readme["skills"])
+    troubles = "\n".join(f"| {symptom} | {fix} |" for symptom, fix in readme["troubleshooting"])
     return f"""# {addon['display_name']}
 
-{addon['long_description']}
+{readme['intro'].strip()}
+
+## You need
+
+{needs}
+
+## Quick start
+
+1. Install it, as below.
+2. Type *"{addon['default_prompts'][0]}"*.
+3. {readme['quick_start']}
+
+## Skills
+
+| Skill | Use it to | Try |
+|---|---|---|
+{skills}
 
 ## Install
 
@@ -301,7 +330,7 @@ claude plugin install {addon['name']} --marketplace {slug}
 {view_note}
 
 Only Claude Code installs a plugin's dependencies. Other hosts install plugins one at a time, so
-add `{plugin['name']}` first; without it, the setup skills show how to install it. In Codex:
+add `{plugin['name']}` first. Without it, the setup skills show how to install it. In Codex:
 
 ```
 codex plugin marketplace add {slug}
@@ -310,7 +339,7 @@ codex plugin add {addon['name']}@{market}
 ```
 
 In Cursor, on a Teams or Enterprise plan, an admin adds `https://github.com/{slug}` under
-**Dashboard**, **Plugins & MCPs**, **Add Marketplace**, **Import from Repo**; each developer then
+**Dashboard**, **Plugins & MCPs**, **Add Marketplace**, **Import from Repo**. Each developer then
 installs `{plugin['name']}` and `{addon['name']}` from **Customize**.
 
 In Cortex Code, install each from its folder, one chat message each:
@@ -320,20 +349,27 @@ In Cortex Code, install each from its folder, one chat message each:
 /github-plugin-installer https://github.com/{slug}/tree/main/{addon_dir(addon)}
 ```
 
+## When it goes wrong
+
+| What you see | What to do |
+|---|---|
+{troubles}
+
+## Help
+
+Report a problem in [Issues](https://github.com/{slug}/issues). For a vulnerability, see
+[SECURITY.md](../../SECURITY.md). Licensed under [Apache-2.0](LICENSE).
+
 ## Privacy
 
-Analytics itself has no hooks or shipped executable binaries. Its skills run bundled Python helpers and may
-set up an isolated metrics-agent environment with pinned dependencies after authorization.
-{view_privacy}\
-Working files stay in your project. Input plugs use the source connections you select; Atlan Trident
-writes use the `{plugin['name']}` plugin's connection, signed in as you. See Atlan's
-[privacy notice]({plugin['privacy_policy_url']}).
+{readme['privacy'].strip()}
+
+{view_privacy}See Atlan's [privacy notice]({plugin['privacy_policy_url']}).
 
 ## Source
 
 `tools/build.py` generates this README and the manifests from `[[addons]]` in `plugin.toml`.
-The skills and scripts in this folder are the only source. Atlan's metric service serves a copy
-of `analytics-build` pinned to a commit of this repository.
+{readme['source'].strip()}
 """
 
 

@@ -1,6 +1,33 @@
 # Analytics
 
-The analytics workload on Atlan Trident, as seven skills. analytics-demo walks through a made-up firm end to end. analytics-build does the same on your own data, starting from nothing, a dashboard or a subject: it surveys what you already have, asks what you want to answer, and builds from dashboards first, then past queries, then table definitions. source-survey says what a setup, a subject or a source holds, what can be built from it, and which metric names it offers. metrics-generation builds, tests, edits, proposes and saves metrics and saved queries. analytics-ask answers a data question from saved metrics, names what each answer is based on, and turns answers into a dashboard. eval-generation turns the questions a team already asks into test questions with known answers, kept here or saved to Atlan. accuracy-check tests your agent on those questions and scores it, saying why each miss failed. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection.
+Build an agent that answers your team's data questions from metrics and saved queries it can
+show you. Analytics builds them from the dashboards and past queries your team already uses,
+tests each one on your data, and saves them to Atlan, so every answer names what it is based on.
+For data teams on Snowflake, Databricks or another warehouse.
+
+## You need
+
+- An Atlan account, signed in through the `atlanai` plugin, to save to Atlan and answer from it. The demo can keep everything on this machine.
+- Python 3.11 or 3.12 for the metrics runtime the build sets up: `python3.12` or `python3.11` on your `PATH`, or `py -3.12` on Windows.
+- For your own data: a warehouse (Snowflake, Databricks or another) reachable through Atlan or a connector in your coding agent, with read access to the tables, and to past queries if you build from them. The demo brings its own data.
+
+## Quick start
+
+1. Install it, as below.
+2. Type *"Show me an Atlan Analytics demo"*.
+3. Pick Fixit & Co. or Ticketfuddle. In about 15 to 20 minutes it builds the firm's metrics and saved queries from its dashboard, tests them on the demo data, asks where to keep them, then answers your first question.
+
+## Skills
+
+| Skill | Use it to | Try |
+|---|---|---|
+| `analytics-demo` | Build your agent on made-up data, step by step | *"Show me how Atlan Analytics works on a demo."* |
+| `analytics-build` | Set up analytics on your own data, step by step | *"Set up this project so I can ask questions about its data."* |
+| `source-survey` | See what data, dashboards and past queries you can build from | *"Tell me what this folder's dashboards and past queries cover."* |
+| `metrics-generation` | Turn dashboards and past queries into metrics your agent answers from | *"Build metrics from our warehouse's past queries."* |
+| `analytics-ask` | Answer data questions from your metrics and saved queries in Atlan | *"What was revenue last quarter, by region?"* |
+| `eval-generation` | Write test questions, with known answers, from what your team asks | *"Write test questions for our agent from what our team already asks."* |
+| `accuracy-check` | Test your agent on questions with known answers | *"Test our agent on the test questions in this project."* |
 
 ## Install
 
@@ -11,7 +38,7 @@ claude plugin install atlanai-analytics --marketplace atlanai/atlan-plugins
 ```
 
 In Claude Code's terminal, a build's progress shows in Claude Code's own task list. Some models have the task list on
-by default; for the others, such as Opus 5.5, add this to the `env` in your Claude Code settings
+by default. If yours shows no task list, add this to the `env` in your Claude Code settings
 (`~/.claude/settings.json`) once, then start a new session:
 
 ```json
@@ -22,7 +49,7 @@ Without it, each finished build step shows as one line in the chat.
 
 
 Only Claude Code installs a plugin's dependencies. Other hosts install plugins one at a time, so
-add `atlanai` first; without it, the setup skills show how to install it. In Codex:
+add `atlanai` first. Without it, the setup skills show how to install it. In Codex:
 
 ```
 codex plugin marketplace add atlanai/atlan-plugins
@@ -31,7 +58,7 @@ codex plugin add atlanai-analytics@atlan
 ```
 
 In Cursor, on a Teams or Enterprise plan, an admin adds `https://github.com/atlanai/atlan-plugins` under
-**Dashboard**, **Plugins & MCPs**, **Add Marketplace**, **Import from Repo**; each developer then
+**Dashboard**, **Plugins & MCPs**, **Add Marketplace**, **Import from Repo**. Each developer then
 installs `atlanai` and `atlanai-analytics` from **Customize**.
 
 In Cortex Code, install each from its folder, one chat message each:
@@ -41,13 +68,38 @@ In Cortex Code, install each from its folder, one chat message each:
 /github-plugin-installer https://github.com/atlanai/atlan-plugins/tree/main/plugins/atlanai-analytics
 ```
 
+## When it goes wrong
+
+| What you see | What to do |
+|---|---|
+| The Atlan tools are missing | Outside Claude Code, install `atlanai` first. In Claude Code, run `/reload-plugins`. |
+| Sign-in is needed or has expired | In Claude Code: `/mcp`, pick `plugin:atlanai:atlan`, **Authenticate**. In Codex: `codex mcp login atlan`. |
+| No warehouse is found | Analytics asks to connect one: through Atlan, your coding agent's own connector, or a vendor CLI where there is a shell. |
+| Python 3.11 or 3.12 is not found | Install one so `python3.12` or `python3.11` is on your `PATH`, then ask Analytics to continue. |
+| There is no workspace to save to | Ask for access to an existing Atlan workspace, or keep the work on this machine. New workspaces are made in Atlan or by an admin. |
+
+## Help
+
+Report a problem in [Issues](https://github.com/atlanai/atlan-plugins/issues). For a vulnerability, see
+[SECURITY.md](../../SECURITY.md). Licensed under [Apache-2.0](LICENSE).
+
 ## Privacy
 
-Analytics itself has no hooks or shipped executable binaries. Its skills run bundled Python helpers and may
-set up an isolated metrics-agent environment with pinned dependencies after authorization.
-Working files stay in your project. Input plugs use the source connections you select; Atlan Trident
-writes use the `atlanai` plugin's connection, signed in as you. See Atlan's
-[privacy notice](https://atlan.com/privacy-policy/).
+Analytics has no hooks and ships no executable binaries.
+
+- **Runs:** the Python helpers bundled with its skills, and a metrics runtime in its own virtual
+  environment, with pinned packages pip installs from your package index (PyPI unless pip is set
+  otherwise).
+- **Reads:** the sources you pick, your warehouse through read-only statements (SELECT, WITH, SHOW
+  or DESCRIBE, with a LIMIT on anything that returns rows), and a Power BI workspace through its
+  API when you point Analytics at one.
+- **Writes:** working files in your project: `.atlan-metrics/`, `.atlan-analytics/` for dashboards,
+  `.atlan-evals/` for test questions and `atlan-analytics-demo/` for a demo. Reading a Power BI
+  workspace caches its sign-in token under `~/.cache/pbi_definition_extract/`.
+- **Sends:** to Atlan, only what you approve saving, through the `atlanai` plugin's connection,
+  signed in as you.
+
+See Atlan's [privacy notice](https://atlan.com/privacy-policy/).
 
 ## Source
 
