@@ -139,6 +139,17 @@ A Power BI scan result, paginated report (`.rdl`) or scorecard is read the same 
 own `bi_vendor`; a file holding several models takes `bi_model` to name the one to read. See
 [Power BI service inputs](guides/power-bi-service-inputs.md).
 
+A model whose tables the warehouse cannot be told from its own sources (a Fabric Direct Lake
+model names OneLake storage, often a copy of warehouse tables) takes `bi_tables`: a JSON file
+`{"<model table>": "DB.SCHEMA.TABLE"}`, or that object inline. Each mapped table is read from
+the warehouse table it names; its columns keep the source names the model declares (a column
+`Sale Amount` read as `Sale_Amount`). Unmapped tables keep the lineage the reader found.
+
+A dedicated measure table (every column hidden, or a calculated `ROW("Column", BLANK())`, the
+way Power BI Desktop makes one) holds measures but no data: each of its measures is homed on
+the table its formula reads, from a `.bim` as from a TMDL folder, and keeps the table it is
+shown on as `shown_on`.
+
 #### Tableau files to supply
 
 Set `bi_vendor: tableau` and point `bi` at one workbook file, or at a folder holding one
@@ -434,8 +445,19 @@ on a real model:
   `TOPN(n, VALUES(col) | table, order by[, ASC])` iterate the members ranked n or better in
   the row's context (ties kept, a BLANK as zero; ascending, or counted, every member of a
   dimension's column, one with no rows first).
-- `IF`, `IF.EAGER`, `SWITCH` (a `BLANK()` case matches only a blank), `COALESCE`, `DIVIDE` and
-  BLANK arithmetic follow DAX. `NOT` is read as a function and as an operator (`NOT ISBLANK(x)`,
+- `IF`, `IF.EAGER`, `SWITCH` (a `BLANK()` case matches only a blank), `COALESCE`, `DIVIDE` (with
+  or without an alternate result: `DIVIDE(n, d, 0)` is 0 where `d` is zero or BLANK) and
+  BLANK arithmetic follow DAX. DAX comments (`//` and `--` to the end of the line, `/* … */`
+  blocks) are dropped before a formula is read; Tableau keeps `//` only. `SELECTEDVALUE` of a
+  column of another table than the measure's (a budget blanked by `SELECTEDVALUE(Article[Private
+  Brand Flag])`) reads that table's values in the row's context: the group's value, the value a
+  filter keeps, or the one value of the column over the dimension's rows, else the alternate.
+  A measure over two fact tables written with a variable (`VAR v = [Sales] - [Budget] RETURN
+  v`) or inside one `CALCULATE` (`CALCULATE(DIVIDE([Orders], [Sessions]), Sales[Online] =
+  "Y")`) is split into one statement per fact like the plain form; a CALCULATE filter is given
+  to each part it reaches, and none where no relationship carries it (in DAX it filters
+  nothing there either).
+  `NOT` is read as a function and as an operator (`NOT ISBLANK(x)`,
   looser than a comparison; NOT of a blank is TRUE), and `DATEDIFF(start, end, DAY)` counts the
   interval's boundaries crossed (`WEEK` is refused: the model states no start of week). The `/` operator divides as DAX does: `5 / 0` is Infinity and
   `0 / 0` is NaN. Inside `IFERROR` and `ISERROR` a division by zero or BLANK under a non-blank
@@ -469,7 +491,14 @@ on a real model:
   shorthand `Date[Date] <= MAX(Date[Date])`), is every date up to the row's last;
   `DATESBETWEEN(Date[Date], BLANK(), MAX(Date[Date]))` is the same running total, and on the
   date table's blank row (seen live) its blank end reads as the last date, so that row shows
-  the grand running total. Each row of the visual stands for the date table's dates under the visual's
+  the grand running total. A prior period written with the date table's own mapping column,
+  `CALCULATE([Sales], FILTER(ALL('Date'), 'Date'[Calendar Date] IN VALUES('Date'[Previous
+  Year Same Date])))` (the retail 364-day year, a fiscal calendar), is the dates whose
+  `Calendar Date` is one of the row's dates' mapped values, read through whatever key the
+  measure's table reaches the date table on (an integer `Date Sk` as well as the date). The
+  same holds for `DATEADD` and the other date sets over a date column that is not the key:
+  the dates are moved on the date column and read through the key row of each.
+  Each row of the visual stands for the date table's dates under the visual's
   date filters, and the date set is derived from them; `DATEADD` moves each date and keeps a
   month's end at the month's end. A date set inside another date set's `CALCULATE` (last
   year's year to date: `CALCULATE([Sales YTD], SAMEPERIODLASTYEAR(...))` or

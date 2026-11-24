@@ -63,7 +63,7 @@ from metrics_agent import sockets as S
 from metrics_agent.lib import declared as _declared
 from metrics_agent.plugs.readers.bicompile import FormulaCompiler
 
-from metrics_agent_snowflake import semantic_view_ddl
+from metrics_agent_snowflake import metric_catalogue, semantic_view_ddl
 from metrics_agent_snowflake import semantic_view_queries as _queries
 
 VENDOR = "snowflake-semantic-view"
@@ -86,7 +86,8 @@ def models(path: pathlib.Path) -> list[pathlib.Path]:
     path = pathlib.Path(path)
     if not path.is_dir():
         return [path]
-    return sorted(p for p in path.rglob("*") if p.is_file() and p.suffix.lower() in SUFFIXES)
+    return sorted(p for p in path.rglob("*") if p.is_file() and (p.suffix.lower() in SUFFIXES
+                            or metric_catalogue.is_catalogue_path(p)))
 
 
 def load(path: pathlib.Path) -> tuple[dict, bool]:
@@ -389,7 +390,7 @@ class SemanticViewReader(FormulaCompiler):
         path = pathlib.Path(path)
         if path.is_dir():
             return bool(models(path))
-        return path.suffix.lower() in SUFFIXES
+        return path.suffix.lower() in SUFFIXES or metric_catalogue.is_catalogue_path(path)
 
     def models(self, path: pathlib.Path) -> list[pathlib.Path]:
         """One path per view: every view file in a folder; a single file is itself."""
@@ -402,5 +403,16 @@ class SemanticViewReader(FormulaCompiler):
     def parse(self, path: pathlib.Path, **opts: Any) -> dict[str, Any]:
         """ONE view. `dialect` is the run's (the view's own SQL is read in it); `policy` says
         whether a join the view does not declare may be inferred from shared primary keys."""
+        if metric_catalogue.is_catalogue_path(pathlib.Path(path)):
+            return metric_catalogue.read(pathlib.Path(path), vendor=self.name,
+                                         dialect=opts.get("dialect") or "snowflake")
         return parse(pathlib.Path(path), dialect=opts.get("dialect") or None,
                      infer_relationships=_infer(opts.get("policy")))
+
+
+
+    def compile_unit(self, unit: dict, rules, dialect: str, **opts: Any) -> S.Compiled:
+        declaration = unit.get("declared") or {}
+        if declaration.get("statement_sql"):
+            return metric_catalogue.compile_declaration(declaration, dialect)
+        return super().compile_unit(unit, rules, dialect, **opts)

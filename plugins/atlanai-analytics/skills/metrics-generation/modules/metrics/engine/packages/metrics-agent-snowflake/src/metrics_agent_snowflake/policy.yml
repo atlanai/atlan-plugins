@@ -18,3 +18,7 @@ snowflake_history:
   default_days: 90
   max_days: 365
   max_shapes: 5000
+
+metric_catalogue:
+  # Read one extra row so an over-limit catalogue is rejected in full.
+  max_rows: 10000
