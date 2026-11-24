@@ -242,6 +242,25 @@ class SharedWarehouseTableTest(unittest.TestCase):
         self.assertIn('t.amount_usd', got.sql)
         self.assertNotIn('Order Status', got.sql)
 
+    def test_allexcept_keeps_the_column_as_its_table_reads_it(self):
+        table = yaml.safe_load(bicompile.RULES.read_text())
+        languages = {r['evidence'] for r in table['rules']} - set(evidence.CORE_SOURCES)
+        with mock.patch.object(evidence, 'sources', lambda: (*languages, *evidence.CORE_SOURCES)):
+            rules = R.load(bicompile.RULES)
+        formula = 'CALCULATE ( SUM ( Orders[Amount] ), ALLEXCEPT ( Orders, Orders[Order Status] ) )'
+        unit = {'unit_id': 'u', 'warehouse_tables': ['shop.sales.orders'], 'group_by': ['status_cd', 'region'],
+                'filters': [], 'join_graph': [],
+                'measures': [{'name': 'Status Amount', 'aggregation': None,
+                              'formula_language': 'dax', 'formula': formula}]}
+        got = bicompile.compile_unit(unit, rules, 'snowflake',
+                                     columns={'shop.sales.orders': {'amount_usd', 'status_cd', 'region'}},
+                                     table_of={'orders': 'shop.sales.orders'}, measures={'status amount': formula},
+                                     renames={('orders', 'amount'): 'amount_usd', ('orders', 'order status'): 'status_cd'})
+        sql = ' '.join(got.sql.split())
+        # The total per status, not the grand total: ALLEXCEPT keeps the renamed status column.
+        self.assertRegex(sql, r'OVER \(PARTITION BY t\.status_cd\)')
+        self.assertNotIn('OVER ()', sql)
+
 
 if __name__ == '__main__':
     unittest.main()
