@@ -118,35 +118,37 @@ default_prompts = [
 # in the order `skills` names them, and the build fails when a skill folder is missing from it.
 [addons.readme]
 intro = """
-This plugin builds an agent that answers your data questions in plain English. Each answer names
-the metric or saved query it used, or says when it had to write new SQL for the question.
+This plugin builds the context your coding agent needs to answer your data questions in plain
+English: metrics and saved queries. Each answer names the metric or saved query it used, or says
+when it had to write new SQL for the question.
 
-It builds those metrics and saved queries from what your team already relies on: dashboards
-first, then past queries, then table definitions. It tests each one on your data before you keep
-it on this machine or save it to share with your team.
+It builds that context from what your team already relies on: dashboards first, then past
+queries, then table definitions. It tests each metric and saved query on your data before you
+keep them on this machine or save them to share with your team.
 """
 needs = [
   "**To try a sample:** Python 3.11 or 3.12. Put `python3.12` or `python3.11` on your `PATH`, or use `py -3.12` on Windows. Samples bring their own data and need no account.",
   "**For your own data:** the same Python, and a dashboard file, a warehouse your coding agent can reach (such as Snowflake or Databricks), or both. For a warehouse, read access to its tables, and to past queries if you build from them.",
-  "**To save for your team (optional):** an Atlan account, signed in through the `atlanai` plugin. Without one, everything stays on this machine.",
+  "**To save for your team (optional):** an Atlan account, signed in through the `atlanai` plugin. The plugin installs either way, and without a sign-in everything stays on this machine.",
 ]
 how = """
 - A **metric** is a named number with its rule, such as revenue by month.
 - A **saved query** is a tested SQL question your agent can rerun, such as margin by job.
-- Together they are **your context**: what your agent answers from.
+- Together they are **your context**. Your coding agent (Claude Code, Codex or another) answers
+  from it, so there is no separate agent to deploy.
 - A **workspace** is where your team keeps that context when you save it, so others can ask
   from it too.
 """
 starts = [
-  ["Build an agent for a question your team asks", "Set up metrics on our support tickets data so I can ask questions about it"],
-  ["Turn a dashboard you already use into an agent", "Help me use this dashboard to ask questions about my data"],
-  ["Learn how it works first", "Show me how this works on a sample use case"],
+  ["Learn how it works on a sample", "analytics-demo", "Show me how this works on a sample use case"],
+  ["Build context from your own data or a dashboard", "analytics-build", "Help me use this dashboard to ask questions about my data"],
+  ["Ask a question once your context is built", "analytics-ask", "What was revenue last quarter, by region?"],
 ]
-quick_start = "It shows its steps as it goes, and asks before it saves anything."
-samples_intro = "Two fictional companies, with made-up data, ship with the plugin. Each sample builds the company's metrics and saved queries from its dashboard, tests them on the sample data, asks where to keep them, then answers your first question."
+quick_start = "The skill shows its steps as it goes, and asks before it saves anything to Atlan."
+samples_intro = "Two fictional companies, with made-up data, ship with the plugin. Each sample builds the company's context, its metrics and saved queries, from its dashboard, tests them on the sample data, asks where to keep them, then answers your first question."
 samples = [
-  ["Fixit & Co., a builder's yard", "Which jobs lost money, and why, from a Power BI dashboard. About 15 minutes.", "https://atlanai.github.io/analytics-agent-accelerator/yard-tour/"],
-  ["Ticketfuddle, a ticketing firm", "How much of what fans paid went on fees, from a Tableau dashboard. About 15 to 20 minutes.", "https://atlanai.github.io/analytics-agent-accelerator/box-office-tour/"],
+  ["Fixit & Co., a builder's yard", "Which jobs lost money, and why. Built from a Power BI dashboard in about 15 minutes.", "https://atlanai.github.io/analytics-agent-accelerator/yard-tour/"],
+  ["Ticketfuddle, a ticketing firm", "How much of what fans paid went on fees. Built from a Tableau dashboard in about 15 to 20 minutes.", "https://atlanai.github.io/analytics-agent-accelerator/box-office-tour/"],
 ]
 skills = ["analytics-demo", "analytics-build", "source-survey", "metrics-generation", "analytics-ask", "eval-generation", "accuracy-check"]
 privacy = """
@@ -273,7 +275,7 @@ prompt = "Use $atlan-author-agents to register the agent in this repository in A
 
 [skills.analytics-demo]
 display_name = "Analytics Demo"
-short_description = "Build your agent on made-up data, step by step"
+short_description = "Build context on made-up data, step by step"
 prompt = "Use $analytics-demo to show me how this works on a sample use case."
 
 [skills.analytics-build]
@@ -294,12 +296,12 @@ prompt = "Use $metrics-generation to build metrics from our warehouse's past que
 [skills.eval-generation]
 display_name = "Eval Generation"
 short_description = "Write test questions, with known answers, from what your team asks"
-prompt = "Use $eval-generation to write test questions for our agent from what our team already asks."
+prompt = "Use $eval-generation to write test questions from what our team already asks."
 
 [skills.accuracy-check]
 display_name = "Accuracy Check"
-short_description = "Test your agent on questions with known answers"
-prompt = "Use $accuracy-check to test our agent on the test questions in this project."
+short_description = "Test your context on questions with known answers"
+prompt = "Use $accuracy-check to test our context on the test questions in this project."
 
 [skills.analytics-ask]
 display_name = "Ask Your Data"

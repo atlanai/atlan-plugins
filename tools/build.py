@@ -296,7 +296,9 @@ def addon_readme(source: dict, addon: dict) -> str:
         return ask[:1].upper() + ask[1:]
 
     needs = "\n".join(f"- {need}" for need in readme["needs"])
-    starts = "\n".join(f"| {want} | *\"{ask}\"* |" for want, ask in readme["starts"])
+    starts = "\n".join(f"| {want} | `/{addon['name']}:{skill}` | `${skill}` | *\"{say}\"* |"
+                       for want, skill, say in readme["starts"])
+    first = readme["starts"][0][1]
     samples = "\n".join(f"| {name} | {answers} | [Tour]({url}) |" for name, answers, url in readme["samples"])
     skills = "\n".join(f"| `{name}` | {source['skills'][name]['short_description']} | *\"{example(name)}\"* |"
                        for name in readme["skills"])
@@ -312,11 +314,14 @@ def addon_readme(source: dict, addon: dict) -> str:
 ## Quick start
 
 1. Install it, as below.
-2. Type what you want to do:
+2. Start the skill for what you want to do:
 
-   | You want to | Type |
-   |---|---|
+   | You want to | Claude Code | Codex | Or say |
+   |---|---|---|---|
 {chr(10).join("   " + row for row in starts.splitlines())}
+
+   In other hosts, name the skill: *"Use the {first} skill"*. Your own words work too, but
+   whether they reach the right skill depends on your model, your host and what else is loaded.
 
 3. {readme['quick_start']}
 
@@ -324,7 +329,7 @@ def addon_readme(source: dict, addon: dict) -> str:
 
 {readme['samples_intro']}
 
-| Sample | What its agent answers | See it |
+| Sample | What you can ask it | See it |
 |---|---|---|
 {samples}
 

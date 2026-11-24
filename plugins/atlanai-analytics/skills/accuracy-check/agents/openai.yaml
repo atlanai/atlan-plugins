@@ -1,7 +1,7 @@
 interface:
   display_name: "Accuracy Check"
-  short_description: "Test your agent on questions with known answers"
-  default_prompt: "Use $accuracy-check to test our agent on the test questions in this project."
+  short_description: "Test your context on questions with known answers"
+  default_prompt: "Use $accuracy-check to test our context on the test questions in this project."
 dependencies:
   tools:
     - type: "mcp"

@@ -1,45 +1,50 @@
 # Analytics
 
-This plugin builds an agent that answers your data questions in plain English. Each answer names
-the metric or saved query it used, or says when it had to write new SQL for the question.
+This plugin builds the context your coding agent needs to answer your data questions in plain
+English: metrics and saved queries. Each answer names the metric or saved query it used, or says
+when it had to write new SQL for the question.
 
-It builds those metrics and saved queries from what your team already relies on: dashboards
-first, then past queries, then table definitions. It tests each one on your data before you keep
-it on this machine or save it to share with your team.
+It builds that context from what your team already relies on: dashboards first, then past
+queries, then table definitions. It tests each metric and saved query on your data before you
+keep them on this machine or save them to share with your team.
 
 ## You need
 
 - **To try a sample:** Python 3.11 or 3.12. Put `python3.12` or `python3.11` on your `PATH`, or use `py -3.12` on Windows. Samples bring their own data and need no account.
 - **For your own data:** the same Python, and a dashboard file, a warehouse your coding agent can reach (such as Snowflake or Databricks), or both. For a warehouse, read access to its tables, and to past queries if you build from them.
-- **To save for your team (optional):** an Atlan account, signed in through the `atlanai` plugin. Without one, everything stays on this machine.
+- **To save for your team (optional):** an Atlan account, signed in through the `atlanai` plugin. The plugin installs either way, and without a sign-in everything stays on this machine.
 
 ## Quick start
 
 1. Install it, as below.
-2. Type what you want to do:
+2. Start the skill for what you want to do:
 
-   | You want to | Type |
-   |---|---|
-   | Build an agent for a question your team asks | *"Set up metrics on our support tickets data so I can ask questions about it"* |
-   | Turn a dashboard you already use into an agent | *"Help me use this dashboard to ask questions about my data"* |
-   | Learn how it works first | *"Show me how this works on a sample use case"* |
+   | You want to | Claude Code | Codex | Or say |
+   |---|---|---|---|
+   | Learn how it works on a sample | `/atlanai-analytics:analytics-demo` | `$analytics-demo` | *"Show me how this works on a sample use case"* |
+   | Build context from your own data or a dashboard | `/atlanai-analytics:analytics-build` | `$analytics-build` | *"Help me use this dashboard to ask questions about my data"* |
+   | Ask a question once your context is built | `/atlanai-analytics:analytics-ask` | `$analytics-ask` | *"What was revenue last quarter, by region?"* |
 
-3. It shows its steps as it goes, and asks before it saves anything.
+   In other hosts, name the skill: *"Use the analytics-demo skill"*. Your own words work too, but
+   whether they reach the right skill depends on your model, your host and what else is loaded.
+
+3. The skill shows its steps as it goes, and asks before it saves anything to Atlan.
 
 ## Samples
 
-Two fictional companies, with made-up data, ship with the plugin. Each sample builds the company's metrics and saved queries from its dashboard, tests them on the sample data, asks where to keep them, then answers your first question.
+Two fictional companies, with made-up data, ship with the plugin. Each sample builds the company's context, its metrics and saved queries, from its dashboard, tests them on the sample data, asks where to keep them, then answers your first question.
 
-| Sample | What its agent answers | See it |
+| Sample | What you can ask it | See it |
 |---|---|---|
-| Fixit & Co., a builder's yard | Which jobs lost money, and why, from a Power BI dashboard. About 15 minutes. | [Tour](https://atlanai.github.io/analytics-agent-accelerator/yard-tour/) |
-| Ticketfuddle, a ticketing firm | How much of what fans paid went on fees, from a Tableau dashboard. About 15 to 20 minutes. | [Tour](https://atlanai.github.io/analytics-agent-accelerator/box-office-tour/) |
+| Fixit & Co., a builder's yard | Which jobs lost money, and why. Built from a Power BI dashboard in about 15 minutes. | [Tour](https://atlanai.github.io/analytics-agent-accelerator/yard-tour/) |
+| Ticketfuddle, a ticketing firm | How much of what fans paid went on fees. Built from a Tableau dashboard in about 15 to 20 minutes. | [Tour](https://atlanai.github.io/analytics-agent-accelerator/box-office-tour/) |
 
 ## How it works
 
 - A **metric** is a named number with its rule, such as revenue by month.
 - A **saved query** is a tested SQL question your agent can rerun, such as margin by job.
-- Together they are **your context**: what your agent answers from.
+- Together they are **your context**. Your coding agent (Claude Code, Codex or another) answers
+  from it, so there is no separate agent to deploy.
 - A **workspace** is where your team keeps that context when you save it, so others can ask
   from it too.
 
@@ -47,13 +52,13 @@ Two fictional companies, with made-up data, ship with the plugin. Each sample bu
 
 | Skill | Use it to | Try |
 |---|---|---|
-| `analytics-demo` | Build your agent on made-up data, step by step | *"Show me how this works on a sample use case."* |
+| `analytics-demo` | Build context on made-up data, step by step | *"Show me how this works on a sample use case."* |
 | `analytics-build` | Build the context your agent answers from, on your own data | *"Set up this project so I can ask questions about its data."* |
 | `source-survey` | See what data, dashboards and past queries you can build from | *"Tell me what this folder's dashboards and past queries cover."* |
 | `metrics-generation` | Turn dashboards and past queries into metrics your agent answers from | *"Build metrics from our warehouse's past queries."* |
 | `analytics-ask` | Answer data questions from your metrics and saved queries | *"What was revenue last quarter, by region?"* |
-| `eval-generation` | Write test questions, with known answers, from what your team asks | *"Write test questions for our agent from what our team already asks."* |
-| `accuracy-check` | Test your agent on questions with known answers | *"Test our agent on the test questions in this project."* |
+| `eval-generation` | Write test questions, with known answers, from what your team asks | *"Write test questions from what our team already asks."* |
+| `accuracy-check` | Test your context on questions with known answers | *"Test our context on the test questions in this project."* |
 
 ## Install
 
