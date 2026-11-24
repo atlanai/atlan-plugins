@@ -1,4 +1,4 @@
-"""Capture bounded native Registry results in immutable local receipt files.
+"""Capture bounded native Atlan Trident results in immutable local receipt files.
 
 No network or credentials. Both hook implementations use this writer so file containment,
 no-follow opens, atomic publication and response checks have one implementation.

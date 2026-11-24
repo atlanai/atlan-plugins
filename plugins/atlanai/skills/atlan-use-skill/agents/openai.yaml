@@ -1,6 +1,6 @@
 interface:
   display_name: "Use an Atlan Skill"
-  short_description: "Load or install a skill from the Atlan registry"
+  short_description: "Load or install a skill from Atlan Trident"
   default_prompt: "Use $atlan-use-skill to find an Atlan skill for this task and use it here."
 dependencies:
   tools:

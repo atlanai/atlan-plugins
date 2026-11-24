@@ -555,7 +555,7 @@ describe('a shared output', () => {
 
   test('is not sent when its text holds a credential, and the refusal never repeats the value', async ($, on) => {
     const sent = engine(on, new Disk())
-    // The agent app's tool, and the registry's copy on a gateway that predates the move.
+    // The agent app's tool, and Atlan Trident's copy on a gateway that predates the move.
     for (const [asText, name] of [[false, OUTPUT], [true, OUTPUT], [false, 'registry__publish_output']] as const) {
       const ran = await $.tool.call(share(`# Notes\nkey: ${FAKE_AWS_KEY}\n`, CALL, asText, name) as never)
       const deny = String((ran as { deny?: string }).deny)

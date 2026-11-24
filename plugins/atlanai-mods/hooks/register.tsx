@@ -1,6 +1,6 @@
-// Registry Mods: a Claude Code mod for the atlanai plugin's `atlan` server.
+// Trident Mods: a Claude Code mod for the atlanai plugin's `atlan` server.
 //
-// tool.check (the runners, the batch runner and the registry reads listed by name): registry
+// tool.check (the runners, the batch runner and the Atlan Trident reads listed by name): Trident
 //   reads run without a prompt, alone, in a batch or called by name; writes ask, naming the
 //   write; archive, approve, move, release and roll-back always ask, naming what depends on the artifact, and the
 //   Atlan pane shows the same as a card while the question waits.
@@ -13,7 +13,7 @@
 //   skill publish to its end; the `atlan-skills` pane picks a skill to load.
 // session.start: checks the connection without opening an audit session, and puts a problem,
 //   never a success, on the status line. /atlan reports it; /atlan search, skills and pane.
-// prompt.submit: clears a finished publish band, and searches the registry's skills with the
+// prompt.submit: clears a finished publish band, and searches Trident's skills with the
 //   person's prompt: one that clearly fits is named beside the prompt, as context the model reads.
 //   It rides prompt.submit because Claude Code's built-in cc-plugin-sec-default, seated for Team
 //   and Enterprise organizations and on machines with managed settings, passes installed plugins
@@ -21,7 +21,7 @@
 //
 // What the session learned lives in this module, one copy per session. It is not kept in the
 // host's plugin state, which needs a types contract named in plugin.json: a key the desktop app
-// does not read and warns about on install. A hot reload forgets it, and the next registry call
+// does not read and warns about on install. A hot reload forgets it, and the next Trident call
 // learns it again. A change redraws with `$.ui.invalidate('ui.render')`.
 //
 // The host reads `on(...)` and `$.noun.method(...)` from source, so both are spelled literally.
@@ -101,7 +101,7 @@ const PICKER = 'atlan-skills'
 const DASHBOARD = 'https://app.atlan.com'
 const PUBLISH = 'extension__skill__create'
 const GROUP_ROWS = 6
-const HINT_RATIONALE = "Looking for a published skill in the organization's registry that fits the user's request."
+const HINT_RATIONALE = "Looking for a published skill in the organization's Atlan Trident that fits the user's request."
 /** Searches kept per session, for a prompt sent again. */
 const HINT_CACHE = 50
 /** Hint searches that may time out in a row before the hint pauses, and how long it pauses (also
@@ -114,7 +114,7 @@ const RATIONALE_HELP =
 const BATCH_RATIONALE_HELP =
   'Atlan needs a one-sentence `rationale` for every mcp__call_read_tools call, beside `calls` (not inside a call). Add it and call again.'
 const NO_APPROVER = 'Nobody can confirm it here (as under claude -p), so the Atlan mod refused it. Run it in a session where you can answer the prompt.'
-const GUARD_FAILED = 'The Atlan registry guard could not check this call, so it needs your confirmation.'
+const GUARD_FAILED = 'The Atlan Trident guard could not check this call, so it needs your confirmation.'
 const USAGE =
   'Usage: /atlan (connection status), /atlan search <words>, /atlan skills [words] (pick a skill to load) or /atlan pane (what this session touched)'
 
@@ -133,9 +133,9 @@ type Memory = {
   /** The calls this mod's permission check saw, by tool_use_id, so a write that ran without it
    * shows on the status line. */
   checked: Set<string>
-  /** Registry writes that ran while another plugin answered the permission check first. */
+  /** Trident writes that ran while another plugin answered the permission check first. */
   unguarded: number
-  /** Registry reads the same way: they asked again or ran on another plugin's verdict, not this
+  /** Trident reads the same way: they asked again or ran on another plugin's verdict, not this
    * mod's allow. Counted for /atlan only; a read changes nothing, so it raises no warning. */
   unguardedReads: number
   /** Artifacts this session read or changed, newest first. */
@@ -191,7 +191,7 @@ const STATUS: Record<AtlanHealth['state'], string | undefined> = {
 }
 
 const UNGUARDED =
-  'Another plugin answered the permission check for an Atlan registry write before Registry Mods could, so the write did not get its confirmation.'
+  'Another plugin answered the permission check for an Atlan Trident write before Trident Mods could, so the write did not get its confirmation.'
 
 /** The status line: the connection's problem, then a skipped guard, or nothing when all is well. */
 function paint($: Dollar, mem: Memory): void {
@@ -225,7 +225,7 @@ async function lookup($: Dollar, mem: Memory, server: string, name: string, args
   const session = mem.session || mem.housekeeping
   const rails = session
     ? { session_id: session }
-    : { objective: 'Claude Code with the Atlan registry: the Registry Mods plugin checks registry changes and connection status for the user.' }
+    : { objective: 'Claude Code with Atlan Trident: the Trident Mods plugin checks Atlan Trident changes and connection status for the user.' }
   // Every lookup the mod makes is a read, so it goes through the read runner: the gateway then
   // refuses anything else, whatever name reached here.
   const result = await $.mcp.call(server, 'mcp__call_read_tool', { name, arguments: args, rationale, ...rails })
@@ -239,7 +239,7 @@ async function lookup($: Dollar, mem: Memory, server: string, name: string, args
 /** How a bounded wait ended: the work's value, the clock, or the work's own failure. */
 type Outcome<T> = { kind: 'ok'; value: T } | { kind: 'timeout' } | { kind: 'error'; message: string }
 
-/** Settles once `ms` pass, so a slow registry never holds a prompt, and keeps a failure apart from
+/** Settles once `ms` pass, so a slow Trident never holds a prompt, and keeps a failure apart from
  * a timeout: a refused sign-in is not an offline server. */
 async function within<T>($: Dollar, ms: number, work: Promise<T>): Promise<Outcome<T>> {
   const stop = new AbortController()
@@ -331,11 +331,11 @@ async function probe($: Dollar, mem: Memory): Promise<AtlanHealth> {
       const learned = harvestHints(text)
       if (Object.keys(learned).length === 0) {
         state = 'error'
-        detail = `${server} answered, but listed no registry tools`
+        detail = `${server} answered, but listed no Atlan Trident tools`
         continue
       }
       await saveHints($, learned)
-      return { state: 'ready', server, detail: `${Object.keys(learned).length} registry tools`, checkedAt: await $.clock.now() }
+      return { state: 'ready', server, detail: `${Object.keys(learned).length} Atlan Trident tools`, checkedAt: await $.clock.now() }
     } catch (error) {
       const found = diagnose(error instanceof Error ? error.message : String(error))
       // A server that is missing under one name may be there under the next: keep the worse state.
@@ -358,16 +358,16 @@ function report(mem: Memory, health: AtlanHealth, confirmWrites: boolean, sugges
         ? 'Writes ask first. Archive, approve, move, release and roll-back always ask, with what depends on the artifact, and are refused where nobody can answer.'
         : 'Writes follow your permission rules. Archive, approve, move, release and roll-back always ask, and are refused where nobody can answer.',
     )
-    lines.push(session ? 'An audit session is open and is reused for every call.' : 'No audit session yet: the first registry call opens one.')
+    lines.push(session ? 'An audit session is open and is reused for every call.' : 'No audit session yet: the first Atlan Trident call opens one.')
     if (suggestSkills) lines.push(HINT_STATUS)
   }
   if (mem.unguarded > 0) lines.push(`${UNGUARDED} Writes this session: ${mem.unguarded}. Check which plugins answer permission prompts with /plugin.`)
   if (mem.unguardedReads > 0)
-    lines.push(`Another plugin answered the permission check for ${mem.unguardedReads} registry read${mem.unguardedReads === 1 ? '' : 's'} before this mod could, so reads may ask. Check which plugins answer permission prompts with /plugin.`)
+    lines.push(`Another plugin answered the permission check for ${mem.unguardedReads} Atlan Trident read${mem.unguardedReads === 1 ? '' : 's'} before this mod could, so reads may ask. Check which plugins answer permission prompts with /plugin.`)
   return lines.join('\n')
 }
 
-/** Runs a registry search through the server that answered last, or each one in turn. */
+/** Runs a Trident search through the server that answered last, or each one in turn. */
 async function searchRegistry($: Dollar, mem: Memory, args: Record<string, unknown>, rationale: string): Promise<Lookup | undefined> {
   const health = mem.health
   const servers = health?.state === 'ready' && health.server ? [health.server] : probeServers(mem.seenServer)
@@ -380,7 +380,7 @@ async function searchRegistry($: Dollar, mem: Memory, args: Record<string, unkno
 
 async function search($: Dollar, mem: Memory, words: string): Promise<string> {
   if (!words) return USAGE
-  const found = await searchRegistry($, mem, { query: words, semantic: true, limit: 10 }, 'The user searched the registry with the /atlan search command.')
+  const found = await searchRegistry($, mem, { query: words, semantic: true, limit: 10 }, 'The user searched Atlan Trident with the /atlan search command.')
   if (!found) return `Atlan did not answer. ${FIX.unreachable}`
   if (found.isError) return `Atlan refused the search. ${FIX[diagnose(found.text)] ?? FIX.error}`
   const rows = searchRows(found.text)
@@ -414,7 +414,7 @@ async function pickerSearch($: Dollar, mem: Memory, words: string): Promise<void
 /** Connection states in which the hint searches nothing: the search could only fail. */
 const NO_HINT: ReadonlySet<AtlanHealth['state']> = new Set(['sign-in', 'missing', 'unreachable'])
 
-/** The first answer a registry search gets from `servers`, tried in turn. */
+/** The first answer a Trident search gets from `servers`, tried in turn. */
 async function firstAnswer($: Dollar, mem: Memory, servers: readonly string[], args: Record<string, unknown>, rationale: string): Promise<Lookup> {
   let last: Lookup = { text: '', isError: true }
   for (const server of servers) {
@@ -444,7 +444,7 @@ async function isHintAnnounced($: Dollar, mem: Memory): Promise<boolean> {
 }
 
 /**
- * The context lines that name registry skills which clearly fit the prompt, or none. Searched once
+ * The context lines that name Trident skills which clearly fit the prompt, or none. Searched once
  * per prompt text a conversation, through the server the connection check found (or each one in
  * turn while the check has not settled, as on a session's first prompt); signed out, missing or
  * offline, nothing is searched, and nothing before the person has been told once what a search
@@ -708,11 +708,11 @@ export const register: Register = (on, options) => {
     const retry = isError ? retryOf(text) : undefined
     if (!isError) mem.hintBreaker.pausedUntil = 0
     if (!isError && health?.state !== 'ready') {
-      setHealth($, mem, { state: 'ready', server: health?.server ?? '', detail: 'a registry call succeeded', checkedAt: await $.clock.now() })
+      setHealth($, mem, { state: 'ready', server: health?.server ?? '', detail: 'an Atlan Trident call succeeded', checkedAt: await $.clock.now() })
     } else if (isError && diagnose(text) === 'sign-in') {
-      setHealth($, mem, { state: 'sign-in', server: health?.server ?? '', detail: 'a registry call was refused', checkedAt: await $.clock.now() })
+      setHealth($, mem, { state: 'sign-in', server: health?.server ?? '', detail: 'an Atlan Trident call was refused', checkedAt: await $.clock.now() })
     } else if (retry) {
-      setHealth($, mem, { state: 'degraded', server: health?.server ?? '', detail: 'a registry call failed with a temporary error', checkedAt: await $.clock.now() })
+      setHealth($, mem, { state: 'degraded', server: health?.server ?? '', detail: 'an Atlan Trident call failed with a temporary error', checkedAt: await $.clock.now() })
     }
     // A transient failure tells the model how to recover: repeat a read after a wait, read back
     // before repeating a write. The engine never runs a call twice for a hook. A lost skill create
@@ -743,7 +743,7 @@ export const register: Register = (on, options) => {
       const worst = batchEffect(calls, hints)
       if (worst === 'read') {
         if (e.ceiling === 'ask' || e.ceiling === 'deny') return verdict
-        return { decision: 'allow', reason: `Atlan: ${calls.length} ${calls.length === 1 ? 'call that only reads' : 'calls that only read'} the registry.` }
+        return { decision: 'allow', reason: `Atlan: ${calls.length} ${calls.length === 1 ? 'call that only reads' : 'calls that only read'} Atlan Trident.` }
       }
       if (worst !== 'destructive') return verdict
       // Archive, approve or move named in a batch: the gateway refuses it there, and it still asks.
@@ -762,7 +762,7 @@ export const register: Register = (on, options) => {
     if (effect === 'read') {
       // An organization's ceiling on the connector stands above this mod.
       if (e.ceiling === 'ask' || e.ceiling === 'deny') return verdict
-      return { decision: 'allow', reason: `Atlan: ${name} only reads the registry.` }
+      return { decision: 'allow', reason: `Atlan: ${name} only reads Atlan Trident.` }
     }
     if (effect === 'write') {
       // Nobody to ask (claude -p, the Agent SDK): the session's own rules decide a write.
@@ -852,7 +852,7 @@ export const register: Register = (on, options) => {
               {card.count < 0
                 ? 'Could not read what depends on it.'
                 : card.count === 0
-                  ? 'Nothing in the registry depends on it.'
+                  ? 'Nothing in Atlan Trident depends on it.'
                   : `${card.count} ${card.count === 1 ? 'artifact depends' : 'artifacts depend'} on it:`}
             </Text>
             {card.dependents.slice(0, 8).map(one => (
