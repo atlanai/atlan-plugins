@@ -328,6 +328,10 @@ def addon_readme(source: dict, addon: dict) -> str:
 |---|---|---|
 {samples}
 
+## How it works
+
+{readme['how'].strip()}
+
 ## Skills
 
 | Skill | Use it to | Try |
@@ -343,7 +347,6 @@ claude plugin install {addon['name']} --marketplace {slug}
 ```
 
 {view_note}
-
 Only Claude Code installs a plugin's dependencies. Other hosts install plugins one at a time, so
 add `{plugin['name']}` first. Without it, the setup skills show how to install it. In Codex:
 
