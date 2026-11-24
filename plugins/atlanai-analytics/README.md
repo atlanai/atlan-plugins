@@ -1,6 +1,6 @@
 # Analytics
 
-Analytics builds an agent that answers your data questions in plain English. Each answer comes
+This plugin builds an agent that answers your data questions in plain English. Each answer comes
 from a metric or saved query you can open, and names the one it used.
 
 It builds those metrics and saved queries from what your team already relies on: dashboards
@@ -93,7 +93,7 @@ In Cortex Code, install each from its folder, one chat message each:
 |---|---|
 | The skills say the `atlanai` tools are missing | Outside Claude Code, install `atlanai` first. In Claude Code, run `/reload-plugins`. |
 | Sign-in is needed or has expired | In Claude Code: `/mcp`, pick `plugin:atlanai:atlan`, **Authenticate**. In Codex: `codex mcp login atlan`. |
-| No warehouse is found | Analytics asks to connect one: your coding agent's own connector, a vendor CLI where there is a shell, or the `atlanai` connection. |
+| No warehouse is found | The plugin asks to connect one: your coding agent's own connector, a vendor CLI where there is a shell, or the `atlanai` connection. |
 | Python 3.11 or 3.12 is not found | Install one so `python3.12` or `python3.11` is on your `PATH`, then ask Analytics to continue. |
 | There is nowhere to save for your team | Keep the work on this machine, or ask for access to an existing Atlan workspace. An admin makes new ones. |
 
@@ -104,7 +104,7 @@ Report a problem in [Issues](https://github.com/atlanai/atlan-plugins/issues). F
 
 ## Privacy
 
-Analytics has no hooks and ships no executable binaries.
+This plugin has no hooks and ships no executable binaries.
 
 - **Runs:** the Python helpers bundled with its skills, and a metrics runtime in its own virtual
   environment, with pinned packages pip installs from your package index (PyPI unless pip is set

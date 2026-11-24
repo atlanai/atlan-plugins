@@ -70,8 +70,6 @@ Paths. Pass each command as separate argv entries; zsh does not split a string h
    It keeps the first 20 drafted questions in pick order, so a spare fills in for one the draft
    dropped, and writes `<project>/.atlan-evals/sets/<slug>.jsonl`, one question per line: `{"id",
    "question", "sql", "tests", "from", "generated"}`, the same shape as a set a person brings.
-   Check before reporting: the count you report is `emit`'s `questions`, never the size asked for.
-   When it is lower, say how many were kept. On `BLOCKED`, report its reason and stop.
 
 Budget: about 3 minutes. Keep every model step in a subagent and every count in a script.
 
@@ -95,6 +93,5 @@ was saved to, else the person's personal workspace (`registry__list_workspaces`,
 ## What comes back
 
 A result, as [conventions](../analytics-build/references/conventions.md) describes: how many
-questions the set holds, the metrics it covers, where each came from, and where the set lives
-(on this machine or in Atlan, never its path).
+questions the set holds, the metrics it covers, where each came from, and where the set lives.
 Each question in a plain line with the metric it tests.
