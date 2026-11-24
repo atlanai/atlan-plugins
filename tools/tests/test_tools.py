@@ -733,6 +733,25 @@ class TermsTest(unittest.TestCase):
         self.assertEqual(lint.lint_terms(lint.PLUGINS / "atlanai" / "x.md", "saved SQL\n"), [])
 
 
+class LinksTest(unittest.TestCase):
+    """Relative Markdown links resolve; web links, anchors and code are left alone."""
+
+    def test_flags_a_missing_target_and_leaves_the_rest(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "docs").mkdir()
+            (root / "docs" / "here.md").write_text("x", encoding="utf-8")
+            path = root / "docs" / "page.md"
+            text = ("[ok](here.md#part) [gone](missing.md) [web](https://example.com) [top](#a)\n"
+                    "`[code](nowhere.md)`\n```\n[fenced](nowhere.md)\n```\n")
+            saved, lint.ROOT = lint.ROOT, root
+            try:
+                errors = lint.lint_links(path, text)
+            finally:
+                lint.ROOT = saved
+        self.assertEqual(errors, ["docs/page.md:1: links to missing missing.md"])
+
+
 class VoiceTest(unittest.TestCase):
     """The voice rule in AGENTS.md: no em dashes, no exclamations, no filler, outside code."""
 

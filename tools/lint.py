@@ -454,6 +454,28 @@ def lint_terms(path: Path, text: str) -> list[str]:
     ]
 
 
+MARKDOWN_LINK = re.compile(r"\]\(<?([^)\s>]+)>?\)")
+
+
+def lint_links(path: Path, text: str) -> list[str]:
+    """Relative Markdown links that point at a file or folder that is not there, outside code."""
+    relative = path.relative_to(ROOT)
+    errors = []
+    in_fence = False
+    for number, line in enumerate(text.splitlines(), 1):
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        for target in MARKDOWN_LINK.findall(INLINE_CODE.sub("", line)):
+            if target.startswith(("http://", "https://", "mailto:", "#")):
+                continue
+            if not (path.parent / target.split("#", 1)[0]).exists():
+                errors.append(f"{relative}:{number}: links to missing {target}")
+    return errors
+
+
 def lint_repository(files: list[Path]) -> list[str]:
     errors = [
         f"{name}: plugin content lives in plugins/<plugin>/; the root is the marketplace"
@@ -495,6 +517,8 @@ def lint_repository(files: list[Path]) -> list[str]:
         if path.suffix == ".md" and path.is_relative_to(PLUGINS):
             errors += lint_drift(path, text)
             errors += lint_terms(path, text)
+        if path.suffix == ".md":
+            errors += lint_links(path, text)
     return errors
 
 

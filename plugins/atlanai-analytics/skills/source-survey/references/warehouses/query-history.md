@@ -7,6 +7,15 @@ copy them out by hand: turn each saved page into `querylog.jsonl` with `CONTEXT 
 section 2 of the metrics workflow (`metrics.md`) says. It keeps `{sql, exec, users}` and never
 writes a user name.
 
+## Contents
+
+- Size the pull before fetching it
+- Through a chat SQL tool
+- Snowflake
+- Databricks
+- Another warehouse
+- One-time setup an admin can run
+
 ## Size the pull before fetching it
 
 Generated SQL (a BI tool's compiled query, a dbt model, an export job) can run to tens of
