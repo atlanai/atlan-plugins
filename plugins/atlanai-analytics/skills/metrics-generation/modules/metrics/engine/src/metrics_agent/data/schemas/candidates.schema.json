@@ -983,6 +983,24 @@
           },
           "description": "The model's own other names for this, verbatim. Retrieval words, never interpreted."
         },
+        "statement_sql": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mandatory_filters": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "expected_value": {
+          "type": "number"
+        },
+        "expected_tolerance": {
+          "type": "number",
+          "minimum": 0
+        },
         "entity": {
           "type": "string",
           "minLength": 1,

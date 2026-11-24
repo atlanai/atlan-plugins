@@ -59,6 +59,10 @@
           "merged": {
             "type": "object"
           },
+          "rollup_source": {
+            "type": "string",
+            "minLength": 1
+          },
           "n_sources": {
             "type": "integer",
             "minimum": 0

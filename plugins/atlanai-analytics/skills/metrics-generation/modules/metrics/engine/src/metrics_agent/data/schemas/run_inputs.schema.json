@@ -269,6 +269,14 @@
                     "minLength": 1,
                     "description": "The ONE model to read when the definitions hold several, as the operator named it (`settings.<plug>.bi_model`: an id or a name). Handed to the reader as it is; the reader matches it against what the file holds and refuses an ambiguous or unmatched one by name. Absent when unset."
                   },
+                  "tables": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string",
+                      "pattern": "^[^.]+\\.[^.]+\\.[^.]+$"
+                    },
+                    "description": "The warehouse table each model table reads, where the model cannot say (`settings.<plug>.bi_tables`): model table name -> DB.SCHEMA.TABLE. A1 reads each mapped table from it. Absent when unset."
+                  },
                   "assets": {
                     "type": "array",
                     "items": {

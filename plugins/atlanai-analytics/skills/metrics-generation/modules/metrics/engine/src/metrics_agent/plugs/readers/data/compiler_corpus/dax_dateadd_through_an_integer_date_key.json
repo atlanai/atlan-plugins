@@ -1,0 +1,146 @@
+{
+  "name": "dax_dateadd_through_an_integer_date_key",
+  "dialect": "snowflake",
+  "unit": {
+    "filters": [],
+    "top_n": null,
+    "join_graph": [
+      {
+        "from_table": "retail.fct_sales",
+        "from_column": "date_sk",
+        "to_table": "retail.dim_date",
+        "to_column": "date_sk",
+        "cardinality": "M:1",
+        "kind": "relationship",
+        "is_active": true
+      },
+      {
+        "from_table": "retail.fct_budget",
+        "from_column": "date_sk",
+        "to_table": "retail.dim_date",
+        "to_column": "date_sk",
+        "cardinality": "M:1",
+        "kind": "relationship",
+        "is_active": true
+      },
+      {
+        "from_table": "retail.fct_sessions",
+        "from_column": "date_sk",
+        "to_table": "retail.dim_date",
+        "to_column": "date_sk",
+        "cardinality": "M:1",
+        "kind": "relationship",
+        "is_active": true
+      },
+      {
+        "from_table": "retail.fct_sales",
+        "from_column": "product_key",
+        "to_table": "retail.dim_product",
+        "to_column": "product_key",
+        "cardinality": "M:1",
+        "kind": "relationship",
+        "is_active": true
+      }
+    ],
+    "unit_id": "dk",
+    "warehouse_tables": [
+      "retail.fct_sales",
+      "retail.dim_date"
+    ],
+    "group_by": [
+      "month_start"
+    ],
+    "group_by_tables": [
+      "retail.dim_date"
+    ],
+    "measures": [
+      {
+        "name": "Sales",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "SUM(Sales[amount])"
+      },
+      {
+        "name": "Sales LM",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "CALCULATE(SUM(Sales[amount]), DATEADD('Date'[calendar_date], -1, MONTH))"
+      }
+    ]
+  },
+  "expect_sql": "SELECT u.k1 AS month_start,\n       MAX(u.s1) AS sales,\n       (MAX(u.s2)) AS sales_lm\nFROM (\nSELECT j1.month_start AS k1,\n       SUM(t.amount) AS s1,\n       NULL AS s2\nFROM   retail.fct_sales t\nLEFT JOIN retail.dim_date j1 ON j1.date_sk = t.date_sk\nGROUP BY j1.month_start\n  UNION ALL\nSELECT c.k1 AS k1,\n       NULL AS s1,\n       SUM(t.amount) AS s2\nFROM   (\n  SELECT DISTINCT c.k1, s.calendar_date AS dt\n  FROM   (\n    SELECT d.month_start AS k1, d.calendar_date AS dt, LAG(d.calendar_date) OVER (PARTITION BY d.month_start ORDER BY d.calendar_date) AS prev\n    FROM   retail.dim_date d\n  ) c\n  JOIN retail.dim_date s ON s.calendar_date BETWEEN DATEADD(MONTH, -1, c.dt) AND CASE WHEN c.dt = LAST_DAY(c.dt) AND c.prev = DATEADD(DAY, -1, c.dt) THEN LAST_DAY(DATEADD(MONTH, -1, c.dt)) ELSE DATEADD(MONTH, -1, c.dt) END\n) c\nJOIN retail.dim_date kd ON kd.calendar_date = c.dt\nJOIN retail.fct_sales t ON t.date_sk = kd.date_sk\nGROUP BY c.k1\n) u\nGROUP BY u.k1",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "dax.calculate.filter",
+    "dax.sum",
+    "engine.dax_date_set_shift",
+    "engine.dax_date_set_through_key",
+    "engine.dax_time_dateadd",
+    "engine.dax_time_intelligence"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "date_sk",
+      "amount",
+      "product_key",
+      "online",
+      "order_id"
+    ],
+    "retail.fct_budget": [
+      "date_sk",
+      "budget"
+    ],
+    "retail.fct_sessions": [
+      "date_sk",
+      "sessions"
+    ],
+    "retail.dim_date": [
+      "date_sk",
+      "calendar_date",
+      "month_start"
+    ],
+    "retail.dim_product": [
+      "product_key",
+      "brand_flag"
+    ]
+  },
+  "table_of": {
+    "sales": "retail.fct_sales",
+    "budget": "retail.fct_budget",
+    "sessions": "retail.fct_sessions",
+    "date": "retail.dim_date",
+    "product": "retail.dim_product"
+  },
+  "types": [
+    [
+      "date",
+      "calendar_date",
+      "dateTime"
+    ],
+    [
+      "date",
+      "month_start",
+      "dateTime"
+    ],
+    [
+      "date",
+      "date_sk",
+      "int64"
+    ],
+    [
+      "sales",
+      "date_sk",
+      "int64"
+    ],
+    [
+      "sales",
+      "online",
+      "string"
+    ],
+    [
+      "product",
+      "brand_flag",
+      "string"
+    ]
+  ]
+}
