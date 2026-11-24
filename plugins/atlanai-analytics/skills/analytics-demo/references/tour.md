@@ -31,6 +31,14 @@ A native question holds four options. When the demo's "What would you like to do
 five, leave Build one on your own data out of the options and end the question's text with one
 line: You can also type "Build one on your own data".
 
+## Contents
+
+- After the first answer
+- Coming back to a demo
+- The welcome: right after the demo is chosen
+- Say what and why at every moment
+- Step 2: ask what to build from
+
 ## After the first answer
 
 The demo's "What would you like to do next?" question keeps to what the person can't already

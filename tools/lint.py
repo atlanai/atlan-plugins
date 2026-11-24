@@ -454,6 +454,31 @@ def lint_terms(path: Path, text: str) -> list[str]:
     ]
 
 
+def lint_contents(path: Path, text: str) -> list[str]:
+    """An add-on reference over 100 lines with three or more sections opens them with a
+    `## Contents` list, so a partial read still shows what the file covers (Anthropic's skill
+    authoring guidance). SKILL.md files and the vendored engine are exempt."""
+    if not path.is_relative_to(TERMS_ROOT) or path.name == "SKILL.md":
+        return []
+    if "modules" in path.relative_to(TERMS_ROOT).parts:
+        return []
+    lines = text.splitlines()
+    in_fence, sections = False, []
+    for line in lines:
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+        elif not in_fence and line.startswith("## "):
+            sections.append(line[3:].strip())
+    listed = [s for s in sections if s != "Contents"]
+    if len(lines) <= 100 or len(listed) < 3:
+        return []
+    relative = path.relative_to(ROOT)
+    if "Contents" not in sections:
+        return [f"{relative}: {len(lines)} lines and {len(listed)} sections without a `## Contents` list"]
+    missing = [s for s in listed if f"- {s}" not in lines]
+    return [f"{relative}: `## Contents` does not list {s!r}" for s in missing]
+
+
 MARKDOWN_LINK = re.compile(r"\]\(<?([^)\s>]+)>?\)")
 
 
@@ -517,6 +542,7 @@ def lint_repository(files: list[Path]) -> list[str]:
         if path.suffix == ".md" and path.is_relative_to(PLUGINS):
             errors += lint_drift(path, text)
             errors += lint_terms(path, text)
+            errors += lint_contents(path, text)
         if path.suffix == ".md":
             errors += lint_links(path, text)
     return errors

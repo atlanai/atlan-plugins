@@ -10,6 +10,18 @@ load's `evals`. `ACC` is `python3 "<demo-dir>/scripts/accuracy.py"`, with `<demo
 result's numbers on any check. Every case needs its trusted result in `<evals-run>/eval/gold/`, which
 `CHECK load` writes on a local run and `CHECK gold` writes on a warehouse run.
 
+## Contents
+
+- Where the SQL runs
+- Trusted answers on a warehouse run
+- Why the score can be trusted
+- Run it
+- Before and after
+- Show the score
+- Test again
+- Ask for more
+- Save to Atlan
+
 ## Where the SQL runs
 
 `CHECK start` and `CHECK load` return `execution`. Read it before running anything: it decides

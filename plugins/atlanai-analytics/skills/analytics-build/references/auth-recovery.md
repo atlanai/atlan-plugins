@@ -10,6 +10,13 @@ The `auth` command takes a JSON request file; it records host observations, not 
 It does not authenticate, launch a browser, run a watcher or verify the network itself.
 The parent owns the actual host background task, browser step and MCP readiness watch below.
 
+## Contents
+
+- 1. Identify the actual failure
+- 2. Open the sign-in page and watch the host login task
+- 3. Manual installation and sign-in fallback
+- 4. Keep the metrics in the final answer
+
 ## 1. Identify the actual failure
 
 Look for the current host's prefixed Atlan search/describe/read runners. If tools are deferred,

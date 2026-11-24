@@ -6,6 +6,14 @@ has ten items of its own, set out in [the dashboard branch](dashboard-flow.md); 
 this file applies to it too. Open no side panel, browser view or preview page
 unless the person asks for a visual view, apart from the run's own [side page](visuals.md).
 
+## Contents
+
+- Start with the list
+- Keep it true to the saved run
+- On resume
+- When a step ends
+- Without a task tool
+
 ## Start with the list
 
 Once card 1 is answered (on a demo, right after "Start building"), put the flow's steps in the

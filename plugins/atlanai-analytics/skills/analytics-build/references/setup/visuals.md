@@ -8,6 +8,12 @@ machine beside the chat, follows the whole build by itself and shows every metri
 was reached. Never draw, design or retype a visual, and never put a number in
 one by hand.
 
+## Contents
+
+- At each moment
+- The side page
+- Data files
+
 ## At each moment
 
 Run `PROJECT visual <kind>`, or `PROJECT visual next` for the next moment the run has reached

@@ -3,6 +3,14 @@
 Read before every answer: it sets the answer's layout and how it cites each metric or saved
 query. Render each name as a clickable Markdown link, never a bare artifact id or URL.
 
+## Contents
+
+- Lay out the answer
+- Lines that go with the answer
+- Discover the organization automatically
+- Build the Metrics app link
+- Context kept on this machine
+
 ## Lay out the answer
 
 Every answer takes this shape, leaving out any part with nothing to say:

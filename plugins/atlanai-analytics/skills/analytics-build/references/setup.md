@@ -20,6 +20,13 @@ host, start the host's sign-in when required, watch its native task and resume a
 successful Registry read. Continue independent local work while waiting; do not simply ask
 for "continue".
 
+## Contents
+
+- Orient before work
+- Read one stage file at a time
+- Review the completed collection
+- Presentation and stopping point
+
 ## Orient before work
 
 A demo follows [the demo skill](../../analytics-demo/SKILL.md), which uses this file's

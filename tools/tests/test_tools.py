@@ -733,6 +733,25 @@ class TermsTest(unittest.TestCase):
         self.assertEqual(lint.lint_terms(lint.PLUGINS / "atlanai" / "x.md", "saved SQL\n"), [])
 
 
+class ContentsTest(unittest.TestCase):
+    """Long add-on references with sections open with a Contents list that names each one."""
+
+    def contents(self, text: str) -> list[str]:
+        return lint.lint_contents(lint.TERMS_ROOT / "skills" / "x" / "references" / "r.md", text)
+
+    def test_flags_a_missing_list_and_a_stale_entry(self) -> None:
+        body = "# R\n" + "".join(f"## S{n}\n" + "line\n" * 40 for n in range(3))
+        self.assertIn("without a `## Contents` list", self.contents(body)[0])
+        stale = "# R\n## Contents\n\n- S0\n- S1\n- Old\n\n" + body[4:]
+        self.assertEqual(self.contents(stale), ["plugins/atlanai-analytics/skills/x/references/r.md: `## Contents` does not list 'S2'"])
+
+    def test_leaves_short_files_few_sections_and_skills_alone(self) -> None:
+        self.assertEqual(self.contents("# R\n## A\n## B\n## C\n"), [])
+        self.assertEqual(self.contents("# R\n## A\n" + "line\n" * 200), [])
+        long = "# R\n" + "".join(f"## S{n}\n" + "line\n" * 40 for n in range(3))
+        self.assertEqual(lint.lint_contents(lint.TERMS_ROOT / "skills" / "x" / "SKILL.md", long), [])
+
+
 class LinksTest(unittest.TestCase):
     """Relative Markdown links resolve; web links, anchors and code are left alone."""
 
