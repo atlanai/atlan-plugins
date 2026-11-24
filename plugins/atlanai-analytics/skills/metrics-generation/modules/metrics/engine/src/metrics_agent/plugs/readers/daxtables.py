@@ -471,8 +471,10 @@ def read_calculated_tables(tables: list[dict], dialect: str | None) -> list[str]
     for t in tables:
         dax = t.pop("_dax_table", None)
         lin = t.get("source_lineage") or {}
-        if not dax or t.get("field_choices") or lin.get("object") or lin.get("statement"):
-            # A field switch, or a table another partition (Power QUERY) already reads.
+        if not dax or t.get("field_choices") or lin.get("object") or lin.get("statement") \
+                or t.get("measure_table"):
+            # A field switch, a table another partition (Power QUERY) already reads, or a
+            # measure table, whose placeholder row is never read as data.
             continue
         logical = t.get("logical_name") or t["name"]
         try:
@@ -484,9 +486,18 @@ def read_calculated_tables(tables: list[dict], dialect: str | None) -> list[str]
             continue
         outs = {c.lower(): _out(c) for c in cols}
         for c in t.get("columns") or []:
-            if c.get("is_calculated"):
+            if c.get("is_calculated") and c.get("formula"):
+                # A calculated COLUMN on the table: an expression over its row, compiled as
+                # one, not a column of the statement.
                 continue
+            # A column of the calculated table itself (TMSL `calculatedTableColumn`) is
+            # flagged calculated but has no formula: it IS one of the statement's output
+            # columns. Left flagged, it kept its model name (`[online flag]`) while the
+            # statement named it `Online_Flag`, and a join on it came out as
+            # `j2.Online Flag = t.Online_Flag`, which does not parse.
             src = str(c.get("source_column") or c["name"]).strip("[]")
+            if c.get("is_calculated") and (src.lower() in outs or c["name"].lower() in outs):
+                c["is_calculated"] = False
             if src.lower() in outs:
                 c["source_column"] = outs[src.lower()]
             elif c["name"].lower() in outs:

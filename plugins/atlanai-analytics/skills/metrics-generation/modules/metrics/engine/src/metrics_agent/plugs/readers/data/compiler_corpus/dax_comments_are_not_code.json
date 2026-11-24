@@ -1,0 +1,38 @@
+{
+  "name": "dax_comments_are_not_code",
+  "dialect": "duckdb",
+  "unit": {
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [],
+    "filters": [],
+    "top_n": null,
+    "join_graph": [],
+    "unit_id": "cm",
+    "measures": [
+      {
+        "name": "North Sales",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "-- DISTINCTCOUNT(Sales[region]) was the old count\n/* CALCULATE(SUM(Sales[amount]),\n   Sales[region] = \"South\") */\nCALCULATE(SUM(Sales[amount]), // the current definition\n  Sales[region] = \"North\") -- = 95"
+      }
+    ]
+  },
+  "expect_sql": "SELECT (SUM(CASE WHEN UPPER(RTRIM(t.region)) = 'NORTH' THEN t.amount END)) AS north_sales\nFROM   retail.fct_sales t",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "dax.calculate.filter",
+    "dax.sum",
+    "engine.dax_text_key"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "date_sk",
+      "amount",
+      "units_sold",
+      "units_received",
+      "region"
+    ]
+  }
+}
