@@ -1,0 +1,246 @@
+{
+  "about": "Every usage event the atlanai hooks may send, and every property each may carry. The one source for both senders: command-hooks/telemetry.py reads this file, and tools/build.py writes it into claude-hooks/telemetry-config.ts. An event or property not listed here is never sent; a value that does not fit its type drops the whole event. It follows the Atlan dashboard's analytics plan (frontend, apps/dashboard/src/lib/observability/analytics.ts): Segment's track call, a logical snake_case object_action name sent as <category>_<name>, object and action mirrored as properties, and `claude_plugin` as this codebase's category in that plan, whichever tool the plugin runs in (`harness` says which).",
+  "category": "claude_plugin",
+  "common": {
+    "category": "Always `claude_plugin`: this codebase's surface in the dashboard's plan, as the dashboard sends `browser` or `desktop`.",
+    "object": "The event name before its first underscore.",
+    "action": "The event name after its first underscore.",
+    "app_version": "This plugin's version, x.y.z.",
+    "plugin": "This plugin's name.",
+    "harness": "The tool the plugin runs in: claude_code, codex, cursor or copilot.",
+    "os": "macos, windows, linux or unknown.",
+    "install_id": "A random id made on this machine; Claude Code keeps its own, and the command hooks share one. It is also the event's anonymous id.",
+    "session": "The first 16 hex characters of sha256(install_id + the harness's session id): events of one session group together, and the harness's own id is never sent."
+  },
+  "enums": {
+    "harness": [
+      "claude_code",
+      "codex",
+      "cursor",
+      "copilot"
+    ],
+    "os": [
+      "macos",
+      "windows",
+      "linux",
+      "unknown"
+    ],
+    "surface": [
+      "terminal",
+      "desktop",
+      "vscode",
+      "mobile",
+      "none"
+    ],
+    "operation": [
+      "skill_create",
+      "bulk_create",
+      "output"
+    ],
+    "refusal": [
+      "files-from",
+      "symbolic-link",
+      "credential-folder",
+      "credential-file",
+      "credential",
+      "unsafe-path",
+      "not-a-file",
+      "too-many-files",
+      "too-large",
+      "missing-skill-md",
+      "frontmatter",
+      "not-text",
+      "hidden-text",
+      "local-batch",
+      "receipt",
+      "other"
+    ],
+    "runner": [
+      "search_tools",
+      "describe_tools",
+      "call_tool",
+      "call_read_tool",
+      "call_write_tool",
+      "other"
+    ],
+    "namespace": [
+      "registry",
+      "extension",
+      "other"
+    ],
+    "failure": [
+      "auth",
+      "permission_denied",
+      "not_found",
+      "conflict",
+      "rate_limited",
+      "client_error",
+      "server_error",
+      "timeout",
+      "unknown"
+    ],
+    "feedback_trigger": [
+      "failure",
+      "sampled"
+    ]
+  },
+  "events": {
+    "install_active": {
+      "about": "The plugin loaded in a session, at most once per UTC day for each install: the daily-active signal.",
+      "hosts": [
+        "claude_code",
+        "codex",
+        "cursor",
+        "copilot"
+      ],
+      "props": {
+        "first_seen": {
+          "type": "boolean",
+          "about": "True on the first report from this install in this harness."
+        },
+        "surface": {
+          "type": "enum",
+          "of": "surface",
+          "optional": true,
+          "about": "Where Claude Code draws."
+        },
+        "interactive": {
+          "type": "boolean",
+          "optional": true,
+          "about": "Whether a person is at the prompt."
+        }
+      }
+    },
+    "skill_invoked": {
+      "about": "The agent loaded one of this marketplace's own skills. A skill from anywhere else is never reported.",
+      "hosts": [
+        "claude_code"
+      ],
+      "props": {
+        "skill": {
+          "type": "listed",
+          "of": "skills",
+          "about": "The skill as `<plugin>:<skill>`, from the list this build ships."
+        }
+      }
+    },
+    "command_run": {
+      "about": "A person ran one of this marketplace's own slash commands. Its arguments are never read.",
+      "hosts": [
+        "claude_code"
+      ],
+      "props": {
+        "command": {
+          "type": "listed",
+          "of": "commands",
+          "about": "The command as `<plugin>:<command>`, from the list this build ships."
+        }
+      }
+    },
+    "publish_prepared": {
+      "about": "The publish helper checked a local skill folder or batch and sent the call on with its files.",
+      "hosts": [
+        "claude_code",
+        "codex",
+        "cursor",
+        "copilot"
+      ],
+      "props": {
+        "operation": {
+          "type": "enum",
+          "of": "operation"
+        },
+        "mcp_session_id": {
+          "type": "mcp_session",
+          "optional": true,
+          "about": "The Atlan session the call was made in, as the gateway named it. The gateway keeps the same id with the call's user and organization, so this is the join to them; the hooks never see either."
+        }
+      }
+    },
+    "publish_refused": {
+      "about": "The publish helper held a call back before it left the machine. The gateway never sees these.",
+      "hosts": [
+        "claude_code",
+        "codex",
+        "cursor",
+        "copilot"
+      ],
+      "props": {
+        "operation": {
+          "type": "enum",
+          "of": "operation"
+        },
+        "reason": {
+          "type": "enum",
+          "of": "refusal",
+          "about": "The first check that failed, by its rule name."
+        },
+        "mcp_session_id": {
+          "type": "mcp_session",
+          "optional": true,
+          "about": "The Atlan session the call was made in, as the gateway named it. The gateway keeps the same id with the call's user and organization, so this is the join to them; the hooks never see either."
+        }
+      }
+    },
+    "tool_call_failed": {
+      "about": "An Atlan tool call came back as an error. The tool's arguments and the error's text are never sent.",
+      "hosts": [
+        "claude_code"
+      ],
+      "props": {
+        "runner": {
+          "type": "enum",
+          "of": "runner",
+          "about": "Which gateway helper tool was called."
+        },
+        "namespace": {
+          "type": "enum",
+          "of": "namespace",
+          "about": "Whether the inner tool was the registry's, an Atlan app's, or anything else. The inner tool's name is never sent."
+        },
+        "reason": {
+          "type": "enum",
+          "of": "failure"
+        },
+        "mcp_session_id": {
+          "type": "mcp_session",
+          "optional": true,
+          "about": "The Atlan session the call was made in, as the gateway named it. The gateway keeps the same id with the call's user and organization, so this is the join to them; the hooks never see either."
+        }
+      }
+    },
+    "update_prompted": {
+      "about": "The agent was told a newer release of the plugin is out.",
+      "hosts": [
+        "claude_code",
+        "codex",
+        "cursor",
+        "copilot"
+      ],
+      "props": {
+        "from_version": {
+          "type": "version"
+        },
+        "to_version": {
+          "type": "version"
+        },
+        "forced": {
+          "type": "boolean",
+          "about": "Always false: the plugin never forces an update. Kept so the event matches the dashboard's."
+        }
+      }
+    },
+    "feedback_offered": {
+      "about": "The agent was asked to offer the user a feedback draft. The draft itself is never sent by a hook.",
+      "hosts": [
+        "claude_code"
+      ],
+      "props": {
+        "trigger": {
+          "type": "enum",
+          "of": "feedback_trigger"
+        }
+      }
+    }
+  }
+}

@@ -58,6 +58,7 @@ PLUGINS = "plugins"
 HOOK_KEYS = {"claude_hooks": "claude-hooks", "codex_hooks": "command-hooks", "cursor_hooks": "command-hooks"}
 # Skill bundles every pre-send check must agree on: check_bundle.py's tests and the publish hook's.
 FIXTURES = "tools/tests/fixtures/publish-bundles.json"
+TELEMETRY_EVENTS = "command-hooks/telemetry_events.json"
 # Files every plugin folder gets a copy of, from the repository root.
 SHARED = ("assets/logo.svg", "LICENSE", "NOTICE")
 # What the directory package takes from the core's folder, beside the manifests it writes.
@@ -103,6 +104,12 @@ def validate(source: dict) -> None:
     for url in (source["mcp"]["url"], plugin["homepage"], plugin["repository"]):
         if not url.startswith("https://"):
             raise SystemExit(f"{url} must be https")
+    telemetry = source.get("telemetry", {})
+    endpoint, write_key = telemetry.get("endpoint", ""), telemetry.get("write_key", "")
+    if endpoint and not endpoint.startswith("https://"):
+        raise SystemExit(f"telemetry.endpoint {endpoint} must be https")
+    if write_key and not (endpoint and re.fullmatch(r"[A-Za-z0-9]{8,64}", write_key)):
+        raise SystemExit("telemetry.write_key needs an endpoint, and is 8 to 64 letters and digits")
     logo = ROOT / plugin["logo"]
     if not logo.is_file():
         raise SystemExit(f"plugin.logo {plugin['logo']} does not exist")
@@ -373,6 +380,43 @@ def hook_fixtures(source: dict) -> dict[str, str]:
         "import type { Case } from './case'\n\n"
         f"export const CASES: readonly Case[] = {body}\n"
     }
+
+
+def telemetry_files(source: dict) -> dict[str, str]:
+    """What the hooks' usage telemetry is built with, for each sender: where a batch goes (nowhere
+    while `[telemetry] write_key` is empty), this build's own name, version and server, and the
+    skills and commands this repository ships, the only names an event may carry. The events
+    themselves are command-hooks/telemetry_events.json, written by hand and copied into the
+    hooks module, which has no file of its own to read at load."""
+    plugin = source["plugin"]
+    if not (plugin.get("claude_hooks") or plugin.get("codex_hooks") or plugin.get("cursor_hooks")):
+        return {}
+    base = core_dir(source)
+    telemetry = source.get("telemetry", {})
+    named = {"skills": [], "commands": []}
+    for folder in plugin_dirs(source):
+        name = Path(folder).name
+        named["skills"] += [f"{name}:{path.parent.name}" for path in sorted((ROOT / folder / "skills").glob("*/SKILL.md"))]
+        named["commands"] += [f"{name}:{path.stem}" for path in sorted((ROOT / folder / "commands").glob("*.md"))]
+    config = {
+        "endpoint": telemetry.get("endpoint", ""),
+        "write_key": telemetry.get("write_key", ""),
+        "plugin": plugin["name"],
+        "version": plugin["version"],
+        "mcp_url": source["mcp"]["url"],
+        **named,
+    }
+    schema = json.loads((ROOT / base / TELEMETRY_EVENTS).read_text(encoding="utf-8"))
+    files = {f"{base}/command-hooks/telemetry_config.json": render(config)}
+    if plugin.get("claude_hooks"):
+        files[f"{base}/claude-hooks/telemetry-config.ts"] = (
+            f"// Written by tools/build.py from plugin.toml and {TELEMETRY_EVENTS}: edit those files.\n\n"
+            "/** Where usage telemetry goes (nowhere while `write_key` is empty) and the names an event may carry. */\n"
+            f"export const TELEMETRY = {json.dumps(config, indent=2, ensure_ascii=True)} as const\n\n"
+            "/** Every event the hooks may send, and every property each may carry. */\n"
+            f"export const SCHEMA = {json.dumps({k: schema[k] for k in ('category', 'enums', 'events')}, indent=2, ensure_ascii=True)} as const\n"
+        )
+    return files
 
 
 def skill_metadata(source: dict, name: str) -> str:
@@ -681,6 +725,7 @@ def main(argv: list[str] | None = None) -> int:
     texts.update(plugin_assets(source))
     texts.update(skill_files(source))
     texts.update(hook_fixtures(source))
+    texts.update(telemetry_files(source))
     drift = sync(texts, ROOT, args.check)
     target = "python3 tools/build.py"
 

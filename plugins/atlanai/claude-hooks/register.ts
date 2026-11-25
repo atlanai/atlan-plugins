@@ -34,6 +34,8 @@ import {
   versionOf,
 } from './notices'
 import { LATEST_URL, VERSION } from './release'
+import { createTelemetry, failureReason, isOn, joinOf, namespaceOf, operationOf, releasedIn, runnerOf, track, trackRefusal, type Config } from './telemetry'
+import { TELEMETRY } from './telemetry-config'
 
 /**
  * The gateway's `call_tool` or `call_write_tool` (a search answer can name either as `run_with`),
@@ -458,6 +460,10 @@ async function checkLatest($: Dollar): Promise<string | undefined> {
 
 export const register: Register = on => {
   const receiptRuntime = { python: 'python3' }
+  // Usage telemetry (telemetry.ts): queued here, sent later from a timer, and never able to throw.
+  // It is on whenever the build carries a Segment write key, as the dashboard's analytics are.
+  const config: Config = TELEMETRY
+  const telemetry = createTelemetry(config)
   // The conversations already told, by session id: a /clear goes on under a new id, and is told again.
   const told = new Set<string>()
   const capabilitiesTold = new Map<string, Set<string>>()
@@ -470,11 +476,14 @@ export const register: Register = on => {
 
   on('session.start', async ($, e, next) => {
     latest ??= checkLatest($).catch(() => undefined)
+    track($, telemetry, 'install_active', { surface: e.surface ?? 'none', interactive: e.isInteractive })
     return next(e)
   }).catch(($, e, next) => next(e))
 
   on('prompt.submit', async ($, e, next) => {
     // A slash command's or a hidden prompt's context is not the conversation's own: tell the next one.
+    // One of this marketplace's own slash commands, by name alone: its arguments are never read.
+    if (e.command !== undefined) track($, telemetry, 'command_run', { command: e.command.name })
     if (e.command !== undefined || e.isMeta === true) return next(e)
     const session = await $.session.id()
     const notes: string[] = []
@@ -502,7 +511,11 @@ export const register: Register = on => {
         const notice = await Promise.race([latest, $.clock.sleep(UPDATE_WAIT_MS).then(() => null)])
         // null: not answered yet, so the next prompt looks again; undefined: nothing to say.
         if (notice !== null) isUpdateTold = true
-        if (notice) notes.push(notice)
+        if (notice) {
+          notes.push(notice)
+          const released = releasedIn(notice, VERSION)
+          if (released) track($, telemetry, 'update_prompted', released)
+        }
       } catch {
         isUpdateTold = true
       }
@@ -511,6 +524,7 @@ export const register: Register = on => {
     if (hadAtlan && !offered.has(session) && Math.random() < FEEDBACK_SAMPLE_RATE && !(await isFeedbackOff($))) {
       offered.add(session)
       notes.push(FEEDBACK_SAMPLED)
+      track($, telemetry, 'feedback_offered', { trigger: 'sampled' })
     }
     return notes.length > 0 ? next({ ...e, context: [...(e.context ?? []), ...notes] }) : next(e)
   }).catch(($, e, next) => next(e))
@@ -521,22 +535,37 @@ export const register: Register = on => {
     try {
       const session = await $.session.id()
       usedAtlan.add(session)
+      if (ran.deny === undefined && ran.isError === true) {
+        // The kind of failure, never its text; the inner tool by whose it is, never by name.
+        const made = e as unknown as { name?: unknown; session_id?: unknown }
+        track($, telemetry, 'tool_call_failed', { runner: runnerOf(e.tool), namespace: namespaceOf(made.name), reason: failureReason(resultText(ran)), ...joinOf(made.session_id) })
+      }
       if (ran.deny !== undefined || ran.isError !== true || offered.has(session)) return ran
       if (isExpected(resultText(ran)) || (await isFeedbackOff($))) return ran
       offered.add(session)
+      track($, telemetry, 'feedback_offered', { trigger: 'failure' })
       return { ...ran, context: [...(ran.context ?? []), FEEDBACK_ON_FAILURE] }
     } catch {
       return ran
     }
   }).catch(($, e, next) => next(e))
+  // Which of this marketplace's own skills the agent loads. Any other skill's name is dropped by
+  // the schema's list before anything is queued for sending, and its arguments are never read.
+  // With no write key the hook is not registered at all.
+  if (isOn(config))
+    on('tool.call', { tool: 'Skill' }, async ($, e, next) => {
+      track($, telemetry, 'skill_invoked', { skill: (e as unknown as { skill?: unknown }).skill })
+      return next(e)
+    }).catch(($, e, next) => next(e))
   on('tool.call', { tool: CALL_TOOL }, async ($, e, next) => {
-    const call = e as unknown as { name?: unknown; arguments?: unknown }
+    const call = e as unknown as { name?: unknown; arguments?: unknown; session_id?: unknown }
     if (call.name !== PUBLISH && !isOutput(call.name) && !RECEIPT_OPERATIONS.has(String(call.name))) return next(e)
     const args = argsOf(call.arguments)
     if (!args) return next(e)
     if (isOutput(call.name)) {
       const refusal = outputRefusal(args)
       if (refusal === undefined || (!PLUGIN_CALL_TOOL.test(e.tool) && !gatewayRunners(await $.tool.list()).includes(e.tool))) return next(e)
+      trackRefusal($, telemetry, call.name, refusal, call.session_id)
       return { deny: refusal }
     }
     const { receipt_dir: receiptDir, ...native } = args
@@ -544,15 +573,21 @@ export const register: Register = on => {
     if (receiptDir !== undefined && (call.name === PUBLISH || call.name === BULK_PUBLISH && !('items_from' in native))) return { deny: 'Receipt capture on creates requires a guarded local batch.' }
     const expanded = (call.name === BULK_PUBLISH ? await expandBulk($, native) : call.name === PUBLISH ? await expand($, native) : undefined) ?? (receiptDir !== undefined ? { args: native } : undefined)
     if (!expanded) return next(e)
-    if ('deny' in expanded) return { deny: expanded.deny }
+    if ('deny' in expanded) {
+      trackRefusal($, telemetry, call.name, expanded.deny, call.session_id)
+      return { deny: expanded.deny }
+    }
     const request = { name: call.name, arguments: expanded.args }
     if (receiptDir !== undefined) {
       try {
         await receiptProcess($, receiptRuntime, 'check', receiptDir, request)
       } catch {
+        trackRefusal($, telemetry, call.name, 'receipt', call.session_id)
         return { deny: 'The receipt destination could not be prepared. Nothing was sent.' }
       }
     }
+    const operation = operationOf(call.name)
+    if (operation) track($, telemetry, 'publish_prepared', { operation, ...joinOf(call.session_id) })
     const sentAt = await $.clock.now()
     const sent = typeof call.arguments === 'string' ? JSON.stringify(expanded.args) : expanded.args
     // From here the call has run: nothing below may throw, or the .catch would send it again.

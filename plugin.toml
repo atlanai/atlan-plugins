@@ -14,7 +14,7 @@
 name = "atlanai"
 display_name = "Atlan Trident"
 # Bump on every release: Claude Code holds users on the version they installed.
-version = "0.5.63"
+version = "0.5.64"
 description = "Your organization's skills, agents, knowledge and MCP servers, from Atlan Trident. One sign-in, no API key."
 short_description = "Skills, agents and tools"
 long_description = "Connect your coding agent to Atlan Trident with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install an Atlan Trident skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with Atlan Trident's own authoring recipes."
@@ -67,6 +67,21 @@ url = "https://api.atlan.com/mcp"
 # a session came from; a server added by hand sends none (MCP service decision
 # mcp-2026-10-30-session-records-the-install-surface).
 client = "atlan-plugin"
+
+[telemetry]
+# Anonymous usage events from the hooks (claude-hooks/telemetry.ts, command-hooks/telemetry.py):
+# which of this repository's skills and commands run, what the publish helper refused, and a
+# daily-active ping. command-hooks/telemetry_events.json lists every event and property, and
+# nothing outside it is sent. It works as the dashboard's analytics do (frontend,
+# apps/dashboard/src/lib/observability/analytics.ts): events go straight to Segment, which
+# forwards them to Mixpanel, and they are collected by default whenever a write key is set. The
+# key is the switch and the environment both: with `write_key` empty no request is made and
+# nothing is written to disk, and the key set here is the production source's, since this
+# repository serves production only. A Segment write key is a source's public address, as in the
+# dashboard's bundle, and it can only write events. Changing either line needs the security
+# review AGENTS.md asks for.
+endpoint = "https://api.segment.io/v1/batch"
+write_key = ""
 
 [codex]
 capabilities = ["Interactive", "Write"]

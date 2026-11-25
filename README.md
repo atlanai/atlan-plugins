@@ -206,6 +206,12 @@ and point at live tools instead of copying reference data that would go stale.
   dashboard.
 - **One identifying header.** Requests carry `X-Atlan-Client: atlan-plugin/<version>`, so
   Atlan can tell a session came from this plugin.
+- **Usage telemetry is on by default.** `atlanai`'s hook sends usage events to Segment, the
+  pipeline the Atlan dashboard uses: which of these plugins' own skills and commands ran, and
+  what the publish helper refused. No prompt, path, file, argument, result or error text is
+  sent, and the hook never sees who you are. `ATLAN_PLUGIN_TELEMETRY=0` or `DO_NOT_TRACK=1`
+  turns it off. The [plugin's README](plugins/atlanai/README.md#usage-telemetry) lists every
+  event and property.
 
 See Atlan's [privacy notice](https://atlan.com/privacy-policy/). To report a vulnerability, see
 [SECURITY.md](SECURITY.md).

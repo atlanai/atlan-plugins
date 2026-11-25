@@ -25,9 +25,13 @@ plugins/atlanai/                    the core plugin
                                   and each command sets `disable-model-invocation: true` so the
                                   model's skill list does too (claude.ai lists commands there)
   claude-hooks/                   the publish helper, Claude Code's hooks module, and its tests;
-                                  tests/fixtures.ts generated from tools/tests/fixtures/
+                                  tests/fixtures.ts generated from tools/tests/fixtures/;
+                                  telemetry.ts, and telemetry-config.ts generated from
+                                  plugin.toml and the events file
   command-hooks/                  the same helper as a command hook for Codex and Cursor:
-                                  publish_hook.py and each harness's hooks file, written here
+                                  publish_hook.py and each harness's hooks file, written here;
+                                  telemetry.py and telemetry_events.json, every usage event,
+                                  written here; telemetry_config.json generated
   README.md                       written by hand
 plugins/atlanai-<workload>/       add-ons: skills, commands and agents written here; manifests and
                                   README generated
@@ -98,7 +102,16 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   names a later version, and, in Claude Code, an offer to draft feedback after a failed Atlan
   call or one turn in fifty after Atlan work (`claude-hooks/notices.ts`). Feedback is drafted by
   the model from `atlan-troubleshoot/references/feedback.md` and sent by the user; no hook sends
-  it. It comes in two forms, each named only from its own harness's manifest and never from
+  it. It also carries usage telemetry (`claude-hooks/telemetry.ts`, `command-hooks/telemetry.py`),
+  built as the dashboard's is (the frontend's `apps/dashboard/src/lib/observability/analytics.ts`):
+  straight to Segment, which forwards to Mixpanel, and on by default whenever `[telemetry]
+  write_key` in `plugin.toml` is set. Events are named in the dashboard's grammar
+  (`claude_plugin_<object_action>`, the category its plan gives this codebase, with `object` and
+  `action` mirrored), each listed in `command-hooks/telemetry_events.json` and in the core's
+  README. A hook cannot see the user or the organization, so where the dashboard calls
+  `identify` and `group`, an event carries `mcp_session_id`, the id the gateway keeps with both. To add an event, add it to that
+  file with typed properties (`boolean`, `version`, `enum` or `listed`, never free text), run
+  `make build`, raise it with `track` or from `events_of`, and add its README row. It comes in two forms, each named only from its own harness's manifest and never from
   `hooks/`, which Codex and Cursor read by default. `claude-hooks/` is a Claude Code hooks module,
   named by `"hooks"` in `.claude-plugin/plugin.json` (`claude_hooks` in `plugin.toml`).
   `command-hooks/` is one standard-library Python script, `publish_hook.py`, that imports
@@ -289,9 +302,21 @@ Repo-specific rules. The full guide, with patterns, anti-patterns and a pre-PR c
   their counterparts in `claude-hooks/register.ts`). It refuses an `extension__agent__publish_output`
   (or the registry's copy of that tool on a gateway that predates the move) whose inline text
   matches a credential shape, and never repeats the value (`output_refusal`, `outputRefusal`).
-- **[MUST]** The hooks reach only the Atlan server and, for the update notice, the core's
-  `plugin.json` on this repository's `main`. They send nothing about the user or the session to
-  either, and no hook sends feedback.
+- **[MUST]** The hooks reach only the Atlan server, for the update notice the core's
+  `plugin.json` on this repository's `main`, and for usage telemetry the one HTTPS endpoint
+  `[telemetry] endpoint` names in `plugin.toml`: Segment's batch API, with the write key beside
+  it. No hook sends feedback, and the first two are sent nothing about the user or the session.
+- **[MUST]** Usage telemetry carries only what `command-hooks/telemetry_events.json` lists: a
+  closed set of events whose properties are booleans, versions, values from a fixed list, or the
+  names of skills and commands this repository ships, and the gateway's own session id where it
+  reads as one. Never a prompt, a path, a file's contents, a tool's arguments or results, an
+  error's text, another plugin's skill, or a name, email, user or organization (`compose` in
+  `command-hooks/telemetry.py` and `claude-hooks/telemetry.ts`).
+  It stays off under `DO_NOT_TRACK`, `DISABLE_TELEMETRY`, `ATLAN_PLUGIN_TELEMETRY=0`,
+  `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`, `CI`, the opt-out file, and in any copy that is not
+  the released plugin on the production server (`is_opted_out`, `is_released_copy`, `prepare`).
+  It never delays or changes a hook's answer. Change both senders, the events file and the
+  core's README together, with tests.
 - **[MUST]** `command-hooks/` and `claude-hooks/` enforce the same rules as `check_bundle.py`;
   change all three together, with tests.
 - **[MUST]** A hook command runs the script from its plugin root and nothing when that is unset
@@ -310,4 +335,4 @@ Repo-specific rules. The full guide, with patterns, anti-patterns and a pre-PR c
 Severity: CRITICAL and HIGH block merge; MEDIUM is flagged with a fix; LOW gets a brief note.
 Get a maintainer's security review before merging changes to `plugins/atlanai/command-hooks/`,
 `plugins/atlanai/claude-hooks/`, `check_bundle.py`, `plugins/atlanai-mods/hooks/`, the `[mcp]`
-table in `plugin.toml`, or `.github/workflows/`.
+and `[telemetry]` tables in `plugin.toml`, or `.github/workflows/`.
