@@ -205,6 +205,11 @@ compiler:
   # `stable` only after producing correct SQL on this many DISTINCT estates — evidence-based,
   # not time-based: a row that has only ever seen one workbook has not been tested.
   graduate_after_estates: 3
+  # A compiled statement longer than this (characters) is split by its measures into
+  # statements within it, each over the unit's same rows. A SIZE, never a meaning: a saved
+  # query is published whole, and a destination refuses one past its own limit (64 KB is
+  # common). 0 keeps every statement whole.
+  max_statement_chars: 60000
 
 # ---------------------------------------------------------------- faithfulness
 # Do the WORDS match the SQL? The witness proves the statement runs; nothing else looks at the

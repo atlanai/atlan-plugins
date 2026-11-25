@@ -405,7 +405,14 @@ class ProjectionTests(unittest.TestCase):
         self.assertNotIn('sql', definition['source'])
         self.assertEqual(definition['source']['parameters'][0],
                          {'name': 'start_date', 'datatype': 'date', 'default': '2026-01-01'})
-        self.assertEqual(definition['extensions']['metrics_agent']['card'], original)
+        # The card is kept whole as evidence, less what the definition already holds word for
+        # word: the two together give back the original.
+        kept = copy.deepcopy(definition['extensions']['metrics_agent']['card'])
+        if kept.pop('examples_at', None):
+            kept['examples'] = [{**shown, **rest} for shown, rest in zip(definition['examples'], kept['examples'])]
+        if kept.pop('sql_at', None):
+            kept['sql'] = definition['source']['sql']
+        self.assertEqual(kept, original)
         self.assertEqual(original, card())
 
     def test_join_type_is_preserved_in_source_sql_and_roles_remain_as_evidence(self):

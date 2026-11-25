@@ -41,6 +41,7 @@ one that runs.
 """
 from __future__ import annotations
 
+import contextvars
 import pathlib
 import re
 from typing import Any
@@ -154,13 +155,32 @@ def _strip_line_comments(text: str, dax: bool = True) -> str:
             continue
         elif dax and text[i:i + 2] == "/*":
             j = text.find("*/", i + 2)
-            i = n if j < 0 else j + 2
+            i = n if j < 0 else _nested_comment_end(text, i, j)
             out.append(" ")
             continue
         else:
             out.append(ch)
         i += 1
     return "".join(out)
+
+
+def _nested_comment_end(text: str, start: int, flat: int) -> int:
+    """Where the `/*` at `start` ends: after its own `*/` where the comment holds another
+    `/* … */` and every one of them closes (an old version commented out around a comment of
+    its own), else after the first `*/` (`flat`). Read flat, a nested comment ended at the
+    inner `*/` and the rest of the old version was read as code (`trailing tokens from
+    'VAR'`); a comment whose nesting does not close is read flat, as before."""
+    depth, i, n = 1, start + 2, len(text)
+    while i < n:
+        if text[i:i + 2] == "/*":
+            depth, i = depth + 1, i + 2
+        elif text[i:i + 2] == "*/":
+            depth, i = depth - 1, i + 2
+            if depth == 0:
+                return i
+        else:
+            i += 1
+    return flat + 2
 
 
 def tokenize(text: str, dax: bool = True) -> list[tuple[str, str]]:
@@ -853,7 +873,9 @@ class _Parser:
                     # `t.Sales-MTD/YTD` would PARSE (as arithmetic) and answer nonsense.
                     raise CompileError(f"[{col}] is neither a source column nor a calc "
                                        f"the compiler knows")
-                return f"{on}.{col}"
+                # A name that is not a legal bare identifier (`Customer Sk`) is quoted: bare,
+                # `t.Customer Sk` does not parse, and the whole statement was refused for it.
+                return f"{on}.{_legal(col) if self._dax else col}"
             src = self.colmap.get(col.lower())
             if src is None:
                 # Not a column of the query the statement reads. In DAX that is most often a
@@ -1011,6 +1033,8 @@ class _Parser:
                     date_sets.append(running)
                 elif (looked := self._lookup_dates(toks)) is not None:
                     date_sets.append(looked)
+                elif (treated := self._treatas_dates(toks)) is not None:
+                    date_sets.append(treated)
                 elif head == "FILTER":
                     conds.append(self._filter_table(inner, overrides))
                 elif head == "TREATAS":
@@ -1046,9 +1070,9 @@ class _Parser:
         window = self._window_for(removal, overrides)
         drops = self._drops
         slot_drops = self._slot_drops
-        cond = " AND ".join(c for c in conds if c)
+        cond = _all_of([c for c in conds if c])
         if self.row_filter and cond:
-            cond = f"({self.row_filter}) AND {cond}"
+            cond = f"({self.row_filter}) AND {_grouped(cond)}"
         elif self.row_filter:
             cond = self.row_filter
         sub = self._child(args[0], row_filter=cond or None, inlining=self.inlining,
@@ -1443,7 +1467,7 @@ class _Parser:
                 # `Void Line Flag` read as `Void_Line_Flag`), as in a measure's own body.
                 phys = table or (_bare(self.home[1]) if self.home else self.ctx.source)
                 col = self.ctx.renames.get((_bare(phys), col.lower()), col)
-            return f"{on}.{col}"
+            return f"{on}.{_legal(col)}"
 
         # Text compared as the model holds it, unless the source compares it (a table read by
         # DirectQuery: the statement's own comparison, case and spaces kept).
@@ -1533,6 +1557,12 @@ class _Parser:
             op = take()
             if op[0] != "op" or op[1] not in _COMPARISONS:
                 raise _NotSimple
+            if (kw("MIN") or kw("MAX")) and peek(1)[0] == "lparen":
+                agg = take()[1].upper()
+                want("lparen")
+                bound_of = take()
+                want("rparen")
+                return self._context_bound(col, op[1], agg, bound_of)
             lit, value = literal()
             if fold and isinstance(value, str):
                 self.used.append("engine.dax_text_key")
@@ -1562,6 +1592,134 @@ class _Parser:
         if pos != len(toks):
             raise _NotSimple
         return out
+
+    def _intersect_count(self) -> str:
+        """`COUNTROWS(INTERSECT(CALCULATETABLE(VALUES(T[k]), A…), CALCULATETABLE(VALUES(T[k]),
+        B…)))`, written by `_intersect_rewrite` as `__SET_COUNT(T[k], (A…), (B…))`: the keys
+        with a row passing A and a row passing B, each in the visual's context with A's (B's)
+        columns replaced. By inclusion and exclusion that is |A| + |B| - |A or B|, three
+        distinct counts of the key the statement computes directly (COUNTROWS(VALUES)
+        counts a blank key too). Exact where the visual neither groups nor filters by a column
+        A or B names: there A replaces the same context B does, so one filter `A || B` is
+        their union. Anywhere else it is refused by name. A count of nothing is blank."""
+        start = self.i
+        end, args = _call_args(self.t, start)
+        if end is None or len(args) != 3:
+            raise CompileError("INTERSECT of two CALCULATETABLEs: unexpected form")
+        key = args[0]
+        sides = [_split_top(_strip_parens(a)) if a[1:-1] else [] for a in args[1:]]
+        cols = {_column_ref(v).lower() for side in sides for f in side for k, v in f
+                if k in ("qualified", "quoted_qualified")}
+        if self.ctx is not None:
+            seen = {str(c).lower() for c, _t, _k in self.ctx.groups} | {
+                str(c).lower() for c, _t in self.ctx.filters}
+            seen |= {str(v).lower() for v in self.ctx.renames.values()
+                     if str(v).lower() in seen}
+            hit = sorted(c for c in cols if c in seen or str(
+                self.ctx.renames.get((_bare(self.home[1]) if self.home else "", c), c)
+            ).lower() in seen)
+            if hit:
+                raise CompileError(
+                    f"COUNTROWS(INTERSECT(...)) of two CALCULATETABLEs whose filters replace "
+                    f"{', '.join(hit)}, which the visual groups or filters by: each side then "
+                    f"reads another context, which one statement's counts do not say")
+        # An outer CALCULATE's row filter on other columns narrows all three counts alike,
+        # and inclusion and exclusion still holds; one on a column a side replaces does not.
+        if self.window is not None or (self.row_filter and any(
+                re.search(rf"\b{re.escape(str(self.ctx.renames.get((_bare(self.home[1]), c), c)) if self.ctx and self.home else c)}\b",
+                          self.row_filter, re.I) or re.search(rf"\b{re.escape(c)}\b",
+                                                              self.row_filter, re.I)
+                for c in cols)):
+            raise CompileError("COUNTROWS(INTERSECT(...)) of two CALCULATETABLEs inside another "
+                               "CALCULATE that removes the visual's grouping or filters a column "
+                               "they filter is not compiled")
+        count = [("func", "COUNTROWS"), ("lparen", "("), ("func", "VALUES"), ("lparen", "(")
+                 ] + key + [("rparen", ")"), ("rparen", ")")]
+
+        def under(filters: list[list]) -> list:
+            if not filters:
+                return count
+            out = [("func", "CALCULATE"), ("lparen", "(")] + count
+            for f in filters:
+                out += [("comma", ",")] + f
+            return out + [("rparen", ")")]
+
+        def conj(filters: list[list]) -> list:
+            out: list = [("lparen", "(")]
+            for i, f in enumerate(filters):
+                out += ([("op", "&&")] if i else []) + [("lparen", "(")] + f + [("rparen", ")")]
+            return out + [("rparen", ")")]
+        a, b = sides
+        if not a or not b:
+            parts = [under(b if not a else a)]
+        else:
+            parts = [under(a), under(b), under([conj(a) + [("op", "||")] + conj(b)])]
+        sqls = []
+        for toks in parts:
+            sub = self._child(toks, row_filter=self.row_filter, inlining=self.inlining,
+                              share_vars=True)
+            try:
+                sqls.append(sub.parse())
+            finally:
+                self._absorb(sub)
+                self.calc_columns |= sub.calc_columns
+        self.i = end + 1
+        self.used.append("engine.dax_intersect_count")
+        if len(sqls) == 1:
+            return f"({sqls[0]})"
+        return (f"NULLIF(COALESCE({sqls[0]}, 0) + COALESCE({sqls[1]}, 0) - "
+                f"COALESCE({sqls[2]}, 0), 0)")
+
+    def _context_bound(self, col: str, op: str, agg: str, tok: tuple[str, str]) -> str:
+        """`T[c] <op> MIN(D[d])` (or MAX) as a filter: the bound is D's lowest (highest) `d`
+        in the visual's context, which DAX reads in the context the CALCULATE is evaluated
+        in, before its own filters apply. Typical of a date range: `T[changed] >=
+        MIN('Date'[Date])` and `<= MAX('Date'[Date])` keep the rows dated within the visual's
+        dates.
+
+        Compiled where that context leaves D whole: D is not the measure's own table, and
+        nothing the visual groups or filters by reaches D along a relationship. D's bound is
+        then one number for every row, a scalar subquery over D. Where the visual narrows D
+        (it groups by a month, a slicer picks a year) the bound differs per row, and that is
+        refused by name. A blank `c` compares as DAX's blank does: 0, or 30 December 1899
+        for a date column, so it passes `<=` a later date."""
+        k, v = tok
+        if k not in ("qualified", "quoted_qualified") or self.home is None or self.ctx is None:
+            raise _NotSimple
+        table, dcol = _table_ref(v) or "", _column_ref(v)
+        table_of, source = self.home
+        physical = table_of.get(table.lower())
+        if not physical:
+            raise _NotSimple
+        dbare = _bare(physical)
+        what = f"{agg}('{table}'[{dcol}])"
+        if dbare == _bare(source):
+            raise CompileError(f"{what} in a CALCULATE filter reads the measure's own rows in "
+                               f"the visual's context, which a row filter does not have")
+        if (self.row_filter or self.window is not None or self.slots is not None
+                or self.date_set is not None):
+            raise CompileError(f"{what} in a CALCULATE filter inside another filter context "
+                               f"(a CALCULATE, a removal or a date set): its context is not "
+                               f"the visual's")
+        narrowing = {t for _c, t, _k in self.ctx.groups if t} | {
+            t for _c, t in self.ctx.filters if t}
+        graph = list(self.ctx.graph or [])
+        if any(_bare(t) == dbare for t in narrowing) or (
+                narrowing and _filter_reaches(narrowing, physical, graph)):
+            raise CompileError(
+                f"{what} in a CALCULATE filter, where the visual groups or filters by a column "
+                f"that reaches '{table}': the bound differs per row of the visual, which one "
+                f"scalar does not say")
+        phys_col = self.ctx.renames.get((dbare, dcol.lower()), dcol)
+        bound = f"(SELECT {agg}(cs.{_legal(phys_col)}) FROM {physical} cs)"
+        is_date = "date" in str(self.ctx.types.get((table.lower(), dcol.lower())) or "").lower()
+        # DAX's blank against a date is day 0, against text "", against a number 0.
+        blank = ("CAST('1899-12-30' AS DATE)" if is_date
+                 else "''" if self.ctx.is_text(table, dcol) else "0")
+        self.used.append("engine.dax_context_bound")
+        pred = f"{col} {op} {bound}"
+        # DAX's blank is 0 (a date's day 0): it passes where 0 <op> the bound holds.
+        return f"({pred} OR ({col} IS NULL AND {blank} {op} {bound}))"
 
     @staticmethod
     def _text_key(sql: str) -> str:
@@ -2196,6 +2354,8 @@ class _Parser:
             out = self._calculate()
             if out is not None:
                 return out
+        if self._dax and up == _SET_COUNT:
+            return self._intersect_count()
         if self._dax and up == "SWITCH":
             return self._switch()
         if self._dax and up == "COUNTROWS":
@@ -2277,6 +2437,21 @@ class _Parser:
             raise CompileError(f"{up} inside a row iterator aggregates in each row's filter "
                                f"context (a context transition), which one aggregate over "
                                f"the rows does not express")
+        if (self.slots is not None and self.window is None and self.date_set is None
+                and not self.row_filter and not self.slot_drops and self.slot_keep is None
+                and not gated and _AGGREGATE_CALL.search(emit.get("template") or "")):
+            # Beside time intelligence, outside every date set and CALCULATE: a function
+            # whose own rule aggregates (SELECTEDVALUE's one value of a column) reads the
+            # visual row's own rows, which the ordinary sub-statement holds. It is one more
+            # of that statement's slots (`_compile_time_unit`), as a plain aggregate there is.
+            slots, self.slots = self.slots, None
+            try:
+                sql = self.call(name)
+            finally:
+                self.slots = slots
+            self.slots.append({"sql": sql, "date_set": None, "drops": [], "keep": None})
+            self.used.append("engine.dax_time_intelligence_row_slot")
+            return f"MAX(u.s{len(self.slots)})"
         if (self.window is not None or self.slots is not None) and not gated \
                 and _AGGREGATE_CALL.search(emit.get("template") or ""):
             raise CompileError(f"{up} aggregates inside its own rule, which is not summed "
@@ -3426,7 +3601,7 @@ class _Parser:
             if t2 is not None and (source is None or t2 == source):
                 pred = self._row_predicate(parts[1])
                 self.i = end + 1
-                gate = f"({self.row_filter}) AND {pred}" if self.row_filter else pred
+                gate = f"({self.row_filter}) AND {_grouped(pred)}" if self.row_filter else pred
                 self.used.append("engine.dax_count_blank")
                 return self._combine("COUNTROWS", emit,
                                      f"NULLIF(COUNT(CASE WHEN {gate} THEN 1 END), 0)",
@@ -3697,13 +3872,55 @@ class _Parser:
         left, right = pred[:at[0]], pred[at[0] + 1:]
         vh, vin = _call_head(right)
         match, via = self._column_arg(left), self._column_arg(vin) if vh in (
-            "VALUES", "DISTINCT") else None
+            "VALUES", "DISTINCT", _EACH_DATE) else None
         if match is None or via is None or match[1] != table or via[1] != table:
             return None
         key = _lookup_key(self.ctx, table)
         if key is None:
             return None
         self.used.append("engine.dax_time_lookup")
+        if vh == _EACH_DATE:
+            self.used.append("engine.dax_time_lookup_each_date")
+        return _DateSet("lookup", key, match=match[0], via=via[0], per_date=vh == _EACH_DATE)
+
+    def _treatas_dates(self, toks) -> "_DateSet | None":
+        """`TREATAS(SUMMARIZE(D, D[via]), D[match])` (or `VALUES(D[via])`): the dates whose
+        `match` is one of the row's dates' `via` values, as the lookup (`_lookup_dates`)
+        reads them, where the visual neither groups nor filters by anything that reaches D.
+        TREATAS keeps D's other filters where `FILTER(ALL(D), …)` removes them; with none,
+        the two are the same set. Anywhere else, None (and the declared limit)."""
+        head, inner = _call_head(toks)
+        if head != "TREATAS" or self.ctx is None or self.home is None:
+            return None
+        if (self.row_filter or self.window is not None or self.date_set is not None
+                or self.slot_drops or self.slot_keep is not None):
+            # Inside another CALCULATE, a filter on D's other columns may hold, which TREATAS
+            # keeps and the lookup's ALL(D) would drop.
+            return None
+        parts = _split_top(inner)
+        if len(parts) != 2:
+            return None
+        sh, sin = _call_head(_strip_parens(parts[0]))
+        sargs = _split_top(sin) if sh in ("SUMMARIZE", "VALUES") else []
+        via_toks = (sargs[1] if sh == "SUMMARIZE" and len(sargs) == 2 else
+                    sargs[0] if sh == "VALUES" and len(sargs) == 1 else None)
+        if via_toks is None:
+            return None
+        via, match = self._column_arg(via_toks), self._column_arg(parts[1])
+        if via is None or match is None or via[1] != match[1] or (
+                sh == "SUMMARIZE" and self._table_arg(sargs[0]) != match[1]):
+            return None
+        table = match[1]
+        physical = next((t for t in self.home[0].values() if _bare(t) == table), table)
+        narrowing = {t for _c, t, _k in self.ctx.groups if t} | {
+            t for _c, t in self.ctx.filters if t}
+        if any(_bare(t) == table for t in narrowing) or (
+                narrowing and _filter_reaches(narrowing, physical, list(self.ctx.graph or []))):
+            return None
+        key = _lookup_key(self.ctx, table)
+        if key is None:
+            return None
+        self.used.append("engine.dax_time_lookup_treatas")
         return _DateSet("lookup", key, match=match[0], via=via[0])
 
     def _today(self, toks) -> "_SqlDate | None":
@@ -3824,12 +4041,15 @@ class _DateSet:
         self.anchor_fact = kw.get("anchor_fact")
         self.open_end = kw.get("open_end", False)
         self.match, self.via = kw.get("match"), kw.get("via")
+        # A lookup read once per date of the row (`_each_date_lookup`): a prior-year date
+        # two of the row's dates map to is read twice, as DAX's SUMX over the dates reads it.
+        self.per_date = kw.get("per_date", False)
 
     @property
     def key(self) -> tuple:
         return (self.kind, self.column, self.period, self.year_end, self.part, self.n,
                 self.months, self.previous, self.lo, self.hi, self.anchor, self.anchor_fact,
-                self.open_end, self.match, self.via)
+                self.open_end, self.match, self.via, self.per_date)
 
 
 class _SqlDate(str):
@@ -4150,6 +4370,38 @@ _COMPARISONS = ("=", "<>", ">", "<", ">=", "<=")
 _AGGREGATE_CALL = re.compile(r"\b(SUM|COUNT|AVG|MIN|MAX|MEDIAN)\s*\(", re.I)
 
 
+def _top_level_or(sql: str) -> bool:
+    """Whether `sql` has an OR outside every parenthesis and string literal."""
+    depth, q = 0, None
+    for i, ch in enumerate(sql):
+        if q:
+            q = None if ch == q else q
+        elif ch in "'\"":
+            q = ch
+        elif ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        elif depth == 0 and sql[i:i + 4].upper() == " OR ":
+            return True
+    return False
+
+
+def _grouped(sql: str) -> str:
+    """`sql` parenthesised where it has a top-level OR, so an AND beside it binds to all of
+    it: `a AND x OR y` is `(a AND x) OR y`, not the `a AND (x OR y)` DAX's `&&` beside a
+    `||` filter means."""
+    return f"({sql})" if _top_level_or(sql) else sql
+
+
+def _all_of(conds: list[str]) -> str:
+    """CALCULATE filter conditions ANDed, each OR among them kept whole (`_grouped`). One
+    condition alone is as it is."""
+    if len(conds) <= 1:
+        return conds[0] if conds else ""
+    return " AND ".join(_grouped(c) for c in conds)
+
+
 def _blank_passes(op: str, value: Any) -> bool:
     """Whether a BLANK passes `blank <op> value` in DAX. A blank compares as the empty string
     against a string and as 0 against a number or a boolean (FALSE is 0, TRUE is 1); SQL's
@@ -4368,7 +4620,183 @@ def _tokens(formula: str, language: str) -> list:
     """The tokens of one formula. EVERY formula the compiler reads comes through here — a
     measure, a grouping calc, a measure inlined into another. A level-of-detail expression
     is read by the parser (`_lod`), which refuses it by name where it has no statement."""
-    return tokenize(formula, dax=language not in _LOD_LANGUAGES)
+    toks = tokenize(formula, dax=language not in _LOD_LANGUAGES)
+    if language != "dax":
+        return toks
+    return _each_date_lookup(toks) or _intersect_rewrite(toks) or toks
+
+
+# `COUNTROWS(INTERSECT(CALCULATETABLE(VALUES(k), …), …))` as `_intersect_rewrite` writes it
+# for the parser (`_Parser._intersect_count`). Never a token the tokeniser gives.
+_SET_COUNT = "__SET_COUNT"
+
+
+def _intersect_rewrite(toks: list) -> list | None:
+    """`COUNTROWS(INTERSECT(a, b))`, each side `CALCULATETABLE(VALUES(T[k]), filter…)` of the
+    same column, written inline or through variables (`VAR a = … VAR both = INTERSECT(a, b)
+    RETURN COUNTROWS(both)`), as `__SET_COUNT(T[k], (a's filters), (b's filters))`. None for
+    any other formula."""
+    t = _strip_parens(list(toks))
+    env: dict[str, list] = {}
+    while t[:1] == [("func", "VAR")] and len(t) > 3 and t[2] == ("op", "="):
+        name = t[1][1].upper()
+        depth, i = 0, 3
+        while i < len(t):
+            k = t[i][0]
+            depth += k == "lparen"
+            depth -= k == "rparen"
+            if depth == 0 and t[i] in (("func", "VAR"), ("func", "RETURN")) and i > 3:
+                break
+            i += 1
+        env[name] = _strip_parens(t[3:i])
+        t = t[i + 1:] if i < len(t) and t[i] == ("func", "RETURN") else t[i:]
+    t = _strip_parens(t)
+
+    def resolve(x: list, depth: int = 0) -> list:
+        x = _strip_parens(x)
+        if len(x) == 1 and x[0][0] == "func" and x[0][1].upper() in env and depth < 8:
+            return resolve(env[x[0][1].upper()], depth + 1)
+        return x
+    head, inner = _call_head(resolve(t))
+    if head != "COUNTROWS":
+        return None
+    ih, iin = _call_head(resolve(inner))
+    iargs = _split_top(iin) if ih == "INTERSECT" else []
+    if len(iargs) != 2:
+        return None
+    key, sides = None, []
+    for side in iargs:
+        ch, cin = _call_head(resolve(side))
+        cargs = _split_top(cin) if ch == "CALCULATETABLE" else []
+        if not cargs:
+            return None
+        vh, vin = _call_head(_strip_parens(cargs[0]))
+        if vh != "VALUES" or len(vin) != 1 or vin[0][0] not in ("qualified", "quoted_qualified"):
+            return None
+        k = ((_table_ref(vin[0][1]) or "").lower(), _column_ref(vin[0][1]).lower())
+        if key is not None and k != key[0]:
+            return None
+        key = key or (k, vin)
+        if any(any(tk[0] == "func" and tk[1].upper() in env for tk in f) for f in cargs[1:]):
+            return None                        # a filter reading a variable: not inlined here
+        sides.append(cargs[1:])
+    out = [("func", _SET_COUNT), ("lparen", "(")] + key[1]
+    for filters in sides:
+        out += [("comma", ","), ("lparen", "(")]
+        for i, f in enumerate(filters):
+            out += ([("comma", ",")] if i else []) + f
+        out += [("rparen", ")")]
+    return out + [("rparen", ")")]
+
+
+# The `VALUES` of a prior-period lookup read once per date (`_each_date_lookup`). Never a
+# token the tokeniser gives: only that rewrite writes it, and only `_lookup_dates` reads it.
+_EACH_DATE = "__EACH_DATE_VALUES"
+
+
+def _each_date_lookup(toks: list) -> list | None:
+    """The prior-year sum retail models write as an iterator over the date table's dates:
+
+        [VAR Dates = SUMMARIZE('Date', 'Date'[d]) RETURN] SUMX(Dates, VAR cur = 'Date'[d]
+          VAR ly = CALCULATE(MAX('Date'[py]), FILTER(ALL('Date'), 'Date'[d] = cur))
+          RETURN CALCULATE(SUM(T[x]), FILTER(ALL('Date'), 'Date'[d] = ly)[, filters]))
+
+    For each date of the row, the sum on that date's `py` date, added up. With a SUM that is
+    the sum over the dates whose `d` is a `py` of the row's dates, counted once per date that
+    maps to them: the date-table lookup (`_lookup_dates`) read as a list
+    (`CALCULATE(SUM(T[x]), FILTER(ALL('Date'), 'Date'[d] IN <each date's py>)[, filters])`).
+    Any other summand (a ratio, a distinct count) is not a sum over those rows, so the
+    formula is left as it is; None for any other formula."""
+    t = _strip_parens(list(toks))
+    tvar = None
+    if t[:1] == [("func", "VAR")] and len(t) > 4 and t[2] == ("op", "="):
+        ret = next((i for i, x in enumerate(t) if x == ("func", "RETURN")), None)
+        if ret is None:
+            return None
+        tvar, table_expr, t = t[1][1].upper(), t[3:ret], _strip_parens(t[ret + 1:])
+    head, inner = _call_head(t)
+    if head != "SUMX":
+        return None
+    args = _split_top(inner)
+    if len(args) != 2:
+        return None
+    if tvar is not None:
+        if args[0] != [("func", args[0][0][1])] or args[0][0][1].upper() != tvar:
+            return None
+    else:
+        table_expr = args[0]
+
+    def col(tok: tuple) -> tuple[str, str] | None:
+        if tok[0] not in ("qualified", "quoted_qualified"):
+            return None
+        return (_table_ref(tok[1]) or "").lower(), _column_ref(tok[1]).lower()
+    th, tin = _call_head(_strip_parens(table_expr))
+    targs = _split_top(tin) if th in ("SUMMARIZE", "VALUES") else []
+    if th == "SUMMARIZE" and len(targs) == 2 and len(targs[1]) == 1:
+        dcol = col(targs[1][0])
+    elif th == "VALUES" and len(targs) == 1 and len(targs[0]) == 1:
+        dcol = col(targs[0][0])
+    else:
+        return None
+    if dcol is None:
+        return None
+    body = _strip_parens(args[1])
+    # VAR cur = D[d] VAR ly = CALCULATE(MAX(D[py]), FILTER(ALL(D), D[d] = cur)) RETURN ...
+    if len(body) < 9 or body[0] != ("func", "VAR") or body[2] != ("op", "=") \
+            or len(body) < 5 or col(body[3]) != dcol or body[4] != ("func", "VAR"):
+        return None
+    cur = body[1][1].upper()
+    ret = next((i for i, x in enumerate(body) if x == ("func", "RETURN")), None)
+    if ret is None or body[6] != ("op", "="):
+        return None
+    ly = body[5][1].upper()
+    lh, lin = _call_head(_strip_parens(body[7:ret]))
+    largs = _split_top(lin) if lh == "CALCULATE" else []
+    if len(largs) != 2:
+        return None
+    mh, min_ = _call_head(_strip_parens(largs[0]))
+    if mh != "MAX" or len(min_) != 1 or col(min_[0]) is None or col(min_[0])[0] != dcol[0]:
+        return None
+    py_tok = min_[0]
+
+    def on_date(f: list, var: str) -> list | None:
+        """`FILTER(ALL(D), D[d] = var)`: its ALL(D) tokens, else None."""
+        fh, fin = _call_head(_strip_parens(f))
+        fargs = _split_top(fin) if fh == "FILTER" else []
+        if len(fargs) != 2:
+            return None
+        ah, ain = _call_head(_strip_parens(fargs[0]))
+        if ah not in ("ALL", "REMOVEFILTERS") or len(ain) != 1:
+            return None
+        name = ain[0][1][1:-1].replace("''", "'") if ain[0][0] == "str" else ain[0][1]
+        pred = _strip_parens(fargs[1])
+        if (str(name).lower() != dcol[0] or len(pred) != 3 or col(pred[0]) != dcol
+                or pred[1] != ("op", "=") or pred[2][0] != "func"
+                or pred[2][1].upper() != var):
+            return None
+        return fargs[0]
+    if on_date(largs[1], cur) is None:
+        return None
+    rh, rin = _call_head(_strip_parens(body[ret + 1:]))
+    rargs = _split_top(rin) if rh == "CALCULATE" else []
+    if len(rargs) < 2:
+        return None
+    sh, sin = _call_head(_strip_parens(rargs[0]))
+    if sh != "SUM" or len(sin) != 1 or col(sin[0]) is None:
+        return None
+    at = next((i for i, f in enumerate(rargs[1:], 1) if on_date(f, ly) is not None), None)
+    if at is None:
+        return None
+    all_d = on_date(rargs[at], ly)
+    d_tok = targs[1][0] if th == "SUMMARIZE" else targs[0][0]
+    out = [("func", "CALCULATE"), ("lparen", "(")] + _strip_parens(rargs[0]) + [
+        ("comma", ","), ("func", "FILTER"), ("lparen", "(")] + all_d + [
+        ("comma", ","), d_tok, ("func", "IN"), ("func", _EACH_DATE), ("lparen", "("),
+        py_tok, ("rparen", ")"), ("rparen", ")")]
+    for i, f in enumerate(rargs[1:], 1):
+        if i != at:
+            out += [("comma", ",")] + f
+    return out + [("rparen", ")")]
 
 
 def _lod_refusal(kind: str, why: str = "") -> CompileError:
@@ -4430,9 +4858,44 @@ def _legal(name: str) -> str:
     return name if _SIMPLE_IDENT.match(name) else '"' + name.replace('"', '""') + '"'
 
 
+# The unit being compiled's own aliases for measures whose names share one (`_unique_aliases`):
+# set by `compile_unit` for the whole compile, nested statements included.
+_ALIASES: contextvars.ContextVar[dict[str, str] | None] = contextvars.ContextVar(
+    "bicompile_aliases", default=None)
+
+
 def _measure_alias(name: str) -> str:
-    """A measure's column alias: `slugs.column_alias` (a symbol kept as a word)."""
+    """A measure's column alias: `slugs.column_alias` (a symbol kept as a word), unless the
+    unit gives it one of its own (`_unique_aliases`)."""
+    own = _ALIASES.get()
+    if own and name in own:
+        return own[name]
     return slugs.column_alias(name)
+
+
+def _unique_aliases(unit: dict) -> dict[str, str]:
+    """{measure name: alias} for the measures of `unit` whose names give the SAME column alias
+    as an earlier measure's (`Cost $` and `Cost ($)` are both `cost_usd`): each later one is
+    numbered (`cost_usd_2`), never an alias any measure of the unit has. Two columns of one
+    name in one SELECT are rejected by the warehouse, or read as the wrong one by whatever
+    reads the statement. Empty when every measure's alias is its own."""
+    names = list(dict.fromkeys(str(m.get("name") or "") for m in unit.get("measures") or []
+                               if m.get("name")))
+    base = {n: slugs.column_alias(n) for n in names}
+    taken = set(base.values())
+    seen: set[str] = set()
+    out: dict[str, str] = {}
+    for n in names:
+        a = base[n]
+        if a not in seen:
+            seen.add(a)
+            continue
+        k = 2
+        while f"{a}_{k}" in taken:
+            k += 1
+        out[n] = f"{a}_{k}"
+        taken.add(out[n])
+    return out
 
 
 def _native_colmap(columns: dict) -> dict[str, str]:
@@ -4447,6 +4910,91 @@ def _native_colmap(columns: dict) -> dict[str, str]:
     for v in columns.values():
         colmap.setdefault(str(v).lower(), v)
     return colmap
+
+
+def _constant_share(m: dict, unit: dict, ctx: "_UnitContext", measures: dict[str, str] | None,
+                    table_of: dict[str, str] | None) -> str | None:
+    """Why a share of total is 1 on every row of this statement, else None.
+
+    `DIVIDE(x, CALCULATE(x, REMOVEFILTERS('T'[c])))` (or `ALL`) is x over x with the filters
+    on `c` removed from the denominator. On a statement that neither groups nor filters by
+    `c` (or, for a whole table removed, by any column of `T`) there is no filter to remove:
+    both sides are the same number and the ratio is 1 (or its alternate) on every row. That
+    is not the measure the model defines, which means something only where `c` is in the
+    context, so it is refused by name rather than published as a constant."""
+    if m.get("formula_language") != "dax" or not m.get("formula"):
+        return None
+    try:
+        toks = _strip_parens(tokenize(m["formula"]))
+    except CompileError:
+        return None
+    head, inner = _call_head(toks)
+    if head != "DIVIDE":
+        return None
+    args = _split_top(inner)
+    if len(args) not in (2, 3):
+        return None
+    num, den = _strip_parens(args[0]), _strip_parens(args[1])
+    dhead, dinner = _call_head(den)
+    if dhead != "CALCULATE":
+        return None
+    dargs = _split_top(dinner)
+    if len(dargs) < 2:
+        return None
+
+    def same(a: list, b: list) -> bool:
+        def text(t: list) -> str:
+            t = _strip_parens(t)
+            if len(t) == 1 and t[0][0] == "col" and measures:
+                f = measures.get(_column_ref(t[0][1]).lower())
+                if f:
+                    try:
+                        t = _strip_parens(tokenize(f))
+                    except CompileError:
+                        pass
+            return re.sub(r"\s+", "", _text_of(t)).lower()
+        return text(a) == text(b)
+    if not same(num, _strip_parens(dargs[0])):
+        return None
+    removed: list[tuple[str, str | None]] = []       # (model table, column or None)
+    for f in dargs[1:]:
+        fhead, finner = _call_head(_strip_parens(f))
+        if fhead not in ("REMOVEFILTERS", "ALL") or not finner:
+            return None
+        for a in _split_top(finner):
+            if len(a) != 1:
+                return None
+            k, v = a[0]
+            if k in ("qualified", "quoted_qualified"):
+                removed.append((str(_table_ref(v) or ""), _column_ref(v)))
+            elif k == "str" and v[:1] == "'":
+                removed.append((v[1:-1].replace("''", "'"), None))
+            elif k == "func":
+                removed.append((v, None))
+            else:
+                return None
+    if not removed:
+        return None
+    cols = {str(c).lower() for c, _t, _k in ctx.groups} | {str(c).lower() for c, _t in
+                                                           ctx.filters}
+    cols |= {str(g).lower() for g in unit.get("group_by") or []}
+    cols |= {str(f.get("column")).lower() for f in unit.get("filters") or [] if f.get("column")}
+    tabs = {_bare(t) for _c, t, _k in ctx.groups if t} | {_bare(t) for _c, t in ctx.filters if t}
+    tabs |= {_bare(t) for t in unit.get("group_by_tables") or [] if t}
+    renames = ctx.renames or {}
+
+    def in_context(table: str, col: str | None) -> bool:
+        wh = _bare((table_of or {}).get(table.lower()) or table)
+        if col is None:
+            return wh in tabs or table.lower() in tabs
+        c = col.lower()
+        return c in cols or str(renames.get((wh, c), c)).lower() in cols
+    if any(in_context(t, c) for t, c in removed):
+        return None
+    what = ", ".join(f"'{t}'[{c}]" if c else f"'{t}'" for t, c in removed)
+    return (f"a share of total whose denominator removes the filters on {what}, which this "
+            f"statement neither groups nor filters by: the ratio is the same number over "
+            f"itself, 1 on every row; it has a meaning only where {what} is in the context")
 
 
 def _compile_unit(unit: dict, rules, dialect: str, *, alias: str = "t",
@@ -4931,6 +5479,12 @@ def _compile_unit(unit: dict, rules, dialect: str, *, alias: str = "t",
             ranked_by = ranked_by or _measure_alias(m["name"])
             continue
         seen_gaps, seen_unknown = len(res.untranslatable), len(res.unknown)
+        constant = _constant_share(m, unit, ctx, measures, table_of)
+        if constant:
+            failed.append(f"{m.get('name')!r}: {constant}")
+            res.untranslatable.append({"construct": "share of total with nothing to remove",
+                                       "in_measure": m.get("name") or "", "why": constant})
+            continue
         elsewhere = _measure_elsewhere(m, unit, source, columns) if not native else None
         if elsewhere:
             # A shelf aggregation of a column of ANOTHER table: read off this statement's
@@ -6632,11 +7186,30 @@ def _composite_statement(unit: dict, measures: dict[str, str], table_of: dict[st
     r = again(sub)
     if r.coverage == REFUSED or not r.sql:
         return r
-    groups, _vals = _leaf_names(r, sub)
+    groups, vals = _leaf_names(r, sub)
     cols = [f"j.{g} AS {g}" if g != _out_name(g) else f"j.{g}" for g in groups]
     shown = []
+    # ONLY WHAT THE INNER STATEMENT PRODUCES IS READ. A measure (or a composite's part) the
+    # inner statement left out, with its gap named there, has no column in it: selecting
+    # `j.<it>` anyway made the warehouse refuse the WHOLE statement (an invalid identifier),
+    # every compiled measure with it. The measure, and a composite reading such a part, are
+    # left out here too, each with its reason.
+    have = set(vals)
+    left: list[str] = []
     for m in unit.get("measures") or []:
         alias = _measure_alias(m["name"])
+        if m["name"] in comps:
+            missing = [k for k, pname in enumerate(names[m["name"]])
+                       if _measure_alias(pname) not in have]
+            if missing:
+                why = (f"it reads {comps[m['name']][1][missing[0]]!r}, which the statement "
+                       f"does not compile")
+                r.untranslatable.append({"construct": "measure reading a part left out",
+                                         "in_measure": m["name"], "why": why})
+                left.append(f"measure {m['name']!r}: {why}")
+                continue
+        elif alias not in have:
+            continue
         if m["name"] in comps:
             outer, _parts = comps[m["name"]]
             text = _text_of(outer)
@@ -6653,6 +7226,15 @@ def _composite_statement(unit: dict, measures: dict[str, str], table_of: dict[st
         else:
             cols.append(f"j.{alias}")
         shown.append(cols[-1].rsplit(" AS ", 1)[0])
+    if left:
+        r.reason = "; ".join([x for x in [r.reason] if x] + left)
+        r.coverage = PARTIAL
+    if not shown:
+        res = Result()
+        res.reason = r.reason or "no measure of the unit compiled"
+        res.untranslatable = list(r.untranslatable)
+        res.unknown = list(r.unknown)
+        return res
     body = "\n".join("    " + ln if ln.strip() else ln for ln in r.sql.splitlines())
     r.sql = ("SELECT " + ",\n       ".join(cols) + f"\nFROM   (\n{body}\n) j"
              + ("\nWHERE  " + "\n    OR ".join(f"({e}) IS NOT NULL" for e in shown)
@@ -7872,6 +8454,13 @@ def compile_unit(unit: dict, rules, dialect: str, *, table_sql: dict[str, str] |
     view's own calculations (`visual_matrix`) is read off the view's matrix, each level of it
     compiled here (readers/visualcalc.py)."""
     inner = kw.pop("_inner", False)
+    own = _unique_aliases(unit)
+    if own and any((_ALIASES.get() or {}).get(k) != v for k, v in own.items()):
+        token = _ALIASES.set({**(_ALIASES.get() or {}), **own})
+        try:
+            return compile_unit(unit, rules, dialect, table_sql=table_sql, _inner=inner, **kw)
+        finally:
+            _ALIASES.reset(token)
     if unit.get("visual_matrix"):
         from metrics_agent.plugs.readers import visualcalc as _vcalc  # noqa: PLC0415
         res = _vcalc.compile_matrix(
@@ -8050,6 +8639,12 @@ def _compile_time_unit(unit: dict, rules, dialect: str, *, alias: str, columns, 
             continue
         seen = len(res.untranslatable)
         before = len(slots)
+        constant = _constant_share(m, unit, ctx, measures, table_of)
+        if constant:
+            failed.append(f"{m.get('name')!r}: {constant}")
+            res.untranslatable.append({"construct": "share of total with nothing to remove",
+                                       "in_measure": m.get("name") or "", "why": constant})
+            continue
         try:
             expr = _compile_measure(m, rules, alias, dialect, res, None, measures, unit,
                                     home=home, ctx=ctx, slots=slots)
@@ -8436,10 +9031,13 @@ def _compile_time_unit(unit: dict, rules, dialect: str, *, alias: str, columns, 
         if ds is not None and ds.kind == "lookup":
             # The row's dates' `via` values, then the date table's rows whose `match` is one
             # of them, by the key the fact reaches the date table on.
-            ctx_sql = ("(\n    SELECT DISTINCT " + ", ".join(dk + [f"d.{_date_col(ds.via)} AS dt"])
+            # Read once per date (`per_date`), a date two of the row's dates map to is read
+            # twice: the dates are a list, not a set.
+            once = "" if ds.per_date else "DISTINCT "
+            ctx_sql = ("(\n    SELECT " + once + ", ".join(dk + [f"d.{_date_col(ds.via)} AS dt"])
                        + f"\n    FROM   {dtab} d" + where_d + "\n  ) c")
             ck = [f"c.k{i + 1}" for i in mine_d]
-            setq = ("(\n  SELECT DISTINCT " + ", ".join(ck + [f"s.{dcol} AS dt"])
+            setq = ("(\n  SELECT " + once + ", ".join(ck + [f"s.{dcol} AS dt"])
                     + f"\n  FROM   {ctx_sql}\n  JOIN {dtab} s ON s.{_date_col(ds.match)} = c.dt"
                     + "\n) c")
             body = f"FROM   {setq}\nJOIN {source} {alias} ON {alias}.{fcol} = c.dt"
@@ -8612,6 +9210,9 @@ def _date_step(ds: "_DateSet", rel: str, kc: list[str], dtab: str, dcol: str, fm
     part = f"PARTITION BY {', '.join(kc)} " if kc else ""
     ck = [f"c.{k}" for k in kc]
     if ds.kind == "lookup":
+        if ds.per_date:
+            raise CompileError("a prior-period lookup read once per date (SUMX over the "
+                               "date table's dates) inside another date set is not compiled")
         # `rel` holds the key the fact reaches the date table on: each of its rows' `via`
         # value, then the rows whose `match` is one of them.
         return ("SELECT DISTINCT " + ", ".join(ck + [f"s.{dcol} AS dt"])
@@ -10295,9 +10896,10 @@ def _expanded_tokens(formula: str, measures: dict[str, str] | None,
                      seen: tuple[str, ...] = ()) -> list[tuple[str, str]]:
     """The tokens of a DAX formula with every measure it references expanded in place: what
     the formula reads, all the way down. Only for LOOKING (which tables, which
-    relationships); compiling inlines measures itself."""
+    relationships); compiling inlines measures itself. Read as compiling reads it
+    (`_tokens`), so a formula it rewrites reads the tables its rewrite does."""
     try:
-        toks = tokenize(formula or "")
+        toks = _tokens(formula or "", "dax")
     except CompileError:
         return []
     out: list[tuple[str, str]] = []

@@ -24,6 +24,22 @@ def pick(value, fields):
     return {key: copy.deepcopy(value[key]) for key in fields if key in value}
 
 
+def card_evidence(card, source):
+    """The engine card, kept as evidence, without what the definition already carries word for
+    word. A card's source SQL and its examples' SQL are its largest fields; stored twice, a
+    card over a large compiled statement passed the publish limit at half its real size. An
+    example keeps only the fields the definition leaves out, in the same order."""
+    kept = copy.deepcopy(card)
+    if kept.get('sql') and source.get('sql') == kept['sql']:
+        del kept['sql']
+        kept['sql_at'] = 'definition.source.sql'
+    if kept.get('examples'):
+        kept['examples'] = [{k: v for k, v in e.items() if k not in EXAMPLE} if isinstance(e, dict) else e
+                            for e in kept['examples']]
+        kept['examples_at'] = 'definition.examples'
+    return kept
+
+
 def metric_body(card, layer, commit):
     source = {'entity': card['entity'], 'alias': card['alias'] or 'm',
               **({'sql': card['sql']} if card.get('sql') else {'table': card['entity']}),
@@ -52,7 +68,7 @@ def metric_body(card, layer, commit):
                      'derived_from': card.get('derived_from') or [],
                      # Includes conversion quality, parameter descriptions, dimensional roles,
                      # trust tier and original evidence without claiming fresh verification.
-                     'card': copy.deepcopy(card)}}}
+                     'card': card_evidence(card, source)}}}
     return {'name': card['name'], 'display_name': card.get('display_name') or card['name'],
             'description': card['description'],
             'search_text': ' '.join(card.get('synonyms') or []),

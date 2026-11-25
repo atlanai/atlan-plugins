@@ -126,6 +126,140 @@ def _in_native(u: dict, column: str) -> bool:
     return bool(sql) and re.search(rf"(?i)(?<![\w]){re.escape(str(column))}(?![\w])", sql) is not None
 
 
+def _parsed(res, dialect: str):
+    """`res`, refused by name when its statement does not parse: to `split_measures` an
+    unparseable statement is no statement, so the measure that breaks it is dropped with that
+    reason and its neighbours are kept. A unit that is not split is refused for it below."""
+    if res.coverage == _sockets.REFUSED or not res.sql:
+        return res
+    try:
+        S.parse(res.sql, dialect)
+    except S.ParseError as exc:
+        return _sockets.Compiled(coverage=_sockets.REFUSED,
+                                 reason=f"compiler emitted unparseable SQL: {exc}",
+                                 untranslatable=list(res.untranslatable),
+                                 unknown=list(res.unknown))
+    return res
+
+
+# A measure read as `[Name]` (not `Table[Name]`, a column): what another measure depends on.
+_MEASURE_REF = re.compile(r"(?<![\w'\]])\[([^\]]+)\]")
+
+
+def split_measures(u: dict, compile_, res, max_chars: int = 0):
+    """A unit whose statement is refused, longer than `max_chars`, or leaves out a measure
+    that compiles on its own, as the statements its measures do compile in: (parts,
+    dropped), or None where nothing changes.
+
+    ONE MEASURE MUST NOT COST ITS NEIGHBOURS. A unit is often a whole display folder, and the
+    compiler judges the unit as one statement: a single measure it cannot translate (or two
+    measures that cannot share one statement, such as time intelligence over two date columns)
+    refused every other measure of the folder with it. Here each measure is compiled alone
+    (`compile_`, the reader's own compile of a unit); a measure that fails alone is dropped
+    with ITS OWN reason, and so is every measure of the unit that reads a dropped one
+    (`[Name]`). The rest are packed, in the unit's order, into as few statements as compile
+    together, each within `max_chars` (0: no cap); a measure that only compiles alone is a
+    statement of its own.
+
+    `parts` is [(the unit with the part's measures, its compiled result)]; the first part
+    names every dropped measure in its `untranslatable` (and is then partial), so the gap
+    reaches the candidate. `dropped` is [(measure, reason)]. None when the unit has fewer than
+    two measures, compiled within the cap with no measure left out that compiles on its own,
+    or no measure compiles even alone (the unit's own refusal then stands as it is)."""
+    ms = list(u.get("measures") or [])
+    if len(ms) < 2:
+        return None
+    seen_compiles: dict[tuple, object] = {}
+    raw_compile = compile_
+
+    def compile_(sub_unit: dict):
+        """The reader's compile of a sub-unit, once per set of measures."""
+        key = tuple(id(m) for m in sub_unit["measures"])
+        if key not in seen_compiles:
+            seen_compiles[key] = raw_compile(sub_unit)
+        return seen_compiles[key]
+    refused = res.coverage == _sockets.REFUSED or not res.sql
+    too_big = bool(max_chars) and not refused and len(res.sql) > max_chars
+
+    def sub(keep: list) -> dict:
+        return {**u, "measures": list(keep)}
+
+    def ok(r) -> bool:
+        return r.coverage != _sockets.REFUSED and bool(r.sql)
+
+    def left_out(r) -> set[str]:
+        """The unit's measures a compiled statement names as left out."""
+        return {str(g.get("in_measure")) for g in r.untranslatable or []
+                if g.get("in_measure")} & {str(m.get("name")) for m in ms}
+
+    if not refused and not too_big:
+        # A statement that compiled, leaving measures out: kept as it is unless one of
+        # them compiles on its own (it failed only beside the others, such as a measure
+        # the time-intelligence statement cannot carry), which then gets a statement.
+        lost = left_out(res)
+        if not lost or not any(ok(compile_(sub([m]))) for m in ms
+                               if str(m.get("name")) in lost):
+            return None
+
+    def fits(r, group: list) -> bool:
+        return (ok(r) and (not max_chars or len(r.sql) <= max_chars)
+                and not left_out(r) & {str(m.get("name")) for m in group})
+
+    alone: dict[int, object] = {}
+    dropped: list[tuple[dict, str]] = []
+    for i, m in enumerate(ms):
+        r = compile_(sub([m]))
+        if ok(r):
+            alone[i] = r
+        else:
+            dropped.append((m, r.reason or "the compiler gave no statement"))
+    gone = {str(m.get("name") or "").strip().lower() for m, _w in dropped}
+    changed = True
+    while changed:
+        changed = False
+        for i in sorted(alone):
+            hit = sorted({x.strip().lower() for x in _MEASURE_REF.findall(
+                str(ms[i].get("formula") or ""))} & gone)
+            if hit:
+                del alone[i]
+                dropped.append((ms[i], f"it reads measure [{hit[0]}], which is left out"))
+                gone.add(str(ms[i].get("name") or "").strip().lower())
+                changed = True
+    if not alone:
+        return None
+    kept = [ms[i] for i in sorted(alone)]
+    groups: list[list] = []          # [measures, result, full]
+    whole = compile_(sub(kept)) if (refused and dropped and len(kept) > 1) else None
+    if whole is not None and fits(whole, kept):
+        groups.append([kept, whole, True])
+    elif len(kept) == 1:
+        groups.append([kept, alone[sorted(alone)[0]], True])
+    else:
+        for i in sorted(alone):
+            for g in groups:
+                if g[2]:
+                    continue
+                r = compile_(sub(g[0] + [ms[i]]))
+                if fits(r, g[0] + [ms[i]]):
+                    g[0].append(ms[i])
+                    g[1] = r
+                    break
+                if ok(r) and not left_out(r) & {str(m.get("name")) for m in g[0] + [ms[i]]}:
+                    g[2] = True      # compiles together, but is full: no more room
+            else:
+                groups.append([[ms[i]], alone[i], False])
+    parts = [(sub(g[0]), g[1]) for g in groups]
+    first = parts[0][1]
+    for m, why in dropped:
+        first.untranslatable.append({"construct": "measure left out of the unit",
+                                     "in_measure": m.get("name") or "", "why": why})
+    if dropped:
+        first.coverage = _sockets.PARTIAL
+        first.reason = "; ".join([x for x in [first.reason] if x] + [
+            f"measure {m.get('name')!r} left out: {why}" for m, why in dropped])
+    return parts, dropped
+
+
 def body(ctx: stage.Ctx) -> None:
     if ctx.args.recompile:
         # THE REVIEW'S RULES ARE USED, NOT ONLY RECORDED. A3b gates each proposed row and
@@ -180,6 +314,9 @@ def body(ctx: stage.Ctx) -> None:
     gaps: list[dict] = []
     n_provisional = 0
     seen_ids: set[str] = set()
+    # A statement longer than this is split by its measures (`split_measures`): a saved
+    # query is published whole, and a destination refuses one past its size limit.
+    max_chars = int(ctx.policy.get("compiler.max_statement_chars") or 0)
     graded_units: list[dict] = []
     graded_measures: dict[tuple, dict] = {}
 
@@ -213,13 +350,8 @@ def body(ctx: stage.Ctx) -> None:
             coverage=_sockets.REFUSED, reason=reason, untranslatable=[], gotchas=[],
             provisional_rules=[], policy=ctx.policy), [], [])
 
-    for u in units:
-        reader, model, vendor = _of(u)
-        if reader is None:
-            res = _sockets.Compiled(reason=f"the {vendor!r} BI reader compiles no formulas "
-                                           "(it defines no compile_unit; see sockets.BIReader)")
-        else:
-            res = reader.compile_unit(u, rules, dialect, model=model)
+    def _translate_one(u: dict, res, part: int | None) -> None:
+        nonlocal n_partial, n_provisional
         if res.coverage == _sockets.REFUSED or not res.sql:
             # DECLARED, not dropped. A refusal names what the compiler could not do, and that
             # name is exactly what A3b asks the reviewer to propose a rule for.
@@ -230,7 +362,7 @@ def body(ctx: stage.Ctx) -> None:
                 gaps.append({"unit_id": u["unit_id"], "unknown": sorted(set(res.unknown)),
                              "reason": res.reason})
             _grade_refused(u, res.reason or "the compiler gave no statement")
-            continue
+            return
 
         translation = "partial" if res.coverage == _sockets.PARTIAL else "full"
         untrans = res.untranslatable
@@ -257,7 +389,7 @@ def body(ctx: stage.Ctx) -> None:
                             f"rule row for the {dialect} dialect)",
                             "unknown": [], "untranslatable": []})
             _grade_refused(u, refused[-1]["reason"])
-            continue
+            return
         try:
             tree = S.parse(res.sql, dialect)
             feat = S.extract_feat(tree, [])
@@ -269,7 +401,7 @@ def body(ctx: stage.Ctx) -> None:
                             "reason": f"compiler emitted unparseable SQL: {exc}",
                             "unknown": [], "untranslatable": []})
             _grade_refused(u, refused[-1]["reason"])
-            continue
+            return
 
         # A CREDENTIAL THE SCRUB REMOVED IS NOT A VALUE. A secret in the BI file (a password
         # in a connection string) is replaced by the plain marker and never kept, so a
@@ -285,7 +417,7 @@ def body(ctx: stage.Ctx) -> None:
                                       "or bound), so it would match no row",
                             "unknown": [], "untranslatable": []})
             _grade_refused(u, refused[-1]["reason"])
-            continue
+            return
 
         gotchas = []
         if res.provisional_rules:
@@ -311,6 +443,9 @@ def body(ctx: stage.Ctx) -> None:
         # The id is the unit's, cut to a readable length. Two long unit ids can share the
         # cut, so a collision takes a short digest of the full id rather than overwriting.
         cid = f"bi-{slugs.kebab(u['unit_id'], max_len=60)}"
+        if part is not None:
+            # One of the statements a unit's measures were split over (`split_measures`).
+            cid += f"-part-{part + 1}"
         if cid in seen_ids:
             cid += "-" + hashlib.sha256(str(u["unit_id"]).encode()).hexdigest()[:8]
         seen_ids.add(cid)
@@ -431,17 +566,39 @@ def body(ctx: stage.Ctx) -> None:
                 gaps.append({"unit_id": u["unit_id"], "unknown": sorted(set(res.unknown)),
                              "reason": partial_reason})
 
+    for u in units:
+        reader, model, vendor = _of(u)
+        if reader is None:
+            res = _sockets.Compiled(reason=f"the {vendor!r} BI reader compiles no formulas "
+                                           "(it defines no compile_unit; see sockets.BIReader)")
+        else:
+            res = reader.compile_unit(u, rules, dialect, model=model)
+        pieces = [(u, res)]
+        if reader is not None:
+            split = split_measures(
+                u, lambda s, reader=reader, model=model: _parsed(reader.compile_unit(
+                    s, rules, dialect, model=model), dialect), _parsed(res, dialect),
+                max_chars)
+            if split is not None:
+                pieces, dropped = split
+                for m, why in dropped:
+                    _grade_refused({**u, "measures": [m]}, why)
+        for part, (u, res) in enumerate(pieces):
+            _translate_one(u, res, part if len(pieces) > 1 else None)
+
     cands.sort(key=lambda c: c["candidate_id"])
     ctx.write(OUT, {"contract_version": "1.0", "dialect": dialect, "candidates": cands},
               "candidates.schema.json")
 
-    coverage = round(100 * len(cands) / max(len(units), 1))
+    # A unit split over several statements is ONE unit compiled, not several.
+    compiled = len({((c["provenance"].get("bi") or {}).get("unit_id")) for c in cands})
+    coverage = round(100 * compiled / max(len(units), 1))
     report = {
         "contract_version": "1.0",
         "rules_sha": rules.sha(),
         "rules": len(rules.rows),
         "provisional_rules": [r["id"] for r in rules.by_tier(_rules.PROVISIONAL)],
-        "units": len(units), "compiled": len(cands), "partial": n_partial,
+        "units": len(units), "compiled": compiled, "partial": n_partial,
         "refused": refused,
         "partial_units": partials,
         # What a NEW RULE would have to cover. This list shrinking run over run is the
@@ -464,7 +621,7 @@ def body(ctx: stage.Ctx) -> None:
     ctx.count(units=len(units), candidates=len(cands), partial=n_partial,
               refused=len(refused), gaps=len(gaps), coverage_pct=coverage,
               rules_sha=rules.sha(), compiled_with_provisional=n_provisional)
-    ctx.say(f"a3: compiled {len(cands)}/{len(units)} units ({coverage}%); {n_partial} partial "
+    ctx.say(f"a3: compiled {compiled}/{len(units)} units ({coverage}%); {n_partial} partial "
             f"(construct declared, never approximated); {len(refused)} refused.")
     ctx.say("a3: conversion quality of the compile: " + (", ".join(
         f"{g.replace('_', ' ')} {n}" for g, n in report["quality"]["counts"].items() if n)
