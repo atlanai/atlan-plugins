@@ -52,7 +52,11 @@ unconfirmed. There is no service code and no stored credential here; sign-in is 
   endpoint` in `plugin.toml`, HTTPS only (`validate` in `tools/build.py`): Segment's batch API,
   as the dashboard uses, on whenever `write_key` is set (`is_on`, `isOn`). The write key is a
   Segment source's public address and can only write events; it is the one key-shaped value this
-  repository holds, and it lives in `plugin.toml` alone. Every opt-out is checked
+  repository holds, and it lives in `plugin.toml` alone. An add-on's helpers send through a
+  generated copy of the same sender (`usage_sender.py`, with `emit`), and report a run's stage,
+  choices and counts from the one place each is written (`usage_events.py` in Analytics): never
+  the business area or purpose as typed, a metric's or source's name, a question or SQL. The run
+  folder's path leaves only as a hash salted with the install id. Every opt-out is checked
   before anything is read, stored or sent, and the batch leaves after the hook has answered: a
   timer in Claude Code, a detached child elsewhere.
 - **Bounded, no-follow reads.** 128 files, 256 KiB and depth 8 (`MAX_FILES`, `MAX_BYTES`,

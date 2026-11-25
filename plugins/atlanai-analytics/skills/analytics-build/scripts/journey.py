@@ -225,6 +225,11 @@ def advance(run, action='status', focus=None, host=None, server=None, answer=Non
                 progress.update(run, 'preview', checkpoint['status'])
     if action not in ('status', 'details'):
         run.write(path, saved)
+        try:  # A usage event for which choice was recorded, never the words chosen, and never able to fail it.
+            import usage_events
+            usage_events.choice(run, action, saved, host)
+        except Exception:  # noqa: BLE001
+            pass
     model = experience.snapshot(run, host=host, server=server)
     return {'status': 'ok', 'chat': experience.render_chat(model, detail=action == 'details'),
             'interaction': model['interaction'], 'continuation': model['continuation'],

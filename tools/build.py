@@ -293,6 +293,11 @@ def addon_readme(source: dict, addon: dict) -> str:
     view_note = "No separate view installation is needed in Claude Code Desktop or CLI.\n" if addon.get("claude_companions") else ""
     view_note += addon.get("install_note", "").strip() + "\n" if addon.get("install_note") else ""
     view_privacy = "The included Claude view uses native presentation hooks to display saved progress and prepare chat requests.\n" if addon.get("claude_companions") else ""
+    usage_privacy = (
+        f"Its helpers report usage events to Segment, as `{plugin['name']}` does and under the same switches: which stage a run\n"
+        "reached, which choices were made, and counts. Never a metric's or source's name, a question, an answer or SQL.\n"
+        f"`ATLAN_PLUGIN_TELEMETRY=0` or `DO_NOT_TRACK=1` turns it off, and the [`{plugin['name']}` README](../{plugin['name']}/README.md#usage-telemetry) lists every event.\n"
+    ) if addon.get("telemetry_dir") else ""
     return f"""# {addon['display_name']}
 
 {addon['long_description']}
@@ -326,7 +331,7 @@ In Cortex Code, install each from its folder, one chat message each:
 
 Analytics itself has no hooks or shipped executable binaries. Its skills run bundled Python helpers and may
 set up an isolated metrics-agent environment with pinned dependencies after authorization.
-{view_privacy}\
+{view_privacy}{usage_privacy}\
 Working files stay in your project. Input plugs use the source connections you select; Atlan Trident
 writes use the `{plugin['name']}` plugin's connection, signed in as you. See Atlan's
 [privacy notice]({plugin['privacy_policy_url']}).
@@ -408,6 +413,20 @@ def telemetry_files(source: dict) -> dict[str, str]:
     }
     schema = json.loads((ROOT / base / TELEMETRY_EVENTS).read_text(encoding="utf-8"))
     files = {f"{base}/command-hooks/telemetry_config.json": render(config)}
+    # An add-on has no hooks. Where its helpers raise events themselves, they send with a copy of
+    # the core's sender and list, under the add-on's own name and version. It declares no server,
+    # so its config names none, and it names no skills or commands: its events carry neither.
+    for addon in source.get("addons", []):
+        if not addon.get("telemetry_dir"):
+            continue
+        folder = f"{addon_dir(addon)}/{addon['telemetry_dir'].strip('/')}"
+        if not (ROOT / folder).is_dir():
+            raise SystemExit(f"[[addons]] telemetry_dir {folder} does not exist")
+        files[f"{folder}/usage_sender.py"] = (ROOT / base / "command-hooks" / "telemetry.py").read_text(encoding="utf-8")
+        files[f"{folder}/telemetry_events.json"] = (ROOT / base / TELEMETRY_EVENTS).read_text(encoding="utf-8")
+        files[f"{folder}/telemetry_config.json"] = render({
+            "endpoint": config["endpoint"], "write_key": config["write_key"], "plugin": addon["name"],
+            "version": addon["version"], "mcp_url": "", "skills": [], "commands": []})
     if plugin.get("claude_hooks"):
         files[f"{base}/claude-hooks/telemetry-config.ts"] = (
             f"// Written by tools/build.py from plugin.toml and {TELEMETRY_EVENTS}: edit those files.\n\n"

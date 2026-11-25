@@ -57,4 +57,9 @@ def update(run, stage, status='running', action=None, completed=None, total=None
     lines = events.read_text().splitlines()[-199:] if events.exists() and not events.is_symlink() and events.stat().st_size <= 1_000_000 else []
     import json
     run.write_text(events, '\n'.join(lines + [json.dumps(state, separators=(',', ':'))]) + '\n')
+    try:  # A usage event for a new stage or status: counts only, and never able to fail the step.
+        import usage_events
+        usage_events.stage(run, previous, state)
+    except Exception:  # noqa: BLE001
+        pass
     return state

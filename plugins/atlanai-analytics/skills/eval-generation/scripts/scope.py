@@ -262,6 +262,11 @@ def cmd_emit(a) -> dict:
     out = gen.parents[1] / "sets" / f"{name}.jsonl"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    try:  # A usage event: how many questions, never the questions.
+        import usage_events
+        usage_events.evals_generated(len(rows))
+    except Exception:  # noqa: BLE001
+        pass
     return {"status": "ok", "set": str(out), "questions": len(rows), "spares_unused": spare,
             "metrics": sorted({r["tests"] for r in rows if r["tests"]})}
 

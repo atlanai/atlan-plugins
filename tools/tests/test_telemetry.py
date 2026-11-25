@@ -57,7 +57,7 @@ class Schema(unittest.TestCase):
             self.assertRegex(name, r"^[a-z]+_[a-z_]+$")
             self.assertTrue(set(event["hosts"]) <= set(SCHEMA["enums"]["harness"]), name)
             for key, spec in event["props"].items():
-                self.assertIn(spec["type"], ("boolean", "version", "enum", "listed", "mcp_session"), f"{name}.{key}")
+                self.assertIn(spec["type"], ("boolean", "version", "enum", "listed", "mcp_session", "count"), f"{name}.{key}")
                 if spec["type"] == "enum":
                     self.assertIn(spec["of"], SCHEMA["enums"], f"{name}.{key}")
                 if spec["type"] == "listed":
@@ -316,6 +316,198 @@ class InTheHook(unittest.TestCase):
         """One fixed host in the sender's source: the build's endpoint is the only place a batch goes."""
         source = (HOOKS / "telemetry.py").read_text(encoding="utf-8")
         self.assertEqual(re.findall(r"https?://[^\s\"')]+", source), [])
+
+
+ADDON = ROOT / "plugins" / "atlanai-analytics"
+SCRIPTS = ADDON / "skills" / "analytics-build" / "scripts"
+usage = load("atlan_analytics_usage_events_test", SCRIPTS / "usage_events.py")
+ADDON_BUILT = json.loads((SCRIPTS / "telemetry_config.json").read_text(encoding="utf-8"))
+ADDON_ON = {**ADDON_BUILT, "endpoint": ENDPOINT, "write_key": KEY}
+
+
+class Run:
+    """What the analytics helpers hand over: a run folder, here one whose path names a customer."""
+
+    def __init__(self, root: Path):
+        self.root = root
+
+
+class AnalyticsJourney(unittest.TestCase):
+    """The add-on has no hooks: its helpers raise the journey's events, through the core's sender."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.home = Path(self.tmp.name) / "config"
+        self.env = {"XDG_CONFIG_HOME": str(self.home), "CLAUDECODE": "1"}
+        self.run = Run(Path(self.tmp.name) / "acme-corp-churn" / ".atlan-metrics" / "q4-board-run")
+        self.run.root.mkdir(parents=True)
+        self.sent = []
+        self.options = {"env": self.env, "spawn": self.sent.append, "now": NOW, "config": ADDON_ON}
+
+    def batch(self, body):
+        return json.loads(body)["batch"] if body else None
+
+    def state(self, stage, status, **counts):
+        return {"stage": stage, "status": status, "metric_count": counts.get("metrics", 0), "query_count": counts.get("queries", 0),
+                "counts": {"draft": 0, "checked": counts.get("checked", 0), "held": counts.get("held", 0), "released": counts.get("released", 0)},
+                "source_counts": {"total": counts.get("sources", 0), "held": 0, "needs_review": 0},
+                "preview_refs": ["metric:net_revenue_retention"], "summary": "Check: step 4 of 7"}
+
+    def test_the_build_copies_the_cores_sender_and_list_beside_the_helpers(self):
+        self.assertEqual((SCRIPTS / "usage_sender.py").read_text(), (HOOKS / "telemetry.py").read_text())
+        self.assertEqual((SCRIPTS / "telemetry_events.json").read_text(), (HOOKS / "telemetry_events.json").read_text())
+        self.assertEqual((ADDON_BUILT["plugin"], ADDON_BUILT["mcp_url"]), ("atlanai-analytics", ""))
+        self.assertEqual((ADDON_BUILT["endpoint"], ADDON_BUILT["write_key"]), (BUILT["endpoint"], BUILT["write_key"]))
+        self.assertEqual(ADDON_BUILT["version"], json.loads((ADDON / "plugin.json").read_text())["version"])
+
+    def test_the_first_step_starts_the_run_and_each_new_stage_or_status_is_reported_once(self):
+        first = self.batch(usage.stage(self.run, {}, self.state("inspect", "running", sources=2), **self.options))
+        self.assertEqual([m["event"] for m in first], ["claude_plugin_analytics_run_started", "claude_plugin_analytics_stage_reached"])
+        self.assertEqual(first[0]["properties"]["flow"], "build")
+        self.assertEqual((first[1]["properties"]["plugin"], first[1]["properties"]["harness"]), ("atlanai-analytics", "claude_code"))
+        self.assertEqual(first[1]["properties"]["app_version"], ADDON_BUILT["version"])
+        self.assertRegex(first[1]["properties"]["run"], r"^[0-9a-f]{16}$")
+        self.assertNotIn("session", first[1]["properties"])
+        same = usage.stage(self.run, self.state("inspect", "running"), self.state("inspect", "running", sources=3), **self.options)
+        self.assertIsNone(same)
+        done = self.batch(usage.stage(self.run, self.state("build", "complete"),
+                                      self.state("check", "complete-with-held-items", sources=2, metrics=12, queries=4, checked=14, held=2), **self.options))
+        self.assertEqual([m["event"] for m in done], ["claude_plugin_analytics_stage_reached"])
+        self.assertEqual({k: done[0]["properties"][k] for k in ("stage", "status", "flow", "sources", "metrics", "queries", "checked", "held", "released")},
+                         {"stage": "check", "status": "complete-with-held-items", "flow": "build", "sources": 2, "metrics": 12,
+                          "queries": 4, "checked": 14, "held": 2, "released": 0})
+        self.assertEqual(done[0]["properties"]["run"], first[1]["properties"]["run"])
+        self.assertEqual(done[0]["anonymousId"], first[0]["anonymousId"])
+
+    def test_a_choice_is_reported_by_which_it_was_never_by_its_words(self):
+        saved = {"version": 1, "mode": "active", "flow": "demo", "checks": "skip", "dashboard_result": "declined",
+                 "intent": {"domain": "churn in the enterprise segment", "purpose": "explain the Q4 board number"}}
+        expected = {"demo": ("analytics_flow_chosen", {"flow": "demo"}), "agentic": ("analytics_flow_chosen", {"flow": "dashboard"}),
+                    "domain": ("analytics_intent_recorded", {"topic": "domain"}), "purpose": ("analytics_intent_recorded", {"topic": "purpose"}),
+                    "checks": ("analytics_checks_chosen", {"choice": "skip"}), "asked": ("analytics_question_asked", {"flow": "demo"}),
+                    "dashboard": ("analytics_dashboard_finished", {"result": "declined"}),
+                    "pause": ("analytics_run_mode_changed", {"mode": "paused"}), "keep-local": ("analytics_run_mode_changed", {"mode": "local"}),
+                    "resume": ("analytics_run_mode_changed", {"mode": "active"})}
+        for action, (name, props) in expected.items():
+            message = self.batch(usage.choice(self.run, action, saved, **self.options))[0]
+            self.assertEqual(message["event"], f"claude_plugin_{name}", action)
+            for key, value in props.items():
+                self.assertEqual(message["properties"][key], value, action)
+        for action in ("select", "report", "readiness", "tasks", "status", "details"):
+            self.assertIsNone(usage.choice(self.run, action, saved, **self.options), action)
+
+    def test_evals_and_accuracy_are_counts(self):
+        made = self.batch(usage.evals_generated(20, **self.options))[0]
+        self.assertEqual((made["event"], made["properties"]["questions"]), ("claude_plugin_analytics_evals_generated", 20))
+        scored = self.batch(usage.accuracy_scored({"cases": 20, "all": {"pass_rate": 0.8462}, "score_line": "85% accuracy"}, True, **self.options))[0]
+        self.assertEqual({k: scored["properties"][k] for k in ("questions", "pass_percent", "final")}, {"questions": 20, "pass_percent": 85, "final": True})
+        self.assertIsNone(usage.accuracy_scored({"cases": 0, "all": {"pass_rate": None}}, **self.options))
+
+    def test_nothing_about_the_run_leaves_but_its_shape(self):
+        (self.run.root / "interaction.json").write_text(json.dumps({"flow": "dashboard", "report": "Board pack, pages 2 to 4"}))
+        usage.stage(self.run, {}, self.state("inspect", "running", sources=1), **self.options)
+        usage.choice(self.run, "domain", {"intent": {"domain": "churn in the enterprise segment"}}, **self.options)
+        usage.accuracy_scored({"cases": 3, "all": {"pass_rate": 1.0}, "models": ["some-model"]}, **self.options)
+        wire = "\n".join(self.sent)
+        self.assertIn('"flow": "dashboard"', wire)
+        for leak in ("acme-corp", "q4-board-run", ".atlan-metrics", "churn", "Board pack", "net_revenue_retention", "some-model", self.tmp.name):
+            self.assertNotIn(leak, wire)
+
+    def test_it_is_off_with_no_key_under_any_switch_and_outside_the_installed_plugin(self):
+        state = self.state("inspect", "running")
+        self.assertIsNone(usage.stage(self.run, {}, state, **{**self.options, "config": {**ADDON_BUILT, "write_key": ""}}))
+        for variables in ({"DO_NOT_TRACK": "1"}, {"ATLAN_PLUGIN_TELEMETRY": "0"}, {"CI": "true"}):
+            self.assertIsNone(usage.stage(self.run, {}, state, **{**self.options, "env": {**self.env, **variables}}), variables)
+        served = Path(self.tmp.name) / "served-skill"
+        served.mkdir()
+        self.assertIsNone(usage.stage(self.run, {}, state, root=served, **self.options))
+        (served / "plugin.json").write_text(json.dumps({"name": "some-other-plugin"}))
+        self.assertIsNone(usage.stage(self.run, {}, state, root=served, **self.options))
+        self.assertEqual(self.sent, [])
+        self.assertFalse(self.home.exists())
+
+    def test_a_fault_never_reaches_the_helper(self):
+        def broken(_body):
+            raise OSError("no child")
+        self.assertIsNone(usage.stage(None, None, None))
+        self.assertIsNone(usage.stage(self.run, {}, self.state("inspect", "running"), **{**self.options, "spawn": broken}))
+        self.assertIsNone(usage.choice(self.run, "demo", None, **{**self.options, "spawn": broken}))
+        self.assertIsNone(usage.accuracy_scored(None))
+        self.assertIsNone(usage.evals_generated("twenty", **self.options))
+
+    def test_the_tool_is_the_one_named_else_read_off_the_environment(self):
+        self.assertEqual(usage.harness_of({}, "codex"), "codex")
+        self.assertEqual(usage.harness_of({"CLAUDECODE": "1"}), "claude_code")
+        self.assertEqual(usage.harness_of({"CODEX_SANDBOX": "seatbelt"}), "codex")
+        self.assertEqual(usage.harness_of({"CURSOR_AGENT": "1"}), "cursor")
+        self.assertEqual(usage.harness_of({"PATH": "/usr/bin"}), "unknown")
+        self.assertEqual(usage.harness_of({"PATH": "/usr/bin"}, "something-else"), "unknown")
+
+    def test_the_helpers_raise_them_where_a_runs_state_changes(self):
+        for name, call in (("progress.py", "usage_events.stage(run, previous, state)"), ("journey.py", "usage_events.choice(run, action, saved, host)"),
+                           ("analytics_eval.py", "usage_events.accuracy_scored(out, a.final)")):
+            self.assertIn(call, (SCRIPTS / name).read_text(encoding="utf-8"), name)
+        self.assertIn("usage_events.evals_generated(len(rows))", (ADDON / "skills" / "eval-generation" / "scripts" / "scope.py").read_text(encoding="utf-8"))
+
+
+class AnalyticsJourneyInARealRun(unittest.TestCase):
+    """The helpers themselves, on a saved run: a recorded choice and a stage change each raise their
+    event, hold only what the list allows, and leave the run's own files as they were."""
+
+    def setUp(self):
+        for folder in (ROOT / "tools" / "tests", SCRIPTS):
+            if str(folder) not in sys.path:
+                sys.path.insert(0, str(folder))
+        import test_analytics_experience as fixtures
+        from project import Project
+        import usage_events
+        self.fixture = fixtures.AnalyticsExperience()
+        self.fixture.setUp()
+        self.addCleanup(self.fixture.doCleanups)
+        self.fixture.candidate()
+        state = self.fixture.run.manifest()
+        state["entrypoint"] = "project"
+        self.fixture.write("run.json", state)
+        self.run = Project(self.fixture.run.root)
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.sent = []
+        options = {"env": {"XDG_CONFIG_HOME": self.tmp.name, "CLAUDECODE": "1"}, "spawn": self.sent.append, "now": NOW, "config": ADDON_ON}
+        real = usage_events.emit
+        patcher = patch.object(usage_events, "emit", lambda found, run=None, host=None, **_: real(found, run, host, **options))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def events(self):
+        return [(m["event"].removeprefix("claude_plugin_"), m["properties"]) for body in self.sent for m in json.loads(body)["batch"]]
+
+    def test_choices_and_stages_raise_their_events(self):
+        import progress
+        before = self.fixture.files()
+        self.run.journey("domain", answer="churn in the enterprise segment")
+        self.run.journey("pause")
+        self.run.journey("resume")
+        self.run.journey("status")
+        progress.update(self.run, "check", "running", completed=0, total=1)
+        progress.update(self.run, "check", "running", completed=1, total=1)
+        progress.update(self.run, "check", "complete", completed=1, total=1)
+        names = [name for name, _ in self.events()]
+        self.assertEqual(names[:3], ["analytics_intent_recorded", "analytics_run_mode_changed", "analytics_run_mode_changed"])
+        self.assertEqual(names[-2:], ["analytics_stage_reached", "analytics_stage_reached"])
+        self.assertEqual(names.count("analytics_stage_reached") + names.count("analytics_run_started"), len(names) - 3)
+        reached = self.events()[-1][1]
+        self.assertEqual((reached["stage"], reached["status"], reached["flow"]), ("check", "complete", "build"))
+        for key in ("sources", "metrics", "queries", "checked", "held", "released"):
+            self.assertIs(type(reached[key]), int, key)
+        self.assertGreaterEqual(reached["metrics"], 1)
+        wire = "\n".join(self.sent)
+        for leak in ("churn", "shipped", "SELECT", str(self.fixture.run.root)):
+            self.assertNotIn(leak, wire)
+        after = self.fixture.files()
+        self.assertLessEqual(set(after) - set(before), {"interaction.json", "progress.json", "progress-events.jsonl"})
+        self.assertEqual({k: after[k] for k in before if k not in ("progress.json", "progress-events.jsonl")},
+                         {k: v for k, v in before.items() if k not in ("progress.json", "progress-events.jsonl")})
 
 
 if __name__ == "__main__":

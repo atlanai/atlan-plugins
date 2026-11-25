@@ -32,6 +32,10 @@ plugins/atlanai/                    the core plugin
                                   publish_hook.py and each harness's hooks file, written here;
                                   telemetry.py and telemetry_events.json, every usage event,
                                   written here; telemetry_config.json generated
+plugins/atlanai-analytics/skills/analytics-build/scripts/
+  usage_events.py                 the analytics journey's usage events, written here
+  usage_sender.py, telemetry_events.json, telemetry_config.json
+                                  the core's sender and list, and this add-on's config (generated)
   README.md                       written by hand
 plugins/atlanai-<workload>/       add-ons: skills, commands and agents written here; manifests and
                                   README generated
@@ -109,7 +113,13 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   (`claude_plugin_<object_action>`, the category its plan gives this codebase, with `object` and
   `action` mirrored), each listed in `command-hooks/telemetry_events.json` and in the core's
   README. A hook cannot see the user or the organization, so where the dashboard calls
-  `identify` and `group`, an event carries `mcp_session_id`, the id the gateway keeps with both. To add an event, add it to that
+  `identify` and `group`, an event carries `mcp_session_id`, the id the gateway keeps with both.
+  An add-on has no hooks, so where its journey is worth counting its helpers raise the events
+  themselves: `[[addons]] telemetry_dir` names the folder, the build copies the core's sender and
+  list beside them, and the add-on's own module (`usage_events.py` in Analytics) maps a state
+  change to an event at the one place that state is written (`progress.update`,
+  `journey.advance`). An add-on event carries stages, choices and counts, never a name or a word
+  the person typed. To add an event, add it to that
   file with typed properties (`boolean`, `version`, `enum` or `listed`, never free text), run
   `make build`, raise it with `track` or from `events_of`, and add its README row. It comes in two forms, each named only from its own harness's manifest and never from
   `hooks/`, which Codex and Cursor read by default. `claude-hooks/` is a Claude Code hooks module,
@@ -315,8 +325,14 @@ Repo-specific rules. The full guide, with patterns, anti-patterns and a pre-PR c
   It stays off under `DO_NOT_TRACK`, `DISABLE_TELEMETRY`, `ATLAN_PLUGIN_TELEMETRY=0`,
   `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`, `CI`, the opt-out file, and in any copy that is not
   the released plugin on the production server (`is_opted_out`, `is_released_copy`, `prepare`).
-  It never delays or changes a hook's answer. Change both senders, the events file and the
-  core's README together, with tests.
+  It never delays or changes a hook's answer, or a helper's result. Change both senders, the
+  events file and the core's README together, with tests.
+- **[MUST]** An add-on sends usage events only through the generated copy of the core's sender,
+  under the same list and switches, and only from the installed plugin: a copy of its skills
+  served from Atlan Trident has no `plugin.json` beside it and stays silent (`emit` and
+  `is_released_copy` in `command-hooks/telemetry.py`, `usage_events.py` in the add-on). Its
+  helpers make no other network call for telemetry and read nothing for it but the run's own
+  state.
 - **[MUST]** `command-hooks/` and `claude-hooks/` enforce the same rules as `check_bundle.py`;
   change all three together, with tests.
 - **[MUST]** A hook command runs the script from its plugin root and nothing when that is unset
@@ -326,7 +342,8 @@ Repo-specific rules. The full guide, with patterns, anti-patterns and a pre-PR c
 - **[MUST]** `atlanai-mods` keeps archive, approve, move, release and roll-back confirming, and refuses them where
   nobody can answer (`ALWAYS_CONFIRM` in `plugins/atlanai-mods/hooks/registry.ts`).
 - **[MUST]** Add-ons and mods declare no MCP server and no `bin/`; hooks stay in the core's helper
-  and the mod (`lint_addon` and `lint_mod` in `tools/lint.py`).
+  and the mod (`lint_addon` and `lint_mod` in `tools/lint.py`). Usage events are not a hook: an
+  add-on's own helpers raise them, as the rule above says.
 - **[REDLINE]** Skill or command text that tells an agent to read, print or send credentials, env
   vars or files outside its task, or to call a non-Atlan server with Atlan data.
 - **[REDLINE]** A real token, handle or tenant name in any tracked file; the `SECRETS` scan in

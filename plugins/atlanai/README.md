@@ -141,9 +141,11 @@ which tells Atlan the session came from this plugin. See Atlan's
 
 On by default, as in the Atlan dashboard, and through the same pipeline: the hook sends usage
 events to Segment (`api.segment.io`), which forwards them to Atlan's Mixpanel. They say which of
-this marketplace's own skills and commands run, and where the publish helper holds a call back.
-These are all of them. `command-hooks/telemetry_events.json` lists every property, and the hooks
-drop any event or value that file does not allow.
+this marketplace's own skills and commands run, where the publish helper holds a call back, and
+how far an Analytics run gets. These are all of them. `command-hooks/telemetry_events.json` lists
+every property, and anything that file does not allow is dropped before it is sent.
+
+From this plugin's hook:
 
 | Event | Sent when | Properties |
 |---|---|---|
@@ -156,10 +158,27 @@ drop any event or value that file does not allow.
 | `claude_plugin_update_prompted` | The agent was told a newer release is out | `from_version`, `to_version`, `forced` |
 | `claude_plugin_feedback_offered` | The agent was asked to offer a feedback draft (Claude Code) | `trigger` |
 
-Every event is named `claude_plugin_…` in whichever tool it runs, and also carries the plugin's
-name and version, that tool (`claude_code`, `codex`, `cursor` or `copilot`), the operating
-system's family, a random install id, and a session key: 16 characters of a hash of that id and
-the tool's session id.
+From the Analytics add-on (`atlanai-analytics`), which has no hook: its helpers raise these as a
+run moves, in every tool, and send them the same way.
+
+| Event | Sent when | Properties |
+|---|---|---|
+| `claude_plugin_analytics_run_started` | A run records its first step | `flow`: `build`, `demo` or `dashboard` |
+| `claude_plugin_analytics_stage_reached` | A run moves to a new stage (`inspect`, `scope`, `build`, `check`, `preview`, `publish`, `ready`) or a new status of one | `stage`, `status`, `flow`, and six counts: `sources`, `metrics`, `queries`, `checked`, `held`, `released` |
+| `claude_plugin_analytics_flow_chosen` | You pick the demo, or make a dashboard agentic | `flow` |
+| `claude_plugin_analytics_intent_recorded` | You answer which business area, or what to accomplish | `topic`: which question, never your answer |
+| `claude_plugin_analytics_checks_chosen` | You choose to run the warehouse checks or skip them | `choice` |
+| `claude_plugin_analytics_question_asked` | A chosen question is answered from the run's metrics | `flow` |
+| `claude_plugin_analytics_dashboard_finished` | The dashboard step ends | `result`: `built` or `declined` |
+| `claude_plugin_analytics_run_mode_changed` | You pause, resume, or keep the work local | `mode` |
+| `claude_plugin_analytics_evals_generated` | An eval set is written | `questions`: how many |
+| `claude_plugin_analytics_accuracy_scored` | An accuracy check is scored | `questions`, `pass_percent`, `final` |
+
+Every event is named `claude_plugin_…` in whichever tool it runs, and also carries the name and
+version of the plugin that raised it, that tool (`claude_code`, `codex`, `cursor` or `copilot`,
+or `unknown` when an Analytics helper cannot tell), the operating system's family, and a random
+install id. A hook's event adds a session key: 16 characters of a hash of that id and the tool's
+session id. An Analytics event adds a run key: the same kind of hash of the run folder's path.
 
 The hooks never see who you are, so no event carries your name, email, user or organization.
 Three events carry `mcp_session_id`, the id Atlan's gateway gave the session a call ran in. Atlan
@@ -167,7 +186,8 @@ keeps that id with the call's user and organization, as it does for every call i
 Atlan can tell whose call an event was about.
 
 Never sent: a prompt or a reply; a file's name, path or contents; a tool's arguments or results;
-an error's text; the name of any skill, command or tool that is not this repository's own. Each
+an error's text; the name of any skill, command or tool that is not this repository's own; a
+metric's or a source's name, a question, an answer or a SQL statement. Each
 event names `0.0.0.0` in place of your IP address. Events wait in memory and leave from a
 background step with a 3 second limit, so no hook waits on them, and a failed send is dropped.
 

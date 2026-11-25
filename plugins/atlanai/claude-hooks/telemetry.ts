@@ -47,6 +47,7 @@ export const MAX_EVENTS = 200
 export const MAX_BATCH = 40
 const MAX_BODY_BYTES = 32 * 1024
 const STORE_INSTALL = 'telemetry.install_id'
+const STATE_FOLDER = 'atlan-plugin'
 const STORE_DAY = 'telemetry.active_day'
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const VERSION = /^\d+\.\d+\.\d+$/
@@ -85,6 +86,7 @@ export function joinOf(session: unknown): { mcp_session_id?: string } {
 function fits(value: unknown, spec: Spec, config: Config): boolean {
   if (spec.type === 'boolean') return typeof value === 'boolean'
   if (spec.type === 'version') return typeof value === 'string' && VERSION.test(value)
+  if (spec.type === 'count') return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 1_000_000
   if (spec.type === 'enum') return typeof value === 'string' && (ENUMS[spec.of ?? ''] ?? []).includes(value)
   if (spec.type === 'mcp_session') return typeof value === 'string' && MCP_SESSION.test(value)
   if (spec.type === 'listed') {
@@ -213,6 +215,24 @@ export function createTelemetry(config: Config = TELEMETRY): Telemetry {
 /** A variable that cannot be read is unset. Each is read by its literal name, so the engine can list them. */
 const quiet = (read: Promise<string | undefined>): Promise<string | undefined> => read.catch(() => undefined)
 
+/**
+ * This machine's random install id: the one file the command hooks and the analytics helpers
+ * read too (`install-id` in the state folder), so every event from one machine carries one id.
+ * Made on first use; kept in the plugin's own store where no home folder is known.
+ */
+async function installOf($: Dollar, base: string | undefined): Promise<string> {
+  const path = base ? `${base}/${STATE_FOLDER}/install-id` : undefined
+  if (path) {
+    const found = (await $.fs.read(path).catch(() => '')).trim()
+    if (UUID.test(found)) return found
+  }
+  const stored = await $.store.get(STORE_INSTALL)
+  const made = typeof stored === 'string' && UUID.test(stored) ? stored : crypto.randomUUID()
+  if (path) await $.fs.write(path, `${made}\n`).catch(() => undefined)
+  if (made !== stored) await $.store.set(STORE_INSTALL, made)
+  return made
+}
+
 /** Consent and identity, settled once a process. undefined: say nothing. */
 async function prepare($: Dollar, config: Config): Promise<Ready | undefined> {
   if (isFlagOn(await quiet($.env.get('DO_NOT_TRACK'))) || isFlagOn(await quiet($.env.get('DISABLE_TELEMETRY')))) return undefined
@@ -221,18 +241,13 @@ async function prepare($: Dollar, config: Config): Promise<Ready | undefined> {
   if (await quiet($.env.get('CI'))) return undefined
   const home = (await quiet($.env.get('HOME'))) ?? (await quiet($.env.get('USERPROFILE')))
   const base = (await quiet($.env.get('XDG_CONFIG_HOME'))) || (home ? `${home}/.config` : undefined)
-  if (base && (await $.fs.stat(`${base}/atlan-plugin/telemetry-off`).then(() => true, () => false))) return undefined
+  if (base && (await $.fs.stat(`${base}/${STATE_FOLDER}/telemetry-off`).then(() => true, () => false))) return undefined
   if ($.plugin.name !== config.plugin) return undefined
   const manifest: unknown = JSON.parse(await $.fs.read(`${$.plugin.root}/.mcp.json`))
   const servers = typeof manifest === 'object' && manifest !== null ? (manifest as { mcpServers?: unknown }).mcpServers : undefined
   const urls = typeof servers === 'object' && servers !== null ? Object.values(servers).map(server => (server as { url?: unknown } | null)?.url) : []
   if (!urls.includes(config.mcp_url)) return undefined
-  let installId = await $.store.get(STORE_INSTALL)
-  if (typeof installId !== 'string' || !UUID.test(installId)) {
-    installId = crypto.randomUUID()
-    await $.store.set(STORE_INSTALL, installId)
-  }
-  return { installId: installId as string, os: osOf({ OS: await quiet($.env.get('OS')), HOME: home }) }
+  return { installId: await installOf($, base), os: osOf({ OS: await quiet($.env.get('OS')), HOME: home }) }
 }
 
 /** Send what waits, as one batch. A batch that cannot be sent is dropped. */

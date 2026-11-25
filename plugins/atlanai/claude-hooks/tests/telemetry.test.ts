@@ -40,7 +40,11 @@ function world(options: { variables?: Record<string, string>; files?: Record<str
   const $ = {
     plugin: { name: options.name ?? TELEMETRY.plugin, root: ROOT },
     env: { get: async (name: string) => (asked.push(`env:${name}`), variables[name]) },
-    fs: { stat: async (path: string) => ({ kind: 'file', size: (await read(path)).length }), read },
+    fs: {
+      stat: async (path: string) => ({ kind: 'file', size: (await read(path)).length }),
+      read,
+      write: async (path: string, text: string) => void (files[path] = text),
+    },
     store: { get: async (key: string) => store.get(key), set: async (key: string, value: unknown) => void store.set(key, value) },
     session: { id: async () => 'session-1' },
     clock: { after: (ms: number, fn: () => void) => (timers.push({ ms, fn }), { cancel: () => undefined }) },
@@ -51,7 +55,7 @@ function world(options: { variables?: Record<string, string>; files?: Record<str
       },
     },
   } as unknown as EngineInterface
-  return { $, sent, asked, timers, store }
+  return { $, sent, asked, timers, store, files }
 }
 
 describe('the event schema', () => {
@@ -106,7 +110,7 @@ describe('the event schema', () => {
     for (const [name, event] of Object.entries(SCHEMA.events)) {
       expect(name).toMatch(/^[a-z]+_[a-z_]+$/)
       for (const spec of Object.values(event.props) as { type: string; of?: string }[]) {
-        expect(['boolean', 'version', 'enum', 'listed', 'mcp_session']).toContain(spec.type)
+        expect(['boolean', 'version', 'enum', 'listed', 'mcp_session', 'count']).toContain(spec.type)
         if (spec.type === 'enum') expect(Object.keys(SCHEMA.enums)).toContain(spec.of)
         if (spec.type === 'listed') expect(['skills', 'commands']).toContain(spec.of)
       }
@@ -207,6 +211,29 @@ describe('the sender', () => {
     expect(sent[0]?.body.writeKey).toBe(KEY)
     const wire = JSON.stringify(sent[0]?.body)
     for (const leak of ['/Users/someone', 'session-1', 'acme-internal', 'hello']) expect(wire).not.toContain(leak)
+  })
+
+  test('shares one install id file with the command hooks and the analytics helpers', async () => {
+    const shared = '/Users/someone/.config/atlan-plugin/install-id'
+    const first = world()
+    const telemetry = createTelemetry(ON)
+    track(first.$, telemetry, 'skill_invoked', { skill: 'atlanai:atlan-continue' })
+    await flush(first.$, telemetry)
+    const made = first.sent[0]?.body.batch[0]?.anonymousId as string
+    expect(first.files[shared]?.trim()).toBe(made)
+    const second = world({ files: { [shared]: `${INSTALL}\n` } })
+    const again = createTelemetry(ON)
+    track(second.$, again, 'skill_invoked', { skill: 'atlanai:atlan-continue' })
+    await flush(second.$, again)
+    expect(second.sent[0]?.body.batch[0]?.anonymousId).toBe(INSTALL)
+    expect(second.store.size).toBe(0)
+  })
+
+  test('holds a count to a whole number in range, and takes analytics events from no hook', () => {
+    const reached = { stage: 'check', status: 'complete', flow: 'build', sources: 2, metrics: 12, queries: 4, checked: 14, held: 2, released: 0 }
+    expect(compose('analytics_stage_reached', reached, { ...COMMON, harness: 'unknown' }, ON, AT, MESSAGE)?.event).toBe('claude_plugin_analytics_stage_reached')
+    for (const metrics of [-1, 1.5, '12', 2_000_000, true]) expect(compose('analytics_stage_reached', { ...reached, metrics }, COMMON, ON, AT, MESSAGE)).toBe(undefined)
+    expect(compose('analytics_intent_recorded', { topic: 'domain', answer: 'churn in the enterprise segment' }, COMMON, ON, AT, MESSAGE)?.properties).not.toHaveProperty('answer')
   })
 
   test('reports an install active once per UTC day, and keeps its id', async () => {

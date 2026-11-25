@@ -46,7 +46,8 @@ export const SCHEMA = {
       "claude_code",
       "codex",
       "cursor",
-      "copilot"
+      "copilot",
+      "unknown"
     ],
     "os": [
       "macos",
@@ -111,6 +112,46 @@ export const SCHEMA = {
     "feedback_trigger": [
       "failure",
       "sampled"
+    ],
+    "flow": [
+      "build",
+      "demo",
+      "dashboard"
+    ],
+    "stage": [
+      "inspect",
+      "scope",
+      "build",
+      "check",
+      "preview",
+      "publish",
+      "ready"
+    ],
+    "stage_status": [
+      "pending",
+      "running",
+      "waiting-for-user",
+      "complete",
+      "complete-with-held-items",
+      "failed",
+      "canceled"
+    ],
+    "intent_topic": [
+      "domain",
+      "purpose"
+    ],
+    "checks_choice": [
+      "run",
+      "skip"
+    ],
+    "dashboard_result": [
+      "built",
+      "declined"
+    ],
+    "run_mode": [
+      "active",
+      "paused",
+      "local"
     ]
   },
   "events": {
@@ -268,6 +309,207 @@ export const SCHEMA = {
         "trigger": {
           "type": "enum",
           "of": "feedback_trigger"
+        }
+      }
+    },
+    "analytics_run_started": {
+      "about": "An analytics run began: its first step was recorded.",
+      "hosts": [
+        "claude_code",
+        "codex",
+        "cursor",
+        "copilot",
+        "unknown"
+      ],
+      "props": {
+        "flow": {
+          "type": "enum",
+          "of": "flow",
+          "about": "Setup on your own data, the demo, or a dashboard made agentic."
+        }
+      }
+    },
+    "analytics_stage_reached": {
+      "about": "An analytics run moved to a new stage, or to a new status of the one it is on. Repeats of the same stage and status are not sent. Counts only: never a metric's name, a source's name or a query.",
+      "hosts": [
+        "claude_code",
+        "codex",
+        "cursor",
+        "copilot",
+        "unknown"
+      ],
+      "props": {
+        "stage": {
+          "type": "enum",
+          "of": "stage"
+        },
+        "status": {
+          "type": "enum",
+          "of": "stage_status"
+        },
+        "flow": {
+          "type": "enum",
+          "of": "flow"
+        },
+        "sources": {
+          "type": "count",
+          "about": "How many sources the run reads."
+        },
+        "metrics": {
+          "type": "count",
+          "about": "How many metrics the run holds."
+        },
+        "queries": {
+          "type": "count",
+          "about": "How many saved queries the run holds."
+        },
+        "checked": {
+          "type": "count",
+          "about": "How many of them passed their checks."
+        },
+        "held": {
+          "type": "count",
+          "about": "How many are held back by a check."
+        },
+        "released": {
+          "type": "count",
+          "about": "How many were saved to Atlan."
+        }
+      }
+    },
+    "analytics_flow_chosen": {
+      "about": "The person chose the demo, or to make a dashboard agentic.",
+      "hosts": [
+        "claude_code",
+        "codex",
+        "cursor",
+        "copilot",
+        "unknown"
+      ],
+      "props": {
+        "flow": {
+          "type": "enum",
+          "of": "flow"
+        }
+      }
+    },
+    "analytics_intent_recorded": {
+      "about": "The person answered which business area to focus on, or what to accomplish in it. Which question was answered, never the answer.",
+      "hosts": [
+        "claude_code",
+        "codex",
+        "cursor",
+        "copilot",
+        "unknown"
+      ],
+      "props": {
+        "topic": {
+          "type": "enum",
+          "of": "intent_topic"
+        }
+      }
+    },
+    "analytics_checks_chosen": {
+      "about": "The person chose to run each metric and query on the warehouse, or to skip that.",
+      "hosts": [
+        "claude_code",
+        "codex",
+        "cursor",
+        "copilot",
+        "unknown"
+      ],
+      "props": {
+        "choice": {
+          "type": "enum",
+          "of": "checks_choice"
+        }
+      }
+    },
+    "analytics_question_asked": {
+      "about": "A chosen question was answered from the run's metrics. The question and its answer are never sent.",
+      "hosts": [
+        "claude_code",
+        "codex",
+        "cursor",
+        "copilot",
+        "unknown"
+      ],
+      "props": {
+        "flow": {
+          "type": "enum",
+          "of": "flow"
+        }
+      }
+    },
+    "analytics_dashboard_finished": {
+      "about": "The dashboard step ended: one was built, or the person declined.",
+      "hosts": [
+        "claude_code",
+        "codex",
+        "cursor",
+        "copilot",
+        "unknown"
+      ],
+      "props": {
+        "result": {
+          "type": "enum",
+          "of": "dashboard_result"
+        }
+      }
+    },
+    "analytics_run_mode_changed": {
+      "about": "The person paused the run, resumed it, or chose to keep the work local.",
+      "hosts": [
+        "claude_code",
+        "codex",
+        "cursor",
+        "copilot",
+        "unknown"
+      ],
+      "props": {
+        "mode": {
+          "type": "enum",
+          "of": "run_mode"
+        }
+      }
+    },
+    "analytics_evals_generated": {
+      "about": "An eval set was written. How many questions, never the questions.",
+      "hosts": [
+        "claude_code",
+        "codex",
+        "cursor",
+        "copilot",
+        "unknown"
+      ],
+      "props": {
+        "questions": {
+          "type": "count",
+          "about": "How many questions the set holds."
+        }
+      }
+    },
+    "analytics_accuracy_scored": {
+      "about": "An accuracy check was scored.",
+      "hosts": [
+        "claude_code",
+        "codex",
+        "cursor",
+        "copilot",
+        "unknown"
+      ],
+      "props": {
+        "questions": {
+          "type": "count",
+          "about": "How many questions were scored."
+        },
+        "pass_percent": {
+          "type": "count",
+          "about": "The share answered correctly, 0 to 100."
+        },
+        "final": {
+          "type": "boolean",
+          "about": "Whether this was the final read, with the held-out questions."
         }
       }
     }

@@ -4,7 +4,9 @@
     python3 telemetry.py send    # a detached child of publish_hook.py: POST one batch read on stdin
 
 publish_hook.py calls `observe` after it has answered the harness. It is claude-hooks/telemetry.ts
-for the harnesses that run commands, and both are held to command-hooks/telemetry_events.json:
+for the harnesses that run commands, and both are held to command-hooks/telemetry_events.json.
+tools/build.py also copies this file, as usage_sender.py, beside an add-on's helpers that raise
+events of their own with `emit` (the analytics journey). Wherever it runs:
 an event or property that file does not list is never sent, and a value that does not fit its
 type drops the whole event. So no path, prompt, tool argument, result or error text can leave,
 whatever a call site passes.
@@ -47,6 +49,7 @@ STATE_FOLDER = "atlan-plugin"
 OPT_OUT_FILE = "telemetry-off"
 SEND_TIMEOUT_SECONDS = 3
 MAX_BODY_BYTES = 32 * 1024
+MAX_COUNT = 1_000_000
 OFF_FLAGS = ("DO_NOT_TRACK", "DISABLE_TELEMETRY", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC")
 OWN_SWITCH = "ATLAN_PLUGIN_TELEMETRY"
 UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
@@ -105,6 +108,8 @@ def is_released_copy(config: dict, root: Path = PLUGIN_ROOT) -> bool:
     try:
         if read_json(root / "plugin.json").get("name") != config.get("plugin"):
             return False
+        if not config.get("mcp_url"):
+            return True  # an add-on declares no server of its own; its name is its identity
         servers = read_json(root / "mcp.json").get("mcpServers", {})
         return isinstance(servers, dict) and any(
             isinstance(server, dict) and server.get("url") == config.get("mcp_url") for server in servers.values())
@@ -162,6 +167,8 @@ def fits(value, spec: dict, schema: dict, config: dict) -> bool:
         return isinstance(value, bool)
     if kind == "version":
         return isinstance(value, str) and VERSION.match(value) is not None
+    if kind == "count":
+        return type(value) is int and 0 <= value <= MAX_COUNT
     if kind == "enum":
         return isinstance(value, str) and value in schema.get("enums", {}).get(spec.get("of"), [])
     if kind == "mcp_session":
@@ -201,7 +208,7 @@ def compose(name: str, props: dict, common: dict, schema: dict, config: dict, at
         "harness": harness,
         "os": common["os"],
         "install_id": common["install_id"],
-        **({"session": common["session"]} if re.fullmatch(r"[0-9a-f]{16}", str(common.get("session", ""))) else {}),
+        **{key: common[key] for key in ("session", "run") if re.fullmatch(r"[0-9a-f]{16}", str(common.get(key, "")))},
         **kept,
     }
     return {
@@ -362,16 +369,44 @@ def observe(entry: str, host: str, event: dict, result, env=None, spawn=send_det
         session = session_key(install_id, event.get("session_id") or event.get("sessionId") or event.get("conversation_id"))
         common = {"harness": host, "os": os_name(), "install_id": install_id, "app_version": config.get("version"),
                   **({"session": session} if session else {})}
-        at = time.strftime("%Y-%m-%dT%H:%M:%SZ", moment)
-        batch = [m for m in (compose(name, props, common, schema, config, at, str(uuid.uuid4())) for name, props in found) if m]
-        if not batch:
-            return None
-        body = json.dumps({"batch": batch, "writeKey": config["write_key"]})
-        if len(body.encode("utf-8")) > MAX_BODY_BYTES:
-            return None
-        spawn(body)
-        return body
+        return post_batch(found, common, schema, config, moment, spawn)
     except Exception:  # noqa: BLE001 - telemetry never changes what a hook does
+        return None
+
+
+def post_batch(found, common: dict, schema: dict, config: dict, moment, spawn) -> str | None:
+    """Compose what fits the schema and hand it to `spawn` as one batch. None when nothing fits."""
+    at = time.strftime("%Y-%m-%dT%H:%M:%SZ", moment)
+    batch = [m for m in (compose(name, props, common, schema, config, at, str(uuid.uuid4())) for name, props in found) if m]
+    if not batch:
+        return None
+    body = json.dumps({"batch": batch, "writeKey": config["write_key"]})
+    if len(body.encode("utf-8")) > MAX_BODY_BYTES:
+        return None
+    spawn(body)
+    return body
+
+
+def emit(found, harness: str, run=None, env=None, spawn=send_detached, now=None, root: Path = PLUGIN_ROOT,
+         config: dict | None = None) -> str | None:
+    """Report events a helper raised itself, as (name, properties) pairs, under every rule `observe`
+    is under. `run` is any text that names one run; only its salted hash is sent. Never raises."""
+    try:
+        env = os.environ if env is None else env
+        config = read_json(CONFIG) if config is None else config
+        if not is_on(config) or not found:
+            return None
+        schema = read_json(SCHEMA)
+        harness = harness if harness in schema["enums"]["harness"] else "unknown"
+        state = state_dir(env)
+        if is_opted_out(env, state) or not is_released_copy(config, root):
+            return None
+        install_id = install(state)
+        key = session_key(install_id, run)
+        common = {"harness": harness, "os": os_name(), "install_id": install_id, "app_version": config.get("version"),
+                  **({"run": key} if key else {})}
+        return post_batch(found, common, schema, config, time.gmtime(now), spawn)
+    except Exception:  # noqa: BLE001 - telemetry never changes what a helper does
         return None
 
 

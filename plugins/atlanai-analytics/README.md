@@ -40,6 +40,9 @@ In Cortex Code, install each from its folder, one chat message each:
 
 Analytics itself has no hooks or shipped executable binaries. Its skills run bundled Python helpers and may
 set up an isolated metrics-agent environment with pinned dependencies after authorization.
+Its helpers report usage events to Segment, as `atlanai` does and under the same switches: which stage a run
+reached, which choices were made, and counts. Never a metric's or source's name, a question, an answer or SQL.
+`ATLAN_PLUGIN_TELEMETRY=0` or `DO_NOT_TRACK=1` turns it off, and the [`atlanai` README](../atlanai/README.md#usage-telemetry) lists every event.
 Working files stay in your project. Input plugs use the source connections you select; Atlan Trident
 writes use the `atlanai` plugin's connection, signed in as you. See Atlan's
 [privacy notice](https://atlan.com/privacy-policy/).

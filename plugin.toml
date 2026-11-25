@@ -69,9 +69,10 @@ url = "https://api.atlan.com/mcp"
 client = "atlan-plugin"
 
 [telemetry]
-# Anonymous usage events from the hooks (claude-hooks/telemetry.ts, command-hooks/telemetry.py):
-# which of this repository's skills and commands run, what the publish helper refused, and a
-# daily-active ping. command-hooks/telemetry_events.json lists every event and property, and
+# Anonymous usage events from the hooks (claude-hooks/telemetry.ts, command-hooks/telemetry.py)
+# and from an add-on's helpers where it names a `telemetry_dir`: which of this repository's skills
+# and commands run, what the publish helper refused, a daily-active ping, and how far an Analytics
+# run gets. command-hooks/telemetry_events.json lists every event and property, and
 # nothing outside it is sent. It works as the dashboard's analytics do (frontend,
 # apps/dashboard/src/lib/observability/analytics.ts): events go straight to Segment, which
 # forwards them to Mixpanel, and they are collected by default whenever a write key is set. The
@@ -105,7 +106,11 @@ default_prompts = [
 [[addons]]
 name = "atlanai-analytics"
 display_name = "Analytics"
-version = "0.9.89"
+version = "0.9.90"
+# Where the add-on's helpers raise usage events of their own (usage_events.py there). The build
+# writes the core's sender, the events list and this add-on's telemetry config beside them, so
+# the same `[telemetry]` key, list and switches hold. Plugin-relative.
+telemetry_dir = "skills/analytics-build/scripts"
 description = "Try Atlan Analytics on a demo or set it up on your own data, step by step: survey dashboards and query history, generate and check metrics, save them locally or to Atlan, ask questions and build a dashboard."
 short_description = "Publish analytics context and ask your data with Atlan"
 long_description = "The analytics workload on Atlan Trident, as seven skills. analytics-demo walks through a made-up firm end to end. analytics-build does the same on your own data, starting from nothing, a dashboard or a subject: it surveys what you already have, asks what you want to answer, and builds from reports first, then query history, then table definitions. source-survey says what a setup, a subject or a source holds, what can be built from it, and which metric names it offers. metrics-generation generates, checks, edits, proposes and publishes metrics and saved queries with the metrics engine. analytics-ask answers a data question from published metrics, with the definition it used, and turns answers into a dashboard. eval-generation turns the questions a team already asks into an eval set with trusted SQL, kept locally or saved to Atlan. accuracy-check runs a set against the context and scores it, saying why each miss failed. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection."
