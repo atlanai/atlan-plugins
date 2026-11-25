@@ -18,7 +18,7 @@ with one more status: `check` prints `REFUSED`, exit 1, when some items failed. 
 in `plan.json`; fix them as the metrics workflow says.
 
 The explicit `metrics` mode uses only the metrics workflow ([metrics](../../metrics-generation/references/metrics.md)) and
-`.atlan-metrics/<slug>/`. Its final gate sets `phase` to `complete`.
+`.atlan-analytics/<slug>/`. Its final gate sets `phase` to `complete`.
 
 State holds what the shared conventions keep for a conversation: record the Trident session
 id as `session_id`, and the warehouse query tool as `warehouse.tool` in the dialect recorded as

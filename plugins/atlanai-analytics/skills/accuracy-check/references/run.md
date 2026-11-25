@@ -62,7 +62,7 @@ trusted results come from the warehouse, and no model copies a value:
   agent with fixed instructions that reads only the question and the two results, never the
   answering agent's conversation. An answer with no result fails without a judge. The summary
   says how many answers the judge decided.
-- A transcript that opens anything under `.atlan-evals/` or names an eval artifact is marked
+- A transcript that opens anything under `.atlan-analytics/evals/` or names an eval artifact is marked
   contaminated and fails.
 
 ## Run it

@@ -5,7 +5,7 @@
 
 A case's scaffold calls this, so the case asks about saved work the way a person would, and the
 model has to find the run and read it with the skill's own helpers instead of being handed the
-answer in its prompt. The run sits at `.atlan-metrics/shipping-run/`, as a real one does. The
+answer in its prompt. The run sits at `.atlan-analytics/shipping-run/`, as a real one does. The
 survey is the plugin's own (`project.py survey`); the built metrics, their checks and the
 progress are written as the build and its checks leave them.
 
@@ -27,7 +27,7 @@ sys.path.insert(0, str(SCRIPTS))
 from context_state import digest  # noqa: E402
 
 CWD = Path.cwd()
-SOURCE, RUN = CWD / "shipping", CWD / ".atlan-metrics" / "shipping-run"
+SOURCE, RUN = CWD / "shipping", CWD / ".atlan-analytics" / "shipping-run"
 
 
 def write(path: Path, body) -> None:

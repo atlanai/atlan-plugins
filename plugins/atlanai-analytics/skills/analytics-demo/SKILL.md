@@ -57,16 +57,16 @@ After "Start building", show the tracker, then do all of step 1's work:
 
 1. **Open the demo.** Each demo lives in this skill, under `assets/<demo>/`. Run
    `DEMO open <demo> "<folder>"` with `<demo>` as named in its facts file and `<folder>` the
-   current working folder. It sets up `<folder>/atlan-analytics-demo/<demo>/`, the working
+   current working folder. It sets up `<folder>/.atlan-analytics/demo/<demo>/`, the working
    folder the run reads and writes, and prints it as `working_folder`. Run it again on a later
    demo: it reuses that folder and brings it up to date with this skill. Never clone, download
    or search other folders for the demo. In the same call, initialize or
    reuse the metrics engine's pinned runtime, the slowest part of this step:
-   `python3 "<metrics-dir>/scripts/analytics_agent.py" metrics --runtime "<folder>/.atlan-metrics/runtime" setup`,
+   `python3 "<metrics-dir>/scripts/analytics_agent.py" metrics --runtime "<folder>/.atlan-analytics/runtime" setup`,
    with `<metrics-dir>` the `metrics-generation` skill's directory
    ([the metrics module](../metrics-generation/references/metrics-engine.md), section 1).
 2. **Read the sources.** Start a new setup run with `PROJECT location --workspace "<folder>"`,
-   so it lives in `<folder>/.atlan-metrics/`, outside the folder it reads. Inspect only `working_folder`, with
+   so it lives in `<folder>/.atlan-analytics/`, outside the folder it reads. Inspect only `working_folder`, with
    [inspect and scope](../source-survey/references/inspect-scope.md) section 1, as if
    the person had asked to set up that folder from scratch. Then run
    `DEMO requests <demo> --run-dir "<run-dir>"`. It writes the demo's fixed choices as request

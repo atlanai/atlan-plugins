@@ -30,7 +30,7 @@ Paths. Pass each command as separate argv entries; zsh does not split a string h
 - `<evals-dir>` is this skill's directory (`${CLAUDE_PLUGIN_ROOT}/skills/eval-generation` in
   Claude Code). `<build-dir>` is `analytics-build` beside it.
 - `<run>` is the analytics run and `<gen>` the drafting folder, both as `SCOPE inputs` returns
-  them. The drafting folder sits under `.atlan-evals/gen/`, outside the run: agents that answer
+  them. The drafting folder sits under `.atlan-analytics/evals/gen/`, outside the run: agents that answer
   from the run must never see an answer. Never use `PROJECT location` here: it names a new run.
 - `SCOPE` is `python3 "<evals-dir>/scripts/scope.py"`. `EVAL` is
   `python3 "<build-dir>/scripts/analytics_eval.py" <command> --dir "<gen>"`.
@@ -66,7 +66,7 @@ Paths. Pass each command as separate argv entries; zsh does not split a string h
    relative ("this quarter"). Then reply `done`. It never sees the run.
 5. **Write the set.** `EVALGEN review --name <slug>`, then `SCOPE emit --gen <gen> --name <slug>`.
    It keeps the first 20 drafted questions in pick order, so a spare fills in for one the draft
-   dropped, and writes `<project>/.atlan-evals/sets/<slug>.jsonl`, one question per line: `{"id",
+   dropped, and writes `<project>/.atlan-analytics/evals/sets/<slug>.jsonl`, one question per line: `{"id",
    "question", "sql", "tests", "from", "generated"}`, the same shape as a set a person brings.
 
 Budget: about 3 minutes. Keep every model step in a subagent and every count in a script.

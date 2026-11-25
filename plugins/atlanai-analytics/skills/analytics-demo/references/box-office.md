@@ -47,7 +47,7 @@ Ready to build?
 | Firm | Ticketfuddle |
 | Agent | ticket fees agent |
 | Tour | https://atlanai.github.io/analytics-agent-accelerator/box-office-tour/ |
-| Working folder | `atlan-analytics-demo/box-office/` |
+| Working folder | `.atlan-analytics/demo/box-office/` |
 | Dashboard | a Tableau workbook with 7 tiles: 4 numbers and 3 charts |
 | Tiles | gross sales, fees as a share of what fans paid, net fee revenue, sell-through; charts of gross sales by month, fee income by type and sell-through by event |
 | Past queries | 68 distinct, over 756 runs |

@@ -731,9 +731,10 @@ _WRITE_TOOL = re.compile(r"__(?:create|update|patch|put|delete|archive|restore|r
 # The desktop app's own turn tools (a progress plan) write to the chat window, never to data.
 _SESSION_UI = re.compile(r"^mcp__ccd_turn__")
 _EVAL_ID = re.compile(r"\b(?:dataset|dataset_record|experiment|experiment_result|scorer)_[0-9a-z]{10,}\b")
-# An eval folder, never a run's context: a warehouse build keeps its context in
-# .atlan-analytics/<slug>/context, which an answering agent must read.
-_EVAL_PATH = re.compile(r"answers\.jsonl|\.atlan-analytics/[^/\s\"']+/(?:eval|hillclimb)\b|\.atlan-evals|/eval/v1/"
+# An eval folder, never a run's context: a run keeps its context in .atlan-analytics/<run>/context,
+# which an answering agent must read; eval sets and checks live in .atlan-analytics/evals/
+# (.atlan-evals/ in earlier versions).
+_EVAL_PATH = re.compile(r"answers\.jsonl|\.atlan-analytics/(?:evals\b|[^/\s\"']+/(?:eval|hillclimb)\b)|\.atlan-evals|/eval/v1/"
                         r"|gold_results", re.I)
 _NARRATION = ("rationale", "objective", "description")
 

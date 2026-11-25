@@ -12,7 +12,7 @@ input, picks the set (the focus metric first, then breadth) and writes it. Stand
     python3 scope.py emit --gen <gen-dir> --name <set name>
     python3 scope.py ready --set <set.jsonl>
 
-`emit` writes <project>/.atlan-evals/sets/<name>.jsonl, one question per line: {"id", "question",
+`emit` writes <project>/.atlan-analytics/evals/sets/<name>.jsonl, one question per line: {"id", "question",
 "sql", "tests", "from", "generated"}, the same shape as a set a person brings, so whatever runs a set runs
 this one. Every command prints one JSON object. Exit 2 means something the person must supply.
 """
@@ -28,6 +28,7 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "analytics-build" / "scripts"))
 
 from eval_runs import Blocked, engine_dir, execution, find_run, use_case  # noqa: E402
+import layout  # noqa: E402
 
 # Words that say nothing about which metric a use case needs.
 _STOP = {"a", "an", "and", "the", "of", "to", "in", "on", "for", "by", "or", "is", "it", "its", "with",
@@ -46,7 +47,7 @@ def dump(path: pathlib.Path, obj) -> None:
 
 def gen_dir(project: pathlib.Path, run: pathlib.Path) -> pathlib.Path:
     """Where a set is drafted, outside the run: answering agents read the run."""
-    return project / ".atlan-evals" / "gen" / run.name
+    return layout.evals(project) / "gen" / run.name
 
 
 def cmd_inputs(a) -> dict:
@@ -66,7 +67,7 @@ def cmd_inputs(a) -> dict:
         raise Blocked("The run has no built metrics or queries yet. Build the context first.")
     if not (cards or {}).get("metrics"):
         raise Blocked("The run has no metric cards from the metrics engine, so no question can be tied to a "
-                      "metric. Bring a set instead: one {id, question, sql} per line in .atlan-evals/sets/.")
+                      "metric. Bring a set instead: one {id, question, sql} per line in .atlan-analytics/evals/sets/.")
     if ev.exists():
         shutil.rmtree(ev)
     refs_by_vq = cards.get("metric_refs_by_vq") or {}
@@ -286,7 +287,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     s = p.add_subparsers(dest="cmd", required=True)
     c = s.add_parser("inputs", help="eval-builder input and scope.json from the analytics run")
-    c.add_argument("--project", required=True, help="the folder holding .atlan-metrics/")
+    c.add_argument("--project", required=True, help="the folder holding .atlan-analytics/")
     c.add_argument("--run", help="the run folder to use, when the project holds several")
     c.add_argument("--use-case", help="which agent, answering what, when the run recorded none")
     c.set_defaults(func=cmd_inputs)
@@ -296,7 +297,7 @@ def main(argv=None) -> int:
     c.add_argument("--spare", type=int, default=4, help="extra questions drafted in case a draft drops some")
     c.add_argument("--focus-count", type=int, default=2)
     c.set_defaults(func=cmd_pick)
-    c = s.add_parser("emit", help="write the drafted set to .atlan-evals/sets/<name>.jsonl")
+    c = s.add_parser("emit", help="write the drafted set to .atlan-analytics/evals/sets/<name>.jsonl")
     c.add_argument("--gen", required=True)
     c.add_argument("--name", required=True)
     c.set_defaults(func=cmd_emit)

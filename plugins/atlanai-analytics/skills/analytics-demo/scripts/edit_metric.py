@@ -17,6 +17,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "analytics-build" / "scripts"))
 from project import Project, ProjectError  # noqa: E402
+import layout  # noqa: E402
 
 def edit_metric(run, request):
     """Change one metric in this run by definition field, as a proposal's changes name them. The
@@ -69,7 +70,7 @@ def edit_metric(run, request):
 CARD_FIELD = {'source.sql': 'sql', 'source.entity': 'entity', 'source.alias': 'alias'}
 
 def _keep(path, value):
-    # Beside the run under .atlan-metrics/, outside the run's guarded store on purpose.
+    # Beside the run under .atlan-analytics/, outside the run's guarded store on purpose.
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, indent=1))
 
@@ -121,7 +122,7 @@ def main(argv=None) -> int:
     p.add_argument("request")
     a = p.parse_args(argv)
     try:
-        run = Project(a.run_dir)
+        run = Project(layout.follow(a.run_dir))
         print(json.dumps(edit_metric(run, json.loads(pathlib.Path(a.request).read_text()))))
         return 0
     except (ProjectError, ValueError, OSError) as exc:

@@ -7,7 +7,7 @@ execution:
     checkpoint. Do not start a real sign-in, access a registry or run commands in this test.
     We are in Claude Code, with the core plugin installed and enabled. Its observed
     plugin:atlanai:atlan server explicitly requires OAuth. The current run is saved at
-    /workspace/.atlan-metrics/example-run and should resume at publication. Shell, Chrome
+    /workspace/.atlan-analytics/example-run and should resume at publication. Shell, Chrome
     control and native background-task tools are available in the described host.
 
     Explain how you will open Chrome and watch sign-in, what you do when the login task

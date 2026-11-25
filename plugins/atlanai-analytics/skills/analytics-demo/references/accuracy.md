@@ -34,7 +34,7 @@ no Doing or Why lines. Every step that leads to a choice ends on a native questi
 score (step 3) and the result (step 5): each is the turn's last chat message, ending on a plain
 reply line, so the before and after prints whole.
 
-An eval set lives in the project (`.atlan-evals/sets/`), never fetched from Atlan Trident: never
+An eval set lives in the project (`.atlan-analytics/evals/sets/`), never fetched from Atlan Trident: never
 look up Trident, a workspace or saved evals for the questions, the run or the score. Only step
 4's Trident fix and step 5's save touch a workspace.
 `context_saved_to` (from `CHECK start` and `CHECK load`) says where the context lives; `null` means

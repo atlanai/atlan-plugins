@@ -8,7 +8,7 @@ The owned metrics-agent module drives source processing, compilation, verificati
 On Windows, start it with `py -3.12` (or `py -3.11`) instead of `python3`. The runtime runs
 natively there; never ask to install WSL.
 Keep the runtime outside the installed plugin and any generated agent package. For local
-setup, use durable `.atlan-metrics/runtime/` inside the authorized project, or an already
+setup, use durable `.atlan-analytics/runtime/` inside the authorized project, or an already
 permitted cache. Never choose an OS/session scratch directory: the saved executor must remain
 usable after this chat ends. Reuse a compatible pinned runtime rather than reinstalling it.
 A runtime built by another plugin version, or with other features, is refused, and the refusal's
@@ -128,8 +128,8 @@ configuration issue from an unproven permission denial. Follow the package READM
 
 ## 2. Prepare one engine run
 
-Metrics-only uses `.atlan-metrics/<slug>/engine/`; dashboards use
-`.atlan-analytics/<slug>/engine/`. Keep context files in the corresponding `context/` directory.
+Both metrics-only and dashboard runs use `.atlan-analytics/<slug>/engine/`. Keep context files in
+the corresponding `context/` directory.
 
 Keep downloaded inputs under the task's authorized project directory. If a browser downloaded
 elsewhere, use `ENGINE stage-input --source <selected-file-or-folder> --destination <project>/sources/<asset> --source-id <stable-asset-key>`

@@ -57,7 +57,7 @@ tell the person about a helper you ran, skipped or could not run.
 
 ## Coming back to a demo
 
-When the working folder already holds a demo's run (`.atlan-metrics/<run>/` whose
+When the working folder already holds a demo's run (`.atlan-analytics/<run>/` whose
 `interaction.json` has `"flow": "demo"`) and the person asks to continue it or what they can
 do with it, carry on from where it stopped: never show the demo picker, open the demo again or
 rebuild. Read `PROJECT journey status`, put its `checklist` in the host's task list, and go to

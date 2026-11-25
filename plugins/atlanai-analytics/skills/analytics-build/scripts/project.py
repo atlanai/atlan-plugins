@@ -19,6 +19,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent / 'dashboard_runtime'))
 from context_state import ContextState, resolve_run
+import layout
 import retrieval
 import page_scope
 import metric_preview
@@ -918,6 +919,8 @@ def main():
                  'reviewed-values'):
         sub.add_parser(name).add_argument('request', type=Path)
     args = p.parse_args()
+    if args.run_dir:  # a run an earlier version kept elsewhere, where it is now
+        args.run_dir = str(layout.follow(args.run_dir))
     try:
         if args.command == 'location':
             print(json.dumps({'run_dir': str(resolve_run(args.workspace, args.run_dir, args.permitted_cache, args.home_permitted)),

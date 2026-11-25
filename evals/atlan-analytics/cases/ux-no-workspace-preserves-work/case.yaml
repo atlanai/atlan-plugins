@@ -8,7 +8,7 @@ execution:
     accessible to this user. The core plugin is already installed. Do not retry tools or
     execute commands in this test; the supplied read is the current evidence.
 
-    The run /workspace/.atlan-metrics/shipping-run has 3 local metric drafts and 2 saved
+    The run /workspace/.atlan-analytics/shipping-run has 3 local metric drafts and 2 saved
     queries, with zero published items. One draft is Shipped units: total units on shipped
     orders, SUM(s.units), status = 'shipped', source shipments model plus query history,
     schema checked but SQL execution untested. The user has not asked for a new workspace.
@@ -34,7 +34,7 @@ graders:
     type: llm
     focus: last_message
     criteria: |
-      Saved run: /workspace/.atlan-metrics/shipping-run; 3 local metric drafts, 2 local saved
+      Saved run: /workspace/.atlan-analytics/shipping-run; 3 local metric drafts, 2 local saved
       queries, zero published items. Example draft Shipped units means total units on shipped
       orders, SUM(s.units), filter status = 'shipped', from the shipments model and query
       history. Schema was checked earlier but SQL execution is untested. PASS if these counts

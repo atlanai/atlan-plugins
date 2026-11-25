@@ -4,17 +4,19 @@
 Shared by `eval-generation` (scope.py) and `accuracy-check` (check.py), so both agree on which
 run a project holds, what it was built for and where its SQL runs. Standard library only.
 
-A built run is a folder with `context/metrics.json`. A demo or a local-file build keeps it in
-`<project>/.atlan-metrics/run_*`; a warehouse build names it after its use case, in
-`<project>/.atlan-metrics/<slug>` or `<project>/.atlan-analytics/<slug>`.
+A built run is a folder with `context/metrics.json`, kept in `<project>/.atlan-analytics/`: a demo
+or a local-file build as `run_*`, a warehouse build named after its use case (layout.py).
 """
 from __future__ import annotations
 
 import json
 import pathlib
 import re
+import sys
 
-ROOTS = (".atlan-metrics", ".atlan-analytics")
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import layout  # noqa: E402
+
 LOCAL = ("duckdb", "sqlite")
 
 
@@ -40,7 +42,8 @@ def purpose(run: pathlib.Path) -> str:
 
 def built_runs(project: pathlib.Path) -> list:
     """Every built run in the project, newest first."""
-    runs = [r for root in ROOTS for r in (project / root).glob("*") if r.is_dir() and is_built(r)]
+    layout.adopt(project)
+    runs = [r for r in layout.root(project).glob("*") if r.is_dir() and is_built(r)]
     return sorted(runs, key=lambda r: (r / "context" / "metrics.json").stat().st_mtime, reverse=True)
 
 
@@ -50,7 +53,7 @@ def outside(project: pathlib.Path, run: pathlib.Path) -> pathlib.Path:
     proj, r = project.expanduser().resolve(), run.resolve()
     if proj == r or r in proj.parents:
         raise Blocked(f"--project is inside the run at {r}. Use the folder that holds the run's "
-                      f".atlan-metrics or .atlan-analytics folder ({r.parent.parent}), so eval files stay "
+                      f"{layout.ROOT} folder ({r.parent.parent}), so eval files stay "
                       "outside what answering agents read.")
     return run
 
@@ -61,6 +64,8 @@ def find_run(project: pathlib.Path, run=None) -> pathlib.Path:
         named = pathlib.Path(run).expanduser()
         if not named.is_absolute():
             named = project / named
+        layout.adopt(project)
+        named = layout.current(project, named)
         if not is_built(named):
             raise Blocked(f"No built context at {named}: it has no context/metrics.json. Name the run folder "
                           "the build wrote, or build the context first.")

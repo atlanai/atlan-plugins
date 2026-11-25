@@ -48,7 +48,7 @@ class LocalProject(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         self.root = Path(tmp.name).resolve()
         self.estate = self.root / 'estate'; self.estate.mkdir()
-        self.run = Project(self.estate / '.atlan-metrics' / 'example')
+        self.run = Project(self.estate / '.atlan-analytics' / 'example')
 
     def seed(self):
         (self.estate / 'model.bim').write_text(json.dumps(model()))
@@ -74,7 +74,7 @@ class LocalProject(unittest.TestCase):
         other = self.root / 'other'; other.mkdir()
         with self.assertRaises(ProjectError):
             self.run.survey(other)
-        late = Project(self.estate / '.atlan-metrics' / 'late')
+        late = Project(self.estate / '.atlan-analytics' / 'late')
         with patch('trident.powerbi_file.RUNTIME', self.root / 'missing-runtime'):
             late.survey(self.estate / 'report.pbit')
         (late.root / 'engine-config.json').write_text('{}')
