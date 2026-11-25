@@ -43,7 +43,9 @@ import { LATEST_URL, VERSION } from './release'
 // the gateway's runner independently of the user-configured server key.
 export const CALL_TOOL = /^mcp__[A-Za-z0-9_-]+__mcp__call(?:_(?:write|read))?_tool$/
 const PLUGIN_CALL_TOOL = /^mcp__(?:plugin_[A-Za-z0-9_-]+_)?atlan__mcp__call(?:_(?:write|read))?_tool$/
-const ATLAN_ALIAS_CALL_TOOL = /^mcp__(?:plugin_[A-Za-z0-9_-]+_)?atlan(?:[-_][A-Za-z0-9_-]+)?__mcp__call(?:_(?:write|read))?_tool$/
+// claude.ai connectors keep the name the user gave them: `Atlan_registry` in a cloud session,
+// `claude_ai_Atlan_registry` on a laptop. Hence /i; CALL_TOOL has already checked the rest's case.
+const ATLAN_ALIAS_CALL_TOOL = /^mcp__(?:plugin_[A-Za-z0-9_-]+_|claude_ai_)?atlan(?:[-_][A-Za-z0-9_-]+)?__mcp__call(?:_(?:write|read))?_tool$/i
 
 /** Aliases must also expose the gateway's discovery tools, not just a similarly named runner. */
 export function gatewayRunners(tools: readonly { name: string; mcp: boolean }[]): string[] {
