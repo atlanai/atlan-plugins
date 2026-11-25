@@ -196,6 +196,25 @@ def jaccard(a: set, b: set) -> float:
     return len(a & b) / len(a | b)
 
 
+def _row_count_wrapper(tree) -> bool:
+    """`SELECT COUNT(*) FROM (<query>)`, with nothing else in the outer select and no filter or grouping of its own."""
+    from sqlglot import exp
+    node = tree
+    while isinstance(node, (exp.Subquery, exp.Paren)):
+        node = node.this
+    if not isinstance(node, exp.Select) or len(node.expressions or []) != 1:
+        return False
+    if node.args.get("where") or node.args.get("group") or node.args.get("having"):
+        return False
+    col = node.expressions[0]
+    col = col.this if isinstance(col, exp.Alias) else col
+    if not (isinstance(col, exp.Count) and isinstance(col.this, (exp.Star, exp.Literal))):
+        return False
+    source = node.args.get("from") or node.args.get("from_")
+    source = source.this if source is not None else None
+    return isinstance(source, exp.Subquery) and not node.args.get("joins")
+
+
 def admit(sql, n_users, n_exec, *, bare, by_schema_table, by_table, dialect,
           max_sql_chars, auto_max_users, auto_min_exec, exclude_norm=None,
           exclude_tokens_by_table=None, neardup_min=0.85, default_db=None,
@@ -235,6 +254,11 @@ def admit(sql, n_users, n_exec, *, bare, by_schema_table, by_table, dialect,
     # The same allowlist the warehouse gate uses, so the two can never disagree.
     if sqlshape.has_dml(sql, dialect):
         return None, "not_a_read"
+    # A COUNT OF ANOTHER QUERY'S ROWS is a size check: did the query return anything, did a
+    # change alter its row count. It measures nothing, and walk 4 found 44 of one share's 131
+    # past queries were such wrappers, 35 of them always 1 (2026-11-23).
+    if _row_count_wrapper(tree):
+        return None, "row_count_wrapper"
     tabs = tables_in(tree, by_schema_table, by_table, default_db=default_db,
                      default_schema=default_schema)
     if not tabs:

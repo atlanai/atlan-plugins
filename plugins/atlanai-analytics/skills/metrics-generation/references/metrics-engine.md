@@ -179,8 +179,15 @@ Run `ENGINE prepare --run <engine-dir> --config <private-config> --approval-mode
 It runs the maintained configuration and plug checks, without the terminal interview.
 Resolve only returned missing requirements. Save `module: metrics`, runtime path, run path
 and source revision in project state. The engine manifest owns stage progress; do not mirror it.
-For a setup project, save its within-run engine directory as `engine_run` in `run.json`.
+For a setup project, record its within-run engine directory with `PROJECT use-engine <dir>`.
 The native journey then retains the provisional sample on resume without another path prompt.
+
+A run that adds sources to an earlier run over the same dashboard (its past queries, offered
+after the dashboard's build) is prepared with `--carry-from <earlier engine-dir>` in a new
+directory. The earlier run's answers about the dashboard's statements are reused, and its gates
+ask only about statements no answer covers. The merge, the cards and the links are never
+carried: they run again over every source. Both runs must use the same runtime. Record the
+new directory with `PROJECT use-engine`.
 
 ### Native sign-in
 

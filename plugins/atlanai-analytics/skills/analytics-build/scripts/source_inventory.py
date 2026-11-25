@@ -46,6 +46,7 @@ def discover(root, excluded=None, limit=5000, selected=None):
         return ([(selected, kind)] if kind else []), False
     for directory, dirs, files in os.walk(root, followlinks=False):
         dirs[:] = sorted(d for d in dirs if not d.startswith('.') and d not in SKIP
+                         and not _plugin_files(Path(directory), d)
                          and not (Path(directory) / d).is_symlink()
                          and not any(s in d.lower() for s in SENSITIVE)
                          and (Path(directory) / d).resolve() != excluded)
@@ -57,9 +58,22 @@ def discover(root, excluded=None, limit=5000, selected=None):
             if name.startswith('.') or any(s in name.lower() for s in SENSITIVE) or path.is_symlink():
                 continue
             kind = source_kind(path.relative_to(root))
+            # A Power BI fetch writes its own manifest.json beside the report: it is the fetch's record, not a model.
+            if kind == 'model_candidate' and name == 'manifest.json' and any(
+                    (Path(directory) / d).is_dir() for d in ('reports', 'semanticModels')):
+                continue
             if kind and path.is_file():
                 paths.append((path, kind))
     return paths, False
+
+
+def _plugin_files(directory, name):
+    """A plugin's own test reports and demo assets, never a person's sources (walk 4 was offered two eval
+    `report.html` files and a demo workbook): an `evals` folder, or a skill's `assets`."""
+    folder = directory / name
+    return (name == 'evals' or (name == 'assets' and (directory / 'SKILL.md').is_file())
+            # An installed or checked-out plugin: its skills, scripts and test data are its own.
+            or (folder / '.claude-plugin').is_dir() or ((folder / 'plugin.json').is_file() and (folder / 'skills').is_dir()))
 
 
 # What each detected kind is to a person, and its place in the build order: reports and models

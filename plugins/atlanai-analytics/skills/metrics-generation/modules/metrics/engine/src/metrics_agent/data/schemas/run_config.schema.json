@@ -150,6 +150,13 @@
           "description": "Literals a person reviewed as business values, not names (a line of business such as 'Variable Spend'). Exact text; each clears the person's-name check for that literal only."
         }
       }
+    },
+    "history_scope": {
+      "enum": [
+        "touches",
+        "inside"
+      ],
+      "description": "Which past queries a bounded history read keeps. `touches` (the policy default, querylog.scope.match any) keeps a query that reads at least one bounded table; `inside` keeps only a query every table of which is bounded, as when past queries are added to a dashboard's build and must stay about that dashboard."
     }
   }
 }

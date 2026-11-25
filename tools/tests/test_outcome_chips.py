@@ -89,7 +89,8 @@ class Chips(unittest.TestCase):
         # Team review: the chips show how the steps connect (draft, merge, write), with no progress bar.
         self.drafted()
         # A first-time reader: "the seven-step list never matched the Step 1 of 3 chips". The chips name the list's steps.
-        for kind, start in (('described', 'Finding metrics, under way: next,'), ('drafted', 'Done: Find metrics. Next: Combine duplicates'),
+        # The descriptions are written beside the metric steps and land after the metrics (walk 3, 2026-11-23).
+        for kind, start in (('described', 'Written beside the metric steps,'), ('drafted', 'Done: Find metrics. Next: Combine duplicates'),
                             ('metrics', 'Done: Combine duplicates. Next: Define and test'), ('rules', 'Definitions written. Next: test each one')):
             lines = self.show(kind).split('\n')
             self.assertTrue(len(lines) > 1 and lines[1].strip().startswith(start), (kind, lines))

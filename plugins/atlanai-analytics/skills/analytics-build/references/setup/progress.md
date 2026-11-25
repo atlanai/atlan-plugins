@@ -43,12 +43,13 @@ page shows each batch as it lands; the chat shows each step's end:
    own subagent started in the background, never one this session waits on (a waiting session
    shows the person nothing), when the gate before it is accepted. Write the short gates before
    describe and the links gate in this session, named as their gate result names them, never by
-   a gate's id. Give each subagent the engine directory, `ENGINE advance` until that gate is
-   accepted, the gate's instructions, numbered batch files, and no `PROJECT drafts` and no chat
+   a gate's id. Give each subagent the engine directory, the gate's instructions, numbered batch
+   files, and no `ENGINE advance`, no `PROJECT drafts` and no chat
    of its own, saving each batch with its own write as soon as it is ready, never several in one
    script. The engine's refusal names each field to fix, so the subagent never reads the
-   engine's code to check its answers first. It returns when its gate is accepted or the gate
-   needs the person; then run the `visual next` of the step that ended (it is quick) and show what
+   engine's code to check its answers first. It returns when its answers are saved. This session
+   runs `ENGINE advance` once, when the build's wait says every answer is saved or the subagent
+   returns, sends any refusal back to that subagent, and on acceptance runs the `visual next` of the step that ended (it is quick) and show what
    it gives in the same message that starts the next gate's subagent: nothing comes between a
    step's end and its chip, and the build never waits on a chip. The app shows each
    subagent's name to the person: name each for what it does ("Describe each query"), never a

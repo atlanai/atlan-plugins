@@ -2,7 +2,7 @@
 
 Read on starting or resuming setup. Show the flow's steps in chat and in the host's task list
 when available, kept true to the saved run. The dashboard branch ("Make my dashboard agentic")
-has nine items of its own, set out in [the dashboard branch](dashboard-flow.md); the rest of
+has ten items of its own, set out in [the dashboard branch](dashboard-flow.md); the rest of
 this file applies to it too. Open no side panel, browser view or preview page
 unless the person asks for a visual view, apart from the run's own [side page](visuals.md).
 

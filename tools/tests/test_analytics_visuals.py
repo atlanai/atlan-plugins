@@ -127,7 +127,8 @@ class Moments(unittest.TestCase):
         self.assertEqual(self.show('found', run), '◇ **5 sources** · Power BI dashboard, 2 data files, 1 database, query history')
 
     def test_found_names_every_kind_the_survey_records_as_a_person_would(self):
-        cases = (([('powerbi_project', 'model/a.tmdl')] * 6, '◇ **6 sources** · Power BI project (6 files)'),
+        # One report kept as six files is one source (walk 3, 2026-11-23: "32 sources" for one report).
+        cases = (([('powerbi_project', 'model/a.tmdl')] * 6, '◇ **1 source** · Power BI project (6 files)'),
                  ([('tableau', 'a.twb'), ('powerbi', 'b.pbix')], '◇ **2 sources** · Power BI dashboard, Tableau dashboard'),
                  ([('saved_sql', 'q.sql'), ('model_candidate', 'm.yml'), ('data_file', 'd.csv')],
                   '◇ **3 sources** · 1 model file, 1 data file, 1 saved SQL file'))

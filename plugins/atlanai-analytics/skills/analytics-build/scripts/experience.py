@@ -509,7 +509,7 @@ def snapshot(run, engine_dir=None, focus=None, host=None, server=None):
         prompt = 'Resume this saved analytics run from its current checkpoint.'
     bound = _dict(state.get('execution')).get('tables')
     model = {'format': 1, 'snapshot_at': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'live': False,
-            'phase': phase, 'scope': scope, 'source_count': len(sources), 'scope_truncated': len(sources) > 100,
+            'phase': phase, 'scope': scope, 'source_count': len([x for x in sources if x.get('kind') != 'powerbi_project']) + any(x.get('kind') == 'powerbi_project' for x in sources), 'scope_truncated': len(sources) > 100,
             'bound_tables': len(bound) if isinstance(bound, list) else 0,
             'selected_pages': selection, 'selection_kind': selection_kind, 'counts': counts,
             'progress': {'completed': saved.get('completed_items'), 'total': saved.get('total_items')},

@@ -5,6 +5,8 @@ description: Author a metric card from the statements a metric was merged from :
 
 # Author a metric card
 
+When a statement's `question` and `description` are null (its prose is written later in this run), read [reading a statement without a description](../references/reading-without-prose.md) first and work out what each statement answers from its `facts`, one statement at a time.
+
 Before this task, read and apply the shared [metric consistency guidance](../references/metric-consistency.md).
 
 You are given a merged metric and, for every statement behind it, the full SQL together with
@@ -285,6 +287,10 @@ reader wants to know what the number *is*, not what somebody once asked about it
 Write it from the SQL *and* from the descriptions already written for each statement. The SQL
 says what is counted; the existing prose says why anybody counts it. You need both.
 
+Claim only what the SQL, the dashboard or a written description shows. Name no tile, report,
+team or decision that nothing in front of you mentions. A proposal's `why_a_metric` is the
+proposer's guess, not evidence: do not copy its claims into the card.
+
 ```
 NO    COUNT(DISTINCT IFF(...)) : Answers questions such as: how many accounts …?
 NO    The distinct count of identifiers where the date column is populated.
@@ -365,7 +371,11 @@ Refunded") is a note, not an exclusion.
 
 **Technical. Column, operator, value.** A model composes SQL from these; prose is useless here.
 
-- `mandatory_filters` : without them it is a different metric. Always applied.
+- `mandatory_filters` : without them it is a different metric. Always applied. A soft-delete
+  guard (`IS_DELETED = FALSE`) any source applies goes here, never in `filters`: a deleted record
+  is in no population. Where sources disagree on it, keep it mandatory and say which source
+  omitted it in `notes`. A clean-up guard (a date no later than today, a key that is not null)
+  belongs here too.
 - `filters` : applied by the statements, but a caller may drop them without changing what the
   metric *is*.
 
@@ -380,9 +390,9 @@ Where the value is a fixed rule rather than a knob : a deletion flag, a record t
 literal. A placeholder that nothing swaps is just a missing value.
 
 ```
-mandatory_filters: ["CRM.ACTIVITY.CAMPAIGN_MEMBER.FIRST_RESPONSE_DATE >= {{period_start}}"]
-filters:           ["CRM.ACTIVITY.CAMPAIGN_MEMBER.CAMPAIGN_NAME = {{campaign_name}}",
+mandatory_filters: ["CRM.ACTIVITY.CAMPAIGN_MEMBER.FIRST_RESPONSE_DATE >= {{period_start}}",
                     "CRM.CORE.ACCOUNT.IS_DELETED = FALSE"]
+filters:           ["CRM.ACTIVITY.CAMPAIGN_MEMBER.CAMPAIGN_NAME = {{campaign_name}}"]
 ```
 
 **The test for mandatory:** if a caller ran the metric without this filter, would they get the

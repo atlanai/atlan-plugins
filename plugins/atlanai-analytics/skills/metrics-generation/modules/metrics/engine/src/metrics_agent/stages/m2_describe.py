@@ -41,6 +41,8 @@ import sys
 from metrics_agent.lib import filter_text as _filter_text  # noqa: E402
 from metrics_agent.lib import shared_sources as _shared  # noqa: E402
 from metrics_agent.lib import artifacts  # noqa: E402
+from metrics_agent.lib import describe_timing as _timing  # noqa: E402
+from metrics_agent.lib import carried as _carried  # noqa: E402
 from metrics_agent.lib import sqlshape as S  # noqa: E402
 from metrics_agent.lib import dialect as _dialect
 from metrics_agent.lib import stage  # noqa: E402
@@ -75,6 +77,9 @@ def _extra(p) -> None:
     p.add_argument("--vq-id", dest="vq_ids", nargs="*", default=None,
                    help="bundle only these statement(s) — for reviewing the prose on a few "
                         "before committing to the whole layer")
+    p.add_argument("--carried", default=None,
+                   help="glob of answers carried from an earlier run (`prepare --carry-from`): "
+                        "their statements are not asked about again")
     p.add_argument("--only-provisional", action="store_true",
                    help="bundle only objects with no description yet — the usual case when "
                         "topping a layer up rather than rewriting it")
@@ -200,6 +205,8 @@ def _emit(ctx: stage.Ctx) -> None:
         objs = [o for o in objs if o["vq_id"] in want]
     if ctx.args.only_provisional:
         objs = [o for o in objs if o.get("name_provisional")]
+    objs = _carried.apply(ctx, "m2", "queries", ctx.args.carried,
+                          {o["vq_id"] for o in layer["objects"]}, objs)
 
     by_domain: dict[str, list] = {}
     for o in objs:
@@ -232,6 +239,10 @@ def _emit(ctx: stage.Ctx) -> None:
                 # rewritten from the SQL alone; the answer is still this gate's.
                 **({"authored": _authored(o)} if _authored(o) else {}),
                 **({"expected_hold": held[o["vq_id"]]} if o["vq_id"] in held else {}),
+                **({"dashboard_context": ((o.get("provenance") or {}).get("bi") or {})
+                    .get("bi_context")}
+                   if _timing.bi_draft_by_code()
+                   and ((o.get("provenance") or {}).get("bi") or {}).get("bi_context") else {}),
             } for o in group],
         })
     artifacts.dump(
@@ -359,14 +370,19 @@ def _ingest(ctx: stage.Ctx) -> None:
     # into WEIGHT A, the highest-ranked field there is. That is the machine artefact this whole
     # stage exists to remove, reintroduced at the last moment. Two statements that genuinely
     # differ deserve names that differ; usually the table or the subject tells them apart.
+    # COMPARED AS THE DESTINATION KEYS THEM. A saved query is named by the kebab of its name, so
+    # "Average AI Readiness Score" and "Average AI-Readiness Score" are one name there: caught
+    # here, where the author can rename, not at export (a walkthrough, 2026-11-23).
+    from metrics_agent.lib import slugs as _slugs  # noqa: PLC0415
     by_name: dict[str, list[str]] = {}
     for _vq, _row in described.items():
         if (_nm := str(_row.get("name") or "").strip()):
-            by_name.setdefault(_nm.lower(), []).append(_vq)
+            by_name.setdefault(_slugs.kebab(_nm, max_len=128), []).append(_vq)
     for _nm, _vqs in sorted(by_name.items()):
         if len(_vqs) > 1:
             problems.append(
-                f"the name {described[_vqs[0]]['name']!r} is used by {len(_vqs)} statements "
+                f"the name {described[_vqs[0]]['name']!r} is used by {len(_vqs)} statements, "
+                f"counting names that differ only in case or punctuation "
                 f"({', '.join(sorted(_vqs)[:4])}). Names must be unique — a destination that keys "
                 f"on the name would suffix the repeats at the highest search weight.")
 
