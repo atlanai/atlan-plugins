@@ -12,7 +12,7 @@ refuses a second submission for the same repository and path.
 
 | Finding | Was | Now |
 |---|---|---|
-| Files or downloads the validator couldn't inspect | 5 box-office files over 256 KiB, `tickets.csv` over the 1 MiB read limit, the yard `.pbit` (binary), 532 files | The data ships in parts under 240 KB and the `.pbit` as its text entries; the demo helper joins and zips them when a demo opens. 509 files. `bicompile.py` (639 KB) is the one file left over the limit |
+| Files or downloads the validator couldn't inspect | 5 box-office files over 256 KiB, `tickets.csv` over the 1 MiB read limit, the yard `.pbit` (binary), 532 files | The data ships in parts under 240 KB and the `.pbit` as its text entries; the demo helper joins and zips them when a demo opens. 39 unused engine shims removed, and 14 contributor docs and example plugs moved to the repository's `docs/metrics-engine/`: 498 files. `bicompile.py` (639 KB) is the one file left over the limit |
 | Name may be confused: display name "Analytics" resembles publisher "KB Analytics" (hold) and plugin "analytics-skills" (warning) | display name `Analytics` | display name `Atlan Analytics` |
 | Front matter value may be misread (`analytics-demo/SKILL.md`) | unquoted description holding `: ` | quoted |
 
@@ -20,6 +20,7 @@ refuses a second submission for the same repository and path.
 any binary file, or more than 512 files in a plugin folder.
 
 The portal reported "645 files" for 532 tracked files and 115 folders, so it may count folders.
+This branch is at 498 files and 110 folders (608 together).
 If the re-validation still says the tree was not fully inspected, the count is files and folders
 together, and the plugin needs about 110 fewer entries.
 
