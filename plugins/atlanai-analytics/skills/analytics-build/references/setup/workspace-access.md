@@ -12,16 +12,15 @@ run directory under `.atlan-analytics/`, read with
 `python3 "<skill-dir>/scripts/project.py" --run-dir "<run-dir>" journey status`. That read is
 the saved run, not a source survey. Give one paragraph under 70 words containing the
 capability limit, what stays saved on this machine (the run's own counts, such as "your 3
-metrics and 1 query"), the supported UI/admin action, and that once the new workspace is listed they can be
+metrics and 1 saved query"), the supported UI/admin action, and that once the new workspace is listed they can be
 saved to it. Say there is nothing local to keep only when no run directory exists.
 Do not offer a different destination unless asked, invent UI menu labels, or lay out a
 publication plan the person has not requested.
 
 For example:
 
-"Analytics can list existing workspaces, but cannot create one through its CLI or API.
-Your 3 metrics and 1 query stay saved on this machine. Create the workspace in Atlan's UI or ask an administrator;
-once it shows in your workspace list, I can save them there."
+"I can't create a workspace. Your 3 metrics and 1 saved query stay stored on this machine.
+Create one in Atlan Trident, or ask your admin. Once it shows in your list, I'll save them there."
 
 This is an explanation of capability, not evidence of a tool call or changed access.
 Do not claim a workspace was created, selected or refreshed during an explanation-only turn.

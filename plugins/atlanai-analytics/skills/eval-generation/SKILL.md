@@ -1,6 +1,6 @@
 ---
 name: eval-generation
-description: "Atlan Analytics: generate an eval set for a use case, 20 questions its dashboard and analysts already ask with trusted SQL, kept locally or saved to Atlan Trident. Use when asked to build evals or golden questions. Not for metrics."
+description: "Atlan Analytics: write an eval set to test your agent, 20 questions your team already asks, each with a known answer, kept here or saved to Atlan Trident. Use when asked to build evals or golden questions. Not for metrics (metrics-generation)."
 ---
 
 # Generate an eval set for a use case
@@ -36,9 +36,13 @@ Paths. Pass each command as separate argv entries; zsh does not split a string h
   `python3 "<build-dir>/scripts/analytics_eval.py" <command> --dir "<gen>"`.
 - `EVALGEN` is `uv run --no-project --with "sqlglot>=30.20,<30.21" env
   PYTHONPATH="<evals-dir>/modules/evals/engine" python -m eval_builder.cli --work
-  "<gen>/work"`. Without `uv`, name that one prerequisite and stop.
+  "<gen>/work"`. Without `uv`, say "Writing test questions needs uv, a Python tool, on this
+  machine. Install it, then ask again." and stop.
 
 ## `generate`: use case first, metric aware
+
+A helper result with `show_first` carries a chip the run has reached: show it before any other
+words or call.
 
 1. **Scope.** `SCOPE inputs --project <project>`. It finds the built run, opens the drafting
    folder, reads the use case and focus metric, and writes the pool: every dashboard tile and
@@ -52,10 +56,11 @@ Paths. Pass each command as separate argv entries; zsh does not split a string h
 3. **Pick 20.** `SCOPE pick --gen <gen>`, with `--limit <n>` when the caller names another size
    (the demo asks for 8): two questions on the focus metric, then one each on
    the metrics nearest the use case, round after round, then past queries no metric computes yet (`no_metric`). It leaves out
-   (`skipped`) a query that lists records with no total or count, a probe that returns no rows,
+   (`skipped`) a query that lists records with no total or count, a test query that returns nothing,
    a data test and a freshness check: no person asks them as a question. It picks 4 spares beyond the 20, for a draft
-   that finds a question unanswerable, and keeps only those prompts. Say so when it picked
-   fewer than 20.
+   that finds a question unanswerable, and keeps only those prompts. When it picked
+   fewer than 20, say "I found <N> questions your team asks that fit, fewer than 20. The set holds
+   those <N>."
 4. **Draft, in a subagent.** Give one subagent, in the foreground, the paths of `work/prompts/` and
    `work/answers.json` and this instruction: follow each prompt and fill its key in
    `answers.json` with the JSON it asks for, and ask for what the SQL measures, in its direction:
@@ -71,15 +76,15 @@ Paths. Pass each command as separate argv entries; zsh does not split a string h
 
 Budget: about 3 minutes. Keep every model step in a subagent and every count in a script.
 
-## `save`: on this machine, or to Atlan Trident
+## `save`: on this machine, or to Atlan
 
 Any set file can be saved: one this skill wrote, or one the person brought. It is already on this
-machine. Unless the caller already chose, ask one question, "Where should the set live?":
+machine. Unless the caller already chose, ask one question, "Where should these test questions be kept?":
 
 | Option | Description |
 | --- | --- |
-| Keep on this machine (Recommended) | It stays in this folder, ready to run. |
-| Save to Atlan Trident | Your team can find and rerun it. Questions and a digest of each SQL, never the SQL. |
+| Keep on this machine (Recommended) | They stay in this folder, ready to test your agent. |
+| Save to Atlan Trident | Your team can see the questions. Their SQL stays on this machine, so tests start here. |
 
 On Save to Atlan Trident: `SCOPE ready --set <set file>` returns a `dir` and `slug`; then, with
 `--dir` set to that `dir`, `EVAL init --slug <slug>`, `EVAL import-spec --spec "<dir>/work/spec.json"`

@@ -2143,6 +2143,35 @@ def _legacy_filters(node: dict) -> list:
     return raw or []
 
 
+# The properties a visual names another page by: its report-page tooltip (`visualTooltip`
+# `section`) and a drillthrough button's target (`visualLink` `drillthroughSection`). A plain
+# page navigation (`navigationSection`) opens a page of its own, not one this visual needs.
+_PAGE_LINK_KEYS = ("section", "drillthroughSection")
+
+
+def _page_links(node: Any, names: dict[str, str]) -> list[str]:
+    """The display names of the report's pages a visual opens as its tooltip or drillthrough,
+    from the page ids (or names) its objects carry as literals. Only a known page counts."""
+    out: list[str] = []
+    stack = [node]
+    while stack:
+        cur = stack.pop()
+        if isinstance(cur, list):
+            stack.extend(cur)
+            continue
+        if not isinstance(cur, dict):
+            continue
+        for key, val in cur.items():
+            if key in _PAGE_LINK_KEYS and isinstance(val, dict):
+                lit = ((val.get("expr") or {}).get("Literal") or {}).get("Value")
+                page = names.get(_unquote(str(lit))) if isinstance(lit, str) else None
+                if page and page not in out:
+                    out.append(page)
+            elif isinstance(val, (dict, list)):
+                stack.append(val)
+    return out
+
+
 def _parse_pbir_report(rdir: pathlib.Path, tables: list[dict]) -> list[dict]:
     """The PBIR on-disk format -> the SAME usage entries the legacy reader produces.
 
@@ -2234,6 +2263,25 @@ def _parse_pbir_report(rdir: pathlib.Path, tables: list[dict]) -> list[dict]:
                                 view)
     finally:
         _VIEW.reset(token)
+    # Each visual's tooltip and drillthrough pages, so a person who picks a page keeps the
+    # pages its tiles open (lib/page_scope).
+    names: dict[str, str] = {}
+    for page_dir, meta, _loaded in pages:
+        shown = str(meta.get("displayName") or meta.get("name") or page_dir.name)
+        for key in (page_dir.name, meta.get("name"), meta.get("displayName")):
+            if key:
+                names.setdefault(str(key), shown)
+    links = {}
+    for page_dir, meta, loaded in pages:
+        pname = meta.get("displayName") or meta.get("name") or page_dir.name
+        for vj, doc in loaded:
+            got = [p for p in _page_links(doc, names) if p != pname]
+            if got:
+                links[(pname, vj.parent.name)] = got
+    for entry in usage:
+        got = links.get((entry.get("container"), entry.get("visual_id")))
+        if got:
+            entry["links"] = list(got)
     return usage
 
 
@@ -2526,6 +2574,14 @@ def _parse_legacy_report(root: pathlib.Path) -> list[dict]:
         if not isinstance(pages, list):
             continue
         report_name = doc.get("name") or jf.parent.name
+        # Page ids and names -> display names, for a visual's tooltip and drillthrough pages.
+        page_names: dict[str, str] = {}
+        for pi, page in enumerate(pages):
+            if isinstance(page, dict):
+                shown = str(page.get("displayName") or page.get("name") or f"page-{pi}")
+                for key in (page.get("name"), page.get("displayName")):
+                    if key:
+                        page_names.setdefault(str(key), shown)
         synced: dict[str, list[dict]] = {}
         for page in pages:
             for v in page.get("visualContainers") or page.get("visuals") or []:
@@ -2631,6 +2687,8 @@ def _parse_legacy_report(root: pathlib.Path) -> list[dict]:
                     "_siblings": siblings,
                     "_derived": _derived(fields) + [d for f in filters
                                                     for d in f.get("_derived") or []],
+                    **({"links": got} if (got := [p for p in _page_links(cfg, page_names)
+                                                  if p != pname]) else {}),
                 })
     return usage
 

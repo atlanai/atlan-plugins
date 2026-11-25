@@ -92,9 +92,8 @@ def blocker_for(why: str, *, route: str, kind: str | None, item_id: str | None,
     if kind == "upstreamModel" or why.startswith("upstream_model_not_visible"):
         return make("upstream_model_unavailable",
                     "the tables and measures the composite model reads from this model",
-                    "access to the upstream model: a workspace role (Contributor or higher) "
-                    "on its workspace, or Build permission on the model, for the fetching "
-                    "identity")
+                    "Access to the model this report is built on. That means Contributor or "
+                    "higher on its workspace, or Build permission on the model.")
     if code in TOKEN_CODES:
         return make("sign_in_failed", "everything this identity would have fetched",
                     "a fresh sign-in (the token expired, or was issued for another API or "
@@ -103,10 +102,9 @@ def blocker_for(why: str, *, route: str, kind: str | None, item_id: str | None,
     if route == "export":
         return make("download_refused", "the report's .pbix file (its definition was refused "
                     "too, so the report is not read)",
-                    "Build permission on the report's model or the report's download "
-                    "permission, from the item owner; where every download is refused, the "
-                    "Power BI tenant setting that lets users download reports, from a tenant "
-                    "admin", effect="not_read")
+                    "Build permission on the report's model, or download permission from its "
+                    "owner. If every download is refused, a Power BI admin must allow report "
+                    "downloads.", effect="not_read")
     if route == "scanner":
         return make("catalog_api_unavailable", "the admin scanner's model metadata (a fallback "
                     "for an item whose definition is refused)",

@@ -628,7 +628,7 @@ def _ingest(ctx: stage.Ctx) -> None:
 
             # A BUSINESS DOMAIN IS NOT A WAREHOUSE SCHEMA.
             dom = str(a.get("domain") or "")
-            # An all-caps word is a schema name (`MARTS`, `GTM_OPS`) unless it is a short
+            # An all-caps word is a schema name (`MARTS`, `SALES_OPS`) unless it is a short
             # acronym the business says as letters (`GTM`, `HR`, `IT`, `CS`, `R&D`).
             acronym = dom.isupper() and " " not in dom and len(dom.replace("&", "")) <= 4
             if "." in dom or "_" in dom or (dom.isupper() and not acronym):

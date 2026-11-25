@@ -27,7 +27,7 @@ class Drafts(unittest.TestCase):
         (folder / name).write_text(payload if isinstance(payload, str) else json.dumps(payload))
 
 
-    def wait(self, due=(), tasks=True, **kw):
+    def wait(self, due=(), tasks=True, engine='engine', **kw):
         """One wait in a terminal that keeps a task list (or not), with the chips the run's files make due held to `due`,
         so each test sees only what it is about."""
         import io
@@ -40,7 +40,7 @@ class Drafts(unittest.TestCase):
         self.run.write(self.run.root / 'progress.json', {'stage': 'build', 'status': 'running'})
         self.run.write(self.run.root / 'interaction.json', {'version': 1, 'mode': 'active', 'focus': None, 'tasks': tasks})
         with mock.patch.object(side_view, 'due', return_value=list(due)), mock.patch.dict(os.environ, {'CLAUDE_CODE_ENTRYPOINT': ''}):
-            drafts.wait(self.run.root, 'engine', interval=0.05, out=out, **{'timeout': 5, 'quiet': 0.4, 'batch_every': 0, **kw})
+            drafts.wait(self.run.root, engine, interval=0.05, out=out, **{'timeout': 5, 'quiet': 0.4, 'batch_every': 0, **kw})
         return json.loads(out.getvalue())
 
     def test_wait_returns_the_task_list_with_the_count_for_each_batch(self):
@@ -53,7 +53,7 @@ class Drafts(unittest.TestCase):
         self.assertEqual(first['event'], 'batch')
         under = [r for r in first['task_list'] if r['status'] == 'in_progress']
         self.assertEqual(len(under), 1, first['task_list'])
-        self.assertIn('Find metrics · 1 possible metric so far, 2 of 4 queries read', under[0]['content'])
+        self.assertIn('Build your context: metrics and saved queries · finding metrics: 1 metric in 2 of 4 questions', under[0]['content'])
         self.assertIn('drafts --wait', first['next'], 'the next wait goes in the same message, so the turn goes on')
         self.assertIn('no words of your own', first['next'].lower())
         # d7 got 13 of these and never set its list: the task-list tool was deferred and never loaded.
@@ -64,7 +64,7 @@ class Drafts(unittest.TestCase):
         self.answer('x1', '02.json', {'statements': [
             {'vq_id': 'q3', 'verdict': 'metrics', 'metrics': [{'name': 'Win %'}, {'name': 'Pipeline'}]}]})
         second = [r for r in self.wait()['task_list'] if r['status'] == 'in_progress'][0]['content']
-        self.assertIn('3 possible metrics so far, 3 of 4 queries read', second)
+        self.assertIn('finding metrics: 3 metrics in 3 of 4 questions', second)
         self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': 'x1_ingest', 'verdict': 'ok'}]})
         ended = self.wait()
         self.assertEqual(ended['event'], 'step')
@@ -123,6 +123,9 @@ class Drafts(unittest.TestCase):
         done = self.wait()
         self.assertEqual(done['event'], 'done')
         self.assertIn('`PROJECT check`', done['next'], 'the structural pass comes before any question')
+        # The build's end moves the list too, like every other result: it sat on the links step otherwise.
+        self.assertIn('task_list', done)
+        self.assertIn('Set your task list', done['next'])
 
     def test_without_a_task_list_a_batch_is_not_reported(self):
         # A terminal with no task list: nothing to update between steps, so the wait goes on until a step ends.
@@ -138,6 +141,33 @@ class Drafts(unittest.TestCase):
         self.assertEqual(self.wait(quiet=30)['event'], 'step')
         self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': 'a3b_ingest', 'verdict': 'ok'}]})
         self.assertEqual(self.wait(quiet=0.3)['event'], 'quiet')
+
+    def test_a_step_counts_from_zero_as_soon_as_its_prompt_is_written(self):
+        # A live run showed the build row without a count for two minutes while its helper wrote the first questions.
+        sys.path.insert(0, str(fixtures.SCRIPTS))
+        import drafts
+        (self.engine / 'x1_prompt.json').unlink()
+        self.run.write(self.engine / 'm2_prompt.json', {'tasks': [{'queries': [{'vq_id': 'q1'}, {'vq_id': 'q2'}]}]})
+        engine = drafts._Engine(self.run.root, 'engine')
+        under = drafts._under_way(engine)
+        self.assertEqual((under[0], under[3]), ('m2', []))
+        self.assertEqual(drafts._live(engine, under), 'writing questions: 0 of 2')
+        self.answer('m2', '01.json', {'queries': [{'vq_id': 'q1'}]})
+        self.assertTrue(drafts._live(engine, drafts._under_way(engine)).startswith('writing questions: 1 of 2'))
+
+    def test_a_step_end_names_the_next_step_whose_helper_must_start(self):
+        # Told only "a step ended", a session went back to waiting with the next step's prompt unanswered, twice in a run.
+        earlier = ['m2_ingest', 'x1_ingest', 'x2_ingest']
+        self.run.write(self.engine / 'x3_prompt.json', {'n_metrics': 4, 'tasks': []})
+        self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': s, 'verdict': 'ok'} for s in earlier]})
+        self.run.write(self.run.root / 'drafts-reported.json', {'steps': earlier[:2]})
+        ended = self.wait()
+        self.assertEqual((ended['event'], ended['start']['gate']), ('step', 'x3'))
+        self.assertIn('split', ended['start']['first'], 'the definitions are shared out first')
+        self.assertIn('start that step', ended['next'])
+        self.assertEqual(self.wait(tasks=False)['start']['gate'], 'x3', 'a quiet spell names it again')
+        self.answer('x3', '01.json', {'metrics': [{'name': 'A'}]})
+        self.assertIsNone(self.wait(tasks=False)['start'], 'once a helper saves an answer, nothing to start')
 
     def test_a_chip_that_comes_due_is_reported_once(self):
         # The dashboard flow's helpers advance every step, so its tiles, its questions and the side page's opening come
@@ -157,13 +187,26 @@ class Drafts(unittest.TestCase):
         self.run.write(self.run.root / 'progress.json', {'stage': 'build', 'status': 'running'})
         self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': 'm2_ingest', 'verdict': 'ok'}]})
         said = self.wait()['next']
-        self.assertIn("not even the next step's start", said)
+        self.assertIn("Only a step that no chip names gets a start line", said)
         # h18t set the next subagent up first, wrote its own line meanwhile, and dropped the step's chip.
         self.assertLess(said.index('`visual next`'), said.index('subagent'), 'the chip first')
 
-    def test_time_left_comes_from_the_step_s_own_pace_and_reaches_nothing_left(self):
+    def test_a_step_end_says_to_wait_again_in_the_same_turn(self):
+        # The dry run, 2026-11-25: a step end with no helper to start was the one result that never said to wait again,
+        # so the session ended its turn on "still being written in the background", drew no chip, and every later
+        # step ran turn by turn as helpers woke it.
+        self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': 'm2_ingest', 'verdict': 'ok'}]})
+        said = self.wait()['next']
+        self.assertIn('run `PROJECT drafts --wait` again', said)
+        self.assertIn('never end the turn', said)
+        self.assertLess(said.index('`visual next`'), said.index('drafts --wait'), 'the chip, then the wait')
+
+    def test_a_step_under_way_shows_its_count_and_a_time_left_from_its_own_pace(self):
+        # The time left follows the step's pace since its prompt was written, so it moves as the work does.
         import os, time
         self.run.write(self.engine / 'x3_prompt.json', {'n_metrics': 4, 'tasks': []})
+        # A step set up three hours before its helpers started (a resumed run) still reads its own pace.
+        os.utime(self.engine / 'x3_prompt.json', (time.time() - 10800, time.time() - 10800))
         earlier = ['m2_ingest', 'x1_ingest', 'x2_ingest']
         self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': s, 'verdict': 'ok'} for s in earlier]})
         self.run.write(self.run.root / 'drafts-reported.json', {'steps': earlier})
@@ -172,11 +215,11 @@ class Drafts(unittest.TestCase):
             self.answer('x3', '%02d.json' % i, {'metrics': [{'name': name}]})
             os.utime(self.engine / 'answers' / 'x3' / ('%02d.json' % i), (now - 120 + 60 * i, now - 120 + 60 * i))
         row = [r for r in self.wait()['task_list'] if r['status'] == 'in_progress'][0]['content']
-        self.assertIn('3 of 4 defined (about 1 min left)', row, 'one batch a minute, one left')
+        self.assertTrue(row.endswith('3 of 4 written (about 1 min left)'), row)
         self.answer('x3', '03.json', {'metrics': [{'name': 'D'}]})
         self.assertEqual(self.wait()['event'], 'ready', 'every share back comes first')
         row =[r for r in self.wait()['task_list'] if r['status'] == 'in_progress'][0]['content']
-        self.assertIn('4 of 4 defined (nearly done)', row)
+        self.assertTrue(row.endswith('4 of 4 written (nearly done)'), row)
 
 
     def test_every_share_of_the_definitions_back_wakes_the_session_at_once(self):
@@ -192,6 +235,9 @@ class Drafts(unittest.TestCase):
         self.answer('x3', '02.json', {'metrics': [{'name': 'B'}]})
         ready = self.wait(tasks=True, quiet=30)
         self.assertEqual(ready['event'], 'ready', 'before any task-list update')
+        # The list comes with it: it sat at "3 of 4" beside a side page showing all 4 defined.
+        row = [r for r in ready['task_list'] if r['status'] == 'in_progress'][0]['content']
+        self.assertIn('2 of 2 written', row)
         self.assertIn('`ENGINE advance` once', ready['next'])
         self.assertEqual(self.wait(tasks=False)['event'], 'quiet', 'said once')
         later = time.time() + 5
@@ -212,8 +258,89 @@ class Drafts(unittest.TestCase):
         sys.path.insert(0, str(fixtures.SCRIPTS))
         import drafts
         for event, said in drafts.WAITED.items():
-            self.assertTrue(said.startswith('Add no words of your own'), event)
+            if event != 'quiet':
+                self.assertTrue(said.startswith('Add no words of your own'), event)
             self.assertNotIn('still', said.lower(), event)
+        # The one exception: after about 3 quiet minutes, the line the helper composes, word for word, or nothing.
+        self.assertIn('When `say` is given, write it word for word', drafts.WAITED['quiet'])
+        self.assertIn('when it is null, write nothing', drafts.WAITED['quiet'])
+
+    def test_a_quiet_spell_hands_over_the_step_and_its_count_once(self):
+        # A session wrote its own line after a quiet spell ("Run split now."): the helper composes it from the list's count.
+        import os, time
+        self.run.write(self.engine / 'x3_prompt.json', {'n_metrics': 4, 'tasks': []})
+        earlier = ['m2_ingest', 'x1_ingest', 'x2_ingest']
+        self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': s, 'verdict': 'ok'} for s in earlier]})
+        self.run.write(self.run.root / 'drafts-reported.json', {'steps': earlier})
+        self.answer('x3', '01.json', {'metrics': [{'name': 'A'}]})
+        quiet = self.wait(tasks=False)
+        self.assertEqual((quiet['event'], quiet['say']), ('quiet', 'Adding detailed information: 1 of 4 written.'))
+        self.assertIsNone(self.wait(tasks=False)['say'], 'never the same line twice')
+        # A second batch brings a pace, and a time left that grows while nothing lands: the line carries the count only.
+        self.answer('x3', '02.json', {'metrics': [{'name': 'B'}]})
+        os.utime(self.engine / 'answers' / 'x3' / '01.json', (time.time() - 600, time.time() - 600))
+        self.assertEqual(self.wait(tasks=False)['say'], 'Adding detailed information: 2 of 4 written.')
+        # With a live task list (its last update already sent), a printed count would only go stale in the chat.
+        # One record per build folder, under its name.
+        record = json.loads((self.run.root / 'drafts-reported.json').read_text())
+        self.run.write(self.run.root / 'drafts-reported.json', dict(record, engine=dict(record['engine'], said=None, waited=1, waited_at=time.time())))
+        live = self.wait(tasks=True, batch_every=999)
+        self.assertEqual((live['event'], live['say']), ('quiet', None))
+
+    def test_a_host_with_a_short_time_limit_still_gets_its_quiet_spell(self):
+        # Quiet was measured within one call: with a foreground limit under the quiet spell, every call timed out first,
+        # so a stalled helper was never noticed and the next step's helper was never named.
+        self.answer('x1', '01.json', {'statements': [{'vq_id': 'q1', 'verdict': 'metrics', 'metrics': [{'name': 'Win rate'}]}]})
+        self.assertEqual(self.wait(tasks=False, timeout=0.3, quiet=0.5)['event'], 'again')
+        self.assertEqual(self.wait(tasks=False, timeout=0.3, quiet=0.5)['event'], 'quiet', 'nothing moved across both calls')
+        self.assertEqual(self.wait(tasks=False, timeout=0.3, quiet=0.5)['event'], 'again', 'the next quiet spell starts afresh')
+
+    def test_two_step_ends_between_waits_name_the_next_helper_once(self):
+        # Three steps accepted while the session was busy gave three step events, each naming the same next step: three
+        # helpers for one step, and for the definitions every share started twice.
+        # The tile review's end wakes nothing: this session advances it itself.
+        accepted = [{'stage': s, 'verdict': 'ok'} for s in ('a3b_ingest', 'c3_ingest', 'm2_ingest')]
+        self.run.write(self.engine / 'manifest.json', {'stages': accepted})
+        first, second, third = self.wait(), self.wait(), self.wait()
+        self.assertEqual([e['event'] for e in (first, second, third)], ['step', 'step', 'quiet'])
+        self.assertEqual(first['start']['gate'], 'x1')
+        self.assertIsNone(second['start'], 'named once by a step end; a quiet spell names it again with its guard')
+        self.assertIn('unless one is working on it', first['next'])
+        self.assertEqual(self.wait(tasks=False)['start']['gate'], 'x1', 'a quiet spell still names it, with its guard')
+
+    def test_a_rebuild_in_a_new_engine_folder_reports_its_own_steps(self):
+        # Adding a dashboard after the build runs a new engine folder in the same run: the first build's record of steps
+        # already shown kept the second build's step ends from ever being reported.
+        self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': 'm2_ingest', 'verdict': 'ok'}]})
+        self.assertEqual(self.wait()['event'], 'step')
+        again = self.run.root / 'engine-2'
+        again.mkdir()
+        self.run.write(again / 'x1_prompt.json', {'tasks': [{'domain': 'Sales', 'queries': [{'vq_id': 'q1'}]}]})
+        self.run.write(again / 'manifest.json', {'stages': [{'stage': 'm2_ingest', 'verdict': 'ok'}]})
+        ended = self.wait(engine='engine-2')
+        self.assertEqual((ended['event'], ended['start']['gate']), ('step', 'x1'))
+
+    def test_a_repair_round_is_not_reported_back_until_the_refused_cards_are_rewritten(self):
+        # A live run: the session advanced the definitions on its own, sent two refused cards back for repair, and the wait
+        # at once said every share was back, for the files it had just advanced on; the session ended its turn mid-build.
+        import os, time
+        self.run.write(self.engine / 'x3_prompt.json', {'n_metrics': 2, 'tasks': []})
+        earlier = ['m2_ingest', 'x1_ingest', 'x2_ingest']
+        self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': s, 'verdict': 'ok'} for s in earlier]})
+        self.run.write(self.run.root / 'drafts-reported.json', {'steps': earlier})
+        self.answer('x3', '01.json', {'metrics': [{'name': 'A'}]})
+        self.answer('x3', '02.json', {'metrics': [{'name': 'B'}]})
+        then = time.time() - 60
+        for name in ('01.json', '02.json'):
+            os.utime(self.engine / 'answers' / 'x3' / name, (then, then))
+        self.run.write(self.engine / 'x3_repair.json', {'files': [], 'tasks': [{'name': 'A', 'faults': []}]})
+        self.assertEqual(self.wait(tasks=False)['event'], 'quiet', 'the refused card is still being rewritten')
+        self.answer('x3', '02.json', {'metrics': [{'name': 'B'}]})
+        self.assertEqual(self.wait(tasks=False)['event'], 'quiet', 'another card changing is not the repair')
+        later = time.time() + 5
+        self.answer('x3', '01.json', {'metrics': [{'name': 'A'}]})
+        os.utime(self.engine / 'answers' / 'x3' / '01.json', (later, later))
+        self.assertEqual(self.wait(tasks=False, quiet=30)['event'], 'ready', 'the repaired card is back')
 
 
 if __name__ == '__main__':

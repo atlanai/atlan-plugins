@@ -33,24 +33,28 @@ Preserve existing run locations; do not change host permissions or read credenti
      run's `sources/` folder by one announced download, then `ENGINE stage-input`;
   3. a supported export the person downloads (`.pbix`, `.pbip`, `.twbx`). A Power BI
      "live connection" `.pbix` holds the report and no model, so the run leaves it out; a
-     "report and data" `.pbix` holds both, copies the rows to disk (ask first) and needs the
-     runtime's `pbix` feature.
+     "report and data" `.pbix` holds both, copies the rows to disk and needs the runtime's `pbix`
+     feature. Ask first: "This file holds your report's data as well. Reading it copies those
+     rows to this machine. Go ahead?"
 
   A **Tableau workbook link** takes another order, because Tableau has no sign-in a tool can
   start for the person: (1) the person's signed-in browser downloads the workbook and every
   published data source it uses; (2) the `tableau-cloud` plug with a Personal Access Token
   the person created; (3) the plug with `TABLEAU_USERNAME` and `TABLEAU_PASSWORD`. A route
   that brings the workbook without its published data sources leaves those sheets without
-  SQL: name the missing data sources.
+  SQL: say "Your workbook uses data sources I couldn't get: <names>. Sheets that use them have
+  no SQL yet."
 
   Never carry a definition through chat or page text: page readers cap output and collapse
   whitespace, so a copied model differs from the original. Check any staged file against the
   service's copy (size or hash) before surveying it.
 
-For downloads, announce the necessary acquisition once. A request to use the source covers
+For downloads, announce the necessary acquisition once: "To read your dashboard's formulas, I'll
+download its definition file once, into a private folder here." A request to use the source covers
 necessary acquisition within its scope; host/provider approval still applies. Do not add a
 second plugin permission question. If a page-only request needs a broader full-model download,
-explain that difference and resolve the missing scope authorization first. Never export more
+ask "You asked about one page, but its formulas are only in the full model file. Can I download
+the whole model?" and resolve the missing scope authorization first. Never export more
 data simply to obtain page names. If decoding requires a full authorized export, acquire it
 once, list pages, then select scope before expensive authoring or checks.
 
@@ -71,26 +75,27 @@ Before authoring, give a short business summary: observed source types and subje
 the project appears to be about, and two or three analyses those sources could support.
 Explain how the sources complement each other; counts alone do not show understanding.
 Keep this summary with the first native question, not only in collapsible commentary.
-Distinguish sample, available, needs review, held and scan-limited inputs; keep filenames
+Distinguish inputs as sample data, ready to use, needs your review, held back or only partly
+read; keep filenames
 and diagnostics in details. Models provide declared definitions; relevant query
 history adds actual query patterns, dimensions, joins and missing measures. A data extract is
 an executor/schema source, not a replacement for available history. Reuse already released
 workspace context early when the destination is known.
 
-Refresh [the checklist](../../analytics-build/references/setup/checklist.md) so the survey step shows its source count before the confirmation.
+Refresh [the checklist](../../analytics-build/references/setup/checklist.md) so the survey step shows its source count before the build starts.
 The caller owns the conversation: `analytics-build` asks its opening questions before any
 data is read, and asks which use cases to build before authoring. Use the domain the caller
 passed to select relevant source coverage.
 
 When the survey exposes a declared measure relevant to that focus, show it after the intent
-checkpoint and before runtime installation or generation: its actual name, calculation, source and known population. Label it a discovered
-definition, with SQL not generated and checks not run where appropriate. Missing lineage is
+checkpoint and before runtime installation or generation: its actual name, calculation, source and known population. Label it "Found in your
+sources. No SQL written or tested yet." where appropriate. Missing lineage is
 an explicit limit, not a guessed table mapping. This first look does not certify a candidate,
 replace the engine's authored gates or satisfy the later checked publication preview.
 
-When the supplied schema shows a table with measure-name and saved-SQL columns, such as a
+When the supplied schema shows a table with measure-name and SQL columns, such as a
 `DIM_MEASURE` with `MEASURE_NAME` and `EXACT_SQL`, offer it as a governed metric catalogue
-before query history. Confirm who owns the definitions and whether the saved SQL already applies
+before query history. Confirm who owns the definitions and whether that SQL already applies
 the required filters. For Snowflake, set `settings.snowflake-direct.metric_catalogue` to the
 confirmed fully qualified table and include `snowflake-direct` in `inputs.bi`. A local
 `DIM_MEASURE.csv` or a `.metric-catalogue.csv` or `.metric-catalogue.json` extract can be
@@ -103,11 +108,12 @@ this order, each with what it adds and its scope:
 
 | Order | Source | What it adds |
 | --- | --- | --- |
-| 1 | BI reports and models | The rules the team already agreed: measures, filters, joins |
-| 2 | Query history | What people actually ask: the cuts, dimensions and measures the reports miss |
-| 3 | Table definitions | Columns and types, so every rule can run and be checked |
+| 1 | Dashboards and models | The rules your team already agreed on: measures, filters, joins |
+| 2 | Past queries | What people actually ask: the breakdowns and measures the dashboards miss |
+| 3 | Table definitions | Columns and types, so every rule can be tested |
 
-Leave out a level that has no buildable source, and say so in one clause. The caller shows
+Leave out a level that has no buildable source, and say so in one clause, such as "No
+dashboard here, so this starts from past queries." The caller shows
 this list and decides whether to ask about it. A report is scoped whole, with
 `pages: ["all"]`, unless the person narrowed it in their own words. Query history is scoped
 to the tables the report's measures are computed on, never the whole warehouse; leave out a

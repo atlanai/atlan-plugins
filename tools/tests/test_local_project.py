@@ -419,8 +419,10 @@ class SQLiteFlow(unittest.TestCase):
     def setUp(self):
         LocalProject.setUp(self)
         import sqlite3
+        from contextlib import closing
         self.database = self.estate / 'site.sqlite'
-        with sqlite3.connect(self.database) as con:
+        # A connection's own `with` commits but never closes: each test left one open (a ResourceWarning apiece).
+        with closing(sqlite3.connect(self.database)) as con, con:
             con.execute('CREATE TABLE work (kind TEXT, cost REAL, day TEXT)')
             con.executemany('INSERT INTO work VALUES (?, ?, ?)', [
                 ('rework', 12.5, '2026-01-01'), ('build', 20, '2026-01-02'), ('rework', 2.25, '2026-01-03')])

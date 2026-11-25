@@ -11,11 +11,11 @@ so each row carries its path (list rows are summaries otherwise), and read those
 `improvements/metric/`.
 
 - **Fix:** if a proposal for this `subject_id` is still `ready` with the same change, write
-  no other. Tell the person it exists.
+  no other. Tell the person: "A proposal for this already exists, so I didn't add another."
 - **New metric:** if a proposal with an empty `subject_id` already proposes this
   `subject_name`, or the same measure under another name, whatever its
-  `improvement_status`, write no other. If it was dismissed, its owners decided against it:
-  say so.
+  `improvement_status`, write no other. If it was dismissed, say "Its owners already
+  decided against this, so I didn't propose it again."
 
 ## The file
 

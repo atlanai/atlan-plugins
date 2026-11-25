@@ -228,7 +228,7 @@ class ProofLinkOrganizations(unittest.TestCase):
             return subprocess.CompletedProcess(argv, 1, stdout='private body',
                                                stderr='atlanai: hidden (HTTP 404, not_found)')
         with patch.object(links.subprocess, 'run', side_effect=run):
-            with self.assertRaisesRegex(ValueError, "organization 'first'.*second") as caught:
+            with self.assertRaisesRegex(ValueError, "signed in to 'first'.*second") as caught:
                 links.resolve_link('https://api.atlan.com', 'https://app.atlan.com', 'metric',
                                    'metric_x', 'workspace_y')
         self.assertNotIn('private', str(caught.exception))

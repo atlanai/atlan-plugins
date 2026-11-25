@@ -72,8 +72,8 @@ class RuntimeBootstrap(unittest.TestCase):
                 reply = json.loads(stdout.getvalue())
                 self.assertEqual(reply['status'], 'BLOCKED')
                 self.assertEqual(reply['bootstrap_error'], {'type': 'CalledProcessError', 'exit_code': exit_code})
-                self.assertIn('another approved Python 3.11 or 3.12', reply['fix'])
-                self.assertIn('new durable runtime directory', reply['fix'])
+                self.assertIn('another Python 3.11 or 3.12', reply['fix'])
+                self.assertIn('a new folder', reply['fix'])
                 self.assertEqual(stderr.getvalue(), '')
                 package_commands.assert_not_called()
                 self.assertEqual((root / 'venv/partial-bootstrap').read_text(), 'preserve this attempt')
@@ -108,7 +108,7 @@ class SetupPythonTest(unittest.TestCase):
                 tempfile.TemporaryDirectory() as tmp, redirect_stdout(io.StringIO()) as out:
             runtime = str(Path(tmp).resolve() / 'runtime')
             self.assertEqual(driver.main(['--runtime', runtime, 'setup']), 2)
-        self.assertIn('python3.12 or python3.11 on PATH', json.loads(out.getvalue())['reason'])
+        self.assertIn('needs Python 3.11 or 3.12', json.loads(out.getvalue())['reason'])
 
     def test_one_folder_has_one_name(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -132,5 +132,5 @@ class RuntimeMismatchFix(unittest.TestCase):
             with mock.patch.object(driver, 'snapshot', return_value=({'commit': identity}, identity)):
                 self.assertEqual(driver.main(['--runtime', str(root), 'discover']), 2)
         result = json.loads(out.getvalue())
-        self.assertIn('does not match this plugin', result['reason'])
+        self.assertIn('another version of the plugin', result['reason'])
         self.assertIn(str(root.parent / ('runtime-' + 'c' * 12)), result['fix'])

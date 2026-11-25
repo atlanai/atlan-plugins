@@ -105,8 +105,8 @@ class Batches(unittest.TestCase):
         # writing them: the card step writes each metric's definition, and checks nothing.
         import experience
         self.assertEqual([experience.ENGINE_PHASES[g] for g in ('m2', 'x1', 'x2', 'x3')],
-                         ['Putting each query in plain words', 'Finding the numbers each query measures',
-                          'Combining possible metrics, one per number', 'Writing what each metric counts and leaves out'])
+                         ['Putting each query in plain words', 'Finding the metrics each query measures',
+                          'Merging duplicate metrics', 'Writing what each metric counts and leaves out'])
 
     def test_each_state_a_metric_passes_has_its_own_plain_name(self):
         # Team decision, 2026-11-18: one badge in plain states, from found to run on the data, so a person can tell
@@ -115,8 +115,8 @@ class Batches(unittest.TestCase):
         import re
         page = side_page.PAGE.read_text(encoding='utf-8')
         labels = dict(re.findall(r"(\w+): \['([^']+)'", re.search(r'const STATE = \{(.*?)\};', page).group(1)))
-        self.assertEqual(list(labels.values()), ['Found', 'Defined', 'Not tested', 'Tested', 'Needs a look'])
-        self.assertIn('title="Ran on the data"', page)
+        self.assertIn('title="Tested on the data"', page)
+        self.assertEqual(list(labels.values()), ['Found', 'Defined', 'Not tested', 'Tested', 'Needs your review', 'Held back'])
 
 
 if __name__ == '__main__':

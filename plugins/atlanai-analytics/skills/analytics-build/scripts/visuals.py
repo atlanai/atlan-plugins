@@ -12,16 +12,17 @@ from pathlib import Path
 import re
 
 import visual_kit as k
-from run_facts import RunFacts, count, first_question, from_dashboard, number, read_json, sentence, table_name, their, whole  # noqa: F401 (re-exported)
+from run_facts import RunFacts, agent_name, count, first_question, from_dashboard, number, read_json, report_name, sentence, table_name, their, whole  # noqa: F401 (re-exported)
 
 KINDS = ('connect', 'found', 'sources', 'group', 'tiles', 'described', 'drafted', 'metrics', 'rules', 'links', 'build', 'context',
-         'saved', 'answer', 'edit')
+         'saved', 'answer', 'edit', 'questions', 'agent')
 # The moments big enough for a mini card. A later answer gets a chip. A context kept on this machine shows nothing: the
 # person has just chosen it.
 CARDS = ('build', 'saved', 'answer', 'edit')
 # In a terminal, the moments that come right before a native question, and where in it their lines go. A question's own
 # text is always shown; text written just before it folds into a one-line summary or is left out (live runs, 2026-11-12).
-ASKED = {'found': "the \"Build it?\" question's text, first",
+ASKED = {'found': "the next native question's text, first",
+         'questions': "the next native question's text, first",
          'context': "the save question's text in place of its count line (the banner, the two lines under it and the "
                     "question stay as they are)",
          'saved': "the ready question's text, first"}
@@ -36,12 +37,15 @@ def asked(kind, demo, saved=False):
     return ASKED.get(kind) or (ASKED_DEMO.get(kind) if demo else None) or (ASKED_SAVED.get(kind) if saved else None)
 # The moments whose data the agent writes, the fields each needs, and the shape of every field.
 DATA = {
-    'saved': {'workspace': str},
+    'build': {'aside': str},
+    'saved': {'workspace': str, 'aside': str},
     'answer': {'question': str, 'headline': str, 'summary': str, 'unit': str, 'highlight': str, 'rule': str,
                'rows': 'rows', 'proof': 'names', 'breakdown': dict},
     'edit': {'metric': str, 'before': str, 'after': str, 'note': str, 'values': 'values', 'added': 'labels', 'removed': 'labels'},
 }
-REQUIRED = {'saved': ('workspace',), 'answer': ('question', 'headline'), 'edit': ('metric', 'values')}
+REQUIRED = {'build': (), 'saved': ('workspace',), 'answer': ('question', 'headline'), 'edit': ('metric', 'values')}
+# The one line of its own words a card takes, under its counts: why this build, in the person's terms, never a number.
+ASIDE = 140
 SHAPES = {'rows': '[label, number] pairs', 'names': 'a list of {"name": ...}', 'labels': 'a list of names',
           'values': 'a list of [name, before, after]', str: 'text', dict: 'an object'}
 # A text card's inside width: it fits an 80-column window with room to spare, and a split pane.
@@ -68,6 +72,75 @@ def _shaped(value, shape):
     return isinstance(value, list) and all(isinstance(r, list) and len(r) >= 3 for r in value)
 
 
+def answer_from(given, result, facts=None):
+    """The answer card's data from what the session names (the question, the metrics it used, and any words of its own:
+    `headline`, `summary`, `rule`, `highlight`, `unit`) and the rows its query returned. Without a headline of its own,
+    the card leads with the metric's value (the one value, or the column named for the metric), or with a breakdown's
+    first row in the query's own order. None without a question or anything to lead with."""
+    question = given.get('question')
+    if not isinstance(question, str) or not question.strip():
+        return None
+    names = [n.strip() for n in given.get('metrics') or [] if isinstance(n, str) and n.strip()]
+    data = {'question': question.strip(), **({'proof': [{'name': n} for n in names]} if names else {})}
+    data.update({k: given[k].strip() for k in ('headline', 'summary', 'rule', 'highlight', 'unit')
+                 if isinstance(given.get(k), str) and given[k].strip()})
+    unit = data.get('unit') or (facts.unit_for(names[0]) if facts and names else None)
+    num = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)  # noqa: E731
+    key = lambda s: re.sub(r'[^a-z0-9]', '', str(s).lower())  # noqa: E731
+    columns = [c.get('name') if isinstance(c, dict) else str(c) for c in result.get('columns') or []]
+    rows = [r for r in result.get('rows') or [] if isinstance(r, list) and r]
+    if len(rows) == 1:
+        at = [i for i, v in enumerate(rows[0]) if num(v)]
+        named = [i for i in at if names and i < len(columns) and key(columns[i]) == key(names[0])]
+        lead = named[0] if named else at[0] if len(at) == 1 else None
+        if lead is not None and 'headline' not in data:
+            data['headline'] = '%s: %s' % (names[0] if names else sentence(columns[lead].replace('_', ' ')), number(rows[0][lead], unit))
+        parts = _row_parts(columns, rows[0], lead, facts) if lead is not None else []
+        if parts:
+            data['parts'] = parts
+    elif len(rows) > 1:
+        value = next((i for i, v in enumerate(rows[0]) if num(v)), None)
+        label = next((i for i, v in enumerate(rows[0]) if v is not None and not num(v)), None)
+        if value is not None and label is not None:
+            data['rows'] = [[str(r[label]), r[value]] for r in rows[:12] if len(r) > max(value, label) and num(r[value])]
+            if data['rows'] and 'headline' not in data:
+                data['headline'] = '%s: %s' % (data['rows'][0][0], number(data['rows'][0][1], unit))
+                data.setdefault('highlight', data['rows'][0][0])
+    return data if data.get('headline') else None
+
+
+MONEY = re.compile(r'(^|_)(fee|fees|value|sales|revenue|amount|price|cost|paid|spend|income)(_|$)')
+DAY = re.compile(r'^(\d{4})-(\d{2})-(\d{2})')
+# The parts a one-row answer's card lists under its number.
+PARTS = 6
+
+
+def _row_parts(columns, row, lead, facts):
+    """A one-row answer's other values, each labelled by its column and read in its own unit, never the lead's (the
+    review of 2026-11-24 read face value in the rate's unit: "121941250%"). A column named for one of the run's
+    metrics takes that metric's unit, money the run's one currency, a whole number is a count, and a first and a last
+    date read as one period."""
+    from datetime import date
+    parts, days = [], []
+    for i, value in enumerate(row):
+        if i == lead or i >= len(columns):
+            continue
+        name = str(columns[i])
+        day = DAY.match(value) if isinstance(value, str) else None
+        if day:
+            days.append(date(*map(int, day.groups())))
+            continue
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            continue
+        unit = (facts.unit_for(name.replace('_', ' ')) or (facts.currency if MONEY.search(name.lower()) else None)) if facts else None
+        label = name.replace('_', ' ').strip()
+        parts.append([label[:1].upper() + label[1:], number(value, unit or ('count' if float(value).is_integer() else None))])
+    if len(days) == 2:
+        first, last = sorted(days)
+        parts.append(['Period', '%d %s to %d %s' % (first.day, first.strftime('%b %Y'), last.day, last.strftime('%b %Y'))])
+    return parts[:PARTS]
+
+
 def check_data(kind, data):
     """Why a moment's data file cannot be used, naming the field, or None when it is fine."""
     if kind not in DATA:
@@ -80,6 +153,12 @@ def check_data(kind, data):
     for field, shape in DATA[kind].items():
         if field in data and not _shaped(data[field], shape):
             return '%s.json: `%s` must be %s.' % (kind, field, SHAPES[shape])
+    aside = data.get('aside')
+    if isinstance(aside, str) and (len(aside) > ASIDE or '\n' in aside):
+        return '%s.json: `aside` is one line of at most %d characters.' % (kind, ASIDE)
+    if isinstance(aside, str) and re.search(r'\d', aside):
+        return ('%s.json: `aside` holds no number: every number on a card comes from the run. Say it in words, or leave '
+                'it out.' % kind)
     unproven = _unproven(data) if kind == 'answer' else None
     if unproven:
         return ('answer.json: the summary says %s, which its rows, headline and question do not show. Leave that number '
@@ -138,9 +217,27 @@ def _names(value):
 
 def collect(kind, facts):
     """What the run's own files say about a moment."""
+    if kind == 'agent' and facts.file('context', 'metrics.json', kind=list):
+        # What a later session works on: the agent this folder already holds, before anything else is shown.
+        import datetime
+        built = datetime.datetime.fromtimestamp((facts.dir / 'context' / 'metrics.json').stat().st_mtime)
+        return {'metrics': len(facts.file('context', 'metrics.json', kind=list)),
+                'queries': len(facts.file('context', 'queries.json', kind=list)),
+                'built': '%d %s' % (built.day, built.strftime('%b')), 'saved': bool(facts.publication) and not facts.local}
+    if kind == 'questions':
+        # An accuracy check's questions, once loaded with their known answers: the side page lists each one.
+        import eval_runs
+        ev = eval_runs.questions_folder(facts.dir)
+        asked = eval_runs.questions(ev) if ev else None
+        if not (asked and asked['rows']):
+            return {}
+        tiles, queries = sum(r['from'] == 'tile' for r in asked['rows']), sum(r['from'] == 'query' for r in asked['rows'])
+        # A set the person brought is theirs: named, never "from your dashboard".
+        return {'questions': asked['total'], 'tiles': tiles, 'queries': queries,
+                **({'set': asked['name']} if asked.get('name') and all(r['from'] == 'set' for r in asked['rows']) else {})}
     if kind == 'found' and facts.found[0]:
         # What the survey and the warehouse connection found, right before the person chooses what to build from.
-        return {'found': facts.found[0], 'kinds': facts.found[1]}
+        return {'found': facts.found[0], 'kinds': facts.found[1], 'said': facts.found[2]}
     if kind == 'sources' and facts.tables:
         # Only what the person chose to build from: a history file left out of the choice is not read.
         chosen = facts.inputs or {'bi': True, 'history': True}
@@ -151,13 +248,18 @@ def collect(kind, facts):
         return {'warehouse': facts.warehouse, 'history': facts.history, 'scoped': facts.scoped_tables}
     # Built means checked: metrics merged mid-build are not the build's result, and the checks can still hold some back.
     # The card counts the context the checks left, the list the save question counts too.
-    if kind == 'build' and facts.funnel.get('metrics') and _checked(facts):
+    # The card closes the build once it is saved into the run and its structural check has run: its counts (metrics,
+    # saved queries, held back) are known then, so it comes before the question about testing, not after the tests.
+    if kind == 'build' and facts.funnel.get('metrics') and (_checked(facts) or facts.file('context', 'metrics.json', kind=list)):
         kept = [sentence(m.get('display_name') or m['name']) for m in facts.file('context', 'metrics.json', kind=list)
                 if isinstance(m, dict) and m.get('name')]
         names = {n.lower() for n in kept}
+        saved = sum(1 for q in facts.file('context', 'queries.json', kind=list) if isinstance(q, dict) and q.get('name'))
         return {'funnel': dict(facts.funnel, metrics=len(kept)) if kept else facts.funnel,
                 'merged': kept or [m['name'] for m in facts.merged],
-                'evidence': [m for m in facts.merged if m['name'].lower() in names] if kept else facts.merged, 'took': _took(facts)}
+                'evidence': [m for m in facts.merged if m['name'].lower() in names] if kept else facts.merged, 'took': _took(facts),
+                'saved_queries': saved, 'held': facts.held, 'report': facts.report,
+                **({'question': facts.interaction['question']} if facts.interaction.get('question') else {})}
     # The checks are over only when every item has its verdict: a chip before that would count unrun items as needing a look.
     if kind == 'context' and facts.checks_over:
         c = facts.context
@@ -186,35 +288,48 @@ def collect(kind, facts):
         bi = [((o.get('provenance') if isinstance(o.get('provenance'), dict) else {}).get('bi') or {}) for o in tiles]
         if tiles:
             # Its page in the dashboard, kept apart from `page`, which is the side page's own address. Each tile opens to
-            # its question: in the build's plain words once described, else its own when it already reads as one.
+            # its question: in the build's plain words once described, else its own when it already reads as one. A tile
+            # is named by its title on the dashboard, never by the report's internal code for it. The count stays the one
+            # the later chips and the save question use (the fetch reads every page; picking pages there is the engine's).
             # A question drafted from the SQL's shape ("What is selected_tier?") is a placeholder until the build words
             # it: a tile shows the words, or none (walk 3, 2026-11-23).
             def drafted(o):
                 return any('derived structurally' in str(g) for g in o.get('gotchas') or [])
             asked = [first_question((facts.descriptions.get(o.get('vq_id')) or {}).get('question')
                                     or ('' if drafted(o) else o.get('question'))) for o in tiles]
-
-            def title(b):
-                widget = (b.get('bi_context') or {}).get('widget') if isinstance(b.get('bi_context'), dict) else None
-                return str((widget or {}).get('title') or b['visual'])
+            rows = []
+            for b, q in zip(bi, asked):
+                if not isinstance(b, dict) or not b.get('visual'):
+                    continue
+                widget = (b.get('source_fragments') or {}).get('widget') if isinstance(b.get('source_fragments'), dict) else None
+                title = str(facts.engine_file(widget).get('title') or '').strip() if isinstance(widget, str) else ''
+                context = (b.get('bi_context') or {}).get('widget') if isinstance(b.get('bi_context'), dict) else None
+                title = title or str((context or {}).get('title') or '').strip()
+                # The visual's own name where it is one, never a report's internal code for it (a GUID in Power BI).
+                title = title or ('' if re.fullmatch(r'[0-9a-fA-F-]{16,}', str(b['visual'])) else str(b['visual']))
+                if title or q.endswith('?'):
+                    rows.append([title or q, '', q if title and q.endswith('?') else ''])
             # A report of several pages is named by the report, not by whichever page came first.
             pages = {str(b['page']) for b in bi if isinstance(b, dict) and b.get('page')}
             workbook = next((str(b['workbook']) for b in bi if isinstance(b, dict) and b.get('workbook')), None)
-            return {'tiles': len(tiles), 'bi_page': (next(iter(pages)) if len(pages) == 1 else workbook),
-                    'rows': [[title(b), '', q if q.endswith('?') else ''] for b, q in zip(bi, asked)
-                             if isinstance(b, dict) and b.get('visual')]}
+            return {'tiles': len(tiles), 'report': facts.report, 'bi_page': (next(iter(pages)) if len(pages) == 1 else workbook),
+                    'rows': rows}
     if kind == 'described' and 'm2_ingest' in facts.stages:
         return _described(facts)
     if kind == 'drafted' and 'x1_ingest' in facts.stages and facts.stage('x1_ingest', 'proposals'):
-        # The draft step's end: every number a query works out, each name once with how many queries it came from.
-        names = {}
+        # The draft step's end: every metric a query works out, each name once with how many queries it came from, and
+        # the tiles and past queries the metrics came from.
+        names, found_in = {}, set()
         for p in facts.engine_file('metric_proposals.json').get('proposals') or []:
             if isinstance(p, dict) and p.get('name'):
                 names.setdefault(sentence(str(p['name'])), set()).add(p.get('vq_id') or p.get('proposal_id'))
+                found_in.add(str(p.get('vq_id') or str(p.get('proposal_id') or '').split('#')[0]))
         read, none = facts.stage('x1_ingest', 'answered'), facts.stage('x1_ingest', 'no_metric') or 0
-        rows = [[n, count(len(q), 'query', 'queries').replace('1 query', 'in 1 query') if len(q) == 1 else 'in ' + count(len(q), 'query', 'queries')]
+        rows = [[n, count(len(q), 'question').replace('1 question', 'in 1 question') if len(q) == 1 else 'in ' + count(len(q), 'question')]
                 for n, q in sorted(names.items(), key=lambda kv: -len(kv[1]))]
-        return {'drafted': facts.stage('x1_ingest', 'proposals'), 'read': read, 'with': read - none if read else None, 'rows': rows}
+        tiles = sum(1 for v in found_in if from_dashboard(v))
+        return {'drafted': facts.stage('x1_ingest', 'proposals'), 'read': read, 'with': read - none if read else None, 'rows': rows,
+                'from': {'tiles': tiles, 'queries': len(found_in) - tiles}}
     if kind == 'metrics' and 'x2_ingest' in facts.stages and facts.merged:
         return {'metrics': [m['name'] for m in facts.merged], 'rows': [[m['name'], _from(m)] for m in facts.merged],
                 'drafts': facts.stage('x2_ingest', 'proposals_in') or facts.stage('x1_ingest', 'proposals')}
@@ -230,11 +345,12 @@ def collect(kind, facts):
 
 
 def _checked(facts):
-    """Whether the checks are behind the build: every verdict in, or the flow moved on past them, as it does on a
-    warehouse, whose verdicts arrive only as each tool result is recorded."""
+    """Whether the checks are behind the build: every verdict in, the person chose to skip them, or the flow moved on
+    past them, as it does on a warehouse, whose verdicts arrive only as each tool result is recorded. A skip drew no
+    build card at all in a live dashboard run (2026-11-23)."""
     # A person who chose to skip the checks has the build in front of them now: the card comes before the next
     # question (a walkthrough's card showed only after the save question, 2026-11-23).
-    return (facts.checks_over or facts.checks_skipped
+    return (facts.checks_over or facts.interaction.get('checks') == 'skip' or facts.checks_skipped
             or facts.file('progress.json').get('stage') in ('preview', 'publish', 'ready'))
 
 
@@ -324,6 +440,10 @@ def _described(facts):
     tiles = [[q, 'dashboard tile'] for vid, q in asked if from_dashboard(vid)]
     past = sorted(([q, _ran(runs(vid)), runs(vid)] for vid, q in asked if not from_dashboard(vid)), key=lambda r: -r[2])
     shown = sum(from_dashboard(vid) for vid, _ in words)
+    if shown and shown == len(words) and facts.engine_file('verified_queries.bi.json').get('objects'):
+        # Every question came from a tile, and the tiles chip just showed each with its question: a second chip with
+        # the same count read as a repeat ("50 tiles read", then "50 questions written", 2026-11-23).
+        return {}
     # With the descriptions written beside the metric steps (the engine's default), they land after the metrics: the
     # chip says so instead of announcing a step already done (walk 3, 2026-11-23).
     late = 'x1_ingest' in facts.stages
@@ -345,18 +465,23 @@ def _first_sentence(text):
     return first if not first or first[-1] in '.!?' else first + '.'
 
 
+# The longest example a links chip shows on its line: beside its count it fits a chat pane and an 80-column window.
+LINK_EXAMPLE = 40
+
+
 def _link(edges):
-    """One link, read as what it is: a ratio of two metrics, a metric that is part of another, or one that uses others."""
+    """One link, read as what it is: a ratio of two metrics, a metric that is part of another, or one that uses others.
+    The first kind with an example short enough to show whole, else the shortest of all."""
     named = lambda x: sentence(str(x))
+    ratios, parts, uses = [], [], []
     for source in dict.fromkeys(x['from'] for x in edges):
         roles = {x.get('role'): x['to'] for x in edges if x['from'] == source}
         if 'numerator' in roles and 'denominator' in roles:
-            return '%s = %s ÷ %s' % (named(source), named(roles['numerator']), named(roles['denominator']))
-    narrower = next((x for x in edges if x.get('relation') == 'restriction'), None)
-    if narrower:
-        return '%s is part of %s' % (named(narrower['from']), named(narrower['to']))
-    source = edges[0]['from']
-    return '%s uses %s' % (named(source), ' and '.join(named(x['to']) for x in edges if x['from'] == source))
+            ratios.append('%s = %s ÷ %s' % (named(source), named(roles['numerator']), named(roles['denominator'])))
+        uses.append('%s uses %s' % (named(source), ' and '.join(named(x['to']) for x in edges if x['from'] == source)))
+    parts += ['%s is part of %s' % (named(x['from']), named(x['to'])) for x in edges if x.get('relation') == 'restriction']
+    found = ratios + parts + (uses if not (ratios or parts) else [])
+    return next((x for x in found if len(x) <= LINK_EXAMPLE), min(found or uses, key=len))
 
 
 def _took(facts):
@@ -416,6 +541,10 @@ def build_spec(kind, run=None, data=None, engine_dir=None):
     page = page_link(run, kind, spec)
     if page:
         spec['page'] = page
+    if kind == 'build' and facts and spec.get('funnel'):
+        # A demo's facts passed on the call name its agent, as the questions after the card do.
+        given = [i for i in (data if isinstance(data, list) else [data]) if isinstance(i, dict) and isinstance(i.get('ready'), dict)]
+        spec['agent'] = agent_name(facts, given[-1]['ready'] if given else None)
     if kind == 'saved' and facts and not spec.get('local'):
         spec['workspace'] = spec.get('workspace') or own.get('workspace')
     if kind == 'answer' and facts and not spec.get('unit'):
@@ -424,6 +553,12 @@ def build_spec(kind, run=None, data=None, engine_dir=None):
         unit = facts.unit_for(first) if first else None
         if unit:
             spec['unit'] = unit
+    if kind == 'answer' and facts and not spec.get('rule'):
+        # The rule the answer used, in its metric's own words, when the session gave none.
+        first = next((p.get('name') for p in spec.get('proof') or [] if isinstance(p, dict) and p.get('name')), None)
+        rule = facts.rule_for(first) if first else None
+        if rule:
+            spec['rule'] = rule
     if kind == 'answer' and str(spec.get('unit') or '').lower() == 'currency':
         # A rule recorded as a bare currency: the answer's own headline says which.
         sign = re.search(r'[£$€]', str(spec.get('headline') or '').rpartition(': ')[2])
@@ -474,16 +609,17 @@ def _chip(glyph, num, what, tail=''):
 OPENED_ROWS = 8
 
 
-def _opened(o):
+def _opened(o, side=False):
     """An opened chip: one sentence on what the step did, then what it produced. The side page is named, never linked:
-    a widget's link opens the host's link dialog and then a browser, never the side panel."""
+    a widget's link opens the host's link dialog and then a browser, never the side panel. It is named only once it is
+    open (`side`): the first build chip pointed at a page that did not exist yet (0.9.74)."""
     e = k.e
     rows = o['rows'][:OPENED_ROWS]
     listed = ''.join('<div><b style="font-weight:400">%s</b><span>%s</span>%s</div>'
                      % (e(r[0]), e(r[1]) if len(r) > 1 else '', '<em>%s</em>' % e(r[2]) if len(r) > 2 and r[2] else '') for r in rows)
     more = len(o['rows']) - len(rows)
     return (('<div class="mt">%s</div>' % e(o['what']) if o['what'] else '') + '<div class="ls">%s</div>' % listed
-            + ('<div class="more">%d more on the side page</div>' % more if more > 0 else ''))
+            + ('<div class="more">%d more%s</div>' % (more, ' on the side page' if side else '') if more > 0 else ''))
 
 
 def chip_html(kind, s):
@@ -495,7 +631,7 @@ def chip_html(kind, s):
         row = o['mark'] + '<span class="h">%s</span>%s' % (hero, '<span class="t">%s</span>' % e(o['tail']) if o['tail'] else '')
         said = ' '.join(x for x in (o['bold'], o['rest'], o['tail'], o['sub']) if x)
         if o['rows']:
-            return k.opening(row, _opened(o), said, o['sub'])
+            return k.opening(row, _opened(o, bool(s.get('page'))), said, o['sub'])
         return k.outcome(row, said, o['sub'])
     t = _ticker(kind, s)
     if not t:
@@ -508,6 +644,23 @@ def chip_html(kind, s):
     words = ' · '.join(x for x in (t['what'], t['tail']) if x)
     return k.ticker(glyph + '<span class="n">%s</span><span class="d">%s</span>' % (e(_minus(t['num'])), e(words)),
                     '%s %s' % (_minus(t['num']), words))
+
+
+# Labels with an order of their own: dates, months, quarters, weeks, days and ranks.
+_MONTHS = r'(jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|june?|july?|aug(ust)?|sept?(ember)?|oct(ober)?|nov(ember)?|dec(ember)?)\.?'
+_DAYS = r'(mon|tue(s)?|wed(nes)?|thu(rs)?|fri|sat(ur)?|sun)(day)?\.?'
+NATURAL = re.compile(r'(\d{4}([-/.]\d{1,2}([-/.]\d{1,2})?)?([ t]\d{1,2}:\d{2}(:\d{2})?)?'
+                     r'|\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}'
+                     r'|(fy\s?)?\d{2,4}\s?-?\s?(q|h)[1-4]|(q|h)[1-4](\s?-?\s?(fy\s?)?\d{2,4})?|fy\s?\d{2,4}'
+                     r'|' + _MONTHS + r'(\s?-?\s?\d{2,4})?|\d{4}\s?-?\s?' + _MONTHS + r'|' + _DAYS +
+                     r'|(week|wk|w)\s?\d{1,2}(\s?-?\s?\d{2,4})?|\d{4}\s?-?\s?w\d{1,2}'
+                     r'|#?\d+(st|nd|rd|th)?|(rank|top|bottom|tier|level|stage|step)\s?#?\d+)', re.I)
+
+
+def _ordered(labels):
+    """Whether every label has an order of its own (a date, month, quarter, week, day or rank), so the bars keep it."""
+    labels = [str(x).strip() for x in labels]
+    return bool(labels) and all(NATURAL.fullmatch(x) for x in labels)
 
 
 def _headline(s):
@@ -526,15 +679,15 @@ def _ticker(kind, s):
 
 # Each step's own mark in a terminal, and the name of its drawing in a widget.
 MARKS = {'found': '◇', 'sources': '▤', 'group': '»', 'tiles': '▦', 'described': '❝', 'metrics': '◆', 'rules': '=', 'links': '⋈',
-         'ok': '✓', 'look': '△'}
+         'ok': '✓', 'look': '△', 'questions': '❝'}
 FOUND_MARKS = {'dashboard': 'dashboard', 'database': 'database', 'query history': 'history'}
-# Where each metric step's own chip sits, in the task list's own step names (Find metrics, Combine duplicates, Define
-# and test each metric), and what comes next: one set of names in the chat, with no progress bar and no second
-# numbering. The person's words, 2026-11-18: draft, merge, rule and check were the build's.
-FLOW = {'described': 'Finding metrics, under way: next, the numbers each query works out.',
-        'drafted': 'Done: Find metrics. Next: Combine duplicates, one metric per number.',
-        'metrics': 'Done: Combine duplicates. Next: Define and test each metric.',
-        'rules': 'Definitions written. Next: test each one on the data.'}
+# Where each metric step's own chip sits, in the task list's own step names (Build your context: metrics and saved
+# queries, Merge duplicate metrics, Add detailed information to each metric and saved query), and what comes next: one set of names
+# in the chat, with no progress bar and no second numbering. The person's words, 2026-11-18: draft, merge, rule and check were the build's.
+FLOW = {'described': 'Questions written. Next: the metrics behind each one.',
+        'drafted': 'Metrics found. Next: merging duplicates.',
+        'metrics': 'Duplicates merged. Next: adding detailed information to each metric.',
+        'rules': 'Information added. Next: validating each one on the data.'}
 
 
 # The metric steps the side page shows once it is open beside the chat where a task list is kept, so no chip repeats them.
@@ -573,26 +726,40 @@ def title_of(kind, spec):
     return words[:60].rstrip('_') or kind
 
 
-def _beside_dashboard(metrics, where):
+def mismatch(metrics):
+    """'3 of 4 match the dashboard; Sell-through differs', when a metric made from a tile gives another number than the
+    tile's own formula, else ''."""
+    tiles = [m for m in metrics or [] if isinstance(m, dict) and m.get('tile')]
+    differ = [m['name'] for m in tiles if not m['tile'].get('same')]
+    if not differ:
+        return ''
+    return '%d of %d match the dashboard; %s %s' % (len(tiles) - len(differ), len(tiles), _words(differ),
+                                                     'differs' if len(differ) == 1 else 'differ')
+
+
+def _beside_dashboard(metrics, where, need_look=0):
     """The checks' proof: what a check ran, and each number made from a dashboard tile beside the tile's own figure. A
     first-time reader never saw the dashboard's figure beside the agent's, so nothing showed why to trust either."""
     tiles = [m for m in metrics if m.get('tile')]
     differ = [m for m in tiles if not m['tile']['same']]
     if len(differ) == 1:
-        sub = '%s differs from its dashboard tile’s formula: %s.' % (differ[0]['name'], _minus(differ[0]['tile']['value']))
+        sub = '%s differs from its tile\'s formula, which gives %s.' % (differ[0]['name'], _minus(differ[0]['tile']['value']))
     elif differ:
-        sub = '%d numbers differ from their dashboard tiles: %s.' % (len(differ), _words([m['name'] for m in differ]))
+        sub = '%d metrics differ from their tiles\' formulas: %s.' % (len(differ), _words([m['name'] for m in differ]))
     elif len(tiles) == 1:
-        sub = 'The dashboard’s own formula for its %s tile gives the same.' % tiles[0]['tile']['name']
+        sub = '%s matches its %s tile\'s formula.' % (tiles[0]['name'], tiles[0]['tile']['name'])
     else:
-        sub = '%d numbers match the dashboard’s own formulas.' % len(tiles) if tiles else ''
-    note = lambda t: ('Same as the dashboard’s formula for its %s tile' if t['same'] else 'The dashboard’s formula for its %s tile gives %s') % (
+        sub = '%d metrics match the dashboard\'s own formulas.' % len(tiles) if tiles else ''
+    note = lambda t: ('Same as the %s tile\'s formula' if t['same'] else 'The %s tile\'s formula gives %s') % (
         (t['name'],) if t['same'] else (t['name'], _minus(t['value'])))
-    rows = [[m['name'], _minus(m['value']) if m['ok'] else 'needs a look'] + ([note(m['tile'])] if m.get('tile') else [])
+    rows = [[m['name'], _minus(m['value']) if m['ok'] else 'needs your review'] + ([note(m['tile'])] if m.get('tile') else [])
             for m in metrics]
-    what = 'Each metric’s definition ran %s and returned a number.' % where + (
-        ' The dashboard file holds each tile’s formula, not the number it shows: each formula ran on the same data, and its '
-        'number is set beside the metric made from it.' if tiles else '')
+    # Once something needs a review, what each state means: "returned a number" is then not true of every metric.
+    what = ('Passed means it returned a number %s. Needs your review means the result looks off. A save to Atlan Trident leaves '
+            'those out. The side page says why.' % where if need_look else
+            'Each metric was tested %s and returned a number.' % where) + (
+        ' The dashboard file holds each tile\'s formula, without the number it shows. Each formula was worked out on the same '
+        'data, and its number sits beside your agent\'s.' if tiles else '')
     return {'sub': sub, 'rows': rows, 'what': what} if rows else {}
 
 
@@ -603,7 +770,8 @@ def _outcome(kind, s):
     if kind == 'found' and s.get('found'):
         kinds = s.get('kinds') or []
         drawn = [next((v for key, v in FOUND_MARKS.items() if key in str(x)), 'file') for x in kinds][:4]
-        o = {'mark': k.marks(drawn or ['file']), 'bold': count(s['found'], 'source'), 'tail': ', '.join(kinds)}
+        said = s.get('said') if len(s.get('said') or []) == len(kinds) else kinds
+        o = {'mark': k.marks(drawn or ['file']), 'bold': count(s['found'], 'source'), 'tail': ', '.join(said)}
     elif kind == 'sources' and s.get('warehouse') and s.get('history'):
         o = {'mark': 'sources', 'bold': count(s['history']['statements'], 'past query', 'past queries'), 'rest': ' read',
              'tail': '%s, %s' % (s['warehouse'], count(s['scoped'], 'table'))}
@@ -623,59 +791,87 @@ def _outcome(kind, s):
         whose = their(s.get('firm'))
         tail = ('found in %d of %s %s' % (kept, whose, count(total, 'past query', 'past queries')) if kept and total and kept < total
                 else 'from %s %s' % (whose, count(kept or total, 'past query', 'past queries')) if kept or total else '')
-        what = ('Many past queries ask the same thing in different SQL. Grouping them gives the distinct questions, most run first'
-                + ('; their plain words come once each query is described.' if s.get('short') else '.')
-                + (' The other %d were set aside before grouping.' % (total - kept) if kept and total and kept < total else ''))
-        o = {'mark': 'group', 'bold': count(s['questions'], 'question') + ' %s team asks' % whose, 'tail': tail, 'what': what,
+        what = ('Many past queries ask the same thing in different SQL. These are the distinct questions, most asked first.'
+                + (' Each gets plain words once its query is described.' if s.get('short') else '')
+                + ((' The other 1 was set aside before grouping.' if total - kept == 1 else
+                    ' The other %d were set aside before grouping.' % (total - kept)) if kept and total and kept < total else ''))
+        # The count is the rows listed, so it agrees with "N more" below them: two shapes that read the same are one
+        # row (the review's run said 39 questions over a list that ended "25 more" after 8).
+        asks = len(s['rows']) if s.get('rows') else s['questions']
+        o = {'mark': 'group', 'bold': count(asks, 'question') + ' %s team asks' % whose, 'tail': tail, 'what': what,
              'rows': s.get('rows')}
     elif kind == 'tiles' and s.get('tiles'):
-        on = 'on the %s dashboard' % s['bi_page'] if s.get('bi_page') else 'on the dashboard'
-        o = {'mark': k.mark('tiles', min(s['tiles'], 9), min(s['tiles'], 3)), 'bold': count(s['tiles'], 'dashboard tile') + ' read',
-             'tail': 'each turned into a query', 'rows': s.get('rows'),
-             'what': 'Each tile %s became a query that returns the same number, so the agent answers the way the dashboard '
-                     'does.' % on}
+        named = s.get('report') or s.get('bi_page')
+        # The dashboard's own name, said once: "your Sales dashboard", never "your Sales dashboard dashboard".
+        named = named if not named or re.search(r'\b(dashboard|report)$', named, re.I) else named + ' dashboard'
+        on = 'on %s %s' % (their(s.get('firm')), named or 'dashboard')
+        o = {'mark': k.mark('tiles', min(s['tiles'], 9), min(s['tiles'], 3)), 'bold': count(s['tiles'], 'tile') + ' read',
+             'tail': 'each written as a question with SQL', 'rows': s.get('rows'),
+             'what': 'Each tile %s is now written as a question, kept with SQL for its number.' % on}
     elif kind == 'described' and s.get('described'):
-        # Where the count came from: the questions the team asks, plus the dashboard's tiles.
-        source = ' and '.join(x for x in (count(s['past'], 'question') if s.get('past') else '',
-                                          count(s['tiles'], 'dashboard tile') if s.get('tiles') else '') if x)
-        o = {'mark': 'described', 'bold': count(s['described'], 'query', 'queries') + ' in plain words',
-             'tail': their(s.get('firm')) + ' ' + source if source else 'so a question finds the right one', 'rows': s.get('rows'),
-             'what': ('Each query now carries the question it answers, in the words %s team uses. That is how the agent '
-                      'matches what you ask to the query that answers it.' % their(s.get('firm'))),
+        # Each count says where it came from, as on main: the review of PR 205 found this chip and the next had lost it.
+        # Saved queries, as the build card counts them: "questions written" read as the accuracy check's test questions.
+        o = {'mark': 'described', 'bold': count(s['described'], 'saved query', 'saved queries') + ' written',
+             # From one source the count would only repeat itself ("5 questions written · from your 5 questions").
+             'tail': ('from %s %s and %s' % (their(s.get('firm')), count(s['past'], 'question'), count(s['tiles'], 'dashboard tile'))
+                      if s.get('past') and s.get('tiles') else 'from %s dashboard\'s tiles' % their(s.get('firm')) if s.get('tiles')
+                      else 'in %s words' % their(s.get('firm'))),
+             'rows': s.get('rows'),
+             'what': 'When you ask one of these, your agent finds the question that matches and uses its SQL.',
              **({'sub': s['sub']} if s.get('sub') else {})}
     elif kind == 'drafted' and s.get('drafted'):
-        o = {'mark': 'metrics', 'bold': count(s['drafted'], 'possible metric'),
-             'tail': 'found in %d of those %s' % (s['with'], count(s['read'], 'query', 'queries')) if s.get('read') and s.get('with') is not None else '',
+        # Of the questions just written, how many work out a metric: "found in 3 of those 4 questions", so this count
+        # follows the one before it (a count of source ids read "from 5 past queries" after "4 questions written").
+        found_in = ('in %d of those %s' % (s['with'], count(s['read'], 'question'))
+                    if s.get('read') and s.get('with') is not None else _from(s.get('from')))
+        o = {'mark': 'metrics', 'bold': count(s['drafted'], 'metric') + ' found', 'tail': found_in,
              'rows': s.get('rows'),
-             'what': ('A possible metric is a number one of %s queries works out, such as a total or a rate. The same number '
-                      'often turns up in several queries; next, those are combined so each number has one definition.' % their(s.get('firm')))}
+             'what': ('A metric is a total, count or rate that one of %s questions works out. The same metric often turns up '
+                      'in several questions.' % their(s.get('firm')))}
     elif kind == 'metrics' and s.get('metrics'):
-        o = {'mark': 'metrics', 'bold': count(len(s['metrics']), 'metric') + ' found',
-             'tail': 'from %s, one per number' % count(s['drafts'], 'possible metric') if s.get('drafts') else 'one number, one definition',
+        merged = s['drafts'] - len(s['metrics']) if s.get('drafts') else None
+        o = {'mark': 'metrics', 'bold': count(len(s['metrics']), 'metric'),
+             'tail': '' if merged is None else count(merged, 'duplicate') + ' merged' if merged > 0 else 'no duplicates to merge',
              'rows': s.get('rows'),
-             'what': ('Reading the queries found the same measure many times over. Those were combined, so each number %s team '
-                      'uses has one definition. The tests next can still hold one back.' % their(s.get('firm')))}
+             'what': 'Each metric has one definition, used every time. A later test can still hold one back.'}
     elif kind == 'rules' and s.get('rows'):
-        o = {'mark': 'rules', 'bold': count(s['defined'], 'metric') + ' defined', 'tail': 'what each number counts and leaves out',
+        o = {'mark': 'rules', 'bold': 'Detailed information added to ' + count(s['defined'], 'metric'), 'tail': 'what each counts and leaves out',
              'rows': s['rows'],
-             'what': 'A metric\u2019s definition is how its number is worked out: what it counts, what it leaves out and the SQL '
-                     'behind it. The agent uses the same definition every time.'}
+             'what': 'Each note says what the metric counts, what it leaves out and the SQL behind it.'}
     elif kind == 'links' and s.get('links'):
-        o = {'mark': 'links', 'bold': count(s['links'], 'link') + ' between metrics', 'tail': s.get('example') or '',
+        # An example shows whole or not at all: cut mid-formula it read as a broken sum. Every link is in the opened rows.
+        example = s.get('example') or ''
+        o = {'mark': 'links', 'bold': count(s['links'], 'link') + ' between metrics',
+             'tail': 'e.g. ' + example if example and len(example) <= LINK_EXAMPLE else '',
              'rows': s.get('rows'),
-             'what': 'Some metrics are built from others. Linking them keeps the numbers in step: change one definition and the '
-                     'ones built on it follow.'}
+             'what': 'Some metrics are built from others. Change one definition, and the ones built on it follow.'}
+    elif kind == 'agent' and s.get('metrics'):
+        o = {'mark': 'ok', 'bold': 'Your agent: %s and %s' % (count(s['metrics'], 'metric'),
+                                                               count(s.get('queries', 0), 'saved query', 'saved queries')),
+             'tail': 'built %s, saved to Atlan Trident' % s['built'] if s.get('saved') else 'built %s' % s['built']}
+    elif kind == 'questions' and s.get('questions'):
+        where = [x for x in ('%d from your dashboard' % s['tiles'] if s.get('tiles') else '',
+                             '%d from past queries' % s['queries'] if s.get('queries') else '') if x]
+        o = {'mark': 'described', 'bold': count(s['questions'], 'test question') + ' written',
+             'tail': ', '.join(where) or ('from your set %s' % s['set'] if s.get('set') else '')}
     elif kind == 'context' and s.get('total'):
         where = 'on %s data' % their(s.get('firm')) if s.get('firm') or not s.get('warehouse') else 'on your %s data' % s['warehouse']
+        review = lambda n: '%d %s your review' % (n, 'needs' if n == 1 else 'need')
         if s.get('need_look') and s.get('ran'):
-            o = {'mark': 'look', 'bold': '%d ran cleanly' % s['ran'], 'tail': '%d need a look · %s' % (s['need_look'], where)}
+            o = {'mark': 'look', 'bold': '%d passed' % s['ran'], 'tail': '%s · %s' % (review(s['need_look']), where)}
         elif s.get('need_look'):
-            o = {'mark': 'look', 'bold': '%d need a look' % s['need_look'], 'tail': where}
+            o = {'mark': 'look', 'bold': review(s['need_look']), 'tail': where}
+        elif mismatch(s.get('metrics')):
+            # Every test ran, but a metric gives another number than its tile: never "Every metric works" over that
+            # (0.9.74, Ticketfuddle: Sell-through 76.1% against its tile's 81.5%).
+            o = {'mark': 'look', 'bold': mismatch(s.get('metrics')), 'tail': where}
         else:
             shown = s.get('featured')
-            o = {'mark': 'ok', 'bold': 'Every metric and query ran',
+            # Not "Every test passed": beside the accuracy check's test questions, it read as accuracy already
+            # tested (the joint run, 2026-11-25).
+            o = {'mark': 'ok', 'bold': 'Every metric works',
                  'tail': where + (' · %s %s' % (shown[0], _minus(shown[1])) if shown and shown[1] not in (None, 'not run') else '')}
-        o.update(_beside_dashboard(s.get('metrics') or [], where))
+        o.update(_beside_dashboard(s.get('metrics') or [], where, s.get('need_look')))
     if not o:
         return None
     name = o['mark'] if o['mark'] in MARKS else None
@@ -694,7 +890,8 @@ def _fit_words(text, width):
     if len(text) <= width:
         return text
     cut = text[:width - 1]
-    space = cut.rfind(' ')
+    # A cut that ends where a word ends keeps that word.
+    space = width - 1 if text[width - 1] == ' ' else cut.rfind(' ')
     return (cut[:space] if space > width // 2 else cut).rstrip(' ,;:·') + '…'
 
 
@@ -740,21 +937,35 @@ def chip(kind, s):
 
 # Mini cards ------------------------------------------------------------------------------------
 
-def _queries_line(f):
-    """Where the queries came from, so the counts on the card add up on their face."""
+def _source_line(f, report=''):
+    """Where the questions written came from, so the counts on the card add up on their face: "From 1 tile on the Job
+    Margins dashboard" when they all came from a named report, else "From 2 dashboard tiles and 4 past queries"."""
     shown, asked = f.get('tiles', 0), f.get('questions', 0) - f.get('tiles', 0)
-    if shown and asked > 0:
-        return '%s: %d from the dashboard, %d from past queries' % (count(f['questions'], 'query', 'queries'), shown, asked)
-    if shown:
-        return '%s built from the dashboard' % count(shown, 'query', 'queries')
-    return '%s built from past queries' % count(asked, 'query', 'queries') if asked > 0 else ''
+    if shown and asked <= 0 and report:
+        return 'From %s on %s' % (count(shown, 'tile'), report_name(report))
+    parts = [x for x in (count(shown, 'dashboard tile') if shown else '',
+                         count(asked, 'past query', 'past queries') if asked > 0 else '') if x]
+    return 'From ' + ' and '.join(parts) if parts else ''
 
 
 def _from(e):
     """Where a metric came from, in words: 'from 2 dashboard tiles and 4 past queries'."""
-    parts = [x for x in (count(e['tiles'], 'dashboard tile') if e and e.get('tiles') else '',
+    parts = [x for x in (count(e['tiles'], 'tile') if e and e.get('tiles') else '',
                          count(e['queries'], 'past query', 'past queries') if e and e.get('queries') else '') if x]
     return 'from ' + ' and '.join(parts) if parts else ''
+
+
+def _by_source(names, evidence):
+    """The names under where each came from, in words: the dashboard's first, then past queries, then any other. None
+    when nothing is known of where they came from, so the names stay one plain list."""
+    known = {m['name'].lower(): m for m in evidence or [] if isinstance(m, dict) and m.get('name')}
+    if not known:
+        return None
+    groups = [('From your dashboard', []), ('From past queries', []), ('Also', [])]
+    for name in names:
+        e = known.get(sentence(name).lower()) or known.get(str(name).lower()) or {}
+        groups[0 if e.get('tiles') else 1 if e.get('queries') else 2][1].append(name)
+    return [g for g in groups if g[1]]
 
 
 def _evidence(s, name):
@@ -773,45 +984,64 @@ def _parts(kind, s):
         tiles, asked = f.get('tiles', 0), f.get('questions', 0) - f.get('tiles', 0)
         evidence = s.get('evidence') or []
         most = max(evidence, key=lambda m: m['tiles'] + m['queries'], default=None)
-        return {'icon': 'metric', 'title': 'Built from your sources', 'meta': 'in %d min' % s['took'] if s.get('took') else '',
-                'value': count(f['metrics'], 'metric'), 'line': _queries_line(f),
+        held = s.get('held') or {}
+        held = ' and '.join(x for x in (count(held['metrics'], 'metric') if held.get('metrics') else '',
+                                        count(held['queries'], 'saved query', 'saved queries') if held.get('queries') else '') if x)
+        # The counts carry the headline; the dashboard's name goes in the source line (the person's words, 2026-11-23).
+        return {'icon': 'metric', 'title': 'Your agent is built',
+                # How the person got here: a build started from their question says so first.
+                'pre': 'Built to answer: ' + s['question'] if s.get('question') else '',
+                'why': s.get('aside', ''),
+                'meta': 'in %d min' % s['took'] if s.get('took') else '',
+                'value': count(f['metrics'], 'metric') + (
+                    ' and ' + count(s['saved_queries'], 'saved query', 'saved queries') if s.get('saved_queries') else ''),
+                'line': _source_line(f, s.get('report') or ''),
+                'held': 'Held back: %s. The side page says why.' % held if held else '',
                 'funnel': [r for r in (('Past queries read', f.get('queries'), [('fp', f.get('queries'))]) if f.get('queries') else None,
-                                       ('Queries built', f.get('questions'), [('fq', max(asked, 0)), ('ft', tiles)]) if f.get('questions') else None,
+                                       ('Questions written', f.get('questions'), [('fq', max(asked, 0)), ('ft', tiles)]) if f.get('questions') else None,
                                        ('Metrics', f['metrics'], [('fm', f['metrics'])])) if r],
                 'legend': [x for x in (('fq', '%d from past queries' % asked) if asked > 0 else None,
                                        ('ft', '%d from dashboard tiles' % tiles) if tiles else None) if x] if asked > 0 and tiles else [],
-                'most': ['Most merged', most['name'], _from(most)] if most and most['tiles'] + most['queries'] > 1 else None,
-                'names': s.get('merged') or [], 'marked': [m['name'] for m in evidence if m['tiles']],
-                'more': ['How each metric was reached', s.get('page')]}
+                'most': ['Found most often', most['name'], _from(most)] if most and most['tiles'] + most['queries'] > 1 else None,
+                'names': s.get('merged') or [], 'groups': _by_source(s.get('merged') or [], evidence),
+                'more': ['Every metric and how it\'s worked out', s.get('page')]}
     if kind == 'saved' and s.get('metrics') and not s.get('local'):
         featured = s.get('featured')
-        return {'icon': 'check-circle', 'title': 'Saved to Atlan Trident',
-                'value': '%s, %s' % (count(len(s['metrics']), 'metric'), count(s.get('queries', 0), 'query', 'queries')),
-                'line': 'Live in %s, where agents can find them' % (s.get('workspace') or 'your workspace'),
-                'note': ('%d of %d checked on %s first' % (s['kept'], s['total'], _where(s))
-                         + ('; %d need a look' % s['need_look'] if s.get('need_look') else '')) if s.get('total') else '',
+        return {'icon': 'check-circle', 'title': 'Saved to Atlan Trident', 'why': s.get('aside', ''),
+                'value': '%s, %s' % (count(len(s['metrics']), 'metric'), count(s.get('queries', 0), 'saved query', 'saved queries')),
+                'line': 'In %s, where chats with Atlan Analytics look for metrics' % (s.get('workspace') or 'your workspace'),
+                'note': ('Validated on %s: %d of %d passed' % (_where(s), s['kept'], s['total'])
+                         + (', %d %s your review' % (s['need_look'], 'needs' if s['need_look'] == 1 else 'need')
+                            if s.get('need_look') else '')) if s.get('total') else '',
                 'kv': [[' · '.join(x for x in (featured[0], _from(_evidence(s, featured[0]))) if x), featured[1]]] if featured else [],
-                'names': s['metrics'], 'marked': [m['name'] for m in s.get('evidence') or [] if m['tiles']]}
+                'names': s['metrics'], 'groups': _by_source(s['metrics'], s.get('evidence'))}
     if kind == 'answer' and s.get('headline'):
         label, value = _headline(s)
         rows = [r for r in s.get('rows') or [] if isinstance(r, list) and len(r) > 1 and isinstance(r[1], (int, float))]
+        if not _ordered([r[0] for r in rows]):
+            # Bars read top to bottom, longest first, unless their labels have an order of their own (0.9.74 kept the
+            # query's order: North 39 below Retail 9). A loss is as long as its size.
+            rows = sorted(rows, key=lambda r: -abs(r[1]))
         shown = rows[:BARS] + [r for r in rows[BARS:] if r[0] == s.get('highlight')][:1]
         proof = [sentence(x['name']) for x in s.get('proof') or [] if isinstance(x, dict) and x.get('name')]
         return {'icon': 'chart', 'title': 'Answer', 'pre': s.get('question', ''), 'value': value, 'neg': value.startswith('-'),
-                'line': label, 'why': s.get('summary', ''),
+                # The metric the sources line names is not said again under the number; a row that answers keeps its label.
+                'line': '' if proof[:2] and sentence(label).lower() in [n.lower() for n in proof[:2]] else label,
+                'why': s.get('summary', ''),
                 'bars': [{'label': str(r[0]), 'value': r[1], 'shown': number(r[1], s.get('unit')), 'mark': r[0] == s.get('highlight')}
                          for r in shown],
                 'rule': [s['rule']] if s.get('rule') else [],
+                'parts': [p for p in s.get('parts') or [] if isinstance(p, list) and len(p) == 2],
                 'sources': [[n, _from(_evidence(s, n)) or 'a saved query'] for n in proof[:2]],
                 'rest': '+%d more behind this answer' % (len(proof) - 2) if len(proof) > 2 else '',
-                'more': ['Its rule and sources', s.get('page')]}
+                'more': ['How this was worked out', s.get('page')]}
     if kind == 'edit' and s.get('values'):
         name, before, after = (s['values'][0] + ['', '', ''])[:3]
-        return {'icon': 'edit', 'title': 'Rule changed', 'pre': name, 'value': '%s → %s' % (before, after),
+        return {'icon': 'edit', 'title': 'Definition changed', 'pre': name, 'value': '%s → %s' % (before, after),
                 'ba': [['Before', before, s.get('before') or ''], ['After', after, s.get('after') or '']],
-                'chips': ([('+ Now counted too: ' + ', '.join(s['added']))] if s.get('added') else [])
+                'chips': ([('+ Now counted: ' + ', '.join(s['added']))] if s.get('added') else [])
                 + ([('- No longer counted: ' + ', '.join(s['removed']))] if s.get('removed') else []),
-                'warn': s.get('note', ''), 'more': ['The rule in full', s.get('page')]}
+                'warn': s.get('note', ''), 'more': ['The full definition', s.get('page')]}
     return None
 
 
@@ -826,6 +1056,19 @@ def _scale(bars):
     low = min(min(b['value'] for b in bars), 0)
     high = max(max(b['value'] for b in bars), 0)
     return -low / ((high - low) or 1), (high - low) or 1
+
+
+def _names_html(rows, hidden):
+    """The names, past the cap ending on how many more. Under their words, in one grid: a group that wraps keeps to its
+    own column, and every group's names start in the same place."""
+    e = k.e
+    spans = lambda items, last: ''.join('<span>%s</span>' % e(n) for n in items) + ('<span>+%d more</span>' % hidden if last and hidden else '')
+    if not rows:
+        return ''
+    if not rows[0][0]:
+        return '<div class="nm">%s</div>' % spans(rows[0][1], True)
+    return '<div class="ng">%s</div>' % ''.join('<b>%s</b><div class="nm">%s</div>' % (e(label), spans(items, i == len(rows) - 1))
+                                                for i, (label, items) in enumerate(rows))
 
 
 def card_html(p):
@@ -847,9 +1090,14 @@ def card_html(p):
             '<span>%s</span><span class="bk">%s</span><b>%s</b>' % (e(label), ''.join(
                 '<i class="%s" style="width:%.1f%%"></i>' % (cls, n / most * 100) for cls, n in segs if n), '{:,}'.format(n_all))
             for label, n_all, segs in p['funnel'])
-    marked = set(p.get('marked') or [])
     names = p.get('names') or []
-    shown = names if len(names) <= NAMES else names[:NAMES - 1]
+    # Each group on its own line, under its words; past the cap, the last line shown says how many more.
+    left, rows = (len(names) if len(names) <= NAMES else NAMES - 1), []
+    for label, items in p.get('groups') or ([('', names)] if names else []):
+        if left > 0:
+            rows.append((label, items[:left]))
+            left -= len(rows[-1][1])
+    hidden = len(names) - sum(len(items) for _, items in rows)
     value = e(_minus(p['value'])).replace(' → ', ' <s>→</s> ')
     more = p.get('more')
     return k.card(
@@ -864,22 +1112,23 @@ def card_html(p):
         + ''.join('<div class="ba"><span>%s</span><b%s>%s</b><span>%s</span></div>' % (e(l), ' class="now"' if l == 'After' else '', e(_minus(v)), e(r))
                   for l, v, r in p.get('ba') or [])
         + bars + ''.join('<div class="mu">%s</div>' % e(r) for r in p.get('rule', []))
+        + ('<div class="kv pt">%s</div>' % ''.join('<span>%s</span><b>%s</b>' % (e(a), e(_minus(b))) for a, b in p['parts']) if p.get('parts') else '')
         + ('<div class="kv">%s</div>' % ''.join('<span>%s</span><b>%s</b>' % (e(a), e(_minus(b))) for a, b in p['kv']) if p.get('kv') else '')
         + ('<div class="kv">%s</div>' % ''.join('<span><b>%s</b></span><span>%s</span>' % (e(a), e(b)) for a, b in p['sources']) if p.get('sources') else '')
         + ('<div class="mu">%s</div>' % e(p['rest']) if p.get('rest') else '')
         + ('<div class="mu">%s</div>' % e(p['note']) if p.get('note') else '')
-        + ('<div class="nm">%s%s</div>' % (''.join('<span>%s%s</span>' % ('<i></i>' if n in marked else '', e(n)) for n in shown),
-                                           '<span>+%d more</span>' % (len(names) - len(shown)) if len(names) > len(shown) else '') if names else '')
+        + _names_html(rows, hidden)
+        + ''.join('<div class="mu">%s</div>' % e(p[key]) for key in ('held', 'next') if p.get(key))
         + ('<div class="mf">%s</div>' % ' · '.join('<span class="add">%s</span>' % e(c) if c.startswith('+ ') else '<span class="rem">%s</span>' % e(c)
                                                    if c.startswith('- ') else e(c) for c in p['chips']) if p.get('chips') else '')
         + ('<div class="mw">%s<span>%s</span></div>' % (k.icon('alert-circle'), e(p['warn'])) if p.get('warn') else '')
-        + ('<div class="mo"><span>%s: on the side page beside the chat</span></div>' % e(more[0]) if more else ''),
+        + ('<div class="mo"><span>%s: on the side page</span></div>' % e(more[0]) if more else ''),
         '%s: %s' % (p['title'], _minus(p['value'])))
 
 
 def _fit(text, width=WIDTH):
-    text = str(text)
-    return text if len(text) <= width else text[:width - 1] + '…'
+    """Text cut to a width at a word, with "…"."""
+    return _fit_words(str(text), width)
 
 
 def _wrap(text, width=WIDTH):
@@ -952,7 +1201,7 @@ def _one_line(names, width=WIDTH, sep=' · '):
         line = sep.join(names[:n] + (['+%d more' % (len(names) - n)] if n < len(names) else []))
         if len(line) <= width:
             return line
-    return '%d metrics' % len(names)
+    return count(len(names), 'metric')
 
 
 SEGMENTS = {'fp': '█', 'fq': '▓', 'ft': '░', 'fm': '█'}
@@ -979,7 +1228,8 @@ def card_text(p, plain=False):
     spare goes first, and the side page holds it. Where the run has a side page, the last line names it, opened at what
     the card is about."""
     groups = [(_wrap(p['pre']) if p.get('pre') and p['icon'] != 'edit' else [], False),
-              (_wrap(p['line']) if p.get('line') else [], False),
+              # The build card's source line gives way after its Next line, before anything held back.
+              (_wrap(p['line']) if p.get('line') else [], 0.8 if p['icon'] == 'metric' else False),
               (_wrap(p['why']) if p.get('why') else [], False)]
     if p.get('funnel'):
         groups += [(_text_funnel(p['funnel'], None), False),
@@ -998,17 +1248,22 @@ def card_text(p, plain=False):
     groups += [(_text_bars(p['bars']) if p.get('bars') else [], False),
                ([x for r in p.get('rule', []) for x in _wrap(r)], False),
                ([_fit(left, WIDTH - len(_minus(right)) - 2).ljust(WIDTH - len(_minus(right))) + _minus(right)
-                 for left, right in p.get('kv') or []], True),
+                 for left, right in (p.get('kv') or []) + (p.get('parts') or [])], True),
                ([x for name, why in p.get('sources') or [] for x in _wrap('%s, %s' % (name, why))], False),
                ([p['rest']] if p.get('rest') else [], False),
                (_wrap(p['note']) if p.get('note') else [], False),
                ([_one_line(p['names'])] if p.get('names') else _wrap_items(p['chips']) if p.get('chips') else [], True),
+               # On one line: where its pointer to the side page does not fit, the card's last line names the page.
+               ([p['held'] if len(p['held']) <= WIDTH else p['held'].split('. ')[0] + '.'] if p.get('held') else [], False),
+               # What comes next gives way first among the card's own lines; held back never goes.
+               (_wrap(p['next']) if p.get('next') else [], 0.9),
                (_wrap('! ' + p['warn']) if p.get('warn') else [], False)]
     more = p.get('more')
     tail = (['↗ %s: %s' % (more[0], more[1]) if more[1] else '↗ %s: on the side page' % more[0]] if more else [])
     if p['icon'] in ('metric', 'check-circle'):
         while sum(len(g) for g, _ in groups) + len(tail) > 5 and any(opt and g for g, opt in groups):
-            at = max(i for i, (g, opt) in enumerate(groups) if opt and g)
+            # The line that can go first: the highest rank (True outranks 0.5), then the lowest on the card.
+            at = max((opt, i) for i, (g, opt) in enumerate(groups) if opt and g)[1]
             groups[at] = ([], True)
     lines = [line for g, _ in groups for line in g]
     out = [('  ' + (_fit(line) if plain else _plain(_fit(line)))).rstrip() for line in lines]

@@ -4,9 +4,9 @@ The interview belongs to `analytics-build`. `source-survey` reads and reports an
 the person anything. This file is every question asked before metric generation starts.
 
 ```
-warehouse ─ what do you want to do ─┬─ Let discovery decide ───── use cases ─ clarify ──────┬─ confirm ─ build
-                                    ├─ I know my tables ────────── tell me ───── access check ┘
-                                    └─ Make my dashboard agentic ─ share it ─ pick report and pages ─ check what can be built ─ build
+warehouse ─ what to build from ─┬─ Suggest from your warehouse ─ use cases ───────────────────────── build
+                                ├─ Start from tables ─────────── tell me ───── access check ─────── build
+                                └─ Start from a dashboard ────── share it ─ pick report and pages ─ check what can be built ─ build
 ```
 
 The dashboard branch has its own checklist, scope question and readiness check, and no
@@ -16,6 +16,19 @@ A question the request already answered is not asked: a named warehouse skips th
 named dashboard file or link is the dashboard branch with step 1 done; a use case named
 with its tables is the third branch with step 1 done. Nothing is preselected, and free text
 is always accepted.
+
+## Contents
+
+- Before card 1: see what is already connected, silently
+- Card 1: two questions
+- Arriving from the demo
+- After card 1: the warehouse must answer
+- Branch A: Suggest from your warehouse
+- Branch B: Start from a dashboard
+- Branch C: Start from tables
+- The access check, in branches B and C
+- Starting the build: discovery and known tables
+- Record what the person chose
 
 ## Before card 1: see what is already connected, silently
 
@@ -27,9 +40,8 @@ Two quick looks, so the choices offered are the person's own. Neither reads data
 
 **Say nothing about these looks.** No `**Doing:**` or `**Why:**`, no "checking what's
 connected", no "before the first question", and no explanation of where the options came
-from. If the host shows a line while tools run, that line is exactly "Getting set up." and
-nothing more. The
-person's first sight of this skill is the opening and the first question. How the options
+from. If the host shows a line while tools run, that line is exactly "Getting set up.",
+once, and nothing more. The person's first sight of this skill is the opening and the first question. How the options
 were found, that a check ran, and which tool answered are internal and never appear in the
 card, an option or its description.
 
@@ -40,41 +52,43 @@ Code's does), and both in one message, in this order, where the host has no ques
 only a question tool that takes one question at a time asks them one per turn. The card's own visible text is the
 opening, because a block printed before a question is lost:
 
-"Atlan Analytics turns your dashboards and the queries your team already runs into context:
-what your numbers mean and how they are worked out. With that context, you can ask your data
-questions in plain English and see what each answer is based on.
+"Let's build an agent that answers your data questions in plain English and shows what each
+answer is based on.
 
-First, let me understand your tools and your domain."
+I'll extract all the context I can from your dashboards and tables, add detailed information
+to it and validate it on your data.
+
+First, where does your data live, and what do you want your agent to do?"
 
 **A card holds its own text and nothing else.** Never put the step tracker, a progress
 summary or a recap of earlier answers in any question's text, here or later: the tracker
 lives in the host's task list. The second question of the card needs no text of its own.
 
-### Which warehouse are you connected to?
+### Where does your data live?
 
 Make it plain which warehouses are already connected: the person should see at a glance
 that they can pick one and carry on.
 
 | Option label | Description | When to offer it |
 | --- | --- | --- |
-| `<Product>` (already connected) | "Connected here and ready to use." Add how only when two connections share a product: "Connected here through the Snowflake CLI." | One per connection that works. List these first. With exactly one, mark it recommended |
-| `<Product>` (set up, needs sign-in) | "Set up here, but you'll need to sign in before I can use it." | One per connection that is configured and did not answer |
-| Another warehouse | "Tell me which and I'll help you connect it." | Always, as one option, never one option per product |
-| I don't have one | "Work from a dashboard file alone, or try the demo." | Always, last |
+| `<Product>` | "Connected and ready to use." Add how only when two connections share a product: "Connected and ready to use, through the Snowflake CLI." | One per connection that works. List these first. With exactly one, its label is `<Product> (Recommended)` |
+| `<Product>` (needs sign-in) | "Set up here. You'll sign in once before I start." | One per connection that is configured and did not answer |
+| Another warehouse? | "Tell me which, and I'll help you connect it." | Always, as one option, never one option per product |
+| No warehouse | "Build from a dashboard file alone, or try the demo." | Always, last |
 
-Write the status in the label, in those words. Never "it answered a check", "detected",
-"found" or a tool's name.
+Say each status in those words: "Connected and ready to use." in the description, "(needs
+sign-in)" in the label. Never "it answered a check", "detected", "found" or a tool's name.
 
-### What do you want to do?
+### What should I build your agent from?
 
 Three options, in this order, with these meanings. Word them for the person, not for the
 plugin:
 
 | Option | Description | Branch |
 | --- | --- | --- |
-| Let discovery decide | "I'll look at what your warehouse is used for and suggest use cases." | A |
-| Make my dashboard agentic | "Share a dashboard and I'll turn it into metrics you can ask questions of." | B |
-| I have a use case and know my tables | "Tell me the use case, the tables and any dashboards. I'll build from exactly those." | C |
+| Suggest from your warehouse | "I'll look at what is used the most, and suggest what your agent should cover." | A |
+| Start from a dashboard | "I'll turn your BI dashboards into context for your agent." | B |
+| Start from tables | "Name what your agent should cover, the tables and any supporting dashboards." | C |
 
 A typed answer picks its branch by what it holds: a link or a file is B, a use case with
 tables is C, a subject alone ("sales pipeline") is A with that subject as the domain. Each
@@ -84,7 +98,7 @@ a link, file or table list belongs to the branch, after this answer.
 
 ## Arriving from the demo
 
-The person picked "Continue building on real data" at the end of a demo, which answers card
+The person picked "Build one on your own data" at the end of a demo, which answers card
 1's second question: they want to build from a source of their own. Ask one question in place
 of card 1, with no opening before it:
 
@@ -115,51 +129,43 @@ database, files, intent and approvals never carry over.
 A chosen warehouse that needs sign-in, or is not connected yet, is connected now, in every
 branch, as [warehouse discovery](../../../source-survey/references/connect.md) describes:
 discovery and the access checks both need it. Say what the person has to do in one line and
-continue when its check answers. With "I don't have one", only branch B can run, from a
+continue when its check answers. With "No warehouse", only branch B can run, from a
 file; say so if they chose A or C, and mention `analytics-demo`.
 
-## Branch A: Let discovery decide
+## Branch A: Suggest from your warehouse
 
 1. **Discover.** No question. `source-survey` `discover` on the chosen warehouse, with the
    discovery Doing and Why lines.
-2. **Which should I build?** [The use cases](names.md): up to three, each one line with its
-   tables, then "I have a dashboard". More than one can be picked. Picking the dashboard
+2. **What should your agent answer?** [The use cases](names.md): up to three, each one line with its
+   tables, then "Add a dashboard". More than one can be picked. Picking the dashboard
    option asks for its link or file next.
-3. **Clarify, only if needed.** One card of at most two questions, asked only where
-   discovery could not settle something that changes the numbers, with what was found as the
-   options:
-
-   | Unsettled | Ask | Options |
-   | --- | --- | --- |
-   | Two tables both look like the main thing counted | "Which table is an `<account>` for you?" | The candidates, each with one line of what it holds |
-   | Rows that may need leaving out | "What should always be left out?" | What was found (test accounts, internal users, deleted rows), and "Nothing" |
-   | Fiscal and calendar dates both present | "Fiscal or calendar quarters?" | The two |
-   | Two columns both look like the main amount | "Which is `<ARR>`?" | The candidates |
-
-   Ask nothing that discovery settled: state those as assumptions in the confirmation. Never
-   ask about audience, layout or which metrics.
-4. **Confirm and trigger**, below.
+3. **Settle the rest yourself, and ask nothing.** Where the chosen use cases leave something
+   open that changes the numbers (which table is the main one, rows to leave out, fiscal or
+   calendar quarters, which column is the main amount), choose from what discovery found and
+   state each choice in the build's start line, which the person can change: a question here
+   would come before anything is built, about things the person has not seen yet.
+4. **Build on the pick**, as [starting the build](#starting-the-build-discovery-and-known-tables) says.
 5. **After the build, offer a dashboard**, next.
 
 ### After the build, in this branch only: offer a dashboard
 
-Discovery builds from query history and table definitions. A dashboard holds rules the team
+Discovery builds from past queries and table definitions. A dashboard holds rules the team
 already agreed, so adding one can improve what was built. When generation and its checks
 have finished, and no dashboard was part of this build, ask once, before the save question:
 
-"Built from your warehouse: `<N>` metrics and `<N>` queries, from query history and table
-definitions. The quality can improve if you add more sources: a dashboard brings the rules
-your team already agreed for these numbers.
+"Your agent now has `<N metrics>` and `<N saved queries>`, from your warehouse's past queries
+and table definitions. A dashboard adds the rules your team already agreed for these metrics.
 
-Would you like to add a dashboard?"
+Add a dashboard?"
 
 | Option | Description |
 | --- | --- |
-| Add a dashboard | "Share its link or file. I'll read it and update the metrics it covers." |
-| Not now | "Keep what's built and carry on to saving." |
+| Add a dashboard | "Share a link or file. I'll read it and update your agent from it." |
+| Not now | "Leave your agent as it is, and choose where to store your context." |
 
-- **Add a dashboard**: ask for it with branch B's card, open it and check access (signing
-  the person in when a link needs it), then confirm and build with the dashboard added. Metrics the
+- **Add a dashboard**: ask for its link or file (branch B's card, with only the files found as
+  options), open it and check access (signing
+  the person in when a link needs it), then build with the dashboard added: picking it is the go-ahead. Metrics the
   dashboard also defines are reconciled with it and any change is shown as news; the rest
   stay as built. Then continue to the save question.
 - **Not now**, or the dashboard cannot be read: continue to the save question. Do not ask
@@ -167,22 +173,22 @@ Would you like to add a dashboard?"
 
 Say "can improve", never that the current metrics are wrong or incomplete, and never offer
 this in the dashboard branch, the known-tables branch or a demo. Skip it when the person
-already picked "I have a dashboard" in the menu, and on a resume that is past this point.
+already picked "Add a dashboard" in the menu, and on a resume that is past this point.
 
-## Branch B: Make my dashboard agentic
+## Branch B: Start from a dashboard
 
 1. **Share the dashboard.** One card, so the person picks where they can and types only the
    link or path:
 
-   "Which dashboard should I use?"
+   "Which dashboard should I build your agent from?"
 
-   The question's own text is one line: "Paste its link or a file path below, or pick one."
+   The question's own text is one line: "Paste a dashboard link or file path in Other, or pick one."
 
    | Option | Description | When to offer it |
    | --- | --- | --- |
    | Each BI file in the working folder, by name | "The `<Power BI>` file in this folder." | One per file `PROJECT discover` found, at most two, largest first |
-   | I know my tables instead | "Skip the dashboard and tell me the use case and tables." | When fewer than two files were found |
-   | Skip, let discovery decide | "I'll look at what your warehouse is used for and suggest use cases." | Always, last |
+   | Start from tables instead | "Name what your agent should cover, and the tables." | When fewer than two files were found |
+   | Suggest from your warehouse | "I'll look at what your warehouse is used for most, and suggest what to cover." | Always, last |
 
    The host's free-text entry takes the link or the path. Never add an option that only says
    to paste or type, and never ask which BI tool it is: the link's host or the file's
@@ -193,8 +199,8 @@ already picked "I have a dashboard" in the menu, and on a resume that is past th
    | --- | --- |
    | A file in the folder, or a typed path | Step 2, on that file |
    | A link | Step 2, on that link: open it, signing the person in when it needs it |
-   | I know my tables instead | Branch C from its start |
-   | Skip, let discovery decide | Branch A from its start |
+   | Start from tables instead | Branch C from its start |
+   | Suggest from your warehouse | Branch A from its start |
 
 2. **Continue in [the dashboard branch](dashboard-flow.md)**: pick the report and pages, then
    check what can be built, which ends with the build starting, or with one go-ahead question
@@ -203,38 +209,38 @@ already picked "I have a dashboard" in the menu, and on a resume that is past th
    to ask whether to sign in. **When something still cannot be read** below applies to the
    check's findings. There is no separate confirmation in this branch.
 
-## Branch C: I have a use case and know my tables
+## Branch C: Start from tables
 
 1. **Tell me.** One card, so the person sees where to type and how to skip:
 
-   "What's the use case, and which tables power it?"
+   "What should your agent answer, and from which tables?"
 
    The question's own text shows what to type, in one line: "Type it in your own words, for
-   example: `Pipeline by stage and win rate. Tables: SALES.FCT_OPPORTUNITY,
-   SALES.DIM_ACCOUNT`. Add a dashboard link or file if you have one."
+   example 'Pipeline by stage and win rate. Tables: SALES.FCT_OPPORTUNITY,
+   SALES.DIM_ACCOUNT'. Add a dashboard link or file if you have one."
 
    | Option | Description |
    | --- | --- |
-   | Skip, let discovery decide | "I'll look at what your warehouse is used for and suggest use cases." |
-   | Share a dashboard instead | "Paste a dashboard link or file and I'll build from that." |
+   | Suggest from your warehouse | "I'll look at what your warehouse is used for most, and suggest what to cover." |
+   | Start from a dashboard | "Paste a link or file instead." |
 
    The host's free-text entry is where the use case and tables go; never add an option
    that only says to type. Where the host has no question tool, ask the same thing in
-   ordinary chat and end with: "Or say skip and I'll let discovery decide."
+   ordinary chat and end with: "Or say skip, and I'll suggest from your warehouse."
 
    | They answer | Do |
    | --- | --- |
    | A use case and tables | Take them as given: the use case in their words, the tables as named. Do not suggest other tables or run discovery |
    | A use case and no tables | Branch A, with the use case as the subject: discovery finds its tables. Ask nothing more first |
-   | Skip, let discovery decide | Branch A from its start |
-   | Share a dashboard instead | Branch B from its start |
+   | Suggest from your warehouse | Branch A from its start |
+   | Start from a dashboard | Branch B from its start |
 
 2. **Access check.** `source-survey` `access` on each table and dashboard they named.
-3. **Confirm and trigger**, below.
+3. **Build**, as [starting the build](#starting-the-build-discovery-and-known-tables) says.
 
 ## The access check, in branches B and C
 
-Silent when everything can be read: go straight to the confirmation, which says so.
+Silent when everything can be read: the build starts.
 
 ### A link that needs sign-in
 
@@ -247,7 +253,7 @@ that question comes only after a failure:
 
 | Tool | What to do | Say |
 | --- | --- | --- |
-| Power BI | Start the plug's browser sign-in (a device code where no browser can open) | "Opening Power BI sign-in in your browser. I'll carry on once you're signed in." |
+| Power BI | Start the plug's one command as a background command (browser sign-in; a device code where no browser can open), as [the metrics module](../../../metrics-generation/references/metrics-engine.md#power-bi-from-a-report-link) says. Tell the person they are signed in only when the wait returns `signed_in` | "Opening Power BI sign-in in your browser. Once you're signed in, reading your report takes about a minute, and I'll show its pages here." Start the command first, then say this once and wait for it in the same turn, as [the metrics module](../../../metrics-generation/references/metrics-engine.md#power-bi-from-a-report-link) says: no other line about the same wait |
 | Another tool whose route can start a sign-in | Start it the same way | The same line, with the tool's name |
 | Tableau, or any tool with no sign-in a tool can start | Ask the one question below | |
 
@@ -259,9 +265,9 @@ tool's routes as the options:
 
 | Option | Description |
 | --- | --- |
-| Download it and give me the file (recommended) | "In Tableau, Download, then Tableau Workbook. Paste the path here." |
-| Use an access token | "For Tableau, a Personal Access Token you create. I'll tell you where to put it, never in this chat." |
-| Skip, let discovery decide | "Build from the warehouse instead." |
+| Download the workbook (Recommended) | "In Tableau, choose Download, then Tableau Workbook. Paste the file's path here." |
+| Use an access token | "Create a Tableau personal access token. I'll tell you where to put it, never in this chat." |
+| Suggest from your warehouse | "Skip the dashboard." |
 
 A sign-in that fails or is cancelled falls back to that same question, once.
 
@@ -271,36 +277,36 @@ Ask one question that names it and offers the ways forward:
 
 | What failed | Ask | Options |
 | --- | --- | --- |
-| A dashboard cannot be opened even after sign-in | "I can't open this dashboard: `<the reason>`." | I'll send a file instead · Skip, let discovery decide |
-| Some tables cannot be read | "I can't read `<N>` of its `<M>` tables: `<names>`." | Build from the `<M-N>` I can read · I'll fix access first |
+| A dashboard cannot be opened even after sign-in | "I can't open this dashboard: `<the reason>`." | I'll send a file instead · Suggest from your warehouse |
+| Some tables cannot be read | "I can't read `<N>` of its `<M>` tables, so tiles that use `<names>` stay out." | Continue with the rest · I'll fix access first |
 | No table can be read | "I can't read any of these tables on `<warehouse>`." | I'll fix access first · Pick another warehouse |
-| A dashboard's data is packed inside the file | "This dashboard's data is inside the file, with no warehouse table behind it." | Name the table that holds the same data · Stop here |
+| A dashboard's data is packed inside the file | "This dashboard's data is inside the file, with no warehouse table behind it. Your agent needs a table to read." | Name the table · Stop here |
 
 Name the tables that failed, never a credential, role secret or connection string. Saving
-to Atlan Trident is a later sign-in and is not checked here.
+to Atlan is a later sign-in and is not checked here.
 
-## Confirm and trigger: discovery and known tables
+## Starting the build: discovery and known tables
 
-One question, as its own text, before anything is built. The dashboard branch skips it: its
-readiness check is the go-ahead.
+There is no separate question to start. The go-ahead is the person's own answer: in
+discovery, picking a use case; from tables, their message naming the tables, once every one
+reads. When the access check finds something it cannot read, its question above comes first,
+and "Continue with the rest" is the go-ahead. The dashboard branch has its readiness check.
 
-"Building `<what>` from `<the sources, in order>`, checked on `<warehouse>`. About `<time>`."
+In the same turn, write the build's start line, which is the build's Doing and Why for
+[when to talk](progress.md#when-to-talk) and replaces any other pair for it: what it builds from and what it will answer, about
+how long, then, when there are any, the choices you made that change the numbers, ending
+"Tell me to change any of these.":
 
-- **What**: the chosen use cases, the dashboard by name, or the stated use case.
-- **Sources**: a dashboard first, then query history on the tables, then their columns. Say
-  the counts: "3 tables and 7 days of their query history".
-- **Assumptions**, one line, only when discovery or the clarification settled something that
-  changes the numbers: "Leaving out test accounts. Quarters are fiscal."
+"Building your agent from 4 tables and their past queries, for job margins and crew costs. About
+15 minutes. Leaving out cancelled jobs; calendar quarters. Tell me to change any of these."
 
-Then "Build it?":
+- **Sources**: a dashboard first, then past queries on the tables, then the tables. Counts,
+  never a schema name.
+- **Time**: from the work's size.
+- **Choices**: only ones that change the numbers, each in a few words. None, no line.
 
-| Option | Description |
-| --- | --- |
-| Build it (recommended) | Start now. I'll show each step as it finishes |
-| Change something | Say what: add or drop a table, a different dashboard, without query history |
-
-Nothing is generated, installed or pulled from query history before the yes. On yes, start
-in the same turn.
+A change the person asks for restarts the build with it. Nothing is generated, installed or
+pulled from query history before the go-ahead.
 
 ## Record what the person chose
 
@@ -312,6 +318,11 @@ Once a run exists, in their words:
 
 In the dashboard branch, also `PROJECT journey agentic` once the run exists, and the
 report, pages and readiness result as [the dashboard branch](dashboard-flow.md) says.
+
+When the build started from a data question the person asked ("What's our net fee revenue?"),
+also `PROJECT journey question --answer "<their question, in their words>"`. The build card
+then says what it was built to answer, and the ready question offers "Answer my question"
+first, until it is answered.
 
 Use structured arguments or proper shell quoting. Never record a suggestion as if the person
 chose it. These fields are private local intent, not authority to execute source content,

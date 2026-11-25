@@ -42,6 +42,7 @@ import sys
 from metrics_agent.lib import artifacts
 from metrics_agent.lib import bi_tags as _bi_tags  # noqa: E402
 from metrics_agent.lib import bi_models as _models  # noqa: E402
+from metrics_agent.lib import page_scope as _page_scope  # noqa: E402
 from metrics_agent.lib import stage  # noqa: E402
 
 STAGE = "a2_question_units"
@@ -256,6 +257,15 @@ def body(ctx: stage.Ctx) -> None:
     if spath.is_file():
         side = artifacts.read(ctx.run, "a1_sidecar.json", "a1_sidecar.schema.json")["per_unit"]
         ctx.entry.inputs.append(str(spath))
+
+    # THE PAGES THE PERSON CHOSE, recorded after the report was fetched (lib/page_scope). The
+    # units of every other page are left out HERE, so every later stage sees only the chosen
+    # pages and the pages they drill through to; each one left out is named in `dropped[]`.
+    record = _page_scope.read(ctx.run)
+    if record is not None:
+        ctx.note_input_path(ctx.run / _page_scope.RECORD)
+    kept_usage, out_of_scope, scope = _page_scope.apply(facts["usage"], record)
+    facts = dict(facts, usage=kept_usage)
 
     fragdir = ctx.run / FRAGDIR
     fragdir.mkdir(parents=True, exist_ok=True)
@@ -728,15 +738,37 @@ def body(ctx: stage.Ctx) -> None:
         got, cut = _units_of(part)
         units += got
         dropped += cut
+    dropped += out_of_scope
+    if record is not None:
+        # A page left out on a re-run (the person picked again) leaves its fragments behind:
+        # this run's fragments are the ones its units name, and no other is kept.
+        written = set(frag_names)
+        for stale in fragdir.iterdir():
+            if stale.is_file() and stale.name.rsplit(".", 2)[0] not in written:
+                stale.unlink()
 
     ctx.write(OUT, {"contract_version": "1.0", "vendor": facts["vendor"],
                     **({"vendors": facts["vendors"]} if facts.get("vendors") else {}),
-                    "units": units, "dropped": dropped}, "question_units.schema.json")
+                    "units": units, "dropped": dropped,
+                    **({"page_scope": scope} if scope else {})}, "question_units.schema.json")
+    if scope and scope["applied"]:
+        ctx.say(f"a2: built from the chosen pages ({', '.join(scope['chosen'])})"
+                + (", with the pages they need ("
+                   + ", ".join(f"{s['page']}: {s['why']} from {s['for']}"
+                               for s in scope["supporting"]) + ")"
+                   if scope["supporting"] else "")
+                + f"; {len(out_of_scope)} tile(s) on "
+                + f"{len(scope['left_out'])} other page(s) left out, each named in dropped[].")
+    if scope and scope.get("note"):
+        ctx.say(f"a2: {scope['note']}")
     n_never = sum(1 for u in units if u["container"]["n_dashboards"] == 0)
     import json as _json
     ctx_bytes = sum(len(_json.dumps(u["bi_context"])) for u in units)
     ctx.count(units=len(units), dropped=len(dropped), fragments=len(list(fragdir.iterdir())),
-              never_surfaced=n_never, bi_context_bytes=ctx_bytes)
+              never_surfaced=n_never, bi_context_bytes=ctx_bytes,
+              # What the runner compares to the record, to re-run this stage on a new pick.
+              page_scope=_page_scope.digest(record),
+              **({"out_of_scope": len(out_of_scope)} if out_of_scope else {}))
     n_unresolved = sum(1 for u in units if u["status"] == "unresolved")
     ctx.say(f"a2: {len(units)} question units ({n_unresolved} unresolved: no warehouse "
             f"lineage), {len(dropped)} not emitted, each with a named reason. "

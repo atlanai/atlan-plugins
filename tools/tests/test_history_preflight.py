@@ -21,11 +21,11 @@ class HistoryPreflight(unittest.TestCase):
             src, dst = Path(tmp) / 'input.jsonl', Path(tmp) / 'clean.jsonl'
             src.write_text('\n'.join(json.dumps({'query_text': sql}) for sql in [
                 'SELECT SUM(amount) FROM orders',
-                "SELECT SUM(amount) FROM orders WHERE owner = 'Synthetic Person'",
+                "SELECT SUM(amount) FROM orders WHERE owner = 'synthetic.person@example.com'",
                 "SELECT SUM(amount) FROM orders WHERE status = 'Closed Won'"]))
             result = analytics_eval.filter_querylog(str(src), str(dst))
             self.assertEqual((result['kept'], result['dropped']), (2, 1))
-            self.assertNotIn('Synthetic Person', json.dumps(result) + dst.read_text())
+            self.assertNotIn('synthetic.person@example.com', json.dumps(result) + dst.read_text())
 
     @unittest.skipUnless(RUNTIME, 'Set ANALYTICS_METRICS_RUNTIME for engine preflight acceptance.')
     def test_engine_filters_before_any_authoring_gate(self):
@@ -38,7 +38,7 @@ with tempfile.TemporaryDirectory() as tmp:
     db=duckdb.connect(str(database));db.execute('CREATE TABLE orders(amount INTEGER, owner VARCHAR)');db.execute("INSERT INTO orders VALUES (10, 'team')");db.close()
     rows=[{'query_text':sql,'exec_count':30,'user_count':3} for sql in [
         'SELECT SUM(amount) FROM demo.main.orders',
-        "SELECT SUM(amount) FROM demo.main.orders WHERE owner = 'Synthetic Person'"]]
+        "SELECT SUM(amount) FROM demo.main.orders WHERE owner = 'synthetic.person@example.com'"]]
     history.write_text(chr(10).join(json.dumps(row) for row in rows)+chr(10))
     config={'version':1,'scope':'synthetic-preflight','dialect':'duckdb','mode':'standalone',
       'inputs':{'history':['local-files'],'schema':['local-files'],'bi':[],'sql_check':['local-files']},

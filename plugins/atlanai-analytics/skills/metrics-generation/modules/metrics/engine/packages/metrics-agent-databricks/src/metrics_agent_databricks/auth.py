@@ -42,7 +42,7 @@ def sdk_provider(host, settings, method):
                 if cfg.username or cfg.password or cfg.auth_type == 'basic':
                     raise AuthConfigurationError("Databricks SQL does not support username/password authentication")
                 if cfg.auth_type == 'external-browser' and not at_terminal():
-                    raise AuthConfigurationError("Databricks browser sign-in needs a real terminal")
+                    raise AuthConfigurationError("Databricks browser sign-in needs a terminal. Start it from one.")
                 return self.delegate(cfg)
 
         kwargs = {'credentials_strategy': ScopedCredentials()}
@@ -118,7 +118,7 @@ def connection_options(settings):
         options.pop("auth_type", None)
     elif method in ("browser", "databricks-oauth", "azure-browser", "azure-oauth"):
         if not at_terminal():
-            raise AuthConfigurationError("Databricks browser sign-in needs a real terminal; use the host TTY or an environment token for unattended runs")
+            raise AuthConfigurationError("Databricks browser sign-in needs a terminal. Start it from one, or set a token in the environment for unattended use.")
         options.pop("access_token", None)
         if method in ('azure-browser', 'azure-oauth'):
             options['auth_type'] = 'azure-oauth'

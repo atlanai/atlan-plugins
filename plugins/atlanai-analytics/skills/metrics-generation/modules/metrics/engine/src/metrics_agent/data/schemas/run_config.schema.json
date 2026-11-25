@@ -147,7 +147,7 @@
             "minLength": 1,
             "maxLength": 200
           },
-          "description": "Literals a person reviewed as business values, not names (a line of business such as 'Variable Spend'). Exact text; each clears the person's-name check for that literal only."
+          "description": "Literals a person reviewed as business values, not names. Exact text. No check reads them since the name rules were removed (2026-11-23); kept for the rules the security team sets."
         }
       }
     },

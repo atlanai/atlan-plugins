@@ -27,7 +27,7 @@ def required_filter_holds(queries, units):
         missing = _unproved(query['sql'], queries['dialect'], unit, required)
         if missing:
             held[query['vq_id']] = {'reason': 'required_filter_missing',
-                'detail': 'Required member scope is not proven in the SQL for: ' + ', '.join(missing)}
+                'detail': 'Its SQL leaves out a filter its tile always applies, on ' + ', '.join(missing)}
     return held
 
 

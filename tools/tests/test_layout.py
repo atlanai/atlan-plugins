@@ -70,9 +70,13 @@ class OneFolder(unittest.TestCase):
         self.assertTrue((self.project / '.atlan-metrics/evals').is_dir())
         self.assertEqual([p.name for p in (self.project / '.atlan-analytics/evals').iterdir()], ['sets'])
 
-    def test_an_earlier_built_run_is_found_after_the_move(self):
+    def test_reading_never_moves_and_a_command_moves_once(self):
         self.earlier()
-        self.assertEqual(eval_runs.built_runs(self.project), [self.project / '.atlan-analytics/run_1'])
+        # The side page reads every second: it finds the earlier run where it is, and moves nothing.
+        self.assertEqual(eval_runs.built_runs(self.project), [self.project / '.atlan-metrics/run_1'])
+        self.assertTrue((self.project / '.atlan-metrics/run_1').is_dir())
+        # A command moves the earlier folders in, then finds the run in its new place.
+        self.assertEqual(eval_runs.find_run(self.project), self.project / '.atlan-analytics/run_1')
         self.assertTrue(layout.evals(self.project).joinpath('sets/mine.jsonl').is_file())
 
     def test_a_run_named_by_its_earlier_path_is_followed(self):

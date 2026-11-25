@@ -95,7 +95,7 @@ select
     start_time,
     execution_status
 from table(information_schema.query_history(
-    end_time_range_start => dateadd('day', -%(days)d, current_timestamp()),
+    end_time_range_start => dateadd('hour', -%(hours)d, current_timestamp()),
     result_limit => %(limit)d
 ))
 where execution_status = 'SUCCESS'
@@ -150,8 +150,9 @@ def mine_query_history(conn, days: int = 90, limit: int = 2000,
                 f"grant: {detail[:160]}. Not falling back — the narrower source "
                 "would hide this."
             ) from e
+        # Snowflake refuses a start exactly 7 days back ("more than 7 days ago"): 167 hours is the most it takes.
         rows = _fetch(conn, _INFORMATION_SCHEMA_SQL % {
-            "days": min(days, 7), "limit": limit, "extra": params["extra"]})
+            "hours": min(days * 24, 167), "limit": limit, "extra": params["extra"]})
         source = "information_schema"
         days = min(days, 7)
         note = (f"ACCOUNT_USAGE unavailable ({detail[:100]}); "

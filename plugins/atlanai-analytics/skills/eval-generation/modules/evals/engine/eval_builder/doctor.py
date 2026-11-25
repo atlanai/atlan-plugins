@@ -304,7 +304,7 @@ def check_query_history() -> Result:
                 try:
                     cur.execute(
                         "select count(*) from table(information_schema.query_history("
-                        "end_time_range_start => dateadd('day', -7, current_timestamp())))"
+                        "end_time_range_start => dateadd('hour', -167, current_timestamp())))"
                     )
                     n = cur.fetchone()[0]
                     return Result(
