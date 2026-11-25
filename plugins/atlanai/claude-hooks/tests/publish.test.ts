@@ -263,13 +263,33 @@ describe('local bulk publication', () => {
   })
 
   test('recognizes Atlan aliases while keeping ambiguous server names unexpanded', () => {
-    for (const server of ['atlan-c360', 'atlan_personal', 'plugin_example_atlan-personal']) {
+    for (const server of ['atlan-c360', 'atlan_personal', 'plugin_example_atlan-personal', 'Atlan_registry', 'claude_ai_Atlan', 'claude_ai_Atlan_-_Atlan']) {
       const prefix = `mcp__${server}__mcp__`
       const names = ['call_tool', 'call_write_tool', 'call_read_tool', 'search_tools', 'describe_tools']
       const tools = names.map(name => ({ name: prefix + name, mcp: true }))
       expect(gatewayRunners(tools)).toEqual(names.slice(0, 3).map(name => prefix + name))
       expect(gatewayRunners(tools.slice(0, 3))).toEqual([])
     }
+  })
+
+  test('keeps claude.ai connectors with other names unexpanded', () => {
+    for (const server of ['claude_ai_Slack', 'claude_ai_Atlantis', 'Atlantis']) {
+      const prefix = `mcp__${server}__mcp__`
+      const tools = ['call_write_tool', 'search_tools', 'describe_tools'].map(name => ({ name: prefix + name, mcp: true }))
+      expect(gatewayRunners(tools)).toEqual([])
+    }
+  })
+
+  test('loads a bulk batch through a cloud session\'s claude.ai connector', async ($, on) => {
+    const disk = new Disk()
+    const sent = engine(on, disk)
+    const prefix = 'mcp__Atlan_registry__mcp__'
+    on('tool.list', () => ({ value: ['call_write_tool', 'search_tools', 'describe_tools'].map(name => ({ name: prefix + name, description: 'Gateway tool', mcp: true })) }))
+    const text = JSON.stringify([batchItem])
+    disk.file(`${CWD}/payload.json`, text)
+    await $.tool.call({ ...await bulkCall(text), tool: prefix + 'call_write_tool' } as never)
+    expect(sent.length).toBe(1)
+    expect((sent[0]?.arguments as { items: unknown }).items).toEqual([batchItem])
   })
 
   test('does not infer a foreign origin from gateway-shaped discovery tools', async ($, on) => {
