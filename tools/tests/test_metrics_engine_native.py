@@ -345,6 +345,28 @@ class DetailTableTest(unittest.TestCase):
         units['u2'] = {'warehouse_tables': ['retail.other'], 'native_source': units['u1']['native_source']}
         self.assertNotIn('entity', x3_emit._derived_source(['u1', 'u2'], units, 'duckdb'))
 
+    def test_a_custom_sql_source_names_the_table_its_query_starts_from(self):
+        # Tableau custom SQL: A2 names the relation by its caption, which the query never reads.
+        from metrics_agent.stages import x3_emit
+        sql = ('SELECT t.ticket_id, t.face_value, n.tickets_in_order FROM tix.tickets AS t '
+               'JOIN tix.orders AS o ON o.order_id = t.order_id '
+               'JOIN (SELECT order_id, COUNT(*) AS tickets_in_order FROM tix.tickets GROUP BY order_id) AS n '
+               'ON n.order_id = t.order_id')
+        units = {'u1': {'warehouse_tables': ['Box Office'],
+                        'native_source': {'logical': 'Box Office', 'sql': sql, 'columns': {'Face Value': 'face_value'}}}}
+        got = x3_emit._derived_source(['u1'], units, 'duckdb')
+        self.assertEqual((got['alias'], got['entity']), ('box_office', 'TIX.TICKETS'))
+        self.assertIn('tickets', got['sql'].lower())
+        with_cte = 'WITH e AS (SELECT * FROM tix.events) SELECT e.event_id FROM e'
+        units['u1']['native_source'] = {'logical': 'Event Sales', 'sql': with_cte, 'columns': {}}
+        self.assertEqual(x3_emit._derived_source(['u1'], units, 'duckdb')['entity'], 'TIX.EVENTS')
+        union = ('SELECT order_id, service_fee AS amount FROM tix.tickets UNION ALL '
+                 'SELECT order_id, delivery_fee FROM tix.orders UNION ALL SELECT order_id, -fee FROM tix.refunds')
+        units['u1']['native_source'] = {'logical': 'Fee Ledger', 'sql': union, 'columns': {}}
+        self.assertEqual(x3_emit._derived_source(['u1'], units, 'duckdb')['entity'], 'TIX.TICKETS')
+        units['u1']['native_source'] = {'logical': 'Box Office', 'sql': 'SELECT 1 AS one', 'columns': {}}
+        self.assertNotIn('entity', x3_emit._derived_source(['u1'], units, 'duckdb'))
+
     def test_a_question_is_asked_at_c3_as_m2_requires(self):
         from metrics_agent.stages import c3_questions
         cands = [{'candidate_id': 'c1'}]

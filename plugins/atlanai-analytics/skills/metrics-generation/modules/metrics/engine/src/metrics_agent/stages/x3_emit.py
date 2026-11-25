@@ -1180,15 +1180,23 @@ def _derived_source(unit_ids: list, units: dict, dialect: str) -> dict | None:
     if not unit_ids or len(natives) != 1 or native is None:
         return None
     try:
-        body = sqlshape.render(sqlshape.strip_comments(sqlshape.parse(native["sql"], dialect)),
-                               dialect)
+        tree = sqlshape.strip_comments(sqlshape.parse(native["sql"], dialect))
+        body = sqlshape.render(tree, dialect)
     except Exception:  # noqa: BLE001 - a query the parser cannot render is not offered
         return None
     alias = re.sub(r"[^a-z0-9_]", "_", str(native.get("logical") or "source").lower()).strip("_") \
         or "source"
     if alias[0].isdigit():
         alias = "t_" + alias
-    entity = next(iter(reads)).upper() if len(reads) == 1 and "" not in reads else None
+    read = next(iter(reads)) if len(reads) == 1 and "" not in reads else ""
+    # A table whose statement IS its source (a Tableau custom SQL relation) is named by its
+    # caption: A2 puts that name first, and it names nothing the query reads. Handed on as the
+    # entity, it is refused by this stage's own check (source.sql must read source.entity), so
+    # every card over it fails however it is written. The entity is then the table the query
+    # starts from, which is what the card contract asks for.
+    if read and read.rsplit(".", 1)[-1].lower() not in body.lower():
+        read = _base_table(tree) or ""
+    entity = read.upper() or None
     return {"sql": f"(\n{body}\n) AS {alias}", "alias": alias,
             **({"entity": entity} if entity else {}),
             "columns": sorted({str(c).lower() for c in (native.get("columns") or {}).values()}),
@@ -1197,6 +1205,31 @@ def _derived_source(unit_ids: list, units: dict, dialect: str) -> dict | None:
                           + (f", set source.entity to {entity}" if entity else "")
                           + f", and refer to its columns "
                           f"as {alias}.<column> in formula, mandatory_filters and dimensions."}
+
+
+def _base_table(tree, ctes: dict | None = None, depth: int = 0) -> str | None:
+    """The table a query starts from: its outermost FROM, followed through a derived table or a
+    CTE, and into the first branch of a UNION. None when that is not one named table (a VALUES
+    list, a function)."""
+    from sqlglot import exp
+    if depth > 8:
+        return None
+    ctes = {**(ctes or {}), **{c.alias_or_name.lower(): c.this for c in tree.find_all(exp.CTE)}}
+    # A breadth-first find would land on a UNION's LAST branch, the shallowest select in its tree.
+    while isinstance(tree, (exp.Subquery, getattr(exp, "SetOperation", exp.Union))):
+        tree = tree.this
+    select = tree if isinstance(tree, exp.Select) else tree.find(exp.Select)
+    if select is None:
+        return None
+    clause = select.args.get("from") or select.args.get("from_")
+    start = clause.this if clause is not None else None
+    if isinstance(start, exp.Subquery):
+        return _base_table(start.this, ctes, depth + 1)
+    if not isinstance(start, exp.Table) or not start.name:
+        return None
+    if not start.db and start.name.lower() in ctes:
+        return _base_table(ctes[start.name.lower()], ctes, depth + 1)
+    return ".".join(p for p in (start.catalog, start.db, start.name) if p)
 
 
 def _declared_sources(m: dict, stmts: dict) -> list[dict]:
