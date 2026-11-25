@@ -1,6 +1,6 @@
 ---
 name: analytics-demo
-description: Guided Atlan Analytics demo on made-up data (Fixit, Ticketfuddle). Use when someone wants to try or learn Atlan Analytics, or comes back to a demo: what to ask it, what next, its accuracy or its dashboard. Not for their own data (analytics-build).
+description: "Guided Atlan Analytics demo on made-up data (Fixit, Ticketfuddle). Use when someone wants to try or learn Atlan Analytics, or comes back to a demo: what to ask it, what next, its accuracy or its dashboard. Not for their own data (analytics-build)."
 ---
 
 # Atlan Analytics demo: guided steps
