@@ -85,8 +85,8 @@ def _plugin_files(directory, name):
 ROLES = {'powerbi': ('bi', 'Power BI report or model'), 'powerbi_project': ('bi', 'Power BI project'),
          'tableau': ('bi', 'Tableau workbook'), 'model_candidate': ('bi', 'semantic model'),
          'metric_catalogue': ('bi', 'governed metric catalogue'),
-         'dashboard_html': ('bi', 'HTML dashboard'), 'query_history': ('history', 'query history export'),
-         'saved_sql': ('history', 'saved SQL'), 'rowsets': ('data', 'saved row sets'),
+         'dashboard_html': ('bi', 'HTML dashboard'), 'query_history': ('history', 'past queries export'),
+         'saved_sql': ('history', 'SQL files'), 'rowsets': ('data', 'saved row sets'),
          'duckdb': ('data', 'DuckDB database'), 'sqlite': ('data', 'SQLite database'),
          'data_file': ('data', 'data file')}
 ORDER = ('bi', 'history', 'data')

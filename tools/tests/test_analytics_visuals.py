@@ -131,7 +131,7 @@ class Moments(unittest.TestCase):
         cases = (([('powerbi_project', 'model/a.tmdl')] * 6, '◇ **1 source** · Power BI project (6 files)'),
                  ([('tableau', 'a.twb'), ('powerbi', 'b.pbix')], '◇ **2 sources** · Power BI dashboard, Tableau dashboard'),
                  ([('saved_sql', 'q.sql'), ('model_candidate', 'm.yml'), ('data_file', 'd.csv')],
-                  '◇ **3 sources** · 1 model file, 1 data file, 1 saved SQL file'))
+                  '◇ **3 sources** · 1 model file, 1 data file, 1 SQL file'))
         for i, (sources, expected) in enumerate(cases):
             run = make_run(self.root / str(i), dashboard=False, history=False)
             meta = json.loads((run / 'run.json').read_text(encoding='utf-8'))

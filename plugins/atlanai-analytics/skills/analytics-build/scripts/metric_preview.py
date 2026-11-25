@@ -141,13 +141,13 @@ def chat(run, limit=5):
     chosen_queries = choose(history or queries, 1 if metrics else limit)
     for item in chosen_queries:
         body, definition = item['body'], item['body']['definition']
-        lines += ['Saved SQL: ' + display(definition.get('question') or body.get('display_name') or body['name']), '',
+        lines += ['Saved query: ' + display(definition.get('question') or body.get('display_name') or body['name']), '',
                   'Source: ' + display(source_label(item)) + '. Status: ' + STATUS_LABELS[item['status']] + '.', '',
                   sql_block(definition.get('sql') or 'Not authored'), '']
         if definition.get('parameters'):
             lines += ['Parameters: ' + display(', '.join(p['name'] for p in definition['parameters'])), '']
     if not queries:
-        lines += ['No saved SQL queries authored yet; the calculations above are metric expressions.', '']
+        lines += ['No saved queries written yet. Each metric above is defined by its own rule.', '']
     lines += ['You can inspect all definitions or a specific metric before continuing.', '']
     return '\n'.join(lines)
 

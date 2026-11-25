@@ -17,6 +17,19 @@ named dashboard file or link is the dashboard branch with step 1 done; a use cas
 with its tables is the third branch with step 1 done. Nothing is preselected, and free text
 is always accepted.
 
+## Contents
+
+- Before card 1: see what is already connected, silently
+- Card 1: two questions
+- Arriving from the demo
+- After card 1: the warehouse must answer
+- Branch A: Suggest from your warehouse
+- Branch B: Start from a dashboard
+- Branch C: Start from tables
+- The access check, in branches B and C
+- Starting the build: discovery and known tables
+- Record what the person chose
+
 ## Before card 1: see what is already connected, silently
 
 Two quick looks, so the choices offered are the person's own. Neither reads data.

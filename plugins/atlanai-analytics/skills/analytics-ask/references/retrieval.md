@@ -65,7 +65,7 @@ Do not rewrite the released formula or change its dialect to fit a different con
 A changed release requires source/check review and refreshed MCP receipts. Withdrawn,
 rejected, incomplete or mismatched releases stop this path, with no head or local-draft fallback.
 
-For a metric without suitable saved SQL, use `PROJECT retrieved "<readbacks.json>"`, construct
+For a metric without a suitable saved query, use `PROJECT retrieved "<readbacks.json>"`, construct
 SQL preserving the retrieved formula, joins, population, grain and mandatory filters, then
 use the recorded local or warehouse executor. Check denominators, join multiplication,
 truncation and date basis before answering. Say what could not be measured.

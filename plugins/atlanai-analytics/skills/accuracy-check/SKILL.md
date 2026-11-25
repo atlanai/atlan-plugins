@@ -86,7 +86,7 @@ pinned to a metric version when the caller names one.
 ## Save to Atlan Trident
 
 With 5 questions or more, [ask for more](references/run.md#ask-for-more) offers to [save the
-check](references/run.md#save-to-atlan): the set, the column names only run and every run with
+check](references/run.md#save-to-atlan-trident): the set, the column names only run and every run with
 the context, each linked to the run before it. When a person called this skill directly, end on
 the result and that question yourself, then `PROJECT question close`. No agent is registered:
 the runs save without one. A skill that called this one asks it instead.

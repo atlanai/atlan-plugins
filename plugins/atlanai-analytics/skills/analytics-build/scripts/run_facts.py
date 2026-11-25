@@ -22,7 +22,7 @@ BI_TOOLS = {'powerbi': 'Power BI', 'powerbi_project': 'Power BI', 'tableau': 'Ta
 # Every kind of source the survey records, as a person names it, in the order the found chip lists them.
 FOUND = ((('powerbi',), 'Power BI dashboard'), (('powerbi_project',), 'Power BI project'), (('tableau',), 'Tableau dashboard'),
          (('dashboard_html',), 'HTML dashboard'), (('model_candidate',), 'model file'), (('data_file',), 'data file'),
-         (('sqlite', 'duckdb'), 'database'), (('rowsets',), 'saved row set'), (('saved_sql',), 'saved SQL file'),
+         (('sqlite', 'duckdb'), 'database'), (('rowsets',), 'saved row set'), (('saved_sql',), 'SQL file'),
          (('query_history',), 'query history'))
 # A found label as the person reads it, where it differs: the label itself stays, since visuals.FOUND_MARKS matches it.
 FOUND_SAID = {'query history': ('past queries', 'files of past queries')}

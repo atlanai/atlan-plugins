@@ -10,6 +10,19 @@ chosen pages.
 What the person should feel throughout: the build is moving, they can see each metric as it is
 made, and they can trust what they see. Every rule below serves that.
 
+## Contents
+
+- The checklist: eleven items
+- 1. Pick report and pages
+- 2. Check what your agent can use
+- 3. Build your context: metrics and saved queries
+- 4. Validate the context on your data: the person's choice
+- 5. Add past queries: the person's choice
+- 6. Choose where to store your context
+- Background helpers do the work; this session talks
+- The reader install
+- Written for a first-time builder
+
 ## The checklist: eleven items
 
 Right after card 1, put these in the host's task list: item 1 ticked, since card 1 answered it, and

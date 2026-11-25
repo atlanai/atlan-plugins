@@ -41,6 +41,14 @@ look up Trident, a workspace or saved evals for the questions, the run or the sc
 `context_saved_to` (from `CHECK start` and `CHECK load`) says where the context lives; `null` means
 this machine only.
 
+## Contents
+
+- 1. Check your test questions
+- 2. Generated questions: show them, then ask to run them
+- 3. Run your agent on each question, and score the answers
+- 4. Improve it: find the fix, apply it, test again
+- 5. The result
+
 ## 1. Check your test questions
 
 Run `CHECK start` at the start of every check, even a later one in the same session: where the
@@ -281,7 +289,7 @@ machine it is the person's personal workspace, the `user_default` one
 Save this score to Atlan Trident, never before: the result has already been shown.
 
 On **Save this score to Atlan Trident**: have `accuracy-check`
-[save the check](../../accuracy-check/references/run.md#save-to-atlan) to that
+[save the check](../../accuracy-check/references/run.md#save-to-atlan-trident) to that
 workspace. No agent is registered: the runs save without one. Saving the check never saves the
 context: a context kept on this machine stays there. `ACC saved --evals <evals-run> --agent <agent> --workspace <workspace>
 --org <organization slug> --released "<metric>:<version>"` (once per released version; `--withdrawn`

@@ -10,6 +10,18 @@ load's `evals`. `ACC` is `python3 "<demo-dir>/scripts/accuracy.py"`, with `<demo
 result's numbers on any check. Every case needs its trusted result in `<evals-run>/eval/gold/`, which
 `CHECK load` writes on a local run and `CHECK gold` writes on a warehouse run.
 
+## Contents
+
+- Where the SQL runs
+- Trusted answers on a warehouse run
+- Why the score can be trusted
+- Run it
+- Before and after
+- Show the score
+- Test again
+- Ask for more
+- Save to Atlan Trident
+
 ## Where the SQL runs
 
 `CHECK start` and `CHECK load` return `execution`. Read it before running anything: it decides
@@ -327,7 +339,7 @@ and stop. On each answer:
 | `other_pages`, `another_dashboard`, `a_dashboard` | Add the other pages, Add another dashboard, Add a dashboard | Build again from it with `analytics-build`, then check again on the same questions. |
 | `tables` | Name the tables your team uses | Ask which tables in plain chat, build again with them, then check again. |
 | `own_questions` | Add questions of your own | Ask in plain chat for each question and the SQL that gives its known answer (theirs, or a past query or tile they name). Write them as a set in `.atlan-evals/sets/` and test it as a set the person brought. |
-| `save` | Save this score to Atlan Trident | [Save the check](#save-to-atlan), then close. Offered only with 5 questions or more. |
+| `save` | Save this score to Atlan Trident | [Save the check](#save-to-atlan-trident), then close. Offered only with 5 questions or more. |
 | `done` | I'm done | Close. |
 
 Close is the last step: `PROJECT question close`, its message as it prints. A pick that builds
