@@ -187,9 +187,21 @@ def collect(kind, facts):
         if tiles:
             # Its page in the dashboard, kept apart from `page`, which is the side page's own address. Each tile opens to
             # its question: in the build's plain words once described, else its own when it already reads as one.
-            asked = [first_question((facts.descriptions.get(o.get('vq_id')) or {}).get('question') or o.get('question')) for o in tiles]
-            return {'tiles': len(tiles), 'bi_page': next((str(b['page']) for b in bi if isinstance(b, dict) and b.get('page')), None),
-                    'rows': [[str(b['visual']), '', q if q.endswith('?') else ''] for b, q in zip(bi, asked)
+            # A question drafted from the SQL's shape ("What is selected_tier?") is a placeholder until the build words
+            # it: a tile shows the words, or none (walk 3, 2026-11-23).
+            def drafted(o):
+                return any('derived structurally' in str(g) for g in o.get('gotchas') or [])
+            asked = [first_question((facts.descriptions.get(o.get('vq_id')) or {}).get('question')
+                                    or ('' if drafted(o) else o.get('question'))) for o in tiles]
+
+            def title(b):
+                widget = (b.get('bi_context') or {}).get('widget') if isinstance(b.get('bi_context'), dict) else None
+                return str((widget or {}).get('title') or b['visual'])
+            # A report of several pages is named by the report, not by whichever page came first.
+            pages = {str(b['page']) for b in bi if isinstance(b, dict) and b.get('page')}
+            workbook = next((str(b['workbook']) for b in bi if isinstance(b, dict) and b.get('workbook')), None)
+            return {'tiles': len(tiles), 'bi_page': (next(iter(pages)) if len(pages) == 1 else workbook),
+                    'rows': [[title(b), '', q if q.endswith('?') else ''] for b, q in zip(bi, asked)
                              if isinstance(b, dict) and b.get('visual')]}
     if kind == 'described' and 'm2_ingest' in facts.stages:
         return _described(facts)
@@ -220,7 +232,10 @@ def collect(kind, facts):
 def _checked(facts):
     """Whether the checks are behind the build: every verdict in, or the flow moved on past them, as it does on a
     warehouse, whose verdicts arrive only as each tool result is recorded."""
-    return facts.checks_over or facts.file('progress.json').get('stage') in ('preview', 'publish', 'ready')
+    # A person who chose to skip the checks has the build in front of them now: the card comes before the next
+    # question (a walkthrough's card showed only after the save question, 2026-11-23).
+    return (facts.checks_over or facts.checks_skipped
+            or facts.file('progress.json').get('stage') in ('preview', 'publish', 'ready'))
 
 
 def _runs(facts):
@@ -309,7 +324,11 @@ def _described(facts):
     tiles = [[q, 'dashboard tile'] for vid, q in asked if from_dashboard(vid)]
     past = sorted(([q, _ran(runs(vid)), runs(vid)] for vid, q in asked if not from_dashboard(vid)), key=lambda r: -r[2])
     shown = sum(from_dashboard(vid) for vid, _ in words)
-    return {'described': len(words), 'past': len(words) - shown, 'tiles': shown, 'rows': [r[:2] for r in past] + tiles}
+    # With the descriptions written beside the metric steps (the engine's default), they land after the metrics: the
+    # chip says so instead of announcing a step already done (walk 3, 2026-11-23).
+    late = 'x1_ingest' in facts.stages
+    return {'described': len(words), 'past': len(words) - shown, 'tiles': shown, 'rows': [r[:2] for r in past] + tiles,
+            **({'sub': 'Written beside the metric steps, for their questions.'} if late else {})}
 
 
 def _definition(facts, name):
@@ -341,9 +360,13 @@ def _link(edges):
 
 
 def _took(facts):
-    """How long the build took, from the engine's own record of its first and last stage, in whole minutes."""
+    """How long the build took, from the engine's own record of its first and last stage, in whole minutes. It starts
+    where the build does, once the tile translations are reviewed: the readiness check before it is not the build
+    ("in 8 min" for a 6-minute build, walk 3)."""
     from datetime import datetime
     stages = [s for s in facts.engine_file('manifest.json').get('stages') or [] if isinstance(s, dict) and s.get('started_at')]
+    starts = [i for i, s in enumerate(stages) if s.get('stage') in ('a3b_ingest', 'h0_corpus')]
+    stages = stages[starts[0]:] if starts else stages
     try:
         first = datetime.fromisoformat(str(stages[0]['started_at']).replace('Z', '+00:00'))
         last = datetime.fromisoformat(str(stages[-1]['started_at']).replace('Z', '+00:00'))
@@ -618,7 +641,8 @@ def _outcome(kind, s):
         o = {'mark': 'described', 'bold': count(s['described'], 'query', 'queries') + ' in plain words',
              'tail': their(s.get('firm')) + ' ' + source if source else 'so a question finds the right one', 'rows': s.get('rows'),
              'what': ('Each query now carries the question it answers, in the words %s team uses. That is how the agent '
-                      'matches what you ask to the query that answers it.' % their(s.get('firm')))}
+                      'matches what you ask to the query that answers it.' % their(s.get('firm'))),
+             **({'sub': s['sub']} if s.get('sub') else {})}
     elif kind == 'drafted' and s.get('drafted'):
         o = {'mark': 'metrics', 'bold': count(s['drafted'], 'possible metric'),
              'tail': 'found in %d of those %s' % (s['with'], count(s['read'], 'query', 'queries')) if s.get('read') and s.get('with') is not None else '',
@@ -690,6 +714,15 @@ def _fit_line(o):
     elif over > 0:
         bold = _fit_words(bold, max(8, len(bold) - over))
     return bold, rest, tail
+
+
+def say_line(kind, s):
+    """The moment's line for the chat, whole: the terminal chip cuts it to its width ("is part of…", walk 4)."""
+    o = _outcome(kind, s)
+    if not o:
+        return plain_line(chip(kind, s))
+    text = '%s%s%s' % (o['bold'] or '', o.get('rest') or '', ' · ' + o['tail'] if o.get('tail') else '')
+    return ' '.join(text.replace('**', '').split())
 
 
 def chip(kind, s):

@@ -113,7 +113,10 @@ def _dashboard_save(run, f, widget, data, engine_dir):
     report = str(f.interaction.get('report') or '').split(':')[0].strip() or 'your dashboard'
     n_metrics, n_queries = (len(c['metrics']), c['queries']) if c else (0, 0)
     where = f.warehouse or 'your data'
-    lines = ['Built %s and %s from %s.' % (count(n_metrics, 'metric'), count(n_queries, 'query', 'queries'), report)]
+    # The same count as the build's card above it: every query built, the ones kept back named on their own line
+    # (walk 4: the card said 150 queries and this question 144).
+    built = max(n_queries, int((f.funnel or {}).get('questions') or 0))
+    lines = ['Built %s and %s from %s.' % (count(n_metrics, 'metric'), count(built, 'query', 'queries'), report)]
     if skipped:
         lines.append('Not run on %s: you chose to skip the checks, so the numbers are untested.' % where)
     elif by_tool:

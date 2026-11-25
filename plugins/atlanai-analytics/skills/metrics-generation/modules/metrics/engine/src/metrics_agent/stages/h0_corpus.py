@@ -125,7 +125,10 @@ def body(ctx: stage.Ctx) -> None:
     neardup = float(ctx.policy.get("history_corpus.near_duplicate_min"))
     id_cap = int(ctx.policy.get("history_corpus.query_ids_per_shape"))
     unattributed_automation = ctx.policy.get("history_corpus.automation.unattributed")
-    scope_match = str(ctx.policy.get("querylog.scope.match"))
+    # run.yml `history_scope` decides it for this run (a dashboard's past queries stay inside
+    # its tables); otherwise the policy does.
+    scope_match = str((ri.get("querylog") or {}).get("scope_match")
+                      or ctx.policy.get("querylog.scope.match"))
     # The statements a tool issues itself, by the markers the installed plugs declare.
     from metrics_agent import plugs as _plugs  # noqa: PLC0415
 

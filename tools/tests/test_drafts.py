@@ -71,6 +71,47 @@ class Drafts(unittest.TestCase):
         self.assertIn('`visual next`', ended['next'])
         self.assertEqual(self.wait()['event'], 'quiet', 'a step end is reported once')
 
+    def test_a_step_whose_answers_are_all_saved_wakes_the_session_to_advance(self):
+        # A walkthrough, 2026-11-23: every description was saved at 17:42 and the session waited until 17:49 for its wait
+        # to run out, because only an accepted step woke it, and nothing had advanced the build.
+        self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': 'x1_emit', 'verdict': 'ok'}]})
+        self.answer('x1', 'carried-engine.json', {'statements': [{'vq_id': 'q9', 'verdict': 'none'}]})
+        self.answer('x1', 'p1-01.json', {'statements': [{'vq_id': v, 'verdict': 'none'} for v in ('q1', 'q2', 'q3')]})
+        self.assertEqual(self.wait(tasks=False)['event'], 'quiet', 'one statement is still unanswered')
+        self.answer('x1', 'p2-01.json', {'statements': [{'vq_id': 'q4', 'verdict': 'none'}]})
+        woke = self.wait(tasks=False)
+        self.assertEqual((woke['event'], woke['gate']), ('answered', 'x1'))
+        self.assertIn('ENGINE advance', woke['next'])
+        self.assertEqual(self.wait(tasks=False)['event'], 'quiet', 'said once')
+
+    def test_with_descriptions_last_the_build_is_done_only_once_they_are_in(self):
+        # Walk 3, 2026-11-23: "done" came while the descriptions, taken in after the links, were still refused.
+        stages = [{'stage': s, 'verdict': 'ok'} for s in ('m2_emit', 'x1_ingest', 'x2_ingest', 'x3_ingest', 'x4_ingest')]
+        self.run.write(self.engine / 'manifest.json', {'stages': stages})
+        self.run.write(self.run.root / 'drafts-reported.json', {'steps': ['x1_ingest', 'x2_ingest', 'x3_ingest']})
+        self.assertNotEqual(self.wait(tasks=False)['event'], 'done')
+        stages += [{'stage': s, 'verdict': 'ok'} for s in ('m2_ingest', 'm1_merge', 'x3_refresh', 'd4b_refresh', 'x4_refresh')]
+        self.run.write(self.engine / 'manifest.json', {'stages': stages})
+        self.run.write(self.run.root / 'drafts-reported.json', {'engine': {'steps': ['m2_ingest', 'x1_ingest', 'x2_ingest', 'x3_ingest']}})
+        self.assertEqual(self.wait(tasks=False)['event'], 'done')
+
+    def test_a_second_build_in_the_same_run_reports_its_own_steps(self):
+        # Walk 3: the past queries' build never woke the session at its merge, already reported for the first build.
+        self.run.write(self.run.root / 'drafts-reported.json', {'engine': {'steps': ['x1_ingest'], 'answered': ['x1']}})
+        second = self.run.root / 'engine-history'
+        second.mkdir()
+        self.run.write(second / 'manifest.json', {'stages': [{'stage': 'x1_ingest', 'verdict': 'ok'}]})
+        import io, os
+        from unittest import mock
+        sys.path.insert(0, str(fixtures.SCRIPTS))
+        import drafts
+        import side_view
+        out = io.StringIO()
+        self.run.write(self.run.root / 'interaction.json', {'version': 1, 'mode': 'active', 'focus': None, 'tasks': False})
+        with mock.patch.object(side_view, 'due', return_value=[]), mock.patch.dict(os.environ, {'CLAUDE_CODE_ENTRYPOINT': ''}):
+            drafts.wait(self.run.root, 'engine-history', interval=0.05, out=out, timeout=5, quiet=0.4, batch_every=0)
+        self.assertEqual(json.loads(out.getvalue())['event'], 'step')
+
     def test_the_build_is_done_only_once_its_links_are_in(self):
         # d3, 2026-11-19: told "done" when the definitions were accepted, the session ended its turn on a "still
         # finishing" line and went to the checks question without the structural pass. The links step comes after.
@@ -92,9 +133,11 @@ class Drafts(unittest.TestCase):
     def test_a_short_step_a_helper_writes_wakes_the_session_when_it_is_accepted(self):
         # A test run: the dashboard flow's helpers wrote the tile review and the tile questions, and when each was accepted
         # nothing woke the wait: the session sat 3 and 4 minutes until its quiet spell before starting the next step.
-        for stage in ('a3b_ingest', 'c3_ingest'):
-            self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': stage, 'verdict': 'ok'}]})
-            self.assertEqual(self.wait(quiet=30)['event'], 'step', stage)
+        # Walk 4, 2026-11-23: the tile review is now this session's own, so its end wakes nobody.
+        self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': 'c3_ingest', 'verdict': 'ok'}]})
+        self.assertEqual(self.wait(quiet=30)['event'], 'step')
+        self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': 'a3b_ingest', 'verdict': 'ok'}]})
+        self.assertEqual(self.wait(quiet=0.3)['event'], 'quiet')
 
     def test_a_chip_that_comes_due_is_reported_once(self):
         # The dashboard flow's helpers advance every step, so its tiles, its questions and the side page's opening come

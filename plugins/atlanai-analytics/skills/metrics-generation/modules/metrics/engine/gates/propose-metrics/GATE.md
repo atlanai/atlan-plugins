@@ -5,6 +5,8 @@ description: "X1 : read each verified SQL and judge what, if anything, it measur
 
 # Propose metrics (X1)
 
+When a statement's `question` and `description` are null (its prose is written later in this run), read [reading a statement without a description](../references/reading-without-prose.md) first and work out what each statement answers from its `facts`, one statement at a time.
+
 Before this task, read and apply the shared [metric consistency guidance](../references/metric-consistency.md).
 
 Input: `$RUN/x1_prompt.json`. Output: JSON handed to `x1_propose.py --from <file>`.
@@ -155,6 +157,42 @@ a picker knows whether to paginate. A lookup returns one row so an application c
 These statements usually get `verdict: "none"`. Their question already says what they are :
 if the description calls it a check or a guard, believe it.
 
+**A count of another query's rows is a size check.** `SELECT COUNT(*) FROM (<query>)`, with
+nothing else in the outer select, counts how many rows the inner query returns: did the query
+return anything, did a change alter its row count. It is `none`, whatever the inner query
+computes. Do not propose metrics from the inner query through it: when analysts ran that query
+for its own numbers, it is a statement of its own and is judged there. Several helpers may share
+one step, so this rule, not a helper's taste, decides every wrapper the same way.
+
+## A column that checks a sibling column is not a metric
+
+Analysts recompute a headline number next to variants of it, to see whether they agree. In
+one row you will find the number itself and, beside it, the same population counted from a
+different source column (a vendor's own flag next to the derived one), through a different join,
+with or without deleted records, or narrowed to the rows where some completeness field is set
+(scored, matched, enriched). Each variant is a check on the headline number, not a number of
+its own: propose the headline number once and give the variants nothing.
+
+A variant becomes a metric only when the business would quote it on its own: the dashboard
+shows it, or a statement that is not a check is about it. A label in an analyst's check query
+does not count: a check row names every column it compares, so a variant named there (a
+model-counted or vendor-reported version of the headline count) is still a check.
+
+Two kinds of column look like checks and are not. Keep them:
+
+* **A narrower business population.** One named part of the headline number (a single named
+  signal out of several, one tier, one programme) or the overlap of two business lists (accounts
+  entering Stage 2 that are also on the research list). It is a different question, not the same
+  number counted another way.
+* **Coverage of a business list.** How many of the accounts on a target list have been
+  researched, scored or contacted. Only for a list the business works from: one the dashboard
+  shows, or one a statement that is not a check is about. A list that appears only inside check
+  queries is the checker's slice, and its coverage is a check too.
+
+What stays a check is completeness of the data itself: how many rows of a table are scored,
+matched or filled in, with no business list behind them. Test: does the column answer a
+question about the business, or about whether the data is complete?
+
 ## A value list with a count is the measure, cut
 
 ```sql
@@ -242,8 +280,15 @@ name becomes a lie.
 single region, one campaign, a segment. Dropping it widens the population but the metric is
 still the same metric.
 
+**A value written into the SQL stays fixed unless something shows it varying.** A literal that
+names one campaign, event, product or programme, and that no other statement replaces with
+another value, is what the statement is about: it is mandatory, and the metric's name says it
+("Activate 2026 Registrations", not "Event Registrations"). It is optional only when other
+statements count the same thing for other values, or the dashboard offers it as a slicer. A
+date window stays optional either way: periods move.
+
 ```
-WHERE a.is_deleted = FALSE          -- neither: hygiene, not a restriction anyone manages
+WHERE a.is_deleted = FALSE          -- MANDATORY: a deleted record is not part of any population
   AND a.type = 'Customer'           -- MANDATORY: the metric is about customers
   AND a.segment <> 'Growth'         -- mandatory IF the metric is named for that exclusion,
                                     --   optional if it is just this report's scope
@@ -254,7 +299,15 @@ The test for the middle case: **would a person quoting this number say the restr
 loud?** If the metric is "sign-off rate outside the Growth pod", it is mandatory. If Growth is
 simply not in this report, it is optional.
 
-Soft-delete guards and loader flags (such as `_deleted`) are neither : leave them out entirely.
+A soft-delete guard (`IS_DELETED = FALSE`, a loader `_deleted` flag) is always **mandatory** when the
+statement applies it: a deleted record belongs to no business population, and a metric that drops
+the guard counts rows nobody manages. Carry it in `mandatory_filters`, exactly as written.
+
+The same holds for any **clean-up guard**: a filter that removes rows that should not exist, not
+rows outside the metric's scope. A date no later than today (`ACTIVITY_DATE <= CURRENT_DATE()`),
+a key that is not null, a test or internal record left out. It does not change what the metric
+means; it stops bad rows being counted, so it is mandatory. A date window (`>= '2026-07-01'`) is
+scope, not clean-up, and stays optional.
 
 **A statement's `mandatory_source_filters` are always mandatory.** Each is a predicate inside
 the derived table the statement reads from: the BI tool's own query steps keep only those rows

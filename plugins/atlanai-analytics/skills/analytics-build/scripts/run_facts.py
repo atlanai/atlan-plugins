@@ -289,7 +289,8 @@ class RunFacts:
             # A Power BI project is one report kept as many files; a dashboard or a history reads alone when it is one.
             label = ('%s (%s)' % (word, count(n, 'file')) if n > 1 else word) if kinds == ('powerbi_project',) else \
                 word if n == 1 and kinds[0] in ('powerbi', 'tableau', 'dashboard_html', 'query_history') else count(n, word)
-            items.append((n, label))
+            # One report is one source, however many files Power BI keeps it in ("32 sources" for one report).
+            items.append((1 if kinds == ('powerbi_project',) else n, label))
         return sum(n for n, _ in items), [label for _, label in items]
 
     @cached_property

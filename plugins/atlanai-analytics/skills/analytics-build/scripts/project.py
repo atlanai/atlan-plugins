@@ -542,13 +542,15 @@ class Project(ContextState):
         progress.update_checks(self)
         return {'status': 'recorded', 'name': item['key'], 'passed': not errors}
 
-    def history(self):
+    def history(self, pulled=None):
+        """Capture and privacy-filter the past queries: the survey's exports, or `pulled`, a query log the host's
+        read-only SQL tool wrote into this run (a warehouse's history read through the chat, 2026-11-23)."""
         state = self.current()
         # Outputs describe this call only: an earlier scope's bound or log never carries over.
         for stale in ('querylog.jsonl', 'querylog.clean.jsonl', 'history-tables.txt'):
             (self.context / stale).unlink(missing_ok=True)
-        inputs = []
-        for item in state['sources']:
+        inputs = [str(safe_path(pulled, self.root))] if pulled else []
+        for item in ([] if pulled else state['sources']):
             if item['kind'] == 'query_history' and item['status'] == 'available':
                 p = safe_path(Path(state['source_root']) / item['path'], state['source_root'])
                 if file_hash(p) != item['sha256']:
@@ -567,6 +569,21 @@ class Project(ContextState):
         for p in (raw, cleaned):
             safe_path(p)
         result = mine.cmd_querylog(SimpleNamespace(src=inputs, dst=raw, append=False, limit=5000))
+        # A pull already counted what it left out (texts too long to fetch): that count stays with the history
+        # (walk 4: 61 texts left out showed as 0).
+        given = Path(inputs[0]).with_name(Path(inputs[0]).name + '.coverage.json') if pulled else None
+        if given and given.is_file():
+            try:
+                before = json.loads(given.read_text())
+                mine_cov = Path(result['coverage'])
+                cov = json.loads(mine_cov.read_text())
+                for k in ('over_size_statements', 'over_size_runs'):
+                    cov[k] = int(cov.get(k) or 0) + int(before.get(k) or 0)
+                cov['max_statement_chars'] = cov.get('max_statement_chars') or before.get('max_statement_chars')
+                mine_cov.write_text(json.dumps(cov, indent=1))
+                result['over_size'] = {k: cov[k] for k in ('over_size_statements', 'over_size_runs')}
+            except (OSError, ValueError, KeyError, TypeError):
+                pass
         privacy = filter_querylog(str(raw), str(cleaned))
         for p in (raw, cleaned):
             if p.exists():
@@ -655,6 +672,48 @@ class Project(ContextState):
         safe_path(self.context)
         self.store.write(self.context / 'database-schema.json', metadata)
         return {'status': 'ok', 'execution': binding, 'columns': metadata['columns']}
+
+    def use_engine(self, engine_dir):
+        """Record which engine run inside this run is current, so every page, card and question reads it (a walkthrough
+        edited `run.json` by hand, 2026-11-23)."""
+        state = self.current()
+        folder = safe_path(self.root / engine_dir, self.root)
+        if folder.parent != self.root.resolve() or not folder.name.startswith('engine'):
+            raise ProjectError('Name an engine folder directly inside this run, such as engine or engine-history.')
+        state['engine_run'] = folder.name
+        self.store.write(self.path, state)
+        return {'status': 'ok', 'engine_run': folder.name}
+
+    def bind_warehouse(self, dialect, tool):
+        """Record the read-only warehouse tool the checks run through, so no session writes it by hand (a walkthrough
+        wrote it into `state.json` itself, 2026-11-23). The tool is the host's; this records only its name."""
+        if not re.fullmatch(r'[a-z][a-z0-9_]*', dialect or ''):
+            raise ProjectError('Name the warehouse dialect, such as snowflake or databricks.')
+        if not re.fullmatch(r'[A-Za-z0-9_.:-]{3,200}', tool or ''):
+            raise ProjectError("Name the host's read-only SQL tool exactly as the host lists it.")
+        state = self.current()
+        binding = {'kind': 'warehouse', 'dialect': dialect, 'tool': tool, 'via': 'host', 'read_only': True}
+        if state.get('execution') and state['execution'] != binding:
+            state.pop('publication', None)
+            state['context_changed'] = True
+        state['execution'] = binding
+        self.store.write(self.path, state)
+        return {'status': 'ok', 'execution': binding}
+
+    def checks_due(self, parts=1):
+        """The metrics and queries whose current definition has not run yet, in `parts` shares for helpers that run
+        them side by side. A definition that already ran keeps its result: a second build re-checks only what it added
+        or changed (a walkthrough re-ran all 215 items one by one, 2026-11-23)."""
+        self.apply_reviewed_values()
+        items = metric_preview.candidates(self)
+        ran = ('executed', 'example_executed', 'released')
+        due = [{'kind': i['kind'], 'name': i['key'].split(':', 1)[1]} for i in items if i['status'] not in ran]
+        parts = max(1, min(int(parts), 8, len(due) or 1))
+        shares = [due[k::parts] for k in range(parts)]
+        return {'status': 'ok', 'due': len(due), 'already_ran': len(items) - len(due),
+                'parts': [s for s in shares if s],
+                'next': 'Give each share to its own helper; each runs check-query or check-metric for its items and '
+                        'sends the result back with the same command. Run nothing that already ran.'}
 
     def prepare(self, request):
         state = self.current()
@@ -768,7 +827,8 @@ def main():
     p.add_argument('--full', action='store_true', help='Return full structured results instead of a compact artifact reference.')
     sub = p.add_subparsers(dest='command', required=True)
     sub.add_parser('survey').add_argument('folder')
-    sub.add_parser('history')
+    hist = sub.add_parser('history')
+    hist.add_argument('--pulled', type=Path, help='A query log the host\'s read-only SQL tool wrote inside this run')
     sub.add_parser('status')
     sub.add_parser('check')
     found = sub.add_parser('discover', help='Supported sources in a folder, by name and size only. Needs no run and creates nothing.')
@@ -842,6 +902,16 @@ def main():
     page.add_argument('--stop', action='store_true', help='Stop serving the page')
 
     b = sub.add_parser('bind'); b.add_argument('database'); b.add_argument('--tables', nargs='+'); b.add_argument('--schema')
+    pg = sub.add_parser('pages', help="A fetched Power BI report's pages, each with its tile count")
+    pg.add_argument('folder', type=Path)
+    ue = sub.add_parser('use-engine', help='Record the current engine run inside this run (engine, engine-history)')
+    ue.add_argument('engine_dir')
+    bw = sub.add_parser('bind-warehouse', help="Record the host's read-only SQL tool for the checks")
+    bw.add_argument('--dialect', required=True); bw.add_argument('--tool', required=True)
+    gs = sub.add_parser('shares', help='The describe or find-metrics step shared among helpers, by statement')
+    gs.add_argument('--gate', required=True, choices=('m2', 'x1')); gs.add_argument('--engine-dir', type=Path)
+    due = sub.add_parser('checks-due', help='The metrics and queries whose current definition has not run, in shares')
+    due.add_argument('--parts', type=int, default=1)
     publication = sub.add_parser('publication')
     publication.add_argument('request', type=Path, help='Readback JSON file, or - for complete inline MCP responses on stdin')
     for name in ('prepare', 'execute', 'retrieved', 'answer', 'scope', 'check-query', 'check-metric', 'acquisition', 'auth', 'engine-config',
@@ -852,6 +922,9 @@ def main():
         if args.command == 'location':
             print(json.dumps({'run_dir': str(resolve_run(args.workspace, args.run_dir, args.permitted_cache, args.home_permitted)),
                               'created': False}))
+            return 0
+        if args.command == 'pages':
+            print(json.dumps({'pages': page_scope.list_pages(safe_path(args.folder))}))
             return 0
         if args.command == 'discover':
             print(json.dumps(summarize(safe_path(args.workspace))))
@@ -918,11 +991,11 @@ def main():
                 # task list carries the build's progress; the build's card closes it in the chat.
                 import drafts
                 try:
-                    say = visuals.plain_line(visuals.render(args.kind, visuals.build_spec(args.kind, run, data, args.engine_dir), False))
+                    say = visuals.say_line(args.kind, visuals.build_spec(args.kind, run, data, args.engine_dir))
                 except (ValueError, KeyError, TypeError, AttributeError, OSError):
                     say = ''
                 if side_view._shows(args.kind, run, args.engine_dir):
-                    side_view.note(run, args.kind)
+                    side_view.note(run, args.kind, engine_dir=args.engine_dir)
                 more = ' Then run `visual next` again, with the same flags: more is due.' if following and side_view.due(run, args.engine_dir) else ''
                 # What to do comes last: a session that reads the result through a filter keeps its tail (d7).
                 print('side view: ' + json.dumps({'task_list': drafts.task_list(run, args.engine_dir), 'say': say,
@@ -1004,7 +1077,7 @@ def main():
             # is named again by the next helper result.
             if shown or held:
                 try:
-                    side_view.note(run, args.kind, spec)
+                    side_view.note(run, args.kind, spec, engine_dir=args.engine_dir)
                 except Exception:  # noqa: BLE001 - the moment's own result still shows
                     pass
             if following and (shown or held) and side_view.due(run, args.engine_dir):
@@ -1034,7 +1107,7 @@ def main():
                                    'reference instead.' % (args.kind, type(exc).__name__)) from None
             for kind in asked.pop('shown'):
                 try:
-                    side_view.note(run, kind)
+                    side_view.note(run, kind, engine_dir=args.engine_dir)
                 except OSError:
                     pass  # A folder this session cannot write still gets its question: the note only spares a repeat.
             results = asked.pop('results', False)
@@ -1064,9 +1137,12 @@ def main():
             raise ProjectError('The saved run is unavailable. Supply its existing directory to resume.')
         project = Project(args.run_dir)
         if args.command == 'survey': result = project.survey(args.folder)
-        elif args.command == 'history': result = project.history()
+        elif args.command == 'history': result = project.history(args.pulled)
         elif args.command == 'status': result = project.current()
         elif args.command == 'bind': result = project.bind(args.database, args.tables, args.schema)
+        elif args.command == 'use-engine': result = project.use_engine(args.engine_dir)
+        elif args.command == 'bind-warehouse': result = project.bind_warehouse(args.dialect, args.tool)
+        elif args.command == 'checks-due': result = project.checks_due(args.parts)
         elif args.command == 'check': result = project.check()
         elif args.command == 'preview': result = project.preview(None if args.all else args.limit, args.format, args.kind)
         elif args.command == 'experience': result = project.experience(args.engine_dir, args.format, args.detail, args.focus, args.host, args.server)
@@ -1090,7 +1166,16 @@ def main():
         elif args.command == 'tiles':
             import side_page
             from run_facts import RunFacts
-            result = side_page.tiles_by_page(RunFacts(project.root, args.engine_dir), args.pages)
+            # "All pages" is no filter (walk 4: `--pages all` returned nothing).
+            pages = None if not args.pages or [p.lower() for p in args.pages] in (['all'], ['all', 'pages'], ['all pages']) \
+                else args.pages
+            result = side_page.tiles_by_page(RunFacts(project.root, args.engine_dir), pages)
+        elif args.command == 'shares':
+            import gate_shares
+            try:
+                result = gate_shares.split(project.root, args.engine_dir, args.gate)
+            except gate_shares.SharesError as e:
+                raise ProjectError(str(e)) from e
         elif args.command == 'split':
             import define_split
             try:

@@ -508,7 +508,9 @@ def body(ctx: stage.Ctx) -> None:
                 "sources": bi_sources} if bi_sources else None),
         # Read by H0 through the history plugs, in this order, as ONE corpus.
         "querylog": ({"plugs": [e["name"] for e in entries["history"]], "engine": engine,
-                      "window_start": window["start"], "window_end": window["end"]}
+                      "window_start": window["start"], "window_end": window["end"],
+                      **({"scope_match": {"touches": "any", "inside": "all"}[doc["history_scope"]]}
+                         if doc.get("history_scope") else {})}
                      if has_history else None),
         "bounded_tables": {"source": table_source, "tables": tables},
         "outputs": outputs,

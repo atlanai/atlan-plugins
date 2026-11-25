@@ -30,6 +30,8 @@ import sys
 
 from metrics_agent.lib import artifacts  # noqa: E402
 from metrics_agent.lib import shared_sources as _shared  # noqa: E402
+from metrics_agent.lib import describe_timing as _timing  # noqa: E402
+from metrics_agent.lib import filter_carry as _carry  # noqa: E402
 from metrics_agent.lib import declared as _declared  # noqa: E402
 from metrics_agent.lib import dialect as _dialect
 from metrics_agent.lib import dimensions as dims  # noqa: E402
@@ -215,9 +217,13 @@ def _emit(ctx: stage.Ctx) -> None:
                 # THE AUTHORED PROSE IS THE POINT OF CARRYING THE STATEMENT. The question and
                 # description were written by somebody who had read this SQL; they say what the
                 # query is FOR, which the SQL cannot.
-                "statement_name": o.get("name"),
-                "question": o.get("question"),
-                "description": o.get("description"),
+                **({"statement_name": _timing.prose(o)["name"],
+                    "question": _timing.prose(o)["question"],
+                    "description": _timing.prose(o)["description"],
+                    "facts": _timing.facts(o, dialect, light=True)}
+                   if _timing.describe_at_end() else
+                   {"statement_name": o.get("name"), "question": o.get("question"),
+                    "description": o.get("description")}),
                 "sql": o.get("sql"),
                 "tables": o.get("tables") or [],
                 "group_by": o.get("group_by") or [],
@@ -277,6 +283,7 @@ def _emit(ctx: stage.Ctx) -> None:
         "contract_version": "1.0",
         "stage": STAGE,
         "instruction": (
+            (_timing.NOTE + " " if _timing.describe_at_end() else "") +
             "See gates/author-metric-card/GATE.md. Author one card per metric. "
             "READ THE SQL — every field is a reading of what the query does, not a restatement "
             "of the merge. Outside `examples`, every column reference is fully qualified "
@@ -601,6 +608,9 @@ def _ingest(ctx: stage.Ctx) -> None:
             for f in REQUIRED:
                 if a.get(f) in (None, "", [], {}):
                     problems.append(f"{where}: no `{f}`")
+
+            # EVERY FILTER THE MERGE DECIDED REACHES THE CARD (`filter_carry`).
+            problems.extend(f"{where}: {x}" for x in _carry.lost(a, m, dialect))
 
             # A DESCRIPTION IS A SENTENCE, NOT THE FORMULA AND NOT A LIST OF QUESTIONS.
             # `description` is the third retrieval tier; spending it on SQL or on the questions

@@ -45,6 +45,7 @@ from metrics_agent.lib import declared as _declared  # noqa: E402
 from metrics_agent.lib import bi_tags as _bi_tags  # noqa: E402
 from metrics_agent.lib import slugs  # noqa: E402
 from metrics_agent.lib import stage  # noqa: E402
+from metrics_agent.lib import describe_timing as _timing  # noqa: E402
 
 STAGE = "x2_merge"
 IN = "metric_proposals.json"
@@ -88,9 +89,13 @@ def _emit(ctx: stage.Ctx) -> None:
         o = stmts.get(p["vq_id"]) or {}
         return {
             "vq_id": p["vq_id"],
-            "statement_name": o.get("name"),
-            "question": o.get("question"),
-            "description": o.get("description"),
+            **({"statement_name": _timing.prose(o)["name"],
+                "question": _timing.prose(o)["question"],
+                "description": _timing.prose(o)["description"],
+                "facts": _timing.facts(o, layer.get("dialect") or "", light=True)}
+               if _timing.describe_at_end() and o.get("sql") else
+               {"statement_name": o.get("name"), "question": o.get("question"),
+                "description": o.get("description")}),
             "sql": o.get("sql"),
             "tables": o.get("tables") or [],
             "group_by": o.get("group_by") or [],
@@ -123,7 +128,8 @@ def _emit(ctx: stage.Ctx) -> None:
 
     artifacts.dump(ctx.run / PROMPT, {
         "contract_version": "1.0", "stage": STAGE,
-        "instruction": "See gates/merge-metrics/GATE.md. Return the merged metric "
+        "instruction": (_timing.NOTE + " " if _timing.describe_at_end() else "") +
+                       "See gates/merge-metrics/GATE.md. Return the merged metric "
                        "set. EVERY proposal_id must appear in exactly one metric's `sources` "
                        "— nothing dropped, nothing counted twice. Filters split into "
                        "mandatory (the metric is a different metric without them) and "

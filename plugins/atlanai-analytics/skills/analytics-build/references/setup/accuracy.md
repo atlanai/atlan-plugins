@@ -20,7 +20,8 @@ earlier runs, and the check must test this one. Offer the check when the reply i
 returns a set, or the run checked at least one dashboard tile or past query to draw questions
 from. Skip the offer, and say nothing about it, when:
 
-- the collection holds no checked metric;
+- the collection holds no checked metric: no metric ran on the data, as when the person chose to
+  skip the checks;
 - `CHECK start` is blocked, or returns no set and the run has neither tiles nor past queries;
 - `execution.via` is `host` and this conversation has no warehouse query tool to run SQL with;
 - the request already supplied a question or another next action: that goes first, and the
