@@ -307,10 +307,10 @@ class RunFacts:
 
     @property
     def folder(self):
-        """The working folder a chat opens in to find this run (`<folder>/.atlan-metrics/run_…`, or a dashboard project's
-        `<folder>/.atlan-analytics/<slug>`), home as ~, or None for a run kept anywhere else. A dashboard run in
-        `.atlan-analytics` read "this folder" in every message (0.9.76's live run)."""
-        if self.dir.parent.name not in ('.atlan-metrics', '.atlan-analytics'):
+        """The working folder a chat opens in to find this run (`<folder>/.atlan-analytics/<run>`, or an earlier
+        version's `<folder>/.atlan-metrics/run_…` not moved yet), home as ~, or None for a run kept anywhere else. A
+        dashboard run in `.atlan-analytics` read "this folder" in every message (0.9.76's live run)."""
+        if self.dir.parent.name not in ('.atlan-analytics', '.atlan-metrics'):
             return None
         folder = self.dir.absolute().parent.parent
         try:

@@ -113,9 +113,9 @@ class SetupPythonTest(unittest.TestCase):
     def test_one_folder_has_one_name(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            (root / 'project/.atlan-metrics/run_1/engine').mkdir(parents=True)
-            plain = driver.ordinary(root / 'project/.atlan-metrics/runtime')
-            spelled = driver.ordinary(root / 'project/.atlan-metrics/run_1/../../.atlan-metrics/runtime')
+            (root / 'project/.atlan-analytics/run_1/engine').mkdir(parents=True)
+            plain = driver.ordinary(root / 'project/.atlan-analytics/runtime')
+            spelled = driver.ordinary(root / 'project/.atlan-analytics/run_1/../../.atlan-analytics/runtime')
             self.assertEqual(str(plain), str(spelled))
 
 

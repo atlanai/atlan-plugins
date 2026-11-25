@@ -147,7 +147,7 @@ class SavedRunFixtureTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             subprocess.run([sys.executable, str(FIXTURE), str(PLUGIN), variant], cwd=tmp, check=True)
             out = subprocess.run([sys.executable, str(PLUGIN / "skills" / "analytics-build" / "scripts" / "project.py"),
-                                  "--run-dir", str(Path(tmp) / ".atlan-metrics" / "shipping-run"), "journey", "status"],
+                                  "--run-dir", str(Path(tmp) / ".atlan-analytics" / "shipping-run"), "journey", "status"],
                                  cwd=tmp, check=True, capture_output=True, text=True).stdout
         return json.loads(out)
 
@@ -173,7 +173,7 @@ class SavedRunFixtureTest(unittest.TestCase):
         import side_view
         with tempfile.TemporaryDirectory() as tmp:
             subprocess.run([sys.executable, str(FIXTURE), str(PLUGIN), "published"], cwd=tmp, check=True)
-            run = str(Path(tmp) / ".atlan-metrics" / "shipping-run")
+            run = str(Path(tmp) / ".atlan-analytics" / "shipping-run")
             out = io.StringIO()
             with mock.patch.object(side_view, "note", side_effect=OSError(30, "Read-only file system")), \
                     mock.patch("sys.argv", ["project.py", "--run-dir", run, "question", "ready"]), \
@@ -197,7 +197,7 @@ class DemoRunFixtureTest(unittest.TestCase):
         helper = [sys.executable, str(PLUGIN / "skills" / "analytics-build" / "scripts" / "project.py"), "--run-dir"]
         with tempfile.TemporaryDirectory() as tmp:
             subprocess.run([sys.executable, str(FIXTURE.parent / "demo_run.py"), str(PLUGIN)], cwd=tmp, check=True)
-            run = str(Path(tmp) / ".atlan-metrics" / "fixit-demo")
+            run = str(Path(tmp) / ".atlan-analytics" / "fixit-demo")
             status = json.loads(subprocess.run(helper + [run, "journey", "status"], cwd=tmp, check=True,
                                                capture_output=True, text=True).stdout)
             ready = json.loads(subprocess.run(

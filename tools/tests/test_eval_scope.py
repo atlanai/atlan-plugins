@@ -28,7 +28,7 @@ def query(vq: str, lane: str, runs: int | None = None) -> dict:
 class ScopeTest(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = Path(tempfile.mkdtemp())
-        run = self.tmp / ".atlan-metrics" / "run_0000000000000001"
+        run = self.tmp / ".atlan-analytics" / "run_0000000000000001"
         (run / "context").mkdir(parents=True)
         (run / "engine").mkdir()
         (run / "interaction.json").write_text(json.dumps({
@@ -236,7 +236,7 @@ class ScopeTest(unittest.TestCase):
         (gen / "work" / "selection.json").write_text(json.dumps([{"id": "m1", "metric": "Net Revenue", "from": "dashboard tile"}]))
         res = self.scope("emit", "--gen", str(gen), "--name", "Revenue check")
         rows = [json.loads(l) for l in Path(res["set"]).read_text().splitlines()]
-        self.assertEqual(Path(res["set"]), self.tmp / ".atlan-evals" / "sets" / "revenue-check.jsonl")
+        self.assertEqual(Path(res["set"]), self.tmp / ".atlan-analytics" / "evals" / "sets" / "revenue-check.jsonl")
         self.assertEqual(rows, [{"id": "m1", "question": "Total net revenue?", "sql": "SELECT 1",
                                  "tests": "Net Revenue", "from": "dashboard tile", "generated": True}])
         # Written questions are an output: the chip comes with the result, and the side page lists them.
@@ -244,7 +244,7 @@ class ScopeTest(unittest.TestCase):
         self.assertIn("show_first", res["visual"])
 
     def test_ready_turns_any_set_file_into_an_approved_spec_to_save(self) -> None:
-        sets = self.tmp / ".atlan-evals" / "sets"
+        sets = self.tmp / ".atlan-analytics" / "evals" / "sets"
         sets.mkdir(parents=True)
         (sets / "finance.jsonl").write_text('{"id": "f1", "question": "Q?", "sql": "SELECT 1", "from": "dashboard tile"}\n')
         res = self.scope("ready", "--set", str(sets / "finance.jsonl"))
@@ -252,8 +252,8 @@ class ScopeTest(unittest.TestCase):
         self.assertEqual((res["slug"], [(r["id"], r["review_status"]) for r in spec["records"]]), ("finance", [("f1", "approved")]))
 
     def test_start_finds_the_run_and_the_sets_and_a_scored_set_gets_a_fresh_folder(self) -> None:
-        (self.tmp / ".atlan-metrics" / "run_unbuilt").mkdir()  # location's fresh, empty run
-        sets = self.tmp / ".atlan-evals" / "sets"
+        (self.tmp / ".atlan-analytics" / "run_unbuilt").mkdir()  # location's fresh, empty run
+        sets = self.tmp / ".atlan-analytics" / "evals" / "sets"
         sets.mkdir(parents=True)
         (sets / "finance.jsonl").write_text('{"question": "Q?", "sql": "SELECT 1"}\n')
         res = self.check("start", "--project", str(self.tmp))
@@ -365,7 +365,7 @@ class ScopeTest(unittest.TestCase):
                                                                released=None, withdrawn=None))
 
     def test_link_names_the_agents_runs_and_the_last_run(self) -> None:
-        ev = self.tmp / ".atlan-evals" / "saved"
+        ev = self.tmp / ".atlan-analytics" / "evals" / "saved"
         ev.mkdir(parents=True)
         (ev / "state.json").write_text(json.dumps({"ids": {"agent_id": "agent_01a", "experiments": {
             "baseline": "experiment_01b", "v1": "experiment_01c"}}}))
@@ -381,7 +381,7 @@ class ScopeTest(unittest.TestCase):
                          (base + "?ws=all&mode=runs", base + "/experiment_01b?ws=all"))
 
     def test_a_set_loads_as_approved_and_drops_a_question_whose_sql_does_not_run(self) -> None:
-        sets = self.tmp / ".atlan-evals" / "sets"
+        sets = self.tmp / ".atlan-analytics" / "evals" / "sets"
         sets.mkdir(parents=True)
         (sets / "finance.jsonl").write_text(
             '{"id": "m1", "question": "Total net revenue?", "sql": "SELECT 1", "tests": "Net Revenue", "note": "booked orders only"}\n'
@@ -431,7 +431,7 @@ class ScopeTest(unittest.TestCase):
 
     def test_a_warehouse_set_waits_for_results_the_host_ran_and_reads_them_from_the_transcript(self) -> None:
         wh = self.warehouse_run()
-        sets = self.tmp / ".atlan-evals" / "sets"
+        sets = self.tmp / ".atlan-analytics" / "evals" / "sets"
         sets.mkdir(parents=True)
         (sets / "support.jsonl").write_text(
             '{"id": "a", "question": "How many tickets?", "sql": "select count(*) as n\\nfrom t;", "tests": "Tickets"}\n'
@@ -509,7 +509,7 @@ class ScopeTest(unittest.TestCase):
     def scored_check(self) -> Path:
         """An eval folder with three questions, a baseline run and a later run."""
         import analytics_eval as harness
-        ev = self.tmp / ".atlan-evals" / self.run.name
+        ev = self.tmp / ".atlan-analytics" / "evals" / self.run.name
         records = [{"id": i, "question": f"Question {i}?", "question_spec": "", "golden_sql": f"SELECT {n}",
                     "review_status": "approved", "provenance": {"source": "eval set finance"}, "modes": []}
                    for n, i in enumerate(("a", "b", "c"), 1)]

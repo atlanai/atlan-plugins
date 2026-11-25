@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Open a demo that lives in this skill: set up its working folder, then a setup run's requests.
 
-    python3 demo_data.py open <demo> <folder>   # sets up <folder>/atlan-analytics-demo/<demo>/
+    python3 demo_data.py open <demo> <folder>   # sets up <folder>/.atlan-analytics/demo/<demo>/
     python3 demo_data.py requests <demo> --run-dir <run>   # after the survey: prepare and scope requests
 
 Each demo lives in a folder under this skill's assets/: its dashboard, CSVs and query history laid
@@ -29,6 +29,7 @@ SKILLS = Path(__file__).resolve().parents[2]
 ASSETS = SKILLS / 'analytics-demo' / 'assets'
 sys.path.insert(0, str(SKILLS / 'analytics-build' / 'scripts'))
 from project import Project, ProjectError  # noqa: E402
+import layout  # noqa: E402
 
 MANIFEST = 'demo.json'
 FIELDS = ('bi', 'database', 'schema')
@@ -105,7 +106,8 @@ def open_demo(demo, folder):
     folder = Path(folder).expanduser().resolve()
     if not folder.is_dir():
         raise DemoError(f'{folder} is not a folder. Choose an existing working folder.')
-    target = folder / 'atlan-analytics-demo' / demo
+    layout.adopt(folder)
+    target = layout.root(folder) / layout.DEMO / demo
     # The files placed last time, kept beside the working folder so its survey never reads them.
     ledger = target.parent / f'.{demo}-files.json'
     existed = target.is_dir()
@@ -145,7 +147,7 @@ def requests(demo, run_dir):
     demo's fixed choices (its own CSVs as `schema.<file>`, the whole dashboard) are never worked out
     again. With the database already prepared, there is no prepare request: bind it."""
     facts = manifest(demo)
-    run = Path(run_dir).expanduser().resolve()
+    run = layout.follow(Path(run_dir).expanduser()).resolve()
     try:
         if not (run / 'run.json').is_file():
             raise ValueError
@@ -154,7 +156,7 @@ def requests(demo, run_dir):
     except ValueError:
         raise DemoError("Survey the demo's working folder into this run first.") from None
     root = Path(state['source_root'])
-    if root.parts[-2:] != ('atlan-analytics-demo', demo):
+    if root.parts[-3:] != (layout.ROOT, layout.DEMO, demo):
         raise DemoError(f'This run surveyed {root}, not the {demo} working folder. Open the demo and survey it.')
     surveyed = {s['path']: s for s in state['sources']}
     csvs = [r for r in files(demo) if r.startswith('data/') and r.endswith('.csv')]

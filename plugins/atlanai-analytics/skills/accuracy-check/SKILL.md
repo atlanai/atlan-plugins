@@ -46,7 +46,7 @@ any other words or call.
    caller that wants another size passes `--questions <n>` here and `--limit <n>` to its
    `SCOPE pick` (the demo passes 8).
 2. **Load the set.** `CHECK load --project <project> --file <set>` puts it in a fresh eval folder
-   in `.atlan-evals/`. On a local run it runs each trusted SQL on the run's data, drops a question
+   in `.atlan-analytics/evals/`. On a local run it runs each trusted SQL on the run's data, drops a question
    whose trusted SQL fails or returns nothing (`dropped`), and sets the rest up for scoring. On a
    warehouse run it returns `pending_gold`: get the trusted results as
    [trusted answers on a warehouse run](references/run.md#trusted-answers-on-a-warehouse-run)

@@ -82,7 +82,7 @@ class BundledDemos(unittest.TestCase):
             with self.subTest(demo=demo):
                 placed, run_dir, run = self.surveyed(demo)
                 source = Path(placed['working_folder'])
-                self.assertEqual(source, self.folder / 'atlan-analytics-demo' / demo)
+                self.assertEqual(source, self.folder / '.atlan-analytics' / 'demo' / demo)
                 self.assertFalse(run_dir.is_relative_to(source))
                 sources = run.current()['sources']
                 dashboards = [s for s in sources if s['kind'] in ('powerbi', 'tableau')]

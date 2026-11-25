@@ -8,7 +8,7 @@ survey, sample metric, Atlan Trident call, permission question or publication pl
 
 The Analytics workflow can list and select accessible workspaces. It does not create them
 through a CLI or API. Keep local drafts intact. First look for a saved run in this folder: a
-run directory under `.atlan-metrics/`, read with
+run directory under `.atlan-analytics/`, read with
 `python3 "<skill-dir>/scripts/project.py" --run-dir "<run-dir>" journey status`. That read is
 the saved run, not a source survey. Give one paragraph under 70 words containing the
 capability limit, what stays saved on this machine (the run's own counts, such as "your 3
