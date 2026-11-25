@@ -6,13 +6,13 @@ or saved query it used, or says when it had to write new SQL for the question.
 
 You start from a dashboard, from the tables your agent should cover, or by letting it suggest
 from what your warehouse is used for most. It tests each metric and saved query on your data, when it can reach
-your data, before you keep them on this machine or save them to share with your team.
+your data, before you keep them on your computer or save them to share with your team.
 
 ## You need
 
 - **To try a sample:** Python 3.11 or 3.12. Put `python3.12` or `python3.11` on your `PATH`, or use `py -3.12` on Windows. Samples bring their own data and need no account.
 - **For your own data:** the same Python, and a dashboard file, a warehouse your coding agent can reach (such as Snowflake or Databricks), or both. For a warehouse, read access to its tables. To let it suggest what to build, it also reads the warehouse's past queries.
-- **To save for your team (optional):** an Atlan account, signed in through the `atlanai` plugin. The plugin installs either way, and without a sign-in everything stays on this machine.
+- **To save for your team (optional):** an Atlan account, signed in through the `atlanai` plugin. The plugin installs either way, and without a sign-in everything stays on your computer.
 
 ## Quick start
 
@@ -94,7 +94,7 @@ Without it, each finished build step shows as one line in the chat.
 | Sign-in is needed or has expired | In Claude Code: `/mcp`, pick `plugin:atlanai:atlan`, **Authenticate**. In Codex: `codex mcp login atlan`. |
 | No warehouse is found | The plugin asks to connect one: your coding agent's own connector, a vendor CLI where there is a shell, or the `atlanai` connection. |
 | Python 3.11 or 3.12 is not found | Install one so `python3.12` or `python3.11` is on your `PATH`, then ask the plugin to continue. |
-| There is nowhere to save for your team | Keep the work on this machine, or ask for access to an existing Atlan workspace. An admin makes new ones. |
+| There is nowhere to save for your team | Choose **Keep it on this machine** to keep the work on your computer, or ask for access to an existing Atlan workspace. An admin makes new ones. |
 
 ## Help
 
