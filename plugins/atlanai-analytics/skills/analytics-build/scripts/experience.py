@@ -18,7 +18,7 @@ MAX_BYTES = 4_000_000
 MAX_ITEMS = 5_000
 LABELS = {'draft': 'Draft', 'schema_checked': 'Structure checked, not yet tested',
           'executed': 'Tested on recorded samples', 'example_executed': 'Example tested',
-          'held': 'Held back', 'released': 'Saved to Atlan',
+          'held': 'Held back', 'released': 'Saved to Atlan Trident',
           'provisional': 'Provisional, not yet tested', 'needs_review': 'Needs your review'}
 PHASES = {'inspect': 'Inspecting your sources', 'scope': 'Choosing what to include',
           'build': 'Building your metrics and saved queries', 'check': 'Testing your metrics and saved queries',
@@ -228,7 +228,7 @@ def _context_items(reader, state):
                           'population': _population(definition),
                           'calculation': calculation, 'sql': sql, 'sql_label': 'Saved SQL example',
                           'detail_notes': evidence_notes + [n for n in (calculation_note, sql_note) if n],
-                          # A release keeps the check it passed: "Saved to Atlan" alone reads as no check at all.
+                          # A release keeps the check it passed: "Saved to Atlan Trident" alone reads as no check at all.
                           'status': status, 'status_label': LABELS[status]
                               + (', ' + LABELS[execution].lower() if status == 'released' and execution != 'not_recorded' else '')
                               + (', ' + review_label.lower()
@@ -248,9 +248,9 @@ def held_line(model):
     count = model['counts']['held']
     shown = '; '.join(_markdown(name) + (' (' + _markdown(reason.rstrip('.')) + ')' if reason else '') for name, reason in held[:3])
     if not shown:
-        return f"{count} {'item is' if count == 1 else 'items are'} held back from Atlan. Fixing {'it' if count == 1 else 'them'} takes a rebuild."
+        return f"{count} {'item is' if count == 1 else 'items are'} held back from Atlan Trident. Fixing {'it' if count == 1 else 'them'} takes a rebuild."
     more = f'; and {len(held) - 3} more' if len(held) > 3 else ''
-    return (f"{count} {'item is' if count == 1 else 'items are'} held back from Atlan: {shown}{more}. "
+    return (f"{count} {'item is' if count == 1 else 'items are'} held back from Atlan Trident: {shown}{more}. "
             f"Fixing {'it' if count == 1 else 'them'} takes a rebuild.")
 
 
@@ -470,7 +470,7 @@ def snapshot(run, engine_dir=None, focus=None, host=None, server=None):
     if stage == 'preview':
         next_text, prompt = 'Review the existing workspace destination, or keep these definitions local.', 'Show the existing Atlan workspace destination and the save plan, or keep this run local.'
     if counts['held'] and not any(i['status'] != 'held' for i in items):
-        next_text, prompt = ('These items are held back from Atlan. Fixing them takes a rebuild. Your work is saved.',
+        next_text, prompt = ('These items are held back from Atlan Trident. Fixing them takes a rebuild. Your work is saved.',
                             'Explain the held items and the next repair step.')
     if engine and engine['status'] == 'blocked':
         phase['status'] = 'blocked'
@@ -490,21 +490,21 @@ def snapshot(run, engine_dir=None, focus=None, host=None, server=None):
         phase['status'] = 'access_needed'
         next_text = {'waiting_auth': ('Finish sign-in in the opened browser. The saved run is preserved.' if auth.get('browser_opened') is True
                                       else 'Sign-in is pending. Open the sign-in page issued by the client.'),
-                     'checking_mcp': 'Sign-in finished; confirm Registry access before resuming.',
+                     'checking_mcp': 'Sign-in finished; confirm Atlan Trident access before resuming.',
                      'disabled': 'Enable the selected connection in your host to continue.',
                      'permission_denied': 'Choose an accessible existing workspace or request access.',
-                     'unverified': 'Check Registry access in the selected host before asking with published context.',
+                     'unverified': 'Check Atlan Trident access in the selected host before asking with published context.',
                      'timed_out': 'Sign-in timed out. The saved run is preserved.',
                      'canceled': 'Sign-in stopped. The saved run is preserved.'}.get(auth_status, 'Restore the selected Atlan connection to continue.')
         prompt = 'Resume this saved run after checking the existing Atlan connection.'
     all_released = bool(items) and counts['released'] == len(items) and not counts['held'] and not reader.issues
     if all_released and auth_status and auth_status != 'connected':
-        phase['label'] = 'Your metrics and saved queries are saved to Atlan'
+        phase['label'] = 'Your metrics and saved queries are saved to Atlan Trident'
     if stage == 'ready' and not all_released:
         phase['label'] = 'Reviewing saved evidence'
     if (all_released and (not auth_status or auth_status == 'connected')
             and not (engine and engine['status'] == 'blocked')):
-        phase = {'code': 'ready', 'label': 'Your metrics and saved queries are saved to Atlan', 'status': 'complete', 'source': 'release_receipts'}
+        phase = {'code': 'ready', 'label': 'Your metrics and saved queries are saved to Atlan Trident', 'status': 'complete', 'source': 'release_receipts'}
         next_text, prompt = 'Choose a question your saved metrics answer.', 'Show me questions supported by the definitions we just saved.'
     elif (stage == 'ready' and counts['released'] and counts['held']
           and all(i['status'] in ('released', 'held') for i in items)
@@ -526,7 +526,7 @@ def snapshot(run, engine_dir=None, focus=None, host=None, server=None):
         prompt = 'Resume this saved analytics run from its current checkpoint.'
     bound = _dict(state.get('execution')).get('tables')
     model = {'format': 1, 'snapshot_at': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'live': False,
-            'phase': phase, 'scope': scope, 'source_count': len(sources), 'scope_truncated': len(sources) > 100,
+            'phase': phase, 'scope': scope, 'source_count': len([x for x in sources if x.get('kind') != 'powerbi_project']) + any(x.get('kind') == 'powerbi_project' for x in sources), 'scope_truncated': len(sources) > 100,
             'bound_tables': len(bound) if isinstance(bound, list) else 0,
             'selected_pages': selection, 'selection_kind': selection_kind, 'counts': counts,
             'progress': {'completed': saved.get('completed_items'), 'total': saved.get('total_items')},
@@ -575,7 +575,7 @@ def handoff(model):
     total = counts['metrics'] + counts['queries']
     local = total - counts['released']
     if counts['released']:
-        usable = f"{counts['released']} definitions have matching release receipts in Atlan."
+        usable = f"{counts['released']} definitions have matching release receipts in Atlan Trident."
         if local:
             usable += f" {local} remain local."
     elif total:
@@ -627,9 +627,9 @@ def render_chat(model, detail=False):
     queries = 'saved query' if counts['queries'] == 1 else 'saved queries'
     lines = [model['phase']['label'] + '.',
              f"{counts['metrics']} {metrics} and {counts['queries']} {queries}. "
-             + (f"{counts['released']} saved to Atlan." if counts['released'] else 'None saved to Atlan yet.')]
+             + (f"{counts['released']} saved to Atlan Trident." if counts['released'] else 'None saved to Atlan Trident yet.')]
     if not model['items'] and counts['provisional']:
-        lines[1] = f"{counts['provisional']} {'metric' if counts['provisional'] == 1 else 'metrics'} found so far. Nothing saved to Atlan yet."
+        lines[1] = f"{counts['provisional']} {'metric' if counts['provisional'] == 1 else 'metrics'} found so far. Nothing saved to Atlan Trident yet."
     if model['scope']:
         source_label = 'source' if model['source_count'] == 1 else 'sources'
         lines.append(f"Scope: {model['source_count']} {source_label}" + (', ' + model.get('selection_kind', 'pages') + ': ' + _markdown(', '.join(model['selected_pages'][:3])) if model['selected_pages'] else '') + '.')
@@ -713,7 +713,7 @@ def _render_html_base(model):
             '</style><main>'
             + '<h1>' + esc(model['phase']['label']) + '</h1><small>Snapshot at ' + esc(model['snapshot_at'])
             + '. This view does not update itself. Ask in chat for a refreshed snapshot.</small><section class="summary" aria-label="Setup summary"><p>'
-            + f"{counts['metrics']} metrics · {counts['queries']} saved queries · {counts['released']} saved to Atlan · {counts['held']} held back"
+            + f"{counts['metrics']} metrics · {counts['queries']} saved queries · {counts['released']} saved to Atlan Trident · {counts['held']} held back"
             + '</p><p>Sources: ' + esc(scope) + '</p>'
             + ('<p>Selected ' + esc(model.get('selection_kind', 'pages')) + ': ' + esc(', '.join(model['selected_pages'])) + '</p>' if model['selected_pages'] else '')
             + '<p>' + esc(model['next_step']) + '</p></section>'

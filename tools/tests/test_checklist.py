@@ -169,10 +169,11 @@ class Checklist(unittest.TestCase):
         rows = checklist.initial('dashboard', compact=True)
         self.assertEqual([r['content'] for r in rows], [
             'Choose what your agent answers: from your dashboard', 'Pick report and pages', 'Check what your agent can use',
-            'Build your context: metrics and saved queries', 'Validate the context on your data',
+            'Build your context: metrics and saved queries', 'Validate the context on your data', 'Add past queries (optional)',
             'Choose where to store your context', 'Ask your agent a question', 'Build a dashboard from its answers (optional)'])
-        # It waits at the report, the save, the question and the page; the check waits only when it changes the plan.
-        self.assertEqual([r['id'] for r in rows if r['needs_you']], ['scope', 'save', 'ask', 'dashboard'])
+        # It waits at the report, past queries, the save, the question and the page; the check waits only when it changes
+        # the plan.
+        self.assertEqual([r['id'] for r in rows if r['needs_you']], ['scope', 'history', 'save', 'ask', 'dashboard'])
 
     def test_the_dashboard_list_starts_with_card_one_already_answered(self):
         # Card 1 is answered before the branch starts: its item is ticked, so the list the person saw keeps its place.
@@ -188,7 +189,7 @@ class Checklist(unittest.TestCase):
     def test_dashboard_items_show_their_results_and_the_check_waits_only_when_it_changes_the_plan(self):
         self.progress(stage='inspect', status='running')
         result = self.compact(self.run.journey('agentic'))
-        self.assertEqual((result['flow'], result['of']), ('dashboard', 8))
+        self.assertEqual((result['flow'], result['of']), ('dashboard', 9))
         first = result['steps'][1]
         self.assertEqual((first['id'], first['status'], first['needs_you']), ('scope', 'in_progress', True))
         result = self.compact(self.run.journey('report', answer='Sales pipeline:  Overview, Stages'))
@@ -259,12 +260,35 @@ class Checklist(unittest.TestCase):
         self.run.journey('keep-local')
         self.run.journey('asked')
         result = self.steps()
-        self.assertEqual([r['status'] for r in result['steps']], ['completed'] * 7 + ['in_progress'])
-        self.assertEqual(result['steps'][5]['content'], 'Choose where to store your context: on this machine')
+        self.assertEqual([r['status'] for r in result['steps']], ['completed'] * 8 + ['in_progress'])
+        self.assertEqual(result['steps'][6]['content'], 'Choose where to store your context: on this machine')
         self.run.journey('dashboard', answer='declined')
         result = self.steps()
-        self.assertEqual((result['state'], result['steps'][7]['content']),
+        self.assertEqual((result['state'], result['steps'][8]['content']),
                          ('done', 'Build a dashboard from its answers: skipped'))
+
+    def test_past_queries_are_offered_after_the_checks_and_wait_for_the_person(self):
+        # The person, 2026-11-23: a dashboard build reads the dashboard alone; its past queries are offered before saving.
+        fixture.seed_checked(self.run, 'checked')
+        self.bind(self.run)
+        self.run.journey('agentic')
+        self.progress(stage='check', status='complete')
+        # The checks end with their own result or the person's choice: here, the choice to skip them.
+        self.run.journey('checks', answer='skip')
+        row = lambda: next(r for r in self.steps()['steps'] if r['id'] == 'history')
+        self.assertEqual((row()['status'], row()['needs_you']), ('in_progress', True))
+        self.run.journey('history', answer='add')
+        self.assertEqual((row()['status'], row()['needs_you'], row()['active']),
+                         ('in_progress', False, 'Adding past queries'))
+        self.run.journey('history', answer='added')
+        self.assertEqual((row()['status'], row()['content']), ('completed', 'Add past queries (optional): added'))
+        self.run.journey('history', answer='skip')
+        self.assertEqual(row()['content'], 'Add past queries (optional): skipped, as you chose')
+        self.run.journey('history', answer='unavailable')
+        self.assertEqual(row()['content'], 'Add past queries (optional): none readable for these tables')
+        import journey
+        with self.assertRaises(journey.JourneyError):
+            self.run.journey('history', answer='maybe')
 
     def test_dashboard_records_refuse_what_they_cannot_hold(self):
         import journey
@@ -384,7 +408,7 @@ class ThreeSteps(unittest.TestCase):
         dashboard = checklist.initial('dashboard')
         self.assertEqual([r['id'] for r in dashboard][3:7], ['draft', 'merge', 'write', 'check'])
         self.assertEqual(dashboard[5]['content'], 'Add detailed information to each metric and saved query')
-        self.assertEqual([len(build), len(dashboard), len(checklist.initial('demo'))], [10, 10, 8])
+        self.assertEqual([len(build), len(dashboard), len(checklist.initial('demo'))], [10, 11, 8])
 
     def test_each_step_ticks_as_the_engine_finishes_it_with_its_count_and_estimate(self):
         counts = {'m2_emit': {'queries': 30}, 'x1_ingest': {'proposals': 26}}

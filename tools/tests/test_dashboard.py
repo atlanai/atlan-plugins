@@ -1,4 +1,4 @@
-"""Dashboard integration acceptance uses synthetic data and a fake Registry transport."""
+"""Dashboard integration acceptance uses synthetic data and a fake Atlan Trident transport."""
 import copy
 import importlib.util
 import json

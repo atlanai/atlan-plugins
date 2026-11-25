@@ -2,7 +2,7 @@
 """Dispatch an Analytics workload module. Each module owns its runtime and state.
 
 python3 analytics_agent.py metrics --help
-No module owns Registry publication; it exports the existing context-file contract.
+No module owns Atlan Trident publication; it exports the existing context-file contract.
 """
 import importlib
 import json

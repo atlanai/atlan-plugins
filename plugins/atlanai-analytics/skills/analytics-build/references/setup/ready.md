@@ -27,7 +27,7 @@ On own data, add `--accuracy` when [check accuracy](accuracy.md) says the check 
 demo, add it until the check has run, so the demo's ready question offers it too.
 Add `--recap` on a resumed run, where the save question was not asked in this chat: only then
 does the text say again what was built.
-With `show_widget`, add `--widget` here. After a save to Atlan, the saved card came with
+With `show_widget`, add `--widget` here. After a save to Atlan Trident, the saved card came with
 `PROJECT publication`'s result: it goes before this question. Ask one native question with the `header`, the `question` text
 and the `options` it prints, exactly as given, and the host's free-text entry. When it prints no
 options, ask no native question: print the text as the last thing in the reply and wait.
@@ -111,7 +111,7 @@ numbers. Every answer has three parts, in this order:
    before answering: discover the active organization through the authenticated
    self-profile endpoint, as the definition-links reference describes.
    With the context only on this machine, the list names each one without a link and ends:
-   "Nothing to open yet. After a save to Atlan, each metric named here has a page to open."
+   "Nothing to open yet. After a save to Atlan Trident, each metric named here has a page to open."
 3. After the first answer, record `PROJECT journey asked`. Finish all questions in the
    selected request, then, after an own-data answer, end on one native question instead of a
    `Next:` line: `PROJECT question next`, with `--accuracy` while the ready question offered

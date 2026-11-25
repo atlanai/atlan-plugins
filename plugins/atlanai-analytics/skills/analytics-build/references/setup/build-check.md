@@ -11,7 +11,7 @@ answer; broader team preparation follows only within the requested scope. Existi
 retrieval and execution requirements still apply.
 
 After intent, check connection readiness once when the requested outcome includes team reuse
-or saving in Atlan. Use a current-host `registry__list_workspaces` read and record success with
+or saving in Atlan Trident. Use a current-host `registry__list_workspaces` read and record success with
 `PROJECT auth` `record_read` as [connection recovery](../auth-recovery.md) describes. A failed
 read starts that host's recovery while independent local work continues. Do not mark the
 workspace-listing task done until a read succeeds, and do not retry it at every authoring gate.

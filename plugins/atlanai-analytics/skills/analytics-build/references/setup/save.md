@@ -53,7 +53,7 @@ consistency (one rule, one number, for everyone). Keep both in the copy, in thos
 words. Do not oversell: say nothing about speed, accuracy scores or governance, and never
 suggest the local choice is wrong; it is the right one for a quick look.
 
-Only "Save to Atlan" starts sign-in. With "Keep it on this machine", run
+Only "Save to Atlan Trident" starts sign-in. With "Keep it on this machine", run
 `PROJECT journey keep-local` and go straight to the question step ([ready](ready.md)), with no
 line of your own: the ready question says where it is stored and how to reach it.
 Own-data setup goes, after either choice, to [check accuracy](accuracy.md) first, which offers
@@ -80,11 +80,11 @@ count as it goes: "Saving to your personal workspace: 12 of 19 saved." Finish wi
 `saved` visual, which says what was saved and where, then this line, with no number the visual
 already gives:
 
-"Your agent's metrics are now in Atlan. Ask here, or from any chat with Atlan Analytics and
+"Your agent's metrics are now in Atlan Trident. Ask here, or from any chat with Atlan Analytics and
 `<warehouse>` connected."
 
 When the save result says they are not released yet, its second sentence is instead: "They're
-saved in Atlan but not yet released, so other chats can't answer from them yet."
+saved in Atlan Trident but not yet released, so other chats can't answer from them yet."
 
 **The address for proof links, without asking.** Resolve the active organization's slug
 from the authenticated `GET /registry/v1/users/me` response, matching `org_id` to an

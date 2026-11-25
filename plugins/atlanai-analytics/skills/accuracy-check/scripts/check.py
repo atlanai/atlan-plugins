@@ -559,8 +559,8 @@ def next_options(gaps: dict, questions: int) -> list:
     gaps_first.append({"key": "own_questions", "label": "Add questions of your own",
                        "description": "Questions your team asks, each with its known answer, so the score covers "
                                       "them too."})
-    tail = ([{"key": "save", "label": "Save this score to Atlan",
-              "description": "Save this score to Atlan, so your team can see it."}] if questions >= SMALL_SET else []) \
+    tail = ([{"key": "save", "label": "Save this score to Atlan Trident",
+              "description": "Save this score to Atlan Trident, so your team can see it."}] if questions >= SMALL_SET else []) \
         + [{"key": "done", "label": "I'm done", "description": "Stop here. Your agent stays ready to ask."}]
     return gaps_first[:4 - len(tail)] + tail
 
@@ -592,7 +592,7 @@ def cmd_link(a) -> dict:
     ids = (load(pathlib.Path(a.evals) / "state.json", {}) or {}).get("ids") or {}
     agent, runs = ids.get("agent_id"), ids.get("experiments") or {}
     if not runs:
-        raise Blocked("These test results aren't saved to Atlan yet.")
+        raise Blocked("These test results aren't saved to Atlan Trident yet.")
     base = f"{a.origin}/{quote(a.org, safe='')}/registry/evals/experiments"
     last = list(runs.values())[-1]
     # A check saved without an agent has no agent page: its runs list under All runs.

@@ -103,8 +103,8 @@ trusted results come from the warehouse, and no model copies a value:
       released versions, never from files on this machine; the run folder is only for the query
       runner". On this machine: "the context on this
       machine, in the analytics run at <run-dir>: its metrics and queries are in that run's
-      context folder and are not in Atlan, so do not search the registry; unreleased
-      local definitions are the ones to use". A small model answers from the registry unless told.
+      context folder and are not in Atlan Trident, so do not search Atlan Trident; unreleased
+      local definitions are the ones to use". A small model answers from Trident unless told.
       Never name the eval folder in the prompt: an agent told to avoid it writes the name into
       its own search filters, and the audit then marks the run contaminated. Keep the Agent
       tool's `output_file`: it is the transcript.
@@ -299,7 +299,7 @@ metric at its released version." Never list only the changed metrics: an agent t
 those reads nothing else. Show the new result as [show the score](#show-the-score) describes,
 with `EVAL before-after --before raw --after <vN>` and `EVAL report`'s `compared_text`: it names
 the run this one is compared with, when that run was scored and where it lives (on this
-machine, or saved to Atlan once the check is saved), then the questions that changed, by
+machine, or saved to Atlan Trident once the check is saved), then the questions that changed, by
 number. A comparison whose other run the person cannot find is no comparison. `EVAL compare
 --a baseline --b v1` gives the same change as numbers when asked. The raw-source pass is not
 run again: the source did not change.
@@ -327,17 +327,17 @@ and stop. On each answer:
 | `other_pages`, `another_dashboard`, `a_dashboard` | Add the other pages, Add another dashboard, Add a dashboard | Build again from it with `analytics-build`, then check again on the same questions. |
 | `tables` | Name the tables your team uses | Ask which tables in plain chat, build again with them, then check again. |
 | `own_questions` | Add questions of your own | Ask in plain chat for each question and the SQL that gives its known answer (theirs, or a past query or tile they name). Write them as a set in `.atlan-evals/sets/` and test it as a set the person brought. |
-| `save` | Save this score to Atlan | [Save the check](#save-to-atlan), then close. Offered only with 5 questions or more. |
+| `save` | Save this score to Atlan Trident | [Save the check](#save-to-atlan), then close. Offered only with 5 questions or more. |
 | `done` | I'm done | Close. |
 
 Close is the last step: `PROJECT question close`, its message as it prints. A pick that builds
 again hands over to that build, which ends on its own. The demo ends on its own next step
 instead, as its [result](../../analytics-demo/references/accuracy.md#5-the-result) says.
 
-## Save to Atlan
+## Save to Atlan Trident
 
 Offered in [ask for more](#ask-for-more) when the set holds 5 questions or more, as "Save this
-score to Atlan", "Save this score to Atlan, so your team can see it." Never explain how the
+score to Atlan Trident", "Save this score to Atlan Trident, so your team can see it." Never explain how the
 SQL is kept. The caller gives the workspace; this skill registers nothing, and no agent is needed. Atlan
 holds a run without a subject: the set, each run and its scored answers are saved, and only the
 per-question sessions, which Atlan ties to an agent, are left out.

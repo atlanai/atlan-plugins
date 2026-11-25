@@ -291,19 +291,29 @@ def collect(kind, facts):
             # its question: in the build's plain words once described, else its own when it already reads as one. A tile
             # is named by its title on the dashboard, never by the report's internal code for it. The count stays the one
             # the later chips and the save question use (the fetch reads every page; picking pages there is the engine's).
-            asked = [first_question((facts.descriptions.get(o.get('vq_id')) or {}).get('question') or o.get('question')) for o in tiles]
+            # A question drafted from the SQL's shape ("What is selected_tier?") is a placeholder until the build words
+            # it: a tile shows the words, or none (walk 3, 2026-11-23).
+            def drafted(o):
+                return any('derived structurally' in str(g) for g in o.get('gotchas') or [])
+            asked = [first_question((facts.descriptions.get(o.get('vq_id')) or {}).get('question')
+                                    or ('' if drafted(o) else o.get('question'))) for o in tiles]
             rows = []
             for b, q in zip(bi, asked):
                 if not isinstance(b, dict) or not b.get('visual'):
                     continue
                 widget = (b.get('source_fragments') or {}).get('widget') if isinstance(b.get('source_fragments'), dict) else None
                 title = str(facts.engine_file(widget).get('title') or '').strip() if isinstance(widget, str) else ''
+                context = (b.get('bi_context') or {}).get('widget') if isinstance(b.get('bi_context'), dict) else None
+                title = title or str((context or {}).get('title') or '').strip()
                 # The visual's own name where it is one, never a report's internal code for it (a GUID in Power BI).
                 title = title or ('' if re.fullmatch(r'[0-9a-fA-F-]{16,}', str(b['visual'])) else str(b['visual']))
                 if title or q.endswith('?'):
                     rows.append([title or q, '', q if title and q.endswith('?') else ''])
-            return {'tiles': len(tiles), 'report': facts.report,
-                    'bi_page': next((str(b['page']) for b in bi if isinstance(b, dict) and b.get('page')), None), 'rows': rows}
+            # A report of several pages is named by the report, not by whichever page came first.
+            pages = {str(b['page']) for b in bi if isinstance(b, dict) and b.get('page')}
+            workbook = next((str(b['workbook']) for b in bi if isinstance(b, dict) and b.get('workbook')), None)
+            return {'tiles': len(tiles), 'report': facts.report, 'bi_page': (next(iter(pages)) if len(pages) == 1 else workbook),
+                    'rows': rows}
     if kind == 'described' and 'm2_ingest' in facts.stages:
         return _described(facts)
     if kind == 'drafted' and 'x1_ingest' in facts.stages and facts.stage('x1_ingest', 'proposals'):
@@ -338,6 +348,8 @@ def _checked(facts):
     """Whether the checks are behind the build: every verdict in, the person chose to skip them, or the flow moved on
     past them, as it does on a warehouse, whose verdicts arrive only as each tool result is recorded. A skip drew no
     build card at all in a live dashboard run (2026-11-23)."""
+    # A person who chose to skip the checks has the build in front of them now: the card comes before the next
+    # question (a walkthrough's card showed only after the save question, 2026-11-23).
     return (facts.checks_over or facts.interaction.get('checks') == 'skip' or facts.checks_skipped
             or facts.file('progress.json').get('stage') in ('preview', 'publish', 'ready'))
 
@@ -432,7 +444,11 @@ def _described(facts):
         # Every question came from a tile, and the tiles chip just showed each with its question: a second chip with
         # the same count read as a repeat ("50 tiles read", then "50 questions written", 2026-11-23).
         return {}
-    return {'described': len(words), 'past': len(words) - shown, 'tiles': shown, 'rows': [r[:2] for r in past] + tiles}
+    # With the descriptions written beside the metric steps (the engine's default), they land after the metrics: the
+    # chip says so instead of announcing a step already done (walk 3, 2026-11-23).
+    late = 'x1_ingest' in facts.stages
+    return {'described': len(words), 'past': len(words) - shown, 'tiles': shown, 'rows': [r[:2] for r in past] + tiles,
+            **({'sub': 'Written beside the metric steps, for their questions.'} if late else {})}
 
 
 def _definition(facts, name):
@@ -469,9 +485,13 @@ def _link(edges):
 
 
 def _took(facts):
-    """How long the build took, from the engine's own record of its first and last stage, in whole minutes."""
+    """How long the build took, from the engine's own record of its first and last stage, in whole minutes. It starts
+    where the build does, once the tile translations are reviewed: the readiness check before it is not the build
+    ("in 8 min" for a 6-minute build, walk 3)."""
     from datetime import datetime
     stages = [s for s in facts.engine_file('manifest.json').get('stages') or [] if isinstance(s, dict) and s.get('started_at')]
+    starts = [i for i, s in enumerate(stages) if s.get('stage') in ('a3b_ingest', 'h0_corpus')]
+    stages = stages[starts[0]:] if starts else stages
     try:
         first = datetime.fromisoformat(str(stages[0]['started_at']).replace('Z', '+00:00'))
         last = datetime.fromisoformat(str(stages[-1]['started_at']).replace('Z', '+00:00'))
@@ -735,7 +755,7 @@ def _beside_dashboard(metrics, where, need_look=0):
     rows = [[m['name'], _minus(m['value']) if m['ok'] else 'needs your review'] + ([note(m['tile'])] if m.get('tile') else [])
             for m in metrics]
     # Once something needs a review, what each state means: "returned a number" is then not true of every metric.
-    what = ('Passed means it returned a number %s. Needs your review means the result looks off. A save to Atlan leaves '
+    what = ('Passed means it returned a number %s. Needs your review means the result looks off. A save to Atlan Trident leaves '
             'those out. The side page says why.' % where if need_look else
             'Each metric was tested %s and returned a number.' % where) + (
         ' The dashboard file holds each tile\'s formula, without the number it shows. Each formula was worked out on the same '
@@ -797,7 +817,8 @@ def _outcome(kind, s):
                       if s.get('past') and s.get('tiles') else 'from %s dashboard\'s tiles' % their(s.get('firm')) if s.get('tiles')
                       else 'in %s words' % their(s.get('firm'))),
              'rows': s.get('rows'),
-             'what': 'When you ask one of these, your agent finds the question that matches and uses its SQL.'}
+             'what': 'When you ask one of these, your agent finds the question that matches and uses its SQL.',
+             **({'sub': s['sub']} if s.get('sub') else {})}
     elif kind == 'drafted' and s.get('drafted'):
         # Of the questions just written, how many work out a metric: "found in 3 of those 4 questions", so this count
         # follows the one before it (a count of source ids read "from 5 past queries" after "4 questions written").
@@ -827,7 +848,7 @@ def _outcome(kind, s):
     elif kind == 'agent' and s.get('metrics'):
         o = {'mark': 'ok', 'bold': 'Your agent: %s and %s' % (count(s['metrics'], 'metric'),
                                                                count(s.get('queries', 0), 'saved query', 'saved queries')),
-             'tail': 'built %s, saved to Atlan' % s['built'] if s.get('saved') else 'built %s' % s['built']}
+             'tail': 'built %s, saved to Atlan Trident' % s['built'] if s.get('saved') else 'built %s' % s['built']}
     elif kind == 'questions' and s.get('questions'):
         where = [x for x in ('%d from your dashboard' % s['tiles'] if s.get('tiles') else '',
                              '%d from past queries' % s['queries'] if s.get('queries') else '') if x]
@@ -890,6 +911,15 @@ def _fit_line(o):
     elif over > 0:
         bold = _fit_words(bold, max(8, len(bold) - over))
     return bold, rest, tail
+
+
+def say_line(kind, s):
+    """The moment's line for the chat, whole: the terminal chip cuts it to its width ("is part of…", walk 4)."""
+    o = _outcome(kind, s)
+    if not o:
+        return plain_line(chip(kind, s))
+    text = '%s%s%s' % (o['bold'] or '', o.get('rest') or '', ' · ' + o['tail'] if o.get('tail') else '')
+    return ' '.join(text.replace('**', '').split())
 
 
 def chip(kind, s):
@@ -977,7 +1007,7 @@ def _parts(kind, s):
                 'more': ['Every metric and how it\'s worked out', s.get('page')]}
     if kind == 'saved' and s.get('metrics') and not s.get('local'):
         featured = s.get('featured')
-        return {'icon': 'check-circle', 'title': 'Saved to Atlan', 'why': s.get('aside', ''),
+        return {'icon': 'check-circle', 'title': 'Saved to Atlan Trident', 'why': s.get('aside', ''),
                 'value': '%s, %s' % (count(len(s['metrics']), 'metric'), count(s.get('queries', 0), 'saved query', 'saved queries')),
                 'line': 'In %s, where chats with Atlan Analytics look for metrics' % (s.get('workspace') or 'your workspace'),
                 'note': ('Validated on %s: %d of %d passed' % (_where(s), s['kept'], s['total'])

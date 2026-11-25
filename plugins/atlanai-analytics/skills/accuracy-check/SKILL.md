@@ -24,7 +24,7 @@ command.
 | --- | --- |
 | Loading a set, its trusted answers, running it, the score, why each miss failed, testing again | this skill |
 | Answering each question | `analytics-ask`, in a fresh subagent per question |
-| Saving a check's set and runs to Atlan, when asked | this skill |
+| Saving a check's set and runs to Atlan Trident, when asked | this skill |
 | Generating a set, or saving a set on its own | `eval-generation` |
 | Choosing a set, acting on a miss, changing a metric | whoever called it, never this skill |
 
@@ -74,8 +74,8 @@ any other words or call.
 - Ask only what these steps ask: which set, and whether to run a generated one. Never ask which
   model, how many runs per question, where to run or whether to publish: this skill fixes them.
 - When `CHECK start` is blocked because the folder holds no built context, say its reason in one
-  line and stop. This skill scores a context built with Atlan Analytics; it does not score a
-  registry agent's own eval set, and it never falls back to another harness or to memory of an
+  line and stop. This skill scores a context built with Atlan Analytics; it does not score an
+  Atlan Trident agent's own eval set, and it never falls back to another harness or to memory of an
   earlier run.
 
 ## Test again
@@ -83,7 +83,7 @@ any other words or call.
 After the context changed, [test again](references/run.md#test-again) on the same eval folder,
 pinned to a metric version when the caller names one.
 
-## Save to Atlan
+## Save to Atlan Trident
 
 With 5 questions or more, [ask for more](references/run.md#ask-for-more) offers to [save the
 check](references/run.md#save-to-atlan): the set, the column names only run and every run with

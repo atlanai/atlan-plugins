@@ -61,7 +61,7 @@ def tables_of(sql: str, entity, joins: list, dialect: str | None) -> list:
 def canonical_statement(card: dict) -> str:
     """The metric's definition as one SELECT, composed from the fields that define it.
 
-    `source.sql` is the FROM clause, not a statement — the registry's `Source` is "a table
+    `source.sql` is the FROM clause, not a statement — Atlan Trident's `Source` is "a table
     or SQL source" — so nothing on the card is a runnable query any more. A reader is still
     owed one, and it is four pieces concatenated: the measure, the source, the restrictions
     that are part of what the metric IS.

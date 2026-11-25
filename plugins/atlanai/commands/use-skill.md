@@ -1,5 +1,5 @@
 ---
-description: Use a skill from the Atlan registry in this task, or install it here.
+description: Use a skill from Atlan Trident in this task, or install it here.
 argument-hint: "<skill handle or name> [install]"
 disable-model-invocation: true
 ---

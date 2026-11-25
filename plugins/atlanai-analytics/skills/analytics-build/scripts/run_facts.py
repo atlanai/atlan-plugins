@@ -400,7 +400,9 @@ class RunFacts:
             label = ('%s (%s)' % (word, count(n, 'file')) if n > 1 else word) if kinds == ('powerbi_project',) else \
                 word if n == 1 and kinds[0] in ('powerbi', 'tableau', 'dashboard_html', 'query_history') else count(n, word)
             said = FOUND_SAID.get(word)
-            items.append((n, label, label if not said else said[0] if n == 1 else '%d %s' % (n, said[1])))
+            # One report is one source, however many files Power BI keeps it in ("32 sources" for one report).
+            items.append((1 if kinds == ('powerbi_project',) else n, label,
+                          label if not said else said[0] if n == 1 else '%d %s' % (n, said[1])))
         return sum(n for n, _, _ in items), [label for _, label, _ in items], [said for _, _, said in items]
 
     @cached_property

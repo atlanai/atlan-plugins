@@ -14,7 +14,7 @@
 name = "atlanai"
 display_name = "Atlan Trident"
 # Bump on every release: Claude Code holds users on the version they installed.
-version = "0.5.63"
+version = "0.5.64"
 description = "Your organization's skills, agents, knowledge and MCP servers, from Atlan Trident. One sign-in, no API key."
 short_description = "Skills, agents and tools"
 long_description = "Connect your coding agent to Atlan Trident with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install an Atlan Trident skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with Atlan Trident's own authoring recipes."
@@ -90,10 +90,10 @@ default_prompts = [
 [[addons]]
 name = "atlanai-analytics"
 display_name = "Analytics"
-version = "0.9.90"
-description = "Build an agent that answers your data questions, on a demo or your own data: I extract the context in your dashboards and past queries, add detailed information to it and validate it, then you store it here or save it to Atlan, ask it questions and build a dashboard."
+version = "0.9.91"
+description = "Build an agent that answers your data questions, on a demo or your own data: I extract the context in your dashboards and past queries, add detailed information to it and validate it, then you store it here or save it to Atlan Trident, ask it questions and build a dashboard."
 short_description = "Build an agent that answers your data questions"
-long_description = "The analytics workload on Atlan Trident, as seven skills. analytics-demo walks through a made-up firm end to end. analytics-build does the same on your own data, starting from nothing, a dashboard or a subject: it surveys what you already have, asks what you want to answer, and builds from dashboards first, then past queries, then table definitions. source-survey says what a setup, a subject or a source holds, what can be built from it, and which metric names it offers. metrics-generation builds, tests, edits, proposes and saves metrics and saved queries. analytics-ask answers a data question from saved metrics, names what each answer is based on, and turns answers into a dashboard. eval-generation turns the questions a team already asks into test questions with known answers, kept here or saved to Atlan. accuracy-check tests your agent on those questions and scores it, saying why each miss failed. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection."
+long_description = "The analytics workload on Atlan Trident, as seven skills. analytics-demo walks through a made-up firm end to end. analytics-build does the same on your own data, starting from nothing, a dashboard or a subject: it surveys what you already have, asks what you want to answer, and builds from dashboards first, then past queries, then table definitions. source-survey says what a setup, a subject or a source holds, what can be built from it, and which metric names it offers. metrics-generation builds, tests, edits, proposes and saves metrics and saved queries. analytics-ask answers a data question from saved metrics, names what each answer is based on, and turns answers into a dashboard. eval-generation turns the questions a team already asks into test questions with known answers, kept here or saved to Atlan Trident. accuracy-check tests your agent on those questions and scores it, saying why each miss failed. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection."
 keywords = ["atlan", "analytics", "metrics", "text-to-sql", "talk-to-data", "snowflake", "databricks", "dashboards"]
 category = "Data & Analytics"
 claude_category = "data"
@@ -242,6 +242,6 @@ prompt = "Use $accuracy-check to test our agent on the eval set in this project.
 
 [skills.analytics-ask]
 display_name = "Ask Your Data"
-short_description = "Answer data questions from your metrics and saved queries in Atlan"
+short_description = "Answer data questions from your metrics and saved queries in Atlan Trident"
 prompt = "Use $analytics-ask to answer: what was revenue last quarter, by region?"
 

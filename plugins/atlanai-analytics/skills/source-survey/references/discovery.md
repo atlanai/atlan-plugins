@@ -34,7 +34,7 @@ Every statement is read-only with a limit.
 Alongside the warehouse, note what already exists, without asking:
 
 - BI files in the working folder (`PROJECT discover`), by name and tool. Demo files never.
-- Metrics already released in Atlan for the subjects found, when the Atlan connection
+- Metrics already released in Atlan Trident for the subjects found, when the Atlan connection
   answers: one `extension__metric__search_metrics` call with the subjects' words. A failed
   or signed-out read is skipped silently; discovery does not need Atlan.
 

@@ -124,3 +124,44 @@ def select(inventory, requested=None):
               'supporting_pages': [p['id'] for p in available if p['supporting']]}
     result['scope_hash'] = digest(result)
     return result
+
+
+DECORATION = {'slicer', 'textbox', 'shape', 'image', 'actionButton', 'basicShape', 'pageNavigator', 'bookmarkNavigator'}
+
+
+def list_pages(folder):
+    """A fetched Power BI report's pages, in the report's own order, each with how many tiles show a number or a table
+    (slicers, text and shapes left out) and whether it is hidden (a drillthrough or tooltip page). Read from the
+    PBIR folder the fetch wrote; the survey does not list pages (walk 4, 2026-11-23)."""
+    import json
+    from pathlib import Path
+    out = []
+    for definition in sorted(Path(folder).glob('reports/*/*/definition')) or sorted(Path(folder).glob('**/definition')):
+        pages_dir = definition / 'pages'
+        if not pages_dir.is_dir():
+            continue
+        try:
+            order = json.loads((pages_dir / 'pages.json').read_text()).get('pageOrder') or []
+        except (OSError, ValueError):
+            order = []
+        names = order + sorted(p.name for p in pages_dir.iterdir() if p.is_dir() and p.name not in order)
+        try:
+            report = json.loads((definition.parent / '.platform').read_text())['metadata']['displayName']
+        except (OSError, ValueError, KeyError, TypeError):
+            report = definition.parent.name
+        for name in names:
+            page = pages_dir / name
+            try:
+                meta = json.loads((page / 'page.json').read_text())
+            except (OSError, ValueError):
+                continue
+            tiles = 0
+            for v in sorted((page / 'visuals').glob('*/visual.json')):
+                try:
+                    kind = (json.loads(v.read_text()).get('visual') or {}).get('visualType')
+                except (OSError, ValueError):
+                    kind = None
+                tiles += kind not in DECORATION
+            out.append({'report': report, 'page': meta.get('displayName') or name, 'tiles': tiles,
+                        'hidden': meta.get('visibility') == 'HiddenInViewMode'})
+    return out

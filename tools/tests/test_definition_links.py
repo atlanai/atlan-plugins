@@ -109,6 +109,6 @@ class AutomaticOrganizationTest(unittest.TestCase):
         import subprocess
         result = subprocess.CompletedProcess([], 1, stdout="private response", stderr="private error")
         with patch.object(module.subprocess, "run", return_value=result):
-            with self.assertRaisesRegex(ValueError, "couldn't read this from Atlan") as caught:
+            with self.assertRaisesRegex(ValueError, "couldn't read this from Atlan Trident") as caught:
                 module._cli_json(["api", "get", "registry:/users/me"])
             self.assertNotIn("private", str(caught.exception))

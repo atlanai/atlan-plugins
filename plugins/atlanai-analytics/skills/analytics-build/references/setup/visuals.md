@@ -59,7 +59,7 @@ before going on. While the engine builds, its result after each gate says so too
 | The engine linked the metrics | `links` | Chip: how one metric builds on others | |
 | The build ends: its context is in the run and its structural check has run | `build` | Mini card, before any question: it closes the build, before the question about testing it. In a terminal it waits for the save question, which says it in sentences | |
 | Every check has run, after the build card | `context` | Chip: what ran, and what needs your review; without widgets, a sentence in the save question | |
-| Saved to Atlan | `saved` | Mini card before the ready question; nothing when kept on this machine, which the person has just chosen | with `PROJECT publication` |
+| Saved to Atlan Trident | `saved` | Mini card before the ready question; nothing when kept on this machine, which the person has just chosen | with `PROJECT publication` |
 | A question answered | `answer` | Mini card the first time, then a chip | with the query that answers |
 | A rule changed | `edit` | Mini card | with `EDIT` |
 | Test questions written or loaded for a check | `questions` | Chip: how many, and where they came from; the side page lists each one | |

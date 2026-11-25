@@ -1,7 +1,7 @@
 # Metrics: build the metric layer
 
 Goal: `metric` and `sql_query` artifacts in a workspace, made from definitions people already
-trust, each one checked against the registry's contracts and previewed before it is written.
+trust, each one checked against Atlan Trident's contracts and previewed before it is written.
 Two entries use this file:
 - **metrics mode** (`metrics-generation`, or the `metrics` argument of `analytics-build`, which
   Metrics Studio sends) starts at section 0 and stops at section 6;
@@ -27,7 +27,7 @@ Explicit metrics mode retains its entry contract below.
 ## 0. Metrics-mode entry
 
 1. Reuse the requested destination and publication intent. Local draft requests need no
-   publication workspace. For Atlan saves, open the Registry session and verify the selected
+   publication workspace. For Atlan saves, open the Trident session and verify the selected
    workspace. If the destination is unresolved, list accessible workspaces and ask once with
    **Keep it on this machine** and one choice per existing workspace, named for it. Resolve an
    explicit personal-workspace selection directly. Never choose the first accessible workspace
@@ -98,7 +98,7 @@ collection and its checks. Do not add a mid-build customer decision between card
 
 Complete every engine gate, then `ENGINE export` into a fresh context destination. Preserve
 all five exported files and their source/eligibility receipts. See [contracts](metrics/contracts.md)
-for the Registry wire format; it is not a separate generation procedure. Unsupported sources
+for the Trident wire format; it is not a separate generation procedure. Unsupported sources
 remain held until a faithful input reader is available. Existing legacy drafts can be read
 and reconciled, but generation or changes require a new engine run from their source evidence.
 
@@ -107,7 +107,7 @@ and reconciled, but generation or changes require a new engine run from their so
 1. Write the workspace's live artifacts to `<context-dir>/existing.json`, one
    `{id, kind, name, display_name, source_id, definition}` per artifact. Read definitions with
    `registry__get_artifact` for the metrics whose tables overlap this run's.
-2. Run `CONTEXT check --dir <context-dir>`. It checks every body against the registry's contract
+2. Run `CONTEXT check --dir <context-dir>`. It checks every body against Trident's contract
    and the card rules. It refuses duplicates, and matches each metric to a live one that
    measures the same thing: the same source, formula and mandatory filters, literals included,
    so `STATUS = 'paid'` never matches `STATUS = 'refunded'`. It then writes `plan.json`, which
@@ -132,7 +132,7 @@ and reconciled, but generation or changes require a new engine run from their so
 ## 5. Publish
 
 Read [publish](metrics/publish.md): show the checked plan, carry forward existing scoped
-authorization, then make the writes through the registry's MCP tools only.
+authorization, then make the writes through Trident's MCP tools only.
 
 ## 6. STOP gate
 
@@ -146,7 +146,7 @@ names it and says why.
 
 Fill every count as it reads: "1 saved query", "1 was tested", "1 wasn't tested".
 
-If publication was declined, say "Nothing was saved to Atlan. Your metrics stay on this
+If publication was declined, say "Nothing was saved to Atlan Trident. Your metrics stay on this
 machine, in `<context-dir>`." Record the counts and the
 sources used in state as `context_run`.
 

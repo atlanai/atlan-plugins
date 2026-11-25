@@ -4,7 +4,7 @@ Use seven stages: **Inspect, Scope, Build, Check, Preview, Publish, Ready to ask
 The person sees them as the guided flow's steps in [the checklist](setup/checklist.md): ten
 in the task list for own data (`analytics-build`), eight for a demo (`analytics-demo`), the build
 shown as four steps in each.
-The result is released metrics and saved SQL in Atlan, used by this chat through MCP.
+The result is released metrics and saved SQL in Atlan Trident, used by this chat through MCP.
 An input folder is ordinary customer context. Never depend on a particular repository,
 sample schema or database name. Explicit agent and evaluation modes remain separate.
 
@@ -15,9 +15,9 @@ request files inside `<run-dir>`: it refuses paths through a symlink, such as `/
 Use the metrics engine's pinned Python 3.11/3.12 runtime for generation and CSV
 preparation. The project helper retains local checks and publication state.
 The [local procedures](project.md) describe binding, preparation and complete release readbacks.
-Missing Registry access follows [connection recovery](auth-recovery.md): inspect the current
+Missing Atlan Trident access follows [connection recovery](auth-recovery.md): inspect the current
 host, start the host's sign-in when required, watch its native task and resume after a
-successful Registry read. Continue independent local work while waiting; do not simply ask
+successful Trident read. Continue independent local work while waiting; do not simply ask
 for "continue".
 
 ## Orient before work

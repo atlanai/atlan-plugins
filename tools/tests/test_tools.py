@@ -1161,13 +1161,17 @@ class SkillChecksTest(unittest.TestCase):
         for host in ("codex", "cursor"):
             started = (skills / "atlan-get-started" / "references" / f"{host}-skill-checks.md").read_text(encoding="utf-8")
             block = started.split("<!-- atlanai:skill-checks:start -->", 1)[1].split("<!-- atlanai:skill-checks:end -->", 1)[0]
-            self.assertIn("## Atlan registry skills", block, host)
+            self.assertIn("## Atlan Trident skills", block, host)
+            self.assertNotIn("Atlan registry", block, host)
+            self.assertIn("`## Atlan registry skills`", started.split("<!-- atlanai:skill-checks:start -->", 1)[0], f"{host} still recognises the earlier heading")
             self.assertIn("atlan-use-skill", block, host)
             self.assertIn(f"references/{host}-skill-checks.md", (skills / "atlan-get-started" / "SKILL.md").read_text(encoding="utf-8"))
             blocks.append(block)
         self.assertEqual(blocks[0], blocks[1], "Codex and Cursor opt in with the same words")
         for name in ("atlan-use-skill", "atlan-find-artifacts", "atlan-get-started"):
-            self.assertIn("**Atlan registry skills**", (skills / name / "SKILL.md").read_text(encoding="utf-8"), name)
+            text = (skills / name / "SKILL.md").read_text(encoding="utf-8")
+            self.assertIn("**Atlan Trident skills**", text, name)
+            self.assertIn("**Atlan registry skills**", text, f"{name} still recognises the earlier heading")
 
 
 class EvalCasesTest(unittest.TestCase):

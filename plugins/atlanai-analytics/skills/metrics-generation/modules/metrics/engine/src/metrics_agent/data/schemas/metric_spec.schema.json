@@ -502,7 +502,7 @@
           "items": {
             "type": "string"
           },
-          "description": "The model's own other names for this metric (a declared metric's synonyms, and the author's name when the card took the model's), verbatim. Retrieval words for search and the glossary; not a registry field."
+          "description": "The model's own other names for this metric (a declared metric's synonyms, and the author's name when the card took the model's), verbatim. Retrieval words for search and the glossary; not an Atlan Trident field."
         },
         "viewer_binds": {
           "type": "object",

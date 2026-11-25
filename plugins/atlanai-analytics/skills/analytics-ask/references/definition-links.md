@@ -24,7 +24,7 @@ Next: <one next step>
 
 **Based on** has one line per metric and saved query used. Leave out the version when the read
 returned none. Use the artifact's name as the link label. With no metric, it holds one line:
-"My own SQL. No metric in Atlan covers <measure>. I assumed <formula and filters>."
+"My own SQL. No metric in Atlan Trident covers <measure>. I assumed <formula and filters>."
 Keep artifact, workspace and release ids inside URLs only; do not repeat them in prose,
 code spans or caveats. A **Based on** line needs only the linked name and released version.
 Show a workspace's display name only when it helps, never its handle. Do not append
@@ -36,7 +36,7 @@ a correction), else "Next: ask a follow-up, or ask to see the SQL."
 ## Lines that go with the answer
 
 - Where it came from, with the first answer in a conversation. From a metric: "I answered from
-  <metric>, a metric saved in Atlan. I wrote the SQL from its definition, so the same question
+  <metric>, a metric saved in Atlan Trident. I wrote the SQL from its definition, so the same question
   gets the same number." From a saved query: "I answered from <saved query>, a saved query in
   Atlan, using its SQL as saved."
 - Under **Good to know**:
@@ -68,7 +68,7 @@ a person can belong to several organizations. Read only these fields; email, nam
 roles, permissions and credentials are unnecessary for composing a link.
 
 Use the host's existing authenticated API transport for this fixed GET when available.
-Do not invent an MCP tool name: the current Registry MCP catalog does not expose this
+Do not invent an MCP tool name: the current Atlan Trident MCP catalog does not expose this
 self-profile read. In Codex and Claude Code with the Atlan CLI, the bundled helper uses:
 
 ```
@@ -133,5 +133,5 @@ the link. Use the workspace returned with that artifact, not a guessed default.
 Local metrics and saved queries have no Atlan page. Under **Based on**, cite each as "Metric:
 <name>, stored on this machine" or "Saved query: <name>, stored on this machine", never with
 its file path. Then add
-"Nothing to open yet. Each one gets a page in Atlan once you save it there."
+"Nothing to open yet. Each one gets a page in Atlan Trident once you save it there."
 Never fabricate a saved link for an unpublished item or let a missing link block an answer.

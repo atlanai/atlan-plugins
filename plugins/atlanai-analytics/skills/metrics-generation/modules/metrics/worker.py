@@ -144,7 +144,7 @@ def optional_readers_missing(doc):
     return '\n'.join(out)
 
 
-def prepare(run, config, runtime, approval_mode='auto'):
+def prepare(run, config, runtime, approval_mode='auto', carry_from=None):
     from metrics_agent import setup
     run, config = ordinary(run), ordinary(config)
     doc = local_config(config)
@@ -177,7 +177,39 @@ def prepare(run, config, runtime, approval_mode='auto'):
     write(run / 'module.json', {'module': 'metrics', 'commit': commit, 'source_sha256': sha,
                                'config_sha256': digest(config), 'run_config_sha256': digest(run / 'run.yml'),
                                'runtime': str(runtime), 'status': 'prepared', 'approval_mode': approval_mode})
-    return {'status': 'prepared', 'run': str(run), 'commit': commit, 'config': str(run / 'run.yml')}
+    out = {'status': 'prepared', 'run': str(run), 'commit': commit, 'config': str(run / 'run.yml')}
+    if carry_from:
+        out['carried'] = carry(ordinary(carry_from), run, commit)
+    return out
+
+
+# The gates whose answers a later run over the same sources can reuse as they are, and the two
+# that answer per statement, whose answers go to `carried-*.json` so the run asks only about the
+# statements they do not cover. The merge, the cards and the links are never carried: a run that
+# adds sources must merge everything again, or a duplicate across the sources survives.
+WHOLE = ('a3b', 'c3')
+PER_STATEMENT = {'m2': 'queries', 'x1': 'statements'}
+
+
+def carry(source, run, commit):
+    """Copy an earlier run's gate answers into this new run: the dashboard's statements keep their ids."""
+    receipt = load(source / 'module.json') if (source / 'module.json').is_file() else None
+    if not receipt or receipt.get('commit') != commit:
+        raise ValueError('Carry answers only from a run on this same runtime; prepare without --carry-from.')
+    counts = {}
+    for gate in WHOLE:
+        for f in sorted((source / 'answers' / gate).glob('*.json')):
+            write(run / 'answers' / gate / f.name, load(f))
+            counts[gate] = counts.get(gate, 0) + 1
+    for gate, key in PER_STATEMENT.items():
+        rows = []
+        for f in sorted((source / 'answers' / gate).glob('*.json')):
+            doc = load(f)
+            rows += [r for r in (doc.get(key) or []) if isinstance(r, dict)] if isinstance(doc, dict) else []
+        if rows:
+            write(run / 'answers' / gate / f'carried-{source.name}.json', {key: rows})
+            counts[gate] = len(rows)
+    return counts
 
 
 def state(run, runtime):
@@ -264,7 +296,8 @@ def batch_progress(run, gate):
     # them, in the desktop app and in Claude Code's terminal alike, while a turn that keeps going is not.
     return {'wait': wait, 'name': STEP_NAMES[gate], **shares,
             'say': (f'A fresh subagent named `{STEP_NAMES[gate]}`, started in the background (never one this session '
-                    'waits on), writes this gate in numbered batch files and runs no drafts command'
+                    'waits on), writes this gate in numbered batch files, runs no drafts command and never advances '
+                    'the engine'
                     + ('; first run `split`, which shares the metrics among up to five subagents and gives each its '
                        'brief. ' if shares else '. ') +
                     'The session that talks to the person stays in one turn while the build runs: it runs `wait` in '
@@ -272,7 +305,8 @@ def batch_progress(run, gate):
                     'prints says, and runs it again in the same message. On a batch, set the task list to `task_list`. '
                     'When a step ends, run `visual next` first (it is quick) and show what it gives in the same '
                     'message that starts the next step\'s subagent. When something is ready to show, run `visual '
-                    'next`. When every share is back, advance once. On a quiet spell, check the subagents. It never '
+                    'next`. When every answer is saved or every share is back, advance once: this session is the only '
+                    'one that advances. On a quiet spell, check the subagents. It never '
                     'ends the turn between waits (a turn that ends without words '
                     'is sent back for them) and writes nothing of its own between chips, apart from the line a quiet '
                     'spell hands over where there is no task list, a problem, or an answer when asked: a step\'s own chip names the '
@@ -371,7 +405,7 @@ def own_message(exc):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('command', choices=('discover', 'stage-input', 'prepare', 'advance', 'status', 'parity-plan', 'export'))
-    for name in ('runtime', 'run', 'config', 'model', 'context', 'parity', 'source', 'destination', 'source-id'):
+    for name in ('runtime', 'run', 'config', 'model', 'context', 'parity', 'source', 'destination', 'source-id', 'carry-from'):
         parser.add_argument('--' + name)
     parser.add_argument('--approval-mode', choices=('ask', 'auto'), default='auto')
     args = parser.parse_args()
@@ -384,7 +418,7 @@ def main():
         elif args.command == 'stage-input':
             result = stage_input(args.source, args.destination, args.source_id)
         elif args.command == 'prepare':
-            result = prepare(args.run, args.config, runtime, args.approval_mode)
+            result = prepare(args.run, args.config, runtime, args.approval_mode, args.carry_from)
             code = 2 if result['status'] == 'NEEDS_CONTEXT' else 0
         elif args.command == 'advance':
             result, code = advance(args.run, runtime, args.model)

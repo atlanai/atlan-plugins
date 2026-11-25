@@ -1,6 +1,6 @@
 ---
 name: eval-generation
-description: "Atlan Analytics: write an eval set to test your agent, 20 questions your team already asks, each with a known answer, kept here or saved to Atlan. Use when asked to build evals or golden questions. Not for metrics (metrics-generation)."
+description: "Atlan Analytics: write an eval set to test your agent, 20 questions your team already asks, each with a known answer, kept here or saved to Atlan Trident. Use when asked to build evals or golden questions. Not for metrics (metrics-generation)."
 ---
 
 # Generate an eval set for a use case
@@ -84,9 +84,9 @@ machine. Unless the caller already chose, ask one question, "Where should these 
 | Option | Description |
 | --- | --- |
 | Keep on this machine (Recommended) | They stay in this folder, ready to test your agent. |
-| Save to Atlan | Your team can see the questions. Their SQL stays on this machine, so tests start here. |
+| Save to Atlan Trident | Your team can see the questions. Their SQL stays on this machine, so tests start here. |
 
-On Save to Atlan: `SCOPE ready --set <set file>` returns a `dir` and `slug`; then, with
+On Save to Atlan Trident: `SCOPE ready --set <set file>` returns a `dir` and `slug`; then, with
 `--dir` set to that `dir`, `EVAL init --slug <slug>`, `EVAL import-spec --spec "<dir>/work/spec.json"`
 and the loop `EVAL publish --variant baseline --dataset-only --workspace <id>` and `EVAL
 publish-ack`, as [publish](references/publish.md) describes. The workspace is the one the context

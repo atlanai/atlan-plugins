@@ -10,8 +10,8 @@ Do not enumerate argument names or commands unless asked. For example: "Nothing 
 yet. I'll send the same save another way, through the same Atlan connection. Your checked
 metrics and workspace stay as they are. You don't need to change any settings."
 
-Every write goes through the registry's MCP tools with the person's own sign-in. Nothing here
-calls the registry's REST API, holds a token or runs a push script. Publish only what
+Every write goes through Atlan Trident's MCP tools with the person's own sign-in. Nothing here
+calls Trident's REST API, holds a token or runs a push script. Publish only what
 `plan.json` marks `ok`. The checker enforces `publication-holds.json` for engine exports.
 Preserve the hold manifest and source receipt; never reintroduce held bodies or links, infer
 status from prose, or delete evidence to make a plan pass. Repair through the engine gates
@@ -193,13 +193,13 @@ readback. A failed, missing, changed or conflicting receipt stays pending.
 
 Once the status is `ready`, repeat that command with `--finalize`. It assembles the native
 readbacks and invokes the existing publication validator and compact durable run receipts.
-Re-running it is safe and makes no Registry writes. The normal final counts/search checks
+Re-running it is safe and makes no Trident writes. The normal final counts/search checks
 remain. If local recording fails after a tool runs, preserve the result and reconcile live
 state; never repeat a write to repair a receipt. Missing readbacks can be read again safely.
 
 For an interrupted run, resume with the same receipt directory and run the helper first;
 complete only its missing reads and normal checked link work. Conflicting revisions require
-reconciliation and a fresh receipt set. A new run still reads live Registry inventory and
+reconciliation and a fresh receipt set. A new run still reads live Trident inventory and
 runs the existing create/revise/reuse checker. Local receipts never replace that discovery
 or the fresh released-context retrieval required to answer questions. Each receipt set is
 bounded to 128 immutable files, with at most 256 KiB per native response file.
@@ -256,9 +256,9 @@ releases. Record the actual release id, channel and version id of each published
 never assume a create published.
 
 For a write that stays unreleased, publication happens in Metric Studio, or through an
-authenticated registry release client when publication is authorized. Discover that capability
+authenticated Atlan Trident release client when publication is authorized. Discover that capability
 and never invent an MCP release tool. If none exists, leave publication pending and say "They're
-saved in Atlan but not yet released, so your agent can't answer from them yet."
+saved in Atlan Trident but not yet released, so your agent can't answer from them yet."
 
 ## 4. Links
 

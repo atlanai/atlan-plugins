@@ -15,7 +15,7 @@ registry__patch_artifact {
 
 This is the sharp edge, and it is deliberate rather than accidental.
 
-The registry applies the RFC 7396 merge **before** the extension's update hook runs. So by
+Atlan Trident applies the RFC 7396 merge **before** the extension's update hook runs. So by
 the time the hook sees the document, the only reason `agent_framework_id` or
 `agent_provider_id` could be absent is that you sent an explicit `null` to clear it - an
 omitted key was already filled in from the stored row by the merge.

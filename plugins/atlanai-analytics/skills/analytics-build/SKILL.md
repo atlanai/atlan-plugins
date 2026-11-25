@@ -91,7 +91,7 @@ the first survey on, as [visuals](references/setup/visuals.md) says. A helper re
 5. **Choose where to store your context.** Read
    [context built and where to keep it](references/setup/save.md) and
    [preview and publish](references/setup/preview-publish.md); `metrics-generation` `save`.
-   After a save to Atlan with `show_widget`, draw the `saved` visual; in a terminal the
+   After a save to Atlan Trident with `show_widget`, draw the `saved` visual; in a terminal the
    ready question holds it.
 6. **Ask your agent a question.** Read [check accuracy](references/setup/accuracy.md), then
    [ready for questions](references/setup/ready.md): the ready question offers the check when it
@@ -106,7 +106,7 @@ a repository the person names is an ordinary step; its name or layout never sele
 
 Use this host and its Atlan MCP connection. This chat is the talk-to-data agent; this add-on
 deploys or evaluates no separate agent, and says so in one line when asked.
-If Registry tools are missing or sign-in is required, follow
+If Atlan Trident tools are missing or need sign-in, follow
 [connection recovery](references/auth-recovery.md) inside this task and resume the saved
 stage. Never infer a missing coding-host plugin from a generic app-directory search.
 
@@ -123,7 +123,7 @@ These routes are reached only by name; the guided flow never offers them.
   folder holds a run, pass its directory, so the answer uses the run's own rules.
 
 In Claude Code, load a sibling skill with the Skill tool as `atlanai-analytics:<name>`. The
-Registry marketplace bundles these skills in `atlanai`; use its installed namespace instead,
+Trident marketplace bundles these skills in `atlanai`; use its installed namespace instead,
 and do not install this add-on beside that bundle.
 
 ## Hand-offs

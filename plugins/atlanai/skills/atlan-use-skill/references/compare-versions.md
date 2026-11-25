@@ -80,8 +80,8 @@ aireg install writes none.
 ## Are installed skills up to date?
 
 1. **List the installed skills.** Your tool lists them in this conversation. Leave out the Atlan
-   plugin's own skills (`atlan-…`, `atlanai:…`): they update with the plugin, not from the
-   registry. Find where the others live: the skills folders in `install.md`'s table, or the
+   plugin's own skills (`atlan-…`, `atlanai:…`): they update with the plugin, not from
+   Atlan Trident. Find where the others live: the skills folders in `install.md`'s table, or the
    folder your tool's skill loader names for a skill (in Claude Code, the base directory the
    Skill tool prints). Read `.atlan-installed.json` in the folder that holds the skill folders;
    one read covers every skill it lists.
@@ -95,7 +95,7 @@ aireg install writes none.
      installed copy is no longer a released version, and leave its files alone unless the user
      asks to remove them.
 3. **A skill with no record** (installed by hand, by aireg, or before records existed): read the
-   registry skill as SKILL.md section 1 says and compare the two `SKILL.md` texts, saying that
+   Trident skill as SKILL.md section 1 says and compare the two `SKILL.md` texts, saying that
    only `SKILL.md` was compared. A skill with no match in Atlan is a local skill; say so in one
    line and do not search further.
 

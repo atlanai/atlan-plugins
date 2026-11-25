@@ -1,7 +1,7 @@
 """The guided-flow checklist: the steps a person can expect, each with its saved state.
 
 Three flows share it. `analytics-build` (own data) shows ten steps, its dashboard branch ("Make my dashboard
-agentic") ten of its own, and `analytics-demo` (a chosen demo) eight: in each, the build shows as
+agentic") eleven of its own, and `analytics-demo` (a chosen demo) eight: in each, the build shows as
 its steps (draft, merge, write notes, and on own data and demos the validation that runs with it).
 Read-only. Every state and count comes from the saved run, so
 the host's task list mirrors what happened and a resumed run starts with its finished steps
@@ -39,6 +39,7 @@ STEPS = {
         ('readiness', 'Check what your agent can use', "Checking the dashboard's tiles and tables", False),
         ('metrics', 'Build your context: metrics and saved queries', 'Building your context', False),
         ('check', 'Validate the context on your data', 'Validating each metric and saved query on your data', False),
+        ('history', 'Add past queries (optional)', 'Waiting for your choice', True),
         ('save', 'Choose where to store your context', 'Waiting for your choice', True),
         ('ask', 'Ask your agent a question', 'Waiting for your question', True),
         ('dashboard', 'Build a dashboard from its answers (optional)', 'Waiting for your choice', True),
@@ -280,7 +281,7 @@ def _picked(report):
 
 
 def _dashboard(model):
-    """The dashboard branch's eight items (ten in the host's list, the build as three), the first ticked from card 1. Each finished item carries its result after a colon, from the run's own
+    """The dashboard branch's nine items (eleven in the host's list, the build as three), the first ticked from card 1. Each finished item carries its result after a colon, from the run's own
     record: the report and pages the person picked, the readiness check's line, and the counts that came out."""
     phase, counts = model['phase'], model['counts']
     interaction = model.get('interaction') or {}
@@ -313,6 +314,9 @@ def _dashboard(model):
         'readiness': not waits and (bool(readiness.get('result')) or at >= 3),
         'metrics': at >= 3 or (at == 2 and finished) or checked or saved,
         'check': checked or (saved and at >= 4),
+        # Past queries end with the person's no, with their build done, or with none to read: never on a save alone,
+        # except a run saved before the step existed.
+        'history': interaction.get('history') in ('added', 'skip', 'unavailable') or (saved and 'history' not in interaction),
         'save': saved,
         # "I'm done" without asking or building ends both steps as skipped: the host's closing call ticks every open item,
         # and a live run showed both as done though neither happened (2026-11-23).
@@ -325,9 +329,11 @@ def _dashboard(model):
         'readiness': readiness.get('result') or '',
         'metrics': (_plural(counts['metrics'], 'metric') + ' and ' + _plural(counts['queries'], 'saved query', 'saved queries')) if total else '',
         'check': _tested(counts, skipped),
+        'history': {'added': 'added', 'skip': 'skipped, as you chose',
+                    'unavailable': 'none readable for these tables'}.get(interaction.get('history'), ''),
         'save': 'on this machine' if local else
-        (_plural(counts['released'], 'metric or saved query', 'metrics and saved queries') + ', now in Atlan') if counts.get('released') else '',
-        'ask': 'answered' if interaction.get('asked') else 'skipped',
+        (_plural(counts['released'], 'metric or saved query', 'metrics and saved queries') + ', now in Atlan Trident') if counts.get('released') else '',
+        'ask': 'skipped' if interaction.get('asked_result') == 'declined' or not interaction.get('asked') else 'answered',
         'dashboard': 'skipped' if declined else interaction.get('dashboard_result') or 'done',
     }
     rows, current = [], None
@@ -342,6 +348,8 @@ def _dashboard(model):
                 active = 'Waiting for your go-ahead: ' + readiness.get('result', '')
         elif key == 'metrics' and phase.get('source') == 'engine' and at == 2:
             active = phase['label']
+        elif key == 'history' and interaction.get('history') == 'add':
+            active, needs_you = 'Adding past queries', False
         elif key == 'save' and at == 5 and not done[key]:
             active, needs_you = 'Saving to Atlan', False
         elif key == 'check' and status == 'in_progress' and not interaction.get('checks') and at == 3 and finished:

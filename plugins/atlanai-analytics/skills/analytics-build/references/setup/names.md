@@ -18,7 +18,7 @@ Neither generates SQL or runs a check on a metric.
   used first.
 - With a subject typed in card 1: the distinct things that subject's tables can answer (for
   sales: pipeline and win rate, rep activity, account coverage).
-- A dashboard discovery found in the working folder, or a set of metrics already in Atlan,
+- A dashboard discovery found in the working folder, or a set of metrics already in Atlan Trident,
   is named on the use case it belongs to: "Tables: … Dashboard: pipeline-review.pbix".
 
 ## 2. One card, kept short

@@ -1,7 +1,7 @@
 # Run the metrics module
 
 Use this procedure for metrics-only work, guided setup on own data, and new Power BI
-or Tableau dashboard projects, including demos and local-only repository/folder setup. The plugin drives the conversation and Registry publication.
+or Tableau dashboard projects, including demos and local-only repository/folder setup. The plugin drives the conversation and Atlan Trident publication.
 The owned metrics-agent module drives source processing, compilation, verification and metric gates.
 
 `ENGINE` means `python3 "<metrics-dir>/scripts/analytics_agent.py" metrics --runtime <runtime>`.
@@ -40,7 +40,7 @@ part of this procedure rather than skipped in favour of a browser capture.
 If the runtime is absent, announce its isolated, constrained initialization ("First I'll set
 up the tools that build metrics. They stay on this machine and are reused next time.") and run
 `ENGINE setup` as part of the requested workflow through the host permission controls, with one
-`--feature <name>` per required feature. It installs no Registry writer, glossary writer,
+`--feature <name>` per required feature. It installs no Trident writer, glossary writer,
 observer or model SDK. Do not install everything to answer a local-file request.
 What it installs, for a person or a policy that asks before any install: a private Python
 environment in the runtime folder, holding the build tools and their dependencies, every
@@ -189,7 +189,7 @@ For a Power BI report link, `ENGINE powerbi-report` does this section and the fi
 (see **Power BI from a report link**). For a setup run on a local database, `PROJECT engine-config` writes this configuration; see
 [build and check](../../analytics-build/references/setup/build-check.md). Otherwise, write the agreed configuration to a private file, with absolute staged input paths. It is the normal
 metrics-agent `run.yml` contract, with `publish: [files]` and `observers: []`. This destination
-means local handoff to the plugin, not authorization to publish to Registry. All input plug
+means local handoff to the plugin, not authorization to publish to Trident. All input plug
 settings and entry-point discovery remain unchanged.
 When `PROJECT history` returns scoped `tables`, preserve them in the run configuration;
 the main engine applies this bound while grouping and admitting captured history.
@@ -222,8 +222,15 @@ It runs the maintained configuration and plug checks, without the terminal inter
 Resolve only returned missing requirements. A `.pbix` that needs an add-on needs the `pbix`
 feature. Save `module: metrics`, runtime path, run path
 and source revision in project state. The engine manifest owns stage progress; do not mirror it.
-For a setup project, save its within-run engine directory as `engine_run` in `run.json`.
+For a setup project, record its within-run engine directory with `PROJECT use-engine <dir>`.
 The native journey then retains the provisional sample on resume without another path prompt.
+
+A run that adds sources to an earlier run over the same dashboard (its past queries, offered
+after the dashboard's build) is prepared with `--carry-from <earlier engine-dir>` in a new
+directory. The earlier run's answers about the dashboard's statements are reused, and its gates
+ask only about statements no answer covers. The merge, the cards and the links are never
+carried: they run again over every source. Both runs must use the same runtime. Record the
+new directory with `PROJECT use-engine`.
 
 ### Native sign-in
 
@@ -270,7 +277,7 @@ packaged runtime initialization and generated-file reads are ordinary task steps
 Atlan destination authorizes in-scope creates; an explicit draft-only request defers writes.
 Ask only for missing facts, a changed target/source scope or unauthorized definition revisions.
 The host's auto/bypass settings remain host-owned. No engine flag grants filesystem access,
-authorizes an unrelated write, changes Registry release policy or skips a validator.
+authorizes an unrelated write, changes Trident release policy or skips a validator.
 
 ## 3. Let the assistant answer the original gates
 
@@ -334,7 +341,7 @@ procedure before installing its new bundle.
 It revalidates the core artifacts, checks the completion hashes and output privacy boundary,
 then projects `metrics.json`, `queries.json` and `links.json`. It preserves source identities,
 formulas, source SQL, filters, joins, dimensions, parameters and evidence. It neither rewrites
-definitions to satisfy Registry nor writes Registry data. Refused fields return to authoring.
+definitions to satisfy Trident nor writes Trident data. Refused fields return to authoring.
 
 Effective C4 compiler-review failures become structured publication holds. The exporter writes
 `publication-holds.json`, excludes held queries, metrics derived from them, dependent metrics
@@ -357,7 +364,7 @@ the structured hold reasons instead of asking to bypass them.
 
 
 Continue at metrics workflow section 4: read live scoped inventory, run `CONTEXT check`, preview,
-and use the existing publication procedure. Generation never uses a legacy Registry-payload importer.
+and use the existing publication procedure. Generation never uses a legacy Trident-payload importer.
 
 When asked only for the next step, answer in one short paragraph. Name the action, what
 blocks it and the existing authorization; expand the full procedure only when requested.

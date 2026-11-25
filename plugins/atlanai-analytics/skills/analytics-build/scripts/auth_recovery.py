@@ -1,7 +1,7 @@
-"""Record host-scoped Registry reads and host-owned sign-in tasks. No credential access.
+"""Record host-scoped Atlan Trident reads and host-owned sign-in tasks. No credential access.
 
 The host starts/polls the login task, opens Chrome and supplies observed results. This
-helper never authenticates, launches commands, reads credentials or makes Registry calls.
+helper never authenticates, launches commands, reads credentials or makes Trident calls.
 """
 import re
 import time
@@ -56,7 +56,7 @@ def result(state):
 def record_read(run, request, prior, now):
     """Append current-host evidence without changing another host's recovery checkpoint."""
     if set(request) != {'operation', 'host', 'server', 'read_tool', 'read_succeeded'}:
-        raise ValueError('Record only the current host, server and successful Registry read.')
+        raise ValueError('Record only the current host, server and successful Atlan Trident read.')
     host, server = request['host'], identifier(request['server'])
     if (host not in HOSTS or request['read_tool'] != 'registry__list_workspaces'
             or request['read_succeeded'] is not True):
@@ -136,11 +136,11 @@ def advance(run, request, now=None):
                 state['browser_opened'] = True
             elif event == 'login_succeeded' and state['status'] == 'waiting_auth':
                 if request.get('task_id') != state.get('task_id'):
-                    raise ValueError('Observe the same host login task before checking Registry access.')
+                    raise ValueError('Observe the same host login task before checking Atlan Trident access.')
                 state['status'] = 'checking_mcp'
             elif event == 'registry_ready' and state['status'] in ('checking_mcp', 'tools_missing', 'connection_error', 'reload_required'):
                 if request.get('read_tool') != 'registry__list_workspaces' or request.get('read_succeeded') is not True:
-                    raise ValueError('A successful current-host Registry read is required; CLI login alone is insufficient.')
+                    raise ValueError('A successful current-host Atlan Trident read is required; CLI login alone is insufficient.')
                 state.update(status='connected', read_tool='registry__list_workspaces')
             elif event == 'tools_not_loaded' and state['status'] in ('checking_mcp', 'tools_missing'):
                 state['status'] = 'reload_required'

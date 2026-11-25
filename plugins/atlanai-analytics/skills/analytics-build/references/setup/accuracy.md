@@ -21,7 +21,8 @@ and it returns a set, or the run checked at least one dashboard tile or past que
 questions from. Then add `--accuracy` to `PROJECT question ready`, and its options include
 **Check how accurate it is**. Leave it out, and say nothing about the check, when:
 
-- the collection holds no checked metric;
+- the collection holds no checked metric: no metric ran on the data, as when the person chose to
+  skip the checks;
 - `CHECK start` is blocked, or returns no set and the run has neither tiles nor past queries;
 - `execution.via` is `host` and this conversation has no warehouse query tool to run SQL with;
 - a check has already run on this run.
@@ -78,8 +79,8 @@ sources do not name it.
   `registry__release_artifact`. Options: Release it (Recommended), and Keep it unreleased. A
   workspace that releases on its own needs no question; withdrawing a release that made a
   question worse follows the demo's rule.
-- **Saving the check.** Offered as Save this score to Atlan in the ask for more question, with 5
-  questions or more, whether the context is in Atlan or on this machine (then the person's
+- **Saving the check.** Offered as Save this score to Atlan Trident in the ask for more question, with 5
+  questions or more, whether the context is in Atlan Trident or on this machine (then the person's
   personal workspace). No agent is registered; `<agent name>` is the name above, used only in the
   saved summary.
 

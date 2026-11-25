@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Inspect task-scoped publication authorization; makes no Registry calls.
+"""Inspect task-scoped publication authorization; makes no Atlan Trident calls.
 
 The assistant records trusted user/session decisions in a private JSON file. Plan permission
 is checked against the selected workspace and source identities, never inferred from a BI file.

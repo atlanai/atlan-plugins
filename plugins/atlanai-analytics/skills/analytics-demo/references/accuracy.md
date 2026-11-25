@@ -21,7 +21,7 @@ sentences, in this order, naming only the decisions that are theirs: I pick 8 qu
 came from and its expected answer; you decide once whether to run them, change some or skip;
 each question goes to a fresh agent with your context and again with column names only, so the score
 shows beside that comparison; with a miss, you decide whether I find the fix; and only after
-the score, whether to save the check to Atlan or store it on this machine. Nothing else.
+the score, whether to save the check to Atlan Trident or store it on this machine. Nothing else.
 
 When the host keeps a task list, its items are these, in the person's words, whichever questions
 are picked: **Check your test questions**, **Run your agent on each question**, **Score
@@ -35,7 +35,7 @@ no Doing or Why lines. Every step that leads to a choice ends on a native questi
 score with misses (step 3): it is the turn's last chat message, ending on a plain reply line, so
 it prints whole. The result (step 5) is the text of its native question.
 
-An eval set lives in the project (`.atlan-evals/sets/`), never fetched from Atlan: never
+An eval set lives in the project (`.atlan-evals/sets/`), never fetched from Atlan Trident: never
 look up Trident, a workspace or saved evals for the questions, the run or the score. Only step
 4's Trident fix and step 5's save touch a workspace.
 `context_saved_to` (from `CHECK start` and `CHECK load`) says where the context lives; `null` means
@@ -203,7 +203,7 @@ in `<evals-run>/work/spec.json`, name the fix:
 
   | Option | Description |
   | --- | --- |
-  | Fix `<n>`: `<metric>` (one option per fix; Recommended on the one that turns the most misses, unless it carries a caution) | I change `<metric>` so `<rule proposed, plain words>`, and any other metric the fix names. When the metrics are saved to Atlan, add: "This releases the new version in `<workspace>`." |
+  | Fix `<n>`: `<metric>` (one option per fix; Recommended on the one that turns the most misses, unless it carries a caution) | I change `<metric>` so `<rule proposed, plain words>`, and any other metric the fix names. When the metrics are saved to Atlan Trident, add: "This releases the new version in `<workspace>`." |
   | Fix `<n>`: every `<kind of answer>` (one option per shared fix) | I change `<k>` metrics, `<their names>`, so `<rule proposed, plain words>`. It is the second time an answer missed this way. |
   | Reword question `<n>` (one option per redraft) | The question names a period that moves, or asks the opposite of its SQL. I leave your agent's metrics alone and mark the question to reword. |
   | Keep the score | Apply nothing. Keep this score as the bar to beat. |
@@ -272,15 +272,15 @@ describes. Draw the result's card first where you have `show_widget` (`ACC resul
 native question whose text is the result, a blank line and its `lead`, as plain lines with no
 Markdown, as [show the score](../../accuracy-check/references/run.md#show-the-score) says. When the person just replied "keep" to a score message, they have seen the score: the
 text is the released lines, if any, and the `lead`. On a demo, its options are Add questions of
-your own, Save this score to Atlan (5 questions or more) and I'm done.
+your own, Save this score to Atlan Trident (5 questions or more) and I'm done.
 
 `<workspace>` is the one the context was saved to (`context_saved_to`); for a context on this
 machine it is the person's personal workspace, the `user_default` one
 `registry__list_workspaces` returns. When that read needs sign-in, follow
 [connection recovery](../../analytics-build/references/auth-recovery.md) after the person picks
-Save this score to Atlan, never before: the result has already been shown.
+Save this score to Atlan Trident, never before: the result has already been shown.
 
-On **Save this score to Atlan**: have `accuracy-check`
+On **Save this score to Atlan Trident**: have `accuracy-check`
 [save the check](../../accuracy-check/references/run.md#save-to-atlan) to that
 workspace. No agent is registered: the runs save without one. Saving the check never saves the
 context: a context kept on this machine stays there. `ACC saved --evals <evals-run> --agent <agent> --workspace <workspace>
@@ -294,7 +294,7 @@ Saved to <workspace>:
   <agent>, with <N> questions and <runs> rounds scored from <p>% to <q>%
   column names only: <r>%
   <metric> version <v>, released            (one line per released or withdrawn version)
-See the scores in Atlan: <runs link>
+See the scores in Atlan Trident: <runs link>
 ```
 
 On **I'm done**: the closing message, as [ready](../../analytics-build/references/setup/ready.md)

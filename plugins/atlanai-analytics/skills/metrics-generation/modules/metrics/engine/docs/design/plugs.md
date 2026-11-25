@@ -49,7 +49,7 @@ socket.
                     ┌────────────────────┼────────────────────┐
                     ▼                    ▼                    ▼
              ┌────────────┐      ┌───────────────┐     ┌────────────┐
-             │ Files only │      │ Registry      │     │ Glossary   │
+             │ Files only │      │ Atlan Trident │     │ Glossary   │
              └────────────┘      └───────────────┘     └────────────┘
  OUTPUT PLUGS (one or more: the operator's choice)
 ```
@@ -109,7 +109,7 @@ keeps `information_schema` per database (`catalog_per_database`).
 
 Every output plug receives the same finished, validated bundle in the core's own formats
 (verified queries, metric cards, relationships) and converts it into its destination's format
-in its own stages (the Registry plug builds its envelopes, the glossary plug its terms) before
+in its own stages (the Trident plug builds its envelopes, the glossary plug its terms) before
 delivering it. It declares the steps it adds to `metrics-agent run` (`run_steps_before`,
 `run_steps`, `run_steps_last`), the options it adds to that command (`run_options`), the target
 S0 records for it (`s0_settings`, settled by `settle_target`), what it needs before the first
@@ -138,7 +138,7 @@ allowed. Every publish leaves a ledger. The agent only ever creates records, nev
 ## The observer socket
 
 An observer watches a run without taking part in it: tracing, to any backend. The core names
-no tracing system; the Registry trace (`atlan-trace`, in `metrics-agent-atlan`) is one observer
+no tracing system; the Trident trace (`atlan-trace`, in `metrics-agent-atlan`) is one observer
 plug, and `examples/plugs/jsonl-trace` is another that writes every event to a local file.
 
 ```python
@@ -164,7 +164,7 @@ A plug missing a required method is refused when it loads, naming what is missin
 * **Selection.** An observer is used when `run.yml` lists it under `observers`, or when its
   own `wanted()` says its environment is configured.
 * **Several at once.** Every selected observer receives every event, so a run can trace to
-  the Registry and to another system together.
+  Trident and to another system together.
 * **Never in the way.** Tracing is optional. When an observer raises, the run says so once,
   naming the plug, and the run and the other observers go on. A listed observer that is not
   installed, or does not load, is said the same way.

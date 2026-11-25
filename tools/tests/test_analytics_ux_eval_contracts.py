@@ -153,17 +153,17 @@ class SavedRunFixtureTest(unittest.TestCase):
 
     def test_each_variant_reads_back_as_its_cases_say(self) -> None:
         local = self.journey("local")
-        self.assertIn("3 metrics and 1 saved query. None saved to Atlan yet.", local["chat"])
+        self.assertIn("3 metrics and 1 saved query. None saved to Atlan Trident yet.", local["chat"])
         self.assertIn("Example tested.", local["chat"])
         self.assertEqual(local["interaction"]["focus"], "metric:shipped-units")
         preview = self.journey("preview")
         self.assertIn("Structure checked, not yet tested.", preview["chat"])
         self.assertEqual(preview["continuation"]["action"], "destination")
         published = self.journey("published")
-        self.assertIn("8 metrics and 4 saved queries. 11 saved to Atlan.", published["chat"])
-        self.assertIn("1 item is held back from Atlan: On-time rate (The denominator is undefined", published["chat"])
+        self.assertIn("8 metrics and 4 saved queries. 11 saved to Atlan Trident.", published["chat"])
+        self.assertIn("1 item is held back from Atlan Trident: On-time rate (The denominator is undefined", published["chat"])
         # A release keeps the check it passed, so the hand-off's sample can say how it was checked.
-        self.assertIn("Saved to Atlan, example tested.", published["chat"])
+        self.assertIn("Saved to Atlan Trident, example tested.", published["chat"])
 
     def test_the_ready_question_is_composed_where_the_run_folder_cannot_be_written(self) -> None:
         # The eval sandbox's shell, like a read-only checkout, refuses writes: the note that spares a repeat is lost, the
@@ -180,7 +180,7 @@ class SavedRunFixtureTest(unittest.TestCase):
                     contextlib.redirect_stdout(out):
                 self.assertEqual(project.main(), 0)
         asked = json.loads(out.getvalue())
-        self.assertIn("7 metrics and 4 saved queries saved to Atlan, in Shipping; 1 metric stored on this machine",
+        self.assertIn("7 metrics and 4 saved queries saved to Atlan Trident, in Shipping; 1 metric stored on this machine",
                       " ".join(asked["question"].split()))
         labels = [option["label"] for option in asked["options"]]
         self.assertEqual(labels[:2], ["How many units shipped by region?", "What was the shipping cost by region?"])

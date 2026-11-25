@@ -32,6 +32,11 @@ a linked file or a note in reasoning does not show the review to the person. Ful
 worked examples remain available on request. If reconciliation changes the definition,
 show its changed rule and check status again.
 
+In the dashboard branch the build's card carries that representative metric, drawn right before
+the save question, so the save question itself holds only counts and what was kept back: with the
+checks run, "One metric in full" with its value; with them skipped, the most merged metric and
+where it came from, its rule one click away on the side page.
+
 Scope still comes from the person. Demos use their preset focus and source choice; own
 data uses [intent](intent.md) for missing business focus and purpose. Details-only,
 survey-only and understanding-only requests stop at their requested evidence. Do not add

@@ -6,8 +6,8 @@ failed call, a limit, a source key, or a recipe written in full mode
 
 | Name shape | Owner | Examples |
 |---|---|---|
-| `registry__<tool>` | The registry itself | `registry__search_artifacts`, `registry__get_artifact`, `registry__create_artifact`, `registry__list_workspaces` |
-| `extension__<app>__<tool>` | An Atlan app installed in the registry | `extension__skill__create`, `extension__repo__register_repo`, `extension__ontology__…` |
+| `registry__<tool>` | Atlan Trident itself | `registry__search_artifacts`, `registry__get_artifact`, `registry__create_artifact`, `registry__list_workspaces` |
+| `extension__<app>__<tool>` | An Atlan app installed in Trident | `extension__skill__create`, `extension__repo__register_repo`, `extension__ontology__…` |
 | `<server>__<tool>` | An MCP server your organization registered | `slack__send_message`, `linear__save_issue` |
 
 ## Calling rules

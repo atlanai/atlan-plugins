@@ -1,11 +1,11 @@
 """The pipeline as commands.
 
-    init      bind this run to a registry workspace and the agent it grades for
+    init      bind this run to an Atlan Trident workspace and the agent it grades for
     doctor    what can I build from? an inventory, not a gate
     build     query history or BI tiles -> candidates -> prompts for the questions
     review    check the drafts, then read the pairs and approve     <- the human step
-    push      approved records -> registry
-    evals     register a skill's own eval suite as a registry dataset
+    push      approved records -> Trident
+    evals     register a skill's own eval suite as a Trident dataset
     status    where this run is up to
 
 Only `review` needs a person. Between `build` and `review` sits the one step a
@@ -15,7 +15,7 @@ everything either side of it is deterministic.
 Checking is folded into `review` rather than given its own command: you review
 what survived, so running the checks separately only adds a name to remember.
 
-`init` reads from the registry - workspace, agents, and the caller's permission
+`init` reads from Trident - workspace, agents, and the caller's permission
 matrix - but writes nothing. `push` is the only command that writes. Everything
 between them is local.
 
@@ -82,7 +82,7 @@ def cmd_init(args) -> int:
         _write_json(work / "run.json", {"workspace": args.workspace or None, "workspace_id": None,
                                    "agent": args.agent or None, "org_wide": None, "can_delete": None,
                                    "local": True})
-        print("  bound locally: nothing reads or writes the registry from this run")
+        print("  bound locally: nothing reads or writes Atlan Trident from this run")
         print(f"\n  run bound in {work / 'run.json'}")
         return 0
     if args.workspace:
@@ -1018,7 +1018,7 @@ def cmd_push(args) -> int:
                   allow_sensitive=args.allow_sensitive)
     print(result.render())
 
-    # The binding becomes a fact in the registry rather than a note on this
+    # The binding becomes a fact in Trident rather than a note on this
     # machine. The runner fetches evals and agent together; it can only do that
     # if the edge exists.
     agent = args.agent or cfg.get("agent")
@@ -1038,7 +1038,7 @@ def cmd_push(args) -> int:
 
 
 def cmd_evals(args) -> int:
-    """Register a skill's own eval suite as a registry dataset.
+    """Register a skill's own eval suite as a Trident dataset.
 
     A suite that lives only as a file in a bundle is inert: nothing runs it,
     nothing tracks it across versions, and the eval platform that exists two
@@ -1102,7 +1102,7 @@ def cmd_evals(args) -> int:
 
 
 def _dataset_record_ids(dataset_id: str) -> dict[str, str]:
-    """{input prompt: registry record id} for joining results back to rows."""
+    """{input prompt: Trident record id} for joining results back to rows."""
     from eval_builder.registry import api
 
     out, offset = {}, 0
@@ -1156,7 +1156,7 @@ def _record_suite_run(args, cfg, spec, dataset_id: str) -> int:
     outcomes = json.loads(out_path.read_text())
     out_path.unlink(missing_ok=True)
     # Kept before anything is sent. The first version of this went straight to
-    # the registry, hit a 400, and threw away five headless sessions that had
+    # Trident, hit a 400, and threw away five headless sessions that had
     # already run.
     kept.write_text(json.dumps(outcomes, indent=1))
     print(f"  outcomes kept in {kept}")
@@ -1221,7 +1221,7 @@ def _catalog_run(args, cfg, dataset_id, outcomes) -> int:
     record_ids = _dataset_record_ids(dataset_id) if dataset_id else {}
     # Artifact names are unique per ACCOUNT and the index covers archived rows,
     # so a date is not enough — a second run on the same day collides with the
-    # first, and archiving the first does not free the name. The registry's own
+    # first, and archiving the first does not free the name. Trident's own
     # bench solved it the same way: `bench-<epoch ms>`.
     experiment_name = (f"{args.name or 'eval-builder'}-trigger-"
                        f"{int(time.time() * 1000)}")
@@ -1272,7 +1272,7 @@ def _catalog_run(args, cfg, dataset_id, outcomes) -> int:
 # ---------------------------------------------------------------------------
 # The scorers. Cataloged, not invented at push time.
 #
-# Both are `code`: the registry stores the definition and the scores a runner
+# Both are `code`: Trident stores the definition and the scores a runner
 # reports, and never executes anything. So each spec names the module and entry
 # point that implements it — a scorer artifact whose implementation cannot be
 # located is a claim nobody can reproduce.
@@ -1340,7 +1340,7 @@ SCORERS = [
 
 
 def cmd_scorers(args) -> int:
-    """Catalog the graders in the registry."""
+    """Catalog the graders in Trident."""
     from eval_builder.registry import register_scorer
 
     cfg = _run_config(Path(args.work))
@@ -1540,7 +1540,7 @@ def main(argv: list[str] | None = None) -> int:
     n.add_argument("--skip-access-probe", action="store_true",
                    help="do not read the workspace's permission matrix")
     n.add_argument("--local", action="store_true",
-                   help="bind with no registry read, for a host that publishes the set itself; push refuses")
+                   help="bind with no Atlan Trident read, for a host that publishes the set itself; push refuses")
     _add_work(n)
     n.set_defaults(fn=cmd_init)
 
@@ -1621,7 +1621,7 @@ def main(argv: list[str] | None = None) -> int:
     _add_work(r)
     r.set_defaults(fn=cmd_review)
 
-    p = sub.add_parser("push", help="approved records -> registry")
+    p = sub.add_parser("push", help="approved records -> Atlan Trident")
     p.add_argument("--agent", default="",
                    help="link the pushed set to this agent, for a set that was "
                         "built before its agent existed")
@@ -1648,7 +1648,7 @@ def main(argv: list[str] | None = None) -> int:
                    help="run the suite and catalog the run as an experiment")
     e.set_defaults(fn=cmd_evals)
 
-    sc = sub.add_parser("scorers", help="catalog the graders in the registry")
+    sc = sub.add_parser("scorers", help="catalog the graders in Atlan Trident")
     _add_work(sc)
     sc.add_argument("--dry-run", action="store_true")
     sc.set_defaults(fn=cmd_scorers)

@@ -228,7 +228,7 @@ def cmd_result(a) -> dict:
 
 
 def cmd_saved(a) -> dict:
-    """What saving the check put in Atlan, word for word, for the next question's text."""
+    """What saving the check put in Atlan Trident, word for word, for the next question's text."""
     ev = pathlib.Path(a.evals)
     runs = _runs(ev)
     first, last = _score(ev, runs[0]), _score(ev, runs[-1])
@@ -250,7 +250,7 @@ def cmd_saved(a) -> dict:
     base = f"{a.origin}/{a.org}/registry/evals/experiments"
     # The last run's page compares it with the run before it; a saved agent has a page of its own.
     page = f"{base}/agent/{agent}?ws=all" if str(agent).startswith("agent_") else f"{base}/{list(exps.values())[-1]}?ws=all"
-    lines.append(f"See the scores in Atlan: {page}")
+    lines.append(f"See the scores in Atlan Trident: {page}")
     return {"status": "ok", "text": "\n".join(lines)}
 
 
@@ -274,7 +274,7 @@ def main(argv=None) -> int:
     c.add_argument("--generated", action="store_true", help="CHECK load returned generated: true")
     c.add_argument("--widget", action="store_true", help="also return the comparison's widget: the result card, drawn before the result")
     c.set_defaults(func=cmd_result)
-    c = s.add_parser("saved", help="what saving the check put in Atlan, word for word")
+    c = s.add_parser("saved", help="what saving the check put in Atlan Trident, word for word")
     c.add_argument("--evals", required=True)
     c.add_argument("--agent", required=True)
     c.add_argument("--workspace", required=True)

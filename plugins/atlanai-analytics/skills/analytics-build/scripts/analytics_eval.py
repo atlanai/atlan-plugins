@@ -3,9 +3,9 @@
 
 Everything a model should not do by judgment lives here: filtering identifying literals out of a
 query log, the train/test split, result-set grading, the eval-hillclimb results layout, the
-harness-integrity gate, and planning how a run is published to the Atlan registry (dataset,
+harness-integrity gate, and planning how a run is published to Atlan Trident (dataset,
 experiment, results, and one session per case). Python 3.10+, standard library only. It never
-touches the network: the assistant sends each registry write through the Atlan MCP server.
+touches the network: the assistant sends each Trident write through the Atlan MCP server.
 
     python3 analytics_eval.py <command> [options]        # every command prints one JSON object
 
@@ -21,7 +21,7 @@ Project directory (--dir), written by the skills:
   eval/freeze.json             digest of cases, gold SQL, split and harness, written with the split
   hillclimb/_state.json        harness_sha (+ the loop's own keys)
   hillclimb/<variant>/results.jsonl, summary.json, traces/<id>_rep<k>.json, results/<id>_rep<k>.{gold,agent}.json
-  hillclimb/<variant>/publish.json  session, message and result ids already in the registry, and the pending step
+  hillclimb/<variant>/publish.json  session, message and result ids already in Trident, and the pending step
 """
 from __future__ import annotations
 
@@ -1725,9 +1725,9 @@ def _before_after_widget(ids, number, text, ma, mb, right, times, only_after, on
 
 
 # ====================================================================== publishing (registry MCP)
-# The assistant makes every registry write through the Atlan MCP server with the person's own
+# The assistant makes every Trident write through the Atlan MCP server with the person's own
 # sign-in, as metrics mode does. This script never touches the network: `publish` names the next
-# batch of tool calls, and `publish-ack` reads back what the registry returned. Trace spans have no
+# batch of tool calls, and `publish-ack` reads back what Trident returned. Trace spans have no
 # MCP write, so each case is published as a session with its full message list instead.
 BATCH = 100        # create_artifacts takes at most 100 items
 BATCH_BYTES = 256 * 1024  # one create_artifacts call's items, as JSON: transcripts make messages large
@@ -1770,7 +1770,7 @@ def session_messages(row: dict, turns: list) -> list:
 
 
 def _idem_key(*parts) -> str:
-    """A deterministic idempotency key (registry: 1-128 of [A-Za-z0-9_-])."""
+    """A deterministic idempotency key (Trident: 1-128 of [A-Za-z0-9_-])."""
     return "ae-" + hashlib.sha256("\0".join(str(p) for p in parts).encode()).hexdigest()[:40]
 
 
@@ -1863,7 +1863,7 @@ def _context(pr: Proj, a) -> dict:
     agent_id = getattr(a, "agent_id", None) or ids.get("agent_id")
     dataset_only = getattr(a, "dataset_only", False)
     # An experiment's subject is optional, so a check saves without an agent: its runs and scores
-    # go up, and only the per-question sessions, which the registry ties to an agent, are left out.
+    # go up, and only the per-question sessions, which Trident ties to an agent, are left out.
     if not ws:
         raise Blocked("state.json has no workspace_id.", "Run `analytics_eval.py init --workspace-id <id>` first.")
     rows = [] if dataset_only else read_results(pr.vdir(a.variant) / "results.jsonl")
@@ -1921,7 +1921,7 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
     exps = ids.get("experiments") or {}
     if full and not exps.get(V):
         name = f"{slug}-{V}"
-        # The raw-source pass is the run the context is compared with: name it so in Atlan.
+        # The raw-source pass is the run the context is compared with: name it so in Atlan Trident.
         shown = {"raw": "column names only", "baseline": "your agent"}.get(V) or (
             f"your agent, test {int(V[1:]) + 1}" if re.fullmatch(r"v\d+", V) else V)
         body = {"name": name, "workspace_id": ws, "display_name": f"{slug} · {shown}",
@@ -2028,7 +2028,7 @@ STEP_KIND = {"scorer": "scorer", "dataset": "dataset", "records": "dataset_recor
 
 
 def cmd_publish(a) -> dict:
-    """The next registry writes for this variant, as MCP tool calls. Run it again after each ack."""
+    """The next Trident writes for this variant, as MCP tool calls. Run it again after each ack."""
     pr = Proj(a.dir)
     c = _context(pr, a)
     pub = Publication(pr, a.variant)
@@ -2064,7 +2064,7 @@ def cmd_publish(a) -> dict:
 
 
 def cmd_publish_ack(a) -> dict:
-    """Record what the registry returned for the pending step; failed items are retried by the next `publish`."""
+    """Record what Trident returned for the pending step; failed items are retried by the next `publish`."""
     pr = Proj(a.dir)
     pub = Publication(pr, a.variant)
     pending = pub.s.get("pending")
@@ -2079,7 +2079,7 @@ def cmd_publish_ack(a) -> dict:
     if raw is None and not ids:
         raise Blocked("The responses file is missing or not JSON.", "Save the tool results as one JSON list.")
     if ids:
-        # The model passes the ids it read instead of retyping whole registry responses into a file.
+        # The model passes the ids it read instead of retyping whole Trident responses into a file.
         if len(ids) != len(names) or not all(i.startswith(kind + "_") for i in ids):
             raise Blocked(f"Expected {len(names)} {kind} ids in call order, got {len(ids)}.",
                           f"Pass each returned id, in the order of the step's items.")
@@ -2116,9 +2116,9 @@ def cmd_publish_ack(a) -> dict:
            "next": "Run `publish` again for the next step."}
     if locals().get("drift"):
         # A connector without file uploads has the model retype each call; a slip saves a wrong score
-        # that the registry will not let anyone edit.
+        # that Trident will not let anyone edit.
         out.update(status="MISMATCH", mismatched=drift,
-                   fix="The registry holds a score this run did not give. Results cannot be edited: archive "
+                   fix="Atlan Trident holds a score this run did not give. Results cannot be edited: archive "
                        "this experiment and publish the run again, sending each call exactly as `publish` printed it.")
     if failed:
         out["failed"] = dict(list(failed.items())[:10])
@@ -2276,7 +2276,7 @@ def cmd_report(a) -> dict:
     saved = ((pr.state().get("ids") or {}).get("experiments") or {})
     compared: list = []
     if prev:
-        where = "saved to Atlan" if saved.get(prev) else "kept on this machine"
+        where = "saved to Atlan Trident" if saved.get(prev) else "kept on this machine"
         when = max((r.get("ts") or "" for r in rows[prev].values()), default="")
         compared.append(f"Compared with {_run_name(prev, runs)[1]} ({_when(when)}), {where}.")
         both = [i for i in scored(last) if i in scored(prev)]
@@ -2423,7 +2423,7 @@ def _selftest_records_reconcile(pr: pathlib.Path) -> bool:
 
 
 def _selftest_publish(pr: pathlib.Path, no_transcripts: bool = False) -> bool:
-    """Drive `publish` and `publish-ack` to done against a fake registry, with one failed slot, one lost
+    """Drive `publish` and `publish-ack` to done against a fake Trident, with one failed slot, one lost
     single create (resent) and one lost batch (reconciled from a listing)."""
     proj = Proj(str(pr))
     proj.set_id("workspace_id", "workspace_t")
@@ -2580,7 +2580,7 @@ def selftest() -> dict:
                 "select count(*) from t where region = 'eu_central' and amount > 1000",
                 "select count(*) from t where status_id = 2"):
         ok(f"pii keeps business literals: {sql[-30:]}", pii_reason(sql) is None)
-    # The value registry CLI's identity.v1 traceId gives this session, so a proposal names the trace the desktop sync uploads.
+    # The value the Trident CLI's identity.v1 traceId gives this session, so a proposal names the trace the desktop sync uploads.
     ok("session trace id matches the desktop sync",
        session_trace_id("claude-code", "0b3f7c2e-5d41-4a8e-9c6b-2f1e8d7a4c90") == "807a0b2e8d4753667014b60e5c11bd75")
     ok("session trace id depends on the harness",
@@ -3303,7 +3303,7 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--dir", required=True)
     c.set_defaults(func=cmd_approve_harness)
 
-    c = s.add_parser("publish", help="the next registry writes for a variant, as MCP tool calls")
+    c = s.add_parser("publish", help="the next Atlan Trident writes for a variant, as MCP tool calls")
     c.add_argument("--dir", required=True)
     c.add_argument("--variant", required=True)
     c.add_argument("--baseline")
@@ -3324,7 +3324,7 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--spec", required=True)
     c.set_defaults(func=cmd_import_spec)
 
-    c = s.add_parser("publish-ack", help="record the registry's results for the pending publish step")
+    c = s.add_parser("publish-ack", help="record Atlan Trident's results for the pending publish step")
     c.add_argument("--dir", required=True)
     c.add_argument("--variant", required=True)
     c.add_argument("--step", required=True, choices=sorted(STEP_KIND))

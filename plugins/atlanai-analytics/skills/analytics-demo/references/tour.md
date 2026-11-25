@@ -126,7 +126,7 @@ what the person can't already see (step 2).
 | Check | Testing every metric and saved query on `<firm>`'s data. | A test catches one that returns nothing or looks off, before your agent answers with it. |
 | Sign-in | Opening Atlan sign-in in your browser. | Atlan needs to know who you are, and which workspaces you can save to. |
 | Workspace question | Asking where to save your agent's metrics. | A workspace decides who sees them. Your personal one is only yours. |
-| Save | Saving your agent's metrics and saved queries to `<workspace>`. | Once saved, each metric has a page in Atlan that shows how it's worked out. |
+| Save | Saving your agent's metrics and saved queries to `<workspace>`. | Once saved, each metric has a page in Atlan Trident that shows how it's worked out. |
 
 Print the first tracker right after "Start building", before reading setup's references or
 opening the demo, and record whether you keep a task list, as progress says. What the sources

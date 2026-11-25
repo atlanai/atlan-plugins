@@ -1,4 +1,4 @@
-"""Local, hash-bound review of existing definitions. No Registry calls or writes.
+"""Local, hash-bound review of existing definitions. No Atlan Trident calls or writes.
 
 The assistant compares business meaning; this helper binds its decision to the exact
 candidate and live bodies. A review is not authorization to publish a revision.

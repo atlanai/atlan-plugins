@@ -3,9 +3,9 @@
 Published once from this machine; CI does not republish on merge, and enabling
 Git sync later needs `atlan-connect-repo`. Start from
 [repository linking](link-repository-agent.md): its interview chose this mode,
-and its discovery, Registry target, credential rules and verification apply here
+and its discovery, Atlan Trident target, credential rules and verification apply here
 too. A local agent needs its `repo` registered and a `sourced_from` edge, as
-**Resolve the Registry target** there says.
+**Resolve the Atlan Trident target** there says.
 
 ## Prepare the declaration
 
@@ -88,8 +88,8 @@ These steps apply a local agent, and local skills for a skills-only request.
    }
    ```
 
-   An entry without `version_ordinal` pins the skill's current release. The
-   registry derives one `uses_skill` edge per pinned skill and archives the
+   An entry without `version_ordinal` pins the skill's current release. Trident
+   derives one `uses_skill` edge per pinned skill and archives the
    rest, so do not write those edges by hand. Changing the manifest of an
    existing agent publishes its next version. Details:
    `skills/atlan-get-started/references/edges.md`.

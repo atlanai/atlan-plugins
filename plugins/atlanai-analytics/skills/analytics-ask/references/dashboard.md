@@ -35,7 +35,7 @@ give the layout in words and stop. Keep it real and small:
   external scripts or fonts, readable in light and dark.
 - Every number comes from the same metrics and queries, run through the ask route. Do not
   write new SQL for a number a metric already defines, and never type a number in by hand.
-- Each tile names its metric, linked to its page in Atlan when it has one.
+- Each tile names its metric, linked to its page in Atlan Trident when it has one.
 - Do not publish it anywhere. Then say where it is in one line: "[Open your dashboard](<file
   URL>) in your browser. It's in this folder." for a file, as a link, never its path written
   out, or "Your dashboard is the page beside this chat." for a Claude dashboard, and one line

@@ -13,9 +13,9 @@ from run_facts import RunFacts, agent_name, count, read_json, report_name, sente
 
 # `{folder}` is the working folder a chat opens in to find the run.
 SAVE_OPTIONS = (
-    ('Save to Atlan (Recommended)', 'Ask from any chat that has Atlan Analytics and your warehouse connected. Everyone with '
+    ('Save to Atlan Trident (Recommended)', 'Ask from any chat that has Atlan Analytics and your warehouse connected. Everyone with '
      'access gets the same metrics. You sign in once.'),
-    ('Keep it on this machine', 'Ask from a chat opened in {folder}. Nobody else can use it. Ask me to save it to Atlan '
+    ('Keep it on this machine', 'Ask from a chat opened in {folder}. Nobody else can use it. Ask me to save it to Atlan Trident '
      'any time.'),
 )
 
@@ -317,13 +317,13 @@ def _stored(f, demo, run=None, data=None, engine_dir=None):
     topic = (answers[len('Questions about '):] if answers.startswith('Questions about ') else '') or \
         (report if dashboard else '') or short_name(f.use_case) or report or '%s data' % their(demo.get('firm'))
     if saved:
-        where = 'Saved to Atlan' + (', in %s' % saved['workspace'] if saved.get('workspace') else '')
+        where = 'Saved to Atlan Trident' + (', in %s' % saved['workspace'] if saved.get('workspace') else '')
         if saved.get('items', whole) < whole:
             # A save that stopped part-way says what is where.
-            where = '%d of %d saved to Atlan, the rest stored on this machine' % (saved['items'], whole)
+            where = '%d of %d saved to Atlan Trident, the rest stored on this machine' % (saved['items'], whole)
             split = _split(saved['items'], f, run, data, engine_dir) if run is not None else None
             if split:
-                where = '%s saved to Atlan%s; %s stored on this machine' % (
+                where = '%s saved to Atlan Trident%s; %s stored on this machine' % (
                     split[0], ', in %s' % saved['workspace'] if saved.get('workspace') else '', split[1])
         return where, ('open a chat with Atlan Analytics, signed in to Atlan, with %s connected,'
                        % (f.warehouse or 'your warehouse')), topic
@@ -344,7 +344,7 @@ def _after_asking(f, accuracy):
     board = [{'label': 'Build a dashboard', 'description': "A dashboard page built from your agent's answers."}] \
         if f.interaction.get('flow') != 'demo' and not f.interaction.get('dashboard') else []
     done = {'label': 'I\'m done', 'description': 'Your context stays %s.' % (
-        'saved in Atlan' if f.publication and not f.local else 'stored on this machine')}
+        'saved in Atlan Trident' if f.publication and not f.local else 'stored on this machine')}
     return check, board, done
 
 
@@ -371,7 +371,7 @@ def ready(run, widget=False, data=None, engine_dir=None, accuracy=False, recap=F
     if not f.local and not f.publication:
         # The run must know where the context lives: kept without being recorded, the question loses what was kept.
         raise ValueError('Record where the context lives first: run `PROJECT journey keep-local` when the person kept it on '
-                         'this machine, or finish the save to Atlan; then ask again.')
+                         'this machine, or finish the save to Atlan Trident; then ask again.')
     spec = visuals.build_spec('saved', run, data, engine_dir)
     # The save question already gave the validation's result: the saved card in this text leaves it out.
     spec.pop('total', None)
@@ -430,7 +430,7 @@ def close(run, widget=False, data=None, engine_dir=None, score=None, scored=None
     demo = _demo(run, data)
     c = f.context
     if not c or not (f.local or f.publication):
-        raise ValueError('Close the flow once the context is stored: on this machine or saved to Atlan.')
+        raise ValueError('Close the flow once the context is stored: on this machine or saved to Atlan Trident.')
     import side_page
     made = side_page.details(f)
     # The save question and the ready recap already said why: the closing line says only where it stands.
@@ -458,5 +458,5 @@ def close(run, widget=False, data=None, engine_dir=None, score=None, scored=None
         lines.append('- %s. To ask it, %s and ask anything about %s%s' % (where, how, topic, like))
     lines.append('- When a question goes beyond its metrics, it says so, writes its own SQL and names what it assumed.')
     if local:
-        lines.append('- To share it with your team, save it to Atlan: in that folder, say "save my agent to Atlan".')
+        lines.append('- To share it with your team, save it to Atlan Trident: in that folder, say "save my agent to Atlan Trident".')
     return {'text': '\n'.join(lines)}

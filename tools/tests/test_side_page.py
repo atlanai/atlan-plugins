@@ -56,7 +56,7 @@ class Page(unittest.TestCase):
         self.assertNotIn('drafts --wait', side_page.instruction({'url': 'http://127.0.0.1:1/k/', 'opened': True}), 'a terminal is unchanged')
 
     def test_a_metric_says_where_its_data_lives_and_where_it_was_kept(self):
-        # A metric's profile read "On this machine" for both rows on a warehouse run that was saved to Atlan.
+        # A metric's profile read "On this machine" for both rows on a warehouse run that was saved to Atlan Trident.
         page = side_page.snapshot(make_run(self.root, warehouse='snowflake'))
         self.assertEqual(page['warehouse'], 'Snowflake')
         self.assertEqual(page['saved'], {'workspace': 'Test workspace'})
@@ -424,7 +424,7 @@ class Questions(unittest.TestCase):
         self.assertTrue(asked['question'].endswith('Where do you want to store your context?'), 'the question comes last')
         # The task list numbers the steps (ten on own data, eight in a demo): a second numbering in the header disagreed.
         self.assertEqual(asked['header'], 'Save')
-        self.assertEqual([o['label'] for o in asked['options']], ['Save to Atlan (Recommended)', 'Keep it on this machine'])
+        self.assertEqual([o['label'] for o in asked['options']], ['Save to Atlan Trident (Recommended)', 'Keep it on this machine'])
 
     def test_the_save_question_carries_the_review(self):
         # A live own-data run wrote the review as a reply and ended its turn, leaving the save question unasked.
@@ -541,7 +541,7 @@ class Questions(unittest.TestCase):
         entries = json.loads(checks.read_text(encoding='utf-8'))
         checks.write_text(json.dumps({k: dict(v, status='schema_checked', errors=[]) for k, v in entries.items()}), encoding='utf-8')
         card = visuals.render('saved', visuals.build_spec('saved', run))
-        self.assertIn('Saved to Atlan', card)
+        self.assertIn('Saved to Atlan Trident', card)
         self.assertNotIn('need your review', card)
         self.assertNotIn('checked on', card)
 
@@ -741,13 +741,13 @@ class Questions(unittest.TestCase):
         text = local['text']
         self.assertTrue(text.startswith('Your agent for Job margin is built and ready.'))
         self.assertIn("It's stored on this machine, in this folder.", text)
-        self.assertIn('save it to Atlan', text, 'a local run is told how to share it')
+        self.assertIn('save it to Atlan Trident', text, 'a local run is told how to share it')
         self.assertNotIn('Accuracy', text, 'no score when the check never ran')
         scored = questions.close(make_run(self.root / 'scored', local=True), score=80, scored=10)['text']
         self.assertIn('- Accuracy: 80% on 10 test questions.', scored)
         atlan = questions.close(make_run(self.root / 'atlan'))['text']
-        self.assertIn('Saved to Atlan, in Test workspace.', atlan)
-        self.assertNotIn('save it to Atlan', atlan)
+        self.assertIn('Saved to Atlan Trident, in Test workspace.', atlan)
+        self.assertNotIn('save it to Atlan Trident', atlan)
         self.assertNotIn('Accuracy', atlan)
         one = questions.close(make_run(self.root / 'one'), score=100, scored=1)['text']
         self.assertIn('- Accuracy: 100% on its test question.', one)
@@ -813,7 +813,7 @@ class Questions(unittest.TestCase):
         (run / 'run.json').write_text(json.dumps(meta), encoding='utf-8')
         text = ' '.join(questions.ready(run)['question'].split())
         # By kind, so it adds up against the saved card's "1 metric" and the 2 metrics and 2 saved queries built.
-        self.assertIn('1 metric saved to Atlan, in Test workspace; 1 metric and 2 saved queries stored on this machine', text)
+        self.assertIn('1 metric saved to Atlan Trident, in Test workspace; 1 metric and 2 saved queries stored on this machine', text)
 
     def test_the_save_question_waits_for_every_check(self):
         run = make_run(self.root, saved=False)

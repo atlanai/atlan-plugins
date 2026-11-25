@@ -44,7 +44,7 @@ person.
 4. Skip tools that create, write or call procedures. Record only the query tool.
 5. A matching server listed under `connect` is registered but not signed in for this person.
    Connect it with `mcp__connect_server`, which returns a sign-in link, and say "<server> is
-   added in Atlan, but you haven't signed in to it yet. Sign in with this link, then tell me
+   added in Atlan Trident, but you haven't signed in to it yet. Sign in with this link, then tell me
    when you're done: <link>" Then search again. A call that comes back with a sign-in link means the same thing:
    show the link that way and wait.
 
@@ -88,7 +88,7 @@ Ask "How should I reach your warehouse?" under the line
 `<slug> · warehouse · deciding how to reach the warehouse`, with these options:
 - **Ask an Atlan admin to add <warehouse> (Recommended)**: They add it from the Atlan Store
   once. Then each person signs in with their own account. On this choice, say "I'll wait. Once
-  <warehouse> is added in Atlan, sign in to it and tell me."
+  <warehouse> is added in Atlan Trident, sign in to it and tell me."
 - **Add it to this app yourself**: I'll give you the steps. Ask me again once it's connected. On
   this choice, give the steps for this harness from
   [adding a server here](warehouses/add-server.md), then name the missing connection.

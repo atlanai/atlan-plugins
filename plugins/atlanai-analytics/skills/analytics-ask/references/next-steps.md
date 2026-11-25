@@ -11,7 +11,7 @@ first only when the person asks to see one before anything is built.
 
 ## Nothing published covers the question
 
-Say so in the answer's **Based on**: "My own SQL. No metric in Atlan covers <measure>. I
+Say so in the answer's **Based on**: "My own SQL. No metric in Atlan Trident covers <measure>. I
 assumed <formula and filters>." Then offer
 one next step as the answer's last line, not a menu and not a native question, and treat
 the person's reply as the choice
@@ -23,7 +23,7 @@ the person's reply as the choice
   whenever a warehouse query tool is in reach.
 - The metric belongs to another team: offer a proposal for its owners, through
   `metrics-generation` `edit`: "Next: I can propose this metric to the owners of <workspace>.
-  They review it in Atlan."
+  They review it in Atlan Trident."
 
 ## The answer's rule is wrong
 

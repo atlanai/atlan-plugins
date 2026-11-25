@@ -30,7 +30,7 @@ pip install -e .                                 # the core: local files, DuckDB
 pip install -e packages/metrics-agent-powerbi    # Power BI straight from Microsoft Fabric
 pip install -e packages/metrics-agent-tableau    # Tableau straight from Tableau Cloud or Server
 pip install -e packages/metrics-agent-snowflake  # Snowflake: SQL checks, schema, history
-pip install -e packages/metrics-agent-atlan      # Atlan: catalogue metadata, Registry, glossary
+pip install -e packages/metrics-agent-atlan      # Atlan: catalogue metadata, Atlan Trident, glossary
 metrics-agent plugs                              # what is installed, and the variables each reads
 ```
 
@@ -1029,14 +1029,14 @@ scanner's saved scan, when the fetch ran one.
 | `publish:` | Settings | Environment |
 |---|---|---|
 | `[files]` | none | none |
-| `[registry-rest]` (the Atlan Agent Registry) | `registry-rest: {base_url, workspace_id}` | `METRICS_AGENT_REGISTRY_BASE_URL`, `METRICS_AGENT_REGISTRY_TOKEN` |
+| `[registry-rest]` (Atlan Trident) | `registry-rest: {base_url, workspace_id}` | `METRICS_AGENT_REGISTRY_BASE_URL`, `METRICS_AGENT_REGISTRY_TOKEN` |
 | `[atlan-glossary]` | `atlan-glossary: {glossary: "<name>"}` | the Atlan variables above |
 
 List both to publish to both. A run that publishes is the same command: `publish` is the
 answer. The first publish to a glossary creates it.
 
-**Tracing (optional).** Add `observers: [atlan-trace]` to record a run that publishes to the
-Registry as a trace, an experiment and a session there; it reads the `METRICS_AGENT_TRACE_*` variables
+**Tracing (optional).** Add `observers: [atlan-trace]` to record a run that publishes to
+Trident as a trace, an experiment and a session there; it reads the `METRICS_AGENT_TRACE_*` variables
 (see `metrics-agent plugs`), and `--workspace`/`--agent` name the agent it reports as.
 `--no-trace` runs untraced for once. A tracing failure is said once and the run goes on, unless you set
 `METRICS_AGENT_TRACE_REQUIRED=1`: then the run pauses at that stage until you fix tracing, or unset the

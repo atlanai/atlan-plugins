@@ -1,4 +1,4 @@
-"""Adapt the core bundle to Analytics context files, with no Registry I/O.
+"""Adapt the core bundle to Analytics context files, with no Atlan Trident I/O.
 
 Projection follows the pinned card contract. It preserves original identities and keeps
 non-execution evidence in extensions, rather than recomputing or reauthoring metrics.
@@ -289,4 +289,4 @@ def export_context(run, context, receipt, parity=None):
         write(context / name, body)
     return {'status': 'exported', 'context': str(context), 'metrics': len(metrics),
             'queries': len(saved), 'links': len(links), 'held': held, 'held_queries': held_queries, 'remote_writes': False,
-            'next': 'Read scoped Registry inventory, run the existing check and publication flow.'}
+            'next': 'Read scoped Atlan Trident inventory, run the existing check and publication flow.'}

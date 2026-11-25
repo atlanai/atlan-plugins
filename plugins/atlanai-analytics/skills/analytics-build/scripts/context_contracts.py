@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Registry context contracts, reconciliation and privacy-preserving history intake.
+"""Atlan Trident context contracts, reconciliation and privacy-preserving history intake.
 
 This module does not generate metrics or query shapes. The maintained metrics engine is
 the sole authoring pipeline. These shared checks validate its exported definitions,
@@ -286,7 +286,7 @@ def _balanced(text: str, open_at: int) -> int:
     return len(text)
 
 
-# ====================================================================== registry contracts
+# ====================================================================== Trident contracts
 METRIC_FIELDS = set(registry_contract.schema('metric')['properties'])
 RETIRED = {"status", "approved_by", "approved_at", "owner", "domain"}
 AGG_TYPES = {"sum", "count", "count_distinct", "min", "max", "ratio", "custom"}
@@ -321,7 +321,7 @@ def _struct(path: str, obj, kind: str, errs: list) -> None:
             errs.append(f"{path}.{k} is required")
     for k in obj:
         if k not in need | may:
-            errs.append(f"{path}.{k} is not a field the registry declares")
+            errs.append(f"{path}.{k} is not a field Atlan Trident declares")
 
 
 def outer_function(formula: str):
@@ -494,9 +494,9 @@ def check_metric(body: dict) -> tuple:
         return ["definition must be an object"], warns
     for k in d:
         if k in RETIRED:
-            errs.append(f"definition.{k} is retired and refused by the registry")
+            errs.append(f"definition.{k} is retired and refused by Atlan Trident")
         elif k not in METRIC_FIELDS:
-            errs.append(f"definition.{k} is not a field the registry declares")
+            errs.append(f"definition.{k} is not a field Atlan Trident declares")
     if d.get("spec_version") != METRIC_SPEC:
         errs.append(f"definition.spec_version must be {METRIC_SPEC}")
     if not isinstance(d.get("version"), int) or d.get("version", 0) <= 0:
@@ -559,7 +559,7 @@ def check_metric(body: dict) -> tuple:
     if agg == "ratio" and not (d.get("aggregation") or {}).get("zero_denominator"):
         warns.append("a ratio with no aggregation.zero_denominator is stored with a permanent warning")
     if not d.get("examples"):
-        warns.append("no examples: the registry stores a permanent warning")
+        warns.append("no examples: Atlan Trident stores a permanent warning")
     out = d.get("output") or {}
     if isinstance(out, dict) and out.get("datatype") and out["datatype"] not in DATATYPES:
         warns.append(f"output.datatype {out['datatype']!r} is outside the vocabulary")
@@ -1279,7 +1279,7 @@ def build_parser() -> argparse.ArgumentParser:
                         "recorded in the same coverage file")
     c.set_defaults(func=cmd_querylog)
 
-    c = s.add_parser("check", help="check authored bodies against the registry's contracts and the workspace")
+    c = s.add_parser("check", help="check authored bodies against Atlan Trident's contracts and the workspace")
     c.add_argument("--dir", required=True)
     c.set_defaults(func=cmd_check)
 

@@ -1,9 +1,9 @@
 # Link a Git-backed repository agent
 
 CI keeps this agent in sync: merged changes to its folder, its `AGENT.md` and its
-skills publish to the Registry. Nothing is published or created from this
+skills publish to Atlan Trident. Nothing is published or created from this
 machine. Start from [repository linking](link-repository-agent.md): its
-interview chose this mode, and its discovery, Registry target and verification
+interview chose this mode, and its discovery, Trident target and verification
 apply here too.
 
 ## Prepare the agent's folder

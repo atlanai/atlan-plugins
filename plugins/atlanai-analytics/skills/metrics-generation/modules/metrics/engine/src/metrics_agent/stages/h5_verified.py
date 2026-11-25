@@ -245,7 +245,7 @@ def body(ctx: stage.Ctx) -> None:
     else:
         ctx.say("h5: " + (whgate.degrade(mode, STAGE, "live execution") or ""))
 
-    # NAMES MUST BE UNIQUE PER WORKSPACE AND KIND — the registry enforces it with an index,
+    # NAMES MUST BE UNIQUE PER WORKSPACE AND KIND — Atlan Trident enforces it with an index,
     # and a collision is refused for the whole batch. Two analyst queries legitimately compute
     # the same measure over different populations, so with names derived from the estate's own
     # column alias collisions are expected rather than exceptional. Disambiguated by the
@@ -364,7 +364,7 @@ def _emit(ctx, cards, clone_map, dialect, mode, eng, meter, limit, sample, id_ca
             # NOR ITS PLACE IN THE RUN. This used to key on the shape id too, which is the
             # shape's position in its family (`h-<family>-<i>`): one statement added to the
             # log renumbered every shape after it, so statements that had not changed got
-            # new ids — their answers no longer matched and the registry was sent them as
+            # new ids — their answers no longer matched and Trident was sent them as
             # new artifacts. The statement and the tables it reads are what it is.
             (_norm(sql) + "|" + ",".join(sorted(tables))).encode()).hexdigest()[:16]
         # H1 keeps one shape per skeleton (tables and structure), so two cards never carry

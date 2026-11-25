@@ -337,8 +337,8 @@ def cards_digest(cards: list[dict]) -> str:
 
 def refuse_partial(doc: dict, who: str) -> None:
     """Refuse a card layer X3 marked partial. A stage that builds something to publish calls
-    this first: a partial layer publishes some metrics and silently drops the rest, and the
-    registry or the glossary would then hold a layer that looks complete and is not."""
+    this first: a partial layer publishes some metrics and silently drops the rest, and
+    Atlan Trident or the glossary would then hold a layer that looks complete and is not."""
     part = doc.get("partial")
     if not part:
         return

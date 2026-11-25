@@ -64,6 +64,7 @@ from metrics_agent.lib import artifacts as _artifacts
 from metrics_agent.lib import page_scope as _page_scope
 from metrics_agent.lib import publish_target as _pt
 from metrics_agent.lib import stage as _stage
+from metrics_agent.lib import describe_timing as _timing
 
 PAUSED = 3
 REFUSED = 2
@@ -163,7 +164,10 @@ def gate_steps(name: str, answers: pathlib.Path) -> list:
     script, rel, multi, _skill = GATES[name]
     target = str(answers / rel)
     model = (os.environ.get(ENV_MODEL) or "").strip()
-    return [Step(f"{name}_emit", script, ["--emit-prompt"], gate=name),
+    # The two gates that answer per statement skip what an earlier run already answered.
+    carried = (["--carried", str(answers / name / "carried-*.json")] if name in ("m2", "x1")
+               else [])
+    return [Step(f"{name}_emit", script, ["--emit-prompt", *carried], gate=name),
             Step(f"{name}_ingest", script, ["--from", target, *(["--model", model] if model
                                                                  else [])],
                  gate=name, ingest=True)]
@@ -192,15 +196,31 @@ def plan(profile: str, args) -> list:
         steps += [Step("a4_witness_bi", "a4_witness_bi.py"),
                   Step("c1_normalise", "c1_normalise.py"), Step("c2_merge", "c2_merge.py")]
         steps += ([Step("c3_questions", "c3_questions.py", ["--deterministic-draft"])]
-                  if args.c3_deterministic else gate_steps("c3", answers))
+                  if args.c3_deterministic or _timing.bi_draft_by_code()
+                  else gate_steps("c3", answers))
         steps += [Step("c4_gates", "c4_gates.py"), Step("c5_emit", "c5_emit.py")]
     steps.append(Step("m1_merge_pre", "m1_merge.py", ["--pre-describe"]))
-    steps += gate_steps("m2", answers)
-    steps.append(Step("m1_merge", "m1_merge.py"))
+    m2_emit, m2_ingest = gate_steps("m2", answers)
+    if not _timing.describe_at_end():
+        steps += [m2_emit, m2_ingest]
+        steps.append(Step("m1_merge", "m1_merge.py"))
+    else:
+        # The prose needs nothing the metric gates make, so its prompt goes out now and is
+        # answered beside them; only its ingest waits for the metric layer.
+        steps.append(m2_emit)
     steps.append(Step("d1_candidates", "d1_candidates.py"))
     steps += gate_steps("x1", answers) + gate_steps("x2", answers) + gate_steps("x3", answers)
     steps.append(Step("d4b_consistency", "d4b_consistency.py"))
     steps += gate_steps("x4", answers)
+    if _timing.describe_at_end():
+        # EXPERIMENT (options B and C): the metric layer is complete here. The prose, asked
+        # for before the metric gates, is ingested now, applied, and the cards re-read their
+        # example questions from the described layer.
+        steps.append(m2_ingest)
+        steps.append(Step("m1_merge", "m1_merge.py"))
+        steps.append(Step("x3_refresh", "x3_emit.py", ["--from", str(answers / "x3/*.json")]))
+        steps.append(Step("d4b_refresh", "d4b_consistency.py"))
+        steps.append(Step("x4_refresh", "x4_relate.py", ["--from", str(answers / "x4/*.json")]))
     return steps + after + last
 
 
@@ -293,7 +313,22 @@ def _manifest(run: pathlib.Path) -> dict:
 def _answers_present(step: Step, args) -> bool:
     answers = pathlib.Path(args.answers_dir or (pathlib.Path(args.run) / "answers"))
     _script, rel, multi, _skill = GATES[step.gate]
-    return bool(list(answers.glob(rel))) if multi else (answers / rel).is_file()
+    if not multi:
+        return (answers / rel).is_file()
+    found = list(answers.glob(rel))
+    # Answers carried from an earlier run cover only part of the prompt: the gate waits for the
+    # rest, unless the prompt asks about nothing more.
+    if found and all(f.name.startswith("carried-") for f in found):
+        return _prompt_is_empty(pathlib.Path(args.run) / f"{step.gate}_prompt.json")
+    return bool(found)
+
+
+def _prompt_is_empty(prompt: pathlib.Path) -> bool:
+    try:
+        tasks = json.loads(prompt.read_text()).get("tasks") or []
+    except (OSError, ValueError, AttributeError):
+        return False
+    return not any(t.get("queries") or t.get("statements") for t in tasks if isinstance(t, dict))
 
 
 def _answers_newer(step: Step, args, prior: dict) -> bool:
@@ -356,6 +391,23 @@ def run_step(step: Step, args, env: dict, *, runner=subprocess.run) -> None:
         raise StageFailed(f"{step.label} exited {rc}")
 
 
+def _also_open(steps: list, at: Step, args) -> str:
+    """A gate whose prompt is already out and whose answers are not yet in, other than the one
+    the run waits at: it can be answered at the same time."""
+    run = pathlib.Path(args.run)
+    out = []
+    for s in steps:
+        if not s.ingest or s.gate == at.gate or not (run / f"{s.gate}_prompt.json").is_file():
+            continue
+        if _answers_present(s, args):
+            continue
+        _script, rel, _multi, skill = GATES[s.gate]
+        out.append(f" ALSO OPEN, answer it in parallel: the {s.gate} gate, "
+                   f"{run / (s.gate + '_prompt.json')} with the `{skill}` skill into "
+                   f"{pathlib.Path(args.answers_dir or run / 'answers') / rel}.")
+    return "".join(out)
+
+
 def execute(steps: list, args, env: dict, *, runner=subprocess.run) -> None:
     run = pathlib.Path(args.run)
     rerun = False   # once a step runs again, every step after it reads its new output
@@ -392,7 +444,7 @@ def execute(steps: list, args, env: dict, *, runner=subprocess.run) -> None:
                          f"{pathlib.Path(args.run) / (step.gate + '_prompt.json')} with the "
                          f"`{skill}` skill into "
                          f"{pathlib.Path(args.answers_dir or pathlib.Path(args.run) / 'answers') / rel}, "
-                         "then re-run this same command.")
+                         "then re-run this same command." + _also_open(steps, step, args))
         if prior and prior.get("notes") == "awaiting_decision" and step.gate \
                 and not step.ingest and not rerun:
             continue   # the bundle is already out; the ingest decides
@@ -651,7 +703,17 @@ def _unchecked(run: pathlib.Path) -> str:
                    or {}).get("warning")
     except (OSError, ValueError):
         return ""
-    return f"\nrun: {warning}" if warning else ""
+    if not warning:
+        return ""
+    # Said once per run: repeated at every pause it buried each gate's own feedback (walk 4, 2026-11-23).
+    said = run / ".sql_check_warned"
+    if said.exists():
+        return ""
+    try:
+        said.write_text("1")
+    except OSError:
+        pass
+    return f"\nrun: {warning}"
 
 
 def _started_target(run: pathlib.Path) -> str | None:

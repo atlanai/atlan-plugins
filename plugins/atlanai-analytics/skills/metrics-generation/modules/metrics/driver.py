@@ -1,7 +1,7 @@
 """Standard-library host driver for the maintained Analytics metrics runtime.
 
 Only setup installs dependencies, after an explicit request. All other commands are local
-except reads performed by the input plugs selected in run.yml. No Registry transport.
+except reads performed by the input plugs selected in run.yml. No Atlan Trident transport.
 """
 import argparse
 from contextlib import contextmanager
@@ -497,6 +497,8 @@ def main(argv=None):
     prepare.add_argument('--run', required=True)
     prepare.add_argument('--config', required=True)
     prepare.add_argument('--approval-mode', choices=('ask', 'auto'), default='auto')
+    prepare.add_argument('--carry-from', help='An earlier run over the same dashboard: its answers are reused and only '
+                         'new statements are asked about')
     report = commands.add_parser('powerbi-report', help='Set up, prepare and fetch one Power BI report link.')
     report.add_argument('--link', required=True)
     report.add_argument('--run', required=True)
@@ -536,7 +538,8 @@ def main(argv=None):
                                          args.feature, args.approval_mode, args.sign_in, args.config)
         else:
             forwarded = []
-            for name in ('run', 'config', 'model', 'context', 'approval_mode', 'parity', 'source', 'destination', 'source_id'):
+            for name in ('run', 'config', 'model', 'context', 'approval_mode', 'parity', 'source', 'destination', 'source_id',
+                         'carry_from'):
                 if hasattr(args, name) and getattr(args, name) is not None:
                     forwarded += ['--' + name.replace('_', '-'), str(getattr(args, name))]
             result, code = invoke(args.runtime, args.command, forwarded)

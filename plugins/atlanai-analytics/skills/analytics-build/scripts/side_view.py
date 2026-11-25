@@ -63,8 +63,30 @@ def _locked(run):
                 fcntl.flock(handle, fcntl.LOCK_UN)
 
 
-def seen(run):
-    return [m.get('kind') for m in _state(run)['moments'] if isinstance(m, dict)]
+# The moments each build has its own of: a second build in the same run (its past queries added) shows them again
+# (walk 4, 2026-11-23: every chip of the second build said "nothing new").
+PER_BUILD = ('sources', 'group', 'described', 'drafted', 'metrics', 'rules', 'links', 'build', 'context')
+
+
+def _build_name(run, engine_dir=None):
+    try:
+        return RunFacts(Path(run), engine_dir).engine.name
+    except Exception:  # noqa: BLE001 - a run with no engine yet has the first build's moments
+        return 'engine'
+
+
+def seen(run, engine_dir=None):
+    build = None
+    out = []
+    for m in _state(run)['moments']:
+        if not isinstance(m, dict):
+            continue
+        if m.get('kind') in PER_BUILD:
+            build = build or _build_name(run, engine_dir)
+            if m.get('engine', 'engine') != build:
+                continue
+        out.append(m.get('kind'))
+    return out
 
 
 def _answer_key(spec):
@@ -117,7 +139,7 @@ def due(run, engine_dir=None):
     run = Path(run)
     if not (run / 'run.json').is_file():
         return []
-    done = set(seen(run))
+    done = set(seen(run, engine_dir))
     late = 'build' in done
     return [kind for kind in MIDWAY if kind not in done and not (late and kind in STEPS) and _shows(kind, run, engine_dir)]
 
@@ -220,10 +242,11 @@ def stopped(run, engine_dir=None):
 
 # Recording ------------------------------------------------------------------------------------
 
-def note(run, kind, spec=None):
+def note(run, kind, spec=None, engine_dir=None):
     """Log a moment the chat has shown, so the helper can name the ones still due and tell a first answer from a later
     one. The side page reads the run's own files and needs nothing from here."""
     with _locked(run):
         state = _state(run)
-        state['moments'].append({'kind': kind, 'at': _now(), **({'key': _answer_key(spec or {})} if kind == 'answer' else {})})
+        state['moments'].append({'kind': kind, 'at': _now(), **({'key': _answer_key(spec or {})} if kind == 'answer' else {}),
+                                 **({'engine': _build_name(run, engine_dir)} if kind in PER_BUILD else {})})
         _write(Path(run) / 'view' / 'state.json', json.dumps(state, ensure_ascii=False, indent=1))

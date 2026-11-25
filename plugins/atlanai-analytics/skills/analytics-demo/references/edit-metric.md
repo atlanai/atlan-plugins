@@ -64,8 +64,8 @@ wherever it goes.
 - Context kept on this machine: the change is saved in the run. Print the card (or the block)
   and the comparison sentence as reply text, say so in one line, close with the plain `Next:` line
   from [ready](../../analytics-build/references/setup/ready.md) and end the turn.
-- Context saved to Atlan: ask one native question whose text is the card (or the
-  block) as plain lines, then the comparison sentence, then "Save this change to the metric in Atlan too?"
+- Context saved to Atlan Trident: ask one native question whose text is the card (or the
+  block) as plain lines, then the comparison sentence, then "Save this change to the metric in Atlan Trident too?"
   On yes, call
   `metrics-generation` `save`, which publishes a revision of the same metric after the
   person approves the plan. On no, the change stays on this machine and the published

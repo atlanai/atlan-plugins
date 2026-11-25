@@ -403,7 +403,7 @@ class NamesBySource(unittest.TestCase):
     def test_names_with_nothing_known_of_their_source_stay_one_plain_list(self):
         card = visuals.render('saved', {'metrics': ['Fee take rate', 'Gross sales'], 'queries': 0, 'workspace': 'Sales'}, True)
         self.assertIn('Fee take rate Gross sales', self.words(card))
-        self.assertNotIn('From ', self.words(card).split('Saved to Atlan')[1].split('Fee take rate')[0])
+        self.assertNotIn('From ', self.words(card).split('Saved to Atlan Trident')[1].split('Fee take rate')[0])
 
 
 class CardsCarried(unittest.TestCase):
@@ -537,7 +537,7 @@ class CardsCarried(unittest.TestCase):
                 redirect_stdout(out):
             self.assertEqual(project.main(), 0)
         result = json.loads(out.getvalue())
-        self.assertIn('Saved to Atlan', result['show_first'])
+        self.assertIn('Saved to Atlan Trident', result['show_first'])
         self.assertIn('Site finance', result['show_first'])
 
 

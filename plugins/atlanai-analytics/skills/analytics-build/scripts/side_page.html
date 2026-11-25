@@ -617,7 +617,7 @@ function metricView(S, UI, name) {
   const wk = 'why:' + m.name, wopen = UI.tog.has(wk);
   const why = txt(m.reasoning) && from.length > 1 ? `<button type="button" class="fold" data-tog="${esc(wk)}" data-k="t:${esc(wk)}" aria-expanded="${wopen}">${ic('chev', 'xs')}${wopen ? 'Hide why' : 'Why these became one metric'}</button>${wopen ? `<div class="sub">${esc(m.reasoning)}</div>` : ''}` : '';
   const details = pkv('table', 'Name', `<code class="psc">${esc(snake(m.name))}</code> <button type="button" class="lnk" data-act="copy" data-v="${esc(snake(m.name))}" data-k="copy:${esc(m.name)}">Copy</button>`)
-    + pkv('unit', 'Kept', esc(saved ? 'Saved to Atlan' + (txt(saved.workspace) ? ' · ' + txt(saved.workspace) : '') : 'On this machine'))
+    + pkv('unit', 'Kept', esc(saved ? 'Saved to Atlan Trident' + (txt(saved.workspace) ? ' · ' + txt(saved.workspace) : '') : 'On this machine'))
     + pkv('grid', 'Data', esc(whereData(S)));
   const rel = arr(m.related).filter(r => Array.isArray(r) && r.length > 1);
   return `<div class="prof">${crumb('Metrics', m.name)}<h1 class="ptitle">${esc(m.name)}</h1>${pmeta(S, ['Metric', kindWords(m)])}${strip}`

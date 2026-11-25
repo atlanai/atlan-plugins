@@ -39,7 +39,7 @@
       "name": "atlanai-analytics",
       "displayName": "Analytics",
       "source": "./plugins/atlanai-analytics",
-      "description": "Build an agent that answers your data questions, on a demo or your own data: I extract the context in your dashboards and past queries, add detailed information to it and validate it, then you store it here or save it to Atlan, ask it questions and build a dashboard.",
+      "description": "Build an agent that answers your data questions, on a demo or your own data: I extract the context in your dashboards and past queries, add detailed information to it and validate it, then you store it here or save it to Atlan Trident, ask it questions and build a dashboard.",
       "author": {
         "name": "Atlan",
         "url": "https://atlan.com"

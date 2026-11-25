@@ -2,7 +2,7 @@
 
 Use for questions about a setup's destination, access to it, or creating a new workspace.
 Answer the question before resuming setup. An explanation-only request needs no source
-survey, sample metric, Registry call, permission question or publication plan.
+survey, sample metric, Atlan Trident call, permission question or publication plan.
 
 ## New workspace requested
 
@@ -20,7 +20,7 @@ publication plan the person has not requested.
 For example:
 
 "I can't create a workspace. Your 3 metrics and 1 saved query stay stored on this machine.
-Create one in Atlan, or ask your admin. Once it shows in your list, I'll save them there."
+Create one in Atlan Trident, or ask your admin. Once it shows in your list, I'll save them there."
 
 This is an explanation of capability, not evidence of a tool call or changed access.
 Do not claim a workspace was created, selected or refreshed during an explanation-only turn.

@@ -55,7 +55,7 @@ Read
 `--engine-dir <within-run-engine>` so its manifest supplies engine progress. Use an absolute
 engine path or `--engine-dir engine`, which is relative to the selected run.
 When access evidence spans hosts, pass `--host <claude_code-or-codex> --server <observed-id>`
-to `PROJECT experience` and `PROJECT journey`. Only a matching successful Registry read
+to `PROJECT experience` and `PROJECT journey`. Only a matching successful Atlan Trident read
 can establish that host's readiness. It cannot clear another host's sign-in request.
 Do not pass a cwd-relative engine path unchanged. What reaches the chat while work runs follows
 [when to talk](#when-to-talk): never gate names, private paths or raw logs, and never imply that
@@ -72,13 +72,15 @@ page shows each batch as it lands; the chat shows each step's end:
    own subagent started in the background, never one this session waits on (a waiting session
    shows the person nothing), when the gate before it is accepted. Write the short gates before
    describe and the links gate in this session, named as their gate result names them, never by
-   a gate's id. Give each subagent the engine directory, `ENGINE advance` until that gate is
-   accepted, the gate's instructions, numbered batch files, and no `PROJECT drafts` and no chat
+   a gate's id. Give each subagent the engine directory, the gate's instructions, numbered batch
+   files, and no `ENGINE advance`, no `PROJECT drafts` and no chat
    of its own, saving each batch with its own write as soon as it is ready, never several in one
    script. The engine's refusal names each field to fix, so the subagent never reads the
-   engine's code to check its answers first. It returns when its gate is accepted or the gate
-   needs the person; the wait then hands over the chip of the step that ended, in `show_first`:
-   show it in the same message that starts the next gate's subagent. Nothing comes between a
+   engine's code to check its answers first. It returns when its answers are saved. This session
+   runs `ENGINE advance` once, when the build's wait says every answer is saved or the subagent
+   returns, sends any refusal back to that subagent, and on acceptance shows the chip of the step
+   that ended, which the wait or the advance hands over in `show_first`, in the same message that
+   starts the next gate's subagent. Nothing comes between a
    step's end and its chip, and the build never waits on a chip. The app shows each
    subagent's name to the person: name each for what it does ("Describing each saved query"), never a
    gate's name. For the card gate, run the gate result's `after_each_batch.split` (`PROJECT

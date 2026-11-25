@@ -9,7 +9,7 @@ status` shows it was kept on this machine, and one of its metrics or queries mea
 question. Check this before writing any SQL of your own: the same question must not get one
 number from the run and another from a fresh guess. With several runs, or none that measures
 the question, continue with released context and say "None of the metrics kept on this machine
-measures this, so I looked in Atlan."
+measures this, so I looked in Atlan Trident."
 
 An answer from a selected run, given to the person, ends on the run's next question instead of a
 `Next:` line, as the setup's [ready step 3](../../analytics-build/references/setup/ready.md)
@@ -25,8 +25,8 @@ binding. Use its read-only `PROJECT execute` with a JSON request containing `sql
 and apply [explanation checks](answer-checks.md). When the run has no local database and its
 checks ran on a warehouse, run the definition through the recorded warehouse query tool
 instead. Label the answer "Sample data on this machine" for a local database, or "Local definition,
-not yet saved to Atlan" for a warehouse, and cite the local definition and check limitations. No sign-in or publication is needed.
-Do not record a Registry receipt, claim team availability or call a local draft a released
+not yet saved to Atlan Trident" for a warehouse, and cite the local definition and check limitations. No sign-in or publication is needed.
+Do not record an Atlan Trident receipt, claim team availability or call a local draft a released
 definition. This explicit local route is never a fallback for a missing, withdrawn, rejected
 or changed release. Requests for managed/team answers still follow the release path below.
 
@@ -37,7 +37,7 @@ released definitions; local drafts, search snippets and remembered setup answers
 the definition source. No new agent or eval is required.
 
 For a selected setup run, read `PROJECT status` for its workspace, release IDs and executor.
-Search relevant metrics and saved queries in Atlan, fetch complete `registry__get_artifact`
+Search relevant metrics and saved queries in Atlan Trident, fetch complete `registry__get_artifact`
 responses at a release, and retain the full definition and release metadata. Prioritize the
 selected estate. Use saved queries for detail questions or when they already answer the request.
 
@@ -51,7 +51,7 @@ For a saved-query answer, run `PROJECT answer "<request.json>"`:
 Replace the illustrative array with actual complete objects. The helper checks the released
 revision against the setup receipt, uses its SQL, checks parameter names and selects execution:
 
-- **SQLite or DuckDB:** converts Registry placeholders outside literals/comments into native
+- **SQLite or DuckDB:** converts Trident placeholders outside literals/comments into native
   bindings (`:name` or `$name`), executes read-only against the recorded database and returns
   fresh results.
 - **Warehouse:** returns `status: execute_in_host`, the SQL, separate parameters, limit,

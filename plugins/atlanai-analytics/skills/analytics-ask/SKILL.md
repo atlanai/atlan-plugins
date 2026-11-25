@@ -1,18 +1,18 @@
 ---
 name: analytics-ask
-description: "Atlan Analytics: answer data questions from metrics and saved queries in Atlan, or from a setup kept on this machine. Use for totals, rates, trends, breakdowns and follow-ups. Not for setup or writing metrics (analytics-build, metrics-generation)."
+description: "Atlan Analytics: answer data questions from metrics and saved queries in Atlan Trident, or a setup kept on this machine. Use for totals, rates, trends, breakdowns and follow-ups. Not for setup or writing metrics (analytics-build, metrics-generation)."
 ---
 
 # Answer a data question from managed context
 
 Read [shared conventions](../analytics-build/references/conventions.md) first; its **Source of
-truth**, read-only SQL and safety rules apply. Answer here without creating a project,
-eval, agent or registry write. No subagents are needed.
+truth**, read-only SQL and safety rules apply. Answer here without a new project,
+eval, agent or Atlan Trident write. It needs no subagent.
 
 If a setup run was selected, or this folder holds one kept local, follow
 [setup retrieval](references/retrieval.md) and return. Otherwise continue
-below using existing Atlan context. Ordinary questions require no local run, publication
-receipt or DuckDB. Do not search the whole machine or substitute drafts for released context.
+below using existing Atlan context. Ordinary questions need no local run, publication
+receipt or DuckDB. Never search the whole machine or substitute drafts for released context.
 
 ## 1. Frame the question
 
@@ -24,7 +24,7 @@ you meant something else."
 
 ## 2. Find the definitions
 
-1. Open a registry session as **Registry calls** in the conventions describes, with the question
+1. Open a session as **Atlan Trident calls** in the conventions describes, with the question
    as the `objective`. Its first call is step 2's search; send nothing else until it returns the
    session id.
 2. Search released metrics in every workspace at once: call
@@ -34,15 +34,15 @@ you meant something else."
    `workspace_id`. Each item names its workspace and carries its release receipt; the first
    carries its definition, which compact cuts to the calculation. If the call refuses
    `definition_view` or `semantic` by name, send it again without that argument for the rest of
-   the session. Semantic search can drop a released metric whose name the query lacks, so an
+   the session. Semantic search can drop a released metric whose name the query lacks: an
    empty result proves nothing.
 
-   **A hit is a candidate, not an answer.** The right metric can rank low. Read every hit's
-   name and display name, and keep the
+   **A hit is a candidate, not an answer.** The right metric can rank low. Read each hit's
+   name and display name and keep the
    one whose name or formula measures what the question asks (revenue is a sum of money; a
    count of crew is not revenue), allowing the synonyms its description lists. Sharing a
    dimension word such as "region" is not a match. Only when no hit of either search below
-   measures it is the answer "No metric in Atlan covers <measure>": go to **Nothing found**, naming
+   measures it is the answer "No metric in Atlan Trident covers <measure>": go to **Nothing found**, naming
    near misses: "Close, but measuring something else: <names>."
 3. Send these together after the search, as one `mcp__call_read_tools` call when listed:
    - **The keyword search, when no semantic hit measures it**: the same search with
@@ -125,7 +125,7 @@ Apply [explanation checks](references/answer-checks.md) to numerical claims.
 Lead with the answer in one or two sentences: the number, its definition and window ("CSAT,
 good ÷ answered ratings, Q2 2026: 94.1%"). Then, in the layout of
 [definition links](references/definition-links.md):
-- **Based on**: always, one line per metric or saved query used, linked to its page in Atlan,
+- **Based on**: always, one line per metric or saved query used, linked to its page in Atlan Trident,
   never a bare id in prose or caveats. Resolve the organization automatically through the
   authenticated self-profile; never ask for its slug or URL. With no metric: "My own SQL. No
   metric in Atlan covers <measure>. I assumed <formula and filters>.";

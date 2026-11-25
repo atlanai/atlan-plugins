@@ -72,7 +72,9 @@ def _source_ids(row):
 
 
 def _propose(engine, files):
-    statements = [r for p in files for r in engine.rows(p, 'statements')]
+    # Counted against the prompt: answers carried from an earlier run are not this step's work.
+    asked = _prompt_ids(engine, 'x1')
+    statements = [r for p in files for r in engine.rows(p, 'statements') if not asked or r.get('vq_id') in asked]
     read = len({r.get('vq_id') for r in statements if isinstance(r.get('vq_id'), str)})
     total = sum(len(t['queries']) for t in engine.json(engine.dir / 'x1_prompt.json').get('tasks', [])
                 if isinstance(t, dict) and isinstance(t.get('queries'), list))
@@ -95,7 +97,9 @@ def _define(engine, files):
 
 
 def _describe(engine, files):
-    described = len({q.get('vq_id') for p in files for q in engine.rows(p, 'queries') if isinstance(q.get('vq_id'), str)})
+    asked = _prompt_ids(engine, 'm2')
+    described = len({q.get('vq_id') for p in files for q in engine.rows(p, 'queries') if isinstance(q.get('vq_id'), str)
+                     and (not asked or q.get('vq_id') in asked)})
     total = sum(len(t['queries']) for t in engine.json(engine.dir / 'm2_prompt.json').get('tasks', [])
                 if isinstance(t, dict) and isinstance(t.get('queries'), list))
     return {'described': described, 'total': total}
@@ -116,7 +120,13 @@ def _under_way(engine):
     before any batch and once that step has ended."""
     stages = engine.json(engine.dir / 'manifest.json').get('stages') or []
     accepted = {s.get('stage') for s in stages if isinstance(s, dict) and s.get('verdict') == 'ok'}
+    order = [s.get('stage') for s in stages if isinstance(s, dict)]
+    # The descriptions written beside the metric steps are not the step under way: "Find metrics · 5 of 19 queries in
+    # plain words" read as the old order (walk 4, 2026-11-23).
+    late = 'x1_emit' in order and 'm2_emit' in order[:order.index('x1_emit')]
     for gate, step, describe in GATES:
+        if late and gate == 'm2':
+            continue
         files = _saved(engine, gate)
         if gate + '_ingest' in accepted:
             if files:
@@ -132,17 +142,61 @@ def _under_way(engine):
 REPORTED = 'drafts-reported.json'
 
 
-def _record(engine):
-    """What this build's waits have reported. A rebuild in a new engine folder (a dashboard added after the build) starts
-    afresh: the first build's step ends, kept, hid every step end of the second."""
-    record = engine.json(engine.root / REPORTED)
-    return record if record.get('engine') in (None, engine.dir.name) else {}
+def _prompt_ids(engine, gate):
+    """The statements a per-statement gate asks about: its prompt's, not the carried ones."""
+    return {q.get('vq_id') for t in engine.json(engine.dir / f'{gate}_prompt.json').get('tasks', [])
+            if isinstance(t, dict) and isinstance(t.get('queries'), list)
+            for q in t['queries'] if isinstance(q, dict) and isinstance(q.get('vq_id'), str)}
+
+
+def _answered(engine):
+    """The gate whose prompt is out, whose answers now cover all of it, and whose ingest has not run: the build waits
+    only for `ENGINE advance`. A walkthrough waited seven minutes for a wait to time out after the describe step's
+    answers were all saved (2026-11-23). The definitions have their own wake (`ready`); the links one file."""
+    stages = engine.json(engine.dir / 'manifest.json').get('stages') or []
+    ran = {s.get('stage'): s.get('verdict') for s in stages if isinstance(s, dict)}
+    for gate, key in (('m2', 'queries'), ('x1', 'statements'), ('x2', None), ('x4', None)):
+        if ran.get(gate + '_emit') is None or ran.get(gate + '_ingest') == 'ok':
+            continue
+        # The descriptions are written beside the metric steps and taken in after the links: done early, they wait.
+        if gate == 'm2' and 'x1_emit' in ran and ran.get('x4_ingest') != 'ok':
+            continue
+        files = _saved(engine, gate)
+        if not files or all(f.name.startswith('carried-') for f in files):
+            continue
+        if key:
+            asked = _prompt_ids(engine, gate)
+            said = {r.get('vq_id') for f in files for r in engine.rows(f, key)}
+            if asked and asked <= said:
+                return gate
+        elif gate == 'x2':
+            asked = engine.json(engine.dir / 'x2_prompt.json').get('n_proposals')
+            claimed = {pid for f in files for r in engine.rows(f, 'metrics') for pid in _source_ids(r)}
+            if type(asked) is int and asked and len(claimed) >= asked:
+                return gate
+        else:
+            return gate
+    return None
+
+
+def _load_record(engine):
+    """What this build's waits already reported. One record per engine folder: a second build in the same run (its past
+    queries added) runs every step again, and a run-wide record hid its step ends and its wakes (2026-11-23)."""
+    whole = engine.json(engine.root / REPORTED)
+    if 'steps' in whole or 'told' in whole or 'answered' in whole:   # a record from before builds were kept apart
+        whole = {'engine': whole}
+    mine = whole.get(engine.dir.name)
+    return mine if isinstance(mine, dict) else {}
 
 
 def _save_record(engine, record):
     try:
         path = engine.root / REPORTED
-        path.write_text(json.dumps(dict(record, engine=engine.dir.name)))
+        whole = engine.json(path)
+        if 'steps' in whole or 'told' in whole or 'answered' in whole:
+            whole = {'engine': whole}
+        whole[engine.dir.name] = record
+        path.write_text(json.dumps(whole))
         path.chmod(0o600)
     except OSError:
         pass  # without the record the next wait repeats an event; it never skips one
@@ -150,7 +204,9 @@ def _save_record(engine, record):
 
 # The steps whose end wakes the session: the tile review and the tile questions (a helper may write them), queries
 # described, drafts found, drafts merged, metrics defined.
-WAKES = ('a3b_ingest', 'c3_ingest', 'm2_ingest', 'x1_ingest', 'x2_ingest', 'x3_ingest')
+WAKES = ('c3_ingest', 'm2_ingest', 'x1_ingest', 'x2_ingest', 'x3_ingest')
+# The tile review is written by this session, which advances it itself: its end has nothing to show (walk 4: `step`
+# with nothing to show after every advance). The tile questions wake only where a helper still writes them.
 # The task list moves at most this often: an update for every batch woke the session 24 times in eight minutes, and
 # once a minute left it at "3 of 7" while the side page, which reads the same files live, said 6 of 7 (2026-11-23).
 BATCH_SECONDS = 20
@@ -257,6 +313,11 @@ def task_list(root, engine_dir=None):
         if under and r['status'] == 'in_progress' and r.get('id') == ROW_OF[under[0]]:
             live = _live(engine, under)
             content = '%s · %s' % (SHORT.get(r['id'], content.split(' (about')[0]), live) if live else content
+        elif under and r['status'] == 'in_progress' and r.get('id') == 'history':
+            # The past queries' build runs every step again under one item: it counts as it goes (a walkthrough's
+            # list sat on "Add past queries" for 14 minutes with no count, 2026-11-23).
+            live = _live(engine, under)
+            content = 'Add past queries · ' + live if live else content
         out.append({'content': content, 'status': r['status']})
     return out
 
@@ -278,6 +339,9 @@ WAITED = {
            "flags of every `visual` call now and do what it says, then run `PROJECT drafts --wait` again.",
     'ready': "Add no words of your own: every share of the definitions is back. Run `ENGINE advance` once, send each "
              "refused card to the subagent whose share holds its task number, then run `PROJECT drafts --wait` again.",
+    'answered': "Add no words of your own: every answer this step asked for is saved, and the build waits on nobody "
+                "but you. Run `ENGINE advance` once now, without waiting for the step's subagent to report, then run "
+                "`PROJECT drafts --wait` again.",
     'quiet': "Nothing new has reached the screen for about 3 minutes. Check that each subagent is working; when `start` "
              "names a step, nothing has saved an answer to it: start its subagent on `start.prompt` now unless one is "
              "working on it. When `say` "
@@ -340,7 +404,7 @@ def wait(root, engine_dir=None, timeout=540, quiet=180, interval=2.0, out=None, 
     def say(event, **extra):
         # Anything shown starts the quiet spell afresh; a timeout shows nothing, so the spell runs on into the next call.
         if event != 'again':
-            _save_record(engine, dict(_record(engine), quiet_from=time.time()))
+            _save_record(engine, dict(_load_record(engine), quiet_from=time.time()))
         # Every result carries the list as the run's files now have it, where the session keeps one: the side page reads
         # those files live, and a list moved only by some events sat at "3 of 4" beside a page showing all 4 defined.
         nxt = WAITED[event]
@@ -369,11 +433,16 @@ def wait(root, engine_dir=None, timeout=540, quiet=180, interval=2.0, out=None, 
             side_view.mark_waiting(root)
         except OSError:  # the wait goes on; the engine may then hand a chip over itself
             pass
-        record = _record(engine)
+        record = _load_record(engine)
         done = set(record.get('steps') if isinstance(record.get('steps'), list) else [])
         stages = engine.json(engine.dir / 'manifest.json').get('stages') or []
         accepted = {s.get('stage') for s in stages if isinstance(s, dict) and s.get('verdict') == 'ok'}
+        named_order = [s.get('stage') for s in stages if isinstance(s, dict)]
+        # With the descriptions written last, their step ends just before the build does: `done` says it.
+        late = 'm2_emit' in named_order[:named_order.index('x1_emit')] if 'x1_emit' in named_order else False
         for stage in WAKES:
+            if late and stage == 'm2_ingest':
+                continue
             if stage in accepted and stage not in done:
                 # A step named to start is named once: three step ends between waits each named the same next step, so
                 # a session started three helpers for it. A quiet spell names it again, with its guard.
@@ -386,7 +455,12 @@ def wait(root, engine_dir=None, timeout=540, quiet=180, interval=2.0, out=None, 
                                           started=sorted(started | ({begin['gate']} if begin else set()))))
                 return say('step', start=begin)
         # The links step comes after the definitions: the build is done once it has a verdict, kept or skipped.
-        if 'x3_ingest' in accepted and any(isinstance(s, dict) and s.get('stage') == 'x4_ingest' and s.get('verdict') for s in stages):
+        # With the descriptions written last (the engine's default), the build ends after they are taken in and the
+        # cards refreshed from them: a walkthrough was told "done" while the descriptions were still refused (2026-11-23).
+        named = {s.get('stage'): s.get('verdict') for s in stages if isinstance(s, dict)}
+        prose_in = 'm2_emit' not in named or 'm2_ingest' in accepted
+        refreshed = 'x3_refresh' not in named or bool(named.get('x4_refresh'))
+        if ('x3_ingest' in accepted and named.get('x4_ingest') and prose_in and refreshed):
             return say('done')
         # A chip that comes due without a step end this session sees (the dashboard flow's helpers advance every step),
         # and the side page once there is something on it: each named once.
@@ -398,6 +472,10 @@ def wait(root, engine_dir=None, timeout=540, quiet=180, interval=2.0, out=None, 
         if due:
             _save_record(engine, dict(record, told=sorted(set(record.get('told') or []) | set(due))))
             return say('due')
+        whole = _answered(engine)
+        if whole and whole not in (record.get('answered') or []):
+            _save_record(engine, dict(record, answered=sorted(set(record.get('answered') or []) | {whole})))
+            return say('answered', gate=whole)
         back = _all_back(engine)
         if back and back != record.get('ready'):
             _save_record(engine, dict(record, ready=back))

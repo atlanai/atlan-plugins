@@ -1,6 +1,6 @@
 """Settle a partly successful save: what was created, what failed, what is unknown, and what next.
 
-Standard library only. No Registry calls. Reads the batch descriptors `publication_batches.py`
+Standard library only. No Atlan Trident calls. Reads the batch descriptors `publication_batches.py`
 returned, the host's saved result of each create call, and any ids already resolved, then
 prints three lists of call descriptors for the host to send:
 

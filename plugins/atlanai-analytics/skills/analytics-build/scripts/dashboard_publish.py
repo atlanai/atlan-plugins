@@ -142,7 +142,7 @@ class Publisher:
             state["refused"] = {"operation_id": pending["operation_id"], "http_status": receipt["http_status"]}
             state["inflight"] = None
             self.save(state)
-            return {"status": "BLOCKED", "reason": "Registry refused the call.",
+            return {"status": "BLOCKED", "reason": "Atlan Trident refused the call.",
                     "fix": "Resolve the refusal, reread live inventory and review a new plan."}
         artifact = receipt.get("artifact") or {}
         workspace = state["reviewed"]["workspace_id"]

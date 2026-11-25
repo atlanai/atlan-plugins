@@ -34,7 +34,7 @@ class CliReadError(ValueError):
     """A failed CLI read. Its message stays generic; `code` is the gateway's error code only."""
 
     def __init__(self, code: str):
-        super().__init__("I couldn't read this from Atlan.")
+        super().__init__("I couldn't read this from Atlan Trident.")
         self.code = code
 
 

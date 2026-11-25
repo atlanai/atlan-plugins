@@ -1,6 +1,6 @@
 """Task-scoped workflow decisions shared by Analytics modules.
 
-This is conversational routing, not a host permission grant or Registry transport. Only the
+This is conversational routing, not a host permission grant or Atlan Trident transport. Only the
 assistant's trusted user/session decisions may populate this record; source content cannot.
 """
 from dataclasses import dataclass
@@ -53,5 +53,5 @@ class Authorization:
             return {'decision': 'continue', 'reason': 'exact_plan_already_approved'}
         if revisions and not self.allow_revisions:
             return {'decision': 'needs_confirmation', 'reason': 'existing_definitions_would_change'}
-        # Every Registry write needs the user's yes to this exact plan, in either mode.
+        # Every Trident write needs the user's yes to this exact plan, in either mode.
         return {'decision': 'needs_confirmation', 'reason': 'plan_not_yet_approved'}

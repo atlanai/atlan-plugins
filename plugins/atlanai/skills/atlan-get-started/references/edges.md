@@ -86,13 +86,13 @@ existing artifacts.
 
 `metric` declares no `alternative`. Two metrics that are the same question at another grain, or
 two spellings of one measurement, are recorded on the metric's own
-`definition.extensions.related`, not as an edge; the registry refuses the edge with a 422.
+`definition.extensions.related`, not as an edge; Atlan Trident refuses the edge with a 422.
 
 ## An agent's skills come from its manifest
 
 Do not write `uses_skill` by hand on an agent that has a `skills` manifest. The manifest,
 `[{ "skill_id": ..., "version_ordinal": ... }]` on the agent's own metadata, is the record of
-which skill versions that agent version loads, and the registry derives `uses_skill` from it:
+which skill versions that agent version loads, and Trident derives `uses_skill` from it:
 one edge per pinned skill, marked `attributes.provenance: "manifest"` (and `provenance:
 system_derived` on newer gateways), with every other `uses_skill` on the agent archived. A
 hand-written edge on such an agent is removed on its next write. Patch the manifest instead.
@@ -210,7 +210,7 @@ Returns both directions: what this artifact points at and what points back at it
 You do not need it to confirm an edge you wrote: `registry__relate_artifact` returns the edge
 it stored, `registry__relate_artifacts` one slot per link, and a refusal means nothing was
 stored. Read edges for what no result of yours
-shows: links that existed before you started, and edges the registry derives after a write,
+shows: links that existed before you started, and edges Trident derives after a write,
 such as an agent's `uses_skill` edges from its `skills` manifest or a metric's `depends_on`
 edges.
 

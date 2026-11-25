@@ -6,8 +6,8 @@ description: "Atlan Analytics: build, test, change or save metrics and saved que
 # Generate, check, edit and save metrics
 
 A capability. It turns surveyed sources into `metric` and `sql_query` definitions, checks
-them, changes them, and saves them on this machine or to Atlan. The engine lives in this
-skill's `modules/metrics/`; the plugin drives the conversation and Registry publication. A
+them, changes them, and saves them on this machine or to Atlan Trident. The engine lives in this
+skill's `modules/metrics/`; the plugin drives the conversation and Atlan Trident publication. A
 person can call it directly; `analytics-demo`, `analytics-build` and `analytics-ask` call it.
 
 Read [shared conventions](../analytics-build/references/conventions.md) first: task
@@ -34,7 +34,7 @@ plugin when the dispatcher reports missing module files.
 - **A person called it**: ask only for what the operation cannot proceed without, once: the
   source for `generate` ("Which dashboard, file or past queries should I build from?"), the
   metric for `edit` ("Which metric should I change?"), the destination for `save` ("Keep these
-  on this machine, or save them to Atlan?"). Then show the definition and its check status
+  on this machine, or save them to Atlan Trident?"). Then show the definition and its check status
   and stop.
 
 Every operation needs a survey. With none in the run, run `source-survey` `inventory` first.
@@ -77,11 +77,11 @@ using that definition. Its test: <test result>." ([reconciliation](references/me
 ### `save`: this machine or Atlan
 
 - **Keep it on this machine:** nothing leaves this machine, and you don't sign in.
-- **Save to Atlan:** show the checked plan with its counts (to publish, held, kept
+- **Save to Atlan Trident:** show the checked plan with its counts (to publish, held, kept
   local) and publish only after the person approves that concrete plan. An approval of one
   plan does not cover a changed one. Respect explicit draft requests.
 
-Registry writes use the Atlan MCP connection with the person's sign-in. If registry tools are
+Trident writes use the Atlan MCP connection with the person's sign-in. If Trident tools are
 missing or sign-in is required, follow
 [connection recovery](../analytics-build/references/auth-recovery.md) and resume the save.
 

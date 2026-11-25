@@ -1,7 +1,7 @@
 # Local structural validator reused from the existing BI migration plugin.
 # Rechecked against an internal repository at 7d5bda651b7404de3aedf69d6907e46a9e4783b6.
 # No network operations; structural validity is not execution support.
-"""Native Registry draft-4 definitions and one-shot, verified draft imports.
+"""Native Atlan Trident draft-4 definitions and one-shot, verified draft imports.
 
 The local validator mirrors typed admission; it does not interpret or execute SQL.
 Network writes require the engine's reviewed plan. This module never releases artifacts.
@@ -127,7 +127,7 @@ def _json_limits(value, *, allow_tuples=False):
             pass
         elif type(item) is int:
             if not -(2**63) <= item <= 2**64-1:
-                return "Integer is outside the Registry JSON transport range; use a string."
+                return "Integer is outside the Atlan Trident JSON transport range; use a string."
         elif type(item) is float:
             if not math.isfinite(item):
                 return "JSON numbers must be finite."

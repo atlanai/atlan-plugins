@@ -127,7 +127,8 @@ class Moments(unittest.TestCase):
         self.assertEqual(self.show('found', run), '◇ **5 sources** · Power BI dashboard, 2 data files, 1 database, past queries')
 
     def test_found_names_every_kind_the_survey_records_as_a_person_would(self):
-        cases = (([('powerbi_project', 'model/a.tmdl')] * 6, '◇ **6 sources** · Power BI project (6 files)'),
+        # One report kept as six files is one source (walk 3, 2026-11-23: "32 sources" for one report).
+        cases = (([('powerbi_project', 'model/a.tmdl')] * 6, '◇ **1 source** · Power BI project (6 files)'),
                  ([('tableau', 'a.twb'), ('powerbi', 'b.pbix')], '◇ **2 sources** · Power BI dashboard, Tableau dashboard'),
                  ([('saved_sql', 'q.sql'), ('model_candidate', 'm.yml'), ('data_file', 'd.csv')],
                   '◇ **3 sources** · 1 model file, 1 data file, 1 saved SQL file'))
@@ -148,7 +149,7 @@ class Moments(unittest.TestCase):
         cards = {kind: self.show(kind) for kind in visuals.CARDS}
         heads = {kind: card.split('\n', 1)[0] for kind, card in cards.items()}
         self.assertEqual(heads, {'build': '**2 metrics and 2 saved queries** · Your agent is built',
-                                 'saved': '**2 metrics, 2 saved queries** · Saved to Atlan',
+                                 'saved': '**2 metrics, 2 saved queries** · Saved to Atlan Trident',
                                  'answer': '**\u2212£6,360** · Answer', 'edit': '**Late jobs 2 → 3** · Definition changed'},
                          'the number leads, bold, outside the block')
         self.assertIn('In Test workspace, where chats with Atlan Analytics look for metrics', ' '.join(cards['saved'].split()))
@@ -588,7 +589,7 @@ class Helper(unittest.TestCase):
         out = self.project('visual', 'saved', '--input', '-', stdin=json.dumps({'workspace': 'Personal'}))
         self.assertIn('PROJECT question ready', self.side(out)['next'])
         asked = json.loads(self.project('question', 'ready'))['question']
-        self.assertTrue(asked.startswith('2 metrics, 2 saved queries · Saved to Atlan\n  In Personal'))
+        self.assertTrue(asked.startswith('2 metrics, 2 saved queries · Saved to Atlan Trident\n  In Personal'))
         self.assertLessEqual(len(asked.split('\n\n')[0].splitlines()), 6, 'the card keeps to six lines in a question')
 
     def test_a_chip_right_before_a_question_goes_in_it(self):

@@ -1,6 +1,6 @@
 # Metric and saved-query publication contracts
 
-Use these contracts for every Analytics input route before writing a Registry body. Internal
+Use these contracts for every Analytics input route before writing an Atlan Trident body. Internal
 mining shapes, proposal cards and SQL observations are not publication schemas.
 
 The schemas were checked against `registry__get_kind_schema` for `metric` and `sql_query`.
@@ -58,4 +58,4 @@ local definitions and create acknowledgements cannot replace released readbacks.
 
 Workflow authorization uses `mode: "auto"` or `mode: "ask"`, and `intent: "draft"` or
 `intent: "publish"`. These values record the user's task scope; they do not change host
-permissions or Registry release policy.
+permissions or Trident release policy.

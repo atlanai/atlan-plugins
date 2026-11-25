@@ -1,4 +1,4 @@
-# Recover the Registry connection and resume
+# Recover the Atlan Trident connection and resume
 
 Keep ownership of the analytics run. A missing connection must not discard candidates,
 hide their preview or require the user to type "continue" after a successful sign-in.
@@ -16,7 +16,7 @@ Look for the current host's prefixed Atlan search/describe/read runners. If tool
 discover them through the host's tool inventory. If available, make one small read through
 `mcp__call_read_tool`: `registry__list_workspaces` with `{"kind":"user_default"}` and the
 existing session, or the original task objective on the first call. A successful read proves
-this host can reach Registry; it does not grant publication or workspace write permission.
+this host can reach Trident; it does not grant publication or workspace write permission.
 
 When that read succeeds without a sign-in flow, record the actual observation directly:
 
@@ -49,7 +49,7 @@ environment values or credential files. Check CLI help before using a version-sp
 | Plugin or selected server disabled | State that it is disabled and request enablement through the host. Do not override user/managed controls or reinstall a duplicate server. Enabling it is the one next action: give no install, sign-in or Authenticate step, which are for a missing or signed-out connection, and no menu path you have not seen. |
 | OAuth/sign-in required | Start the browser sign-in and bounded background watch below. |
 | Plugin enabled but tools missing | Refresh/reconnect the host's tool inventory. Absence alone is not proof of expired credentials. |
-| Registry responds with permission denied | Preserve the run and resolve the selected workspace's access; do not repeat OAuth or switch identities. |
+| Trident responds with permission denied | Preserve the run and resolve the selected workspace's access; do not repeat OAuth or switch identities. |
 | Connection error | Give one retry for that selected endpoint; preserve candidates and show the manual recovery if it persists. |
 
 Record the observation with `PROJECT auth` and a request such as:
@@ -101,7 +101,7 @@ observations with the current `attempt_id`, for example:
 ```
 
 A successful CLI exit moves to `checking_mcp`, not Ready. Refresh the current host tools
-and retry the small Registry read from step 1. Only after that read succeeds, record:
+and retry the small Trident read from step 1. Only after that read succeeds, record:
 
 ```json
 {"operation":"observe","attempt_id":"<current-attempt>","event":"registry_ready","read_tool":"registry__list_workspaces","read_succeeded":true}
@@ -134,12 +134,12 @@ MCP access. When no browser/background capability exists, give manual instructio
 never claim a browser or a watcher was started without a real successful tool action/task ID.
 
 When asked only to explain this recovery, use a short sequence: sign-in from the real
-client URL in the browser; bounded host-task watch; successful current-host Registry read; automatic saved
+client URL in the browser; bounded host-task watch; successful current-host Trident read; automatic saved
 stage resumption. State the disabled, timeout and unloaded-tools paths explicitly. Do not
 dump helper JSON or every polling step into chat. A hypothetical explanation has no built
 candidates to preview and is not a blocked setup run.
 Lead with the action, for example "I would open the client's sign-in link and
-resume this saved run once Registry responds." Keep this explanation to roughly 200 words:
+resume this saved run once Atlan Trident responds." Keep this explanation to roughly 200 words:
 the four steps and three recovery branches are enough. Conditional wording makes clear it
 is a plan; do not open with a disclaimer, repeat security rules or narrate helper internals.
 Say it in the person's words, keeping what makes the watch bounded: the login task you keep
@@ -149,7 +149,7 @@ from section 3, and the unloaded-tools branch the reload or new-chat resume.
 
 ## 3. Manual installation and sign-in fallback
 
-Here Registry means the **AI Registry core plugin, `atlanai`**, which supplies the MCP
+Here Atlan Trident means the **Atlan Trident core plugin, `atlanai`**, which supplies the MCP
 connection used by Analytics. If it is already installed, reconnect it; do not add a second
 raw MCP server or a different plugin named `atlan`. Show commands as copyable text.
 
@@ -175,9 +175,9 @@ Reuse an already configured `atlan` marketplace. These commands sign in the term
 not make tools appear in a chat that is already open, so say a new chat may be needed and give
 the saved-run resume prompt to paste there. CLI/desktop connection limitations are described in
 the [Atlan connection guide](https://platform.atlan.com/gateway/mcp/how-tos/connect-a-client).
-Installing the separate `aireg` CLI is not a substitute for loading Registry tools in the
+Installing the separate `aireg` CLI is not a substitute for loading Trident tools in the
 current harness. If the user specifically wants that CLI, use the official
-[Registry CLI guide](https://platform.atlan.com/tools/brain/index) and its current installer;
+[Atlan Trident CLI guide](https://platform.atlan.com/tools/brain/index) and its current installer;
 do not install it automatically as an authentication workaround.
 
 ## 4. Keep the metrics in the final answer
@@ -189,7 +189,7 @@ details ask, even when the checkpoint supplied them. Add the
 one missing action, relevant host-specific installation/sign-in instructions and the saved-run
 resume step. Details expose SQL, source and checks without dumping them by default. Repeat
 the sample even if it appeared in commentary; progress may collapse. A file link supplements
-it. Say "Your agent is saved on this machine. Sign in to save it to Atlan." rather than a machine status token. If
+it. Say "Your agent is saved on this machine. Sign in to save it to Atlan Trident." rather than a machine status token. If
 no candidate exists, say so instead of fabricating one. Distinguish local checked
 candidates from released Atlan context; do not offer retrieval-backed answers until verified.
 When the preview comes from a saved/supplied checkpoint, label check results as prior-run

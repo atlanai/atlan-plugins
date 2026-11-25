@@ -345,7 +345,7 @@ class ScopeTest(unittest.TestCase):
                                                                      released=["Cost:2"], withdrawn=None))["text"]
             self.assertEqual(saved.splitlines(), ["Saved to WS:", "  job agent, with 7 questions and 2 rounds scored from 71% to 100%",
                                                   "  Cost version 2, released",
-                                                  "See the scores in Atlan: https://app.atlan.com/acme/registry/evals/experiments/agent/agent_01a?ws=all"])
+                                                  "See the scores in Atlan Trident: https://app.atlan.com/acme/registry/evals/experiments/agent/agent_01a?ws=all"])
             withdrawn = acc.cmd_saved(__import__("argparse").Namespace(evals=str(ev), agent="job agent", workspace="WS",
                                                                          org="acme", origin="https://app.atlan.com",
                                                                          released=None, withdrawn=["Cost:2"]))["text"]
@@ -356,7 +356,7 @@ class ScopeTest(unittest.TestCase):
             bare = acc.cmd_saved(__import__("argparse").Namespace(evals=str(ev), agent="job agent", workspace="WS",
                                                                     org="acme", origin="https://app.atlan.com",
                                                                     released=None, withdrawn=None))["text"]
-            self.assertEqual(bare.splitlines()[-1], "See the scores in Atlan: "
+            self.assertEqual(bare.splitlines()[-1], "See the scores in Atlan Trident: "
                              "https://app.atlan.com/acme/registry/evals/experiments/experiment_01c?ws=all")
             (ev / "state.json").write_text(json.dumps({"ids": {}}))
             with self.assertRaises(acc.Blocked):
@@ -685,7 +685,7 @@ class ScopeTest(unittest.TestCase):
         keys = [o["key"] for o in check.next_options(gaps, 8)]
         self.assertEqual(keys, ["own_questions", "save", "done"])
         save = check.next_options(gaps, 8)[1]
-        self.assertEqual(save["description"], "Save this score to Atlan, so your team can see it.")
+        self.assertEqual(save["description"], "Save this score to Atlan Trident, so your team can see it.")
         self.assertNotIn("fingerprint", json.dumps(check.next_options(gaps, 8)))
         self.assertNotIn("save", [o["key"] for o in check.next_options(gaps, 4)])
 
