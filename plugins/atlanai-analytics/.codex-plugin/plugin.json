@@ -34,7 +34,7 @@
     "defaultPrompt": [
       "Show me an Atlan Analytics demo",
       "Help me use this dashboard, folder or BI export to ask questions about my data",
-      "Build metrics and saved queries for our support tables from the warehouse's query history"
+      "Build metrics and saved queries for our support tables from the warehouse's past queries"
     ],
     "brandColor": "#2026D2",
     "composerIcon": "./assets/logo.svg",

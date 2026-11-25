@@ -41,6 +41,14 @@ look up Trident, a workspace or saved evals for the questions, the run or the sc
 `context_saved_to` (from `CHECK start` and `CHECK load`) says where the context lives; `null` means
 this machine only.
 
+## Contents
+
+- 1. Check your test questions
+- 2. Generated questions: show them, then ask to run them
+- 3. Run your agent on each question, and score the answers
+- 4. Improve it: find the fix, apply it, test again
+- 5. The result
+
 ## 1. Check your test questions
 
 Run `CHECK start` at the start of every check, even a later one in the same session: where the

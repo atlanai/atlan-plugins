@@ -107,7 +107,7 @@ never "my" ("Use your own data").
 - What your agent answers from: **metrics** and **saved queries**. A metric is a named number
   with its rule; a saved query is a saved, tested SQL question. Write "7 metrics and 12 saved
   queries". Never calculations, KPIs, measures, candidates, possible metrics, definitions as a
-  count, context pieces, saved questions, saved SQL, or "queries" alone.
+  count, context pieces, saved questions, `saved SQL`, or "queries" alone.
 - What the team ran before: **past queries**, never query history. A dashboard has tiles or
   measures of its own.
 - What was built, as a whole: **your agent**, never the run or the engine. What it answers from,

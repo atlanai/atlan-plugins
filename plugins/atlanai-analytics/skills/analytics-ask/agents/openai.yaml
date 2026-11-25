@@ -1,6 +1,6 @@
 interface:
   display_name: "Ask Your Data"
-  short_description: "Answer data questions from your metrics and saved queries in Atlan"
+  short_description: "Answer data questions from your metrics and saved queries"
   default_prompt: "Use $analytics-ask to answer: what was revenue last quarter, by region?"
 dependencies:
   tools:
