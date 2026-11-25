@@ -2,7 +2,9 @@
 
 This is the fallback. A Power BI link is fetched by the `powerbi-fabric` plug first, which
 brings the report and its semantic model together ([dashboard](../dashboard-agent.md), step 1).
-Use this procedure only when the plug cannot run or was refused, and say which.
+Use this procedure only when the plug cannot run or was refused, and say which: "I can't
+reach Power BI directly from here, so I'll take the report from your browser instead." or
+"Power BI refused the direct fetch, so I'll take the report from your browser instead."
 
 What each browser download holds:
 

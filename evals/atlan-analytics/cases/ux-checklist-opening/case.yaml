@@ -15,34 +15,36 @@ graders:
     type: tool_used
     tool: Skill
     input_match: 'analytics-build'
-  - name: creates-the-nine-steps
+  - name: creates-the-ten-steps
     type: tool_used
     tool: TaskCreate
-    min: 9
-    max: 9
+    min: 10
+    max: 10
   - name: survey-step-is-listed
     type: tool_used
     tool: TaskCreate
-    input_match: 'Survey your sources'
+    input_match: 'Find your sources'
   - name: save-step-is-listed
     type: tool_used
     tool: TaskCreate
-    input_match: 'Keep local or save to Atlan Trident'
+    input_match: 'Choose where to store your context'
   - name: plan-visible-in-chat-and-task-list
     type: llm
     focus: last_message
     criteria: |
       The user asked for Atlan Analytics to help ask questions about dashboards and query
-      history in /workspace/analytics-input. Nothing has been inspected. The setup's nine
-      steps (Clarify your use case, Survey your sources, Select tables and dashboards, Find
-      metrics in your sources, Combine duplicates, Define and test each metric, Keep local or
-      save to Atlan Trident, Ask a question, Build a dashboard) must appear in chat as well as
-      the host's task list. PASS if the reply shows those steps with clarifying the use case
-      current and the others pending or next, explains the outcome as metrics and questions in
-      this chat, and asks the interview's first question (which warehouse, and what the person
-      wants to do) before any survey. No word limit applies to this required display. FAIL if
-      it omits the chat tracker, counts the steps wrongly ("seven steps" over a list of nine),
-      describes a side panel, pane or browser view, or claims anything was found.
+      history in /workspace/analytics-input. Nothing has been inspected. The setup's ten
+      steps (Choose what your agent answers, Find your sources, Pick tables and dashboards,
+      Build your context, Merge duplicate metrics, Add detailed information to each metric and
+      saved query, Validate the context on your data, Choose where to store your context, Ask
+      your agent a question, Build a dashboard from its answers) must appear in chat as well as
+      the host's task list. PASS if the reply shows those steps with choosing what the agent
+      answers current and the others pending or next, explains the outcome as metrics and
+      questions in this chat, and asks the interview's first question (which warehouse, and
+      what the person wants to do) before any survey. No word limit applies to this required
+      display. FAIL if it omits the chat tracker, counts the steps wrongly ("seven steps" over
+      a list of ten), describes a side panel, pane or browser view, or claims anything was
+      found.
   - name: plain-reply
     type: llm
     focus: last_message

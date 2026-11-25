@@ -162,7 +162,7 @@ class PrepareAndErrors(unittest.TestCase):
                 z.writestr('Report/definition/report.json', '{}')
                 z.writestr('DataModel', b'\0')
             with mock.patch('importlib.util.find_spec', return_value=None):
-                self.assertIn('`pbix` feature', self.worker.optional_readers_missing(self.doc(full)))
+                self.assertIn("needs an add-on that isn't installed", self.worker.optional_readers_missing(self.doc(full)))
 
     def test_a_live_connection_pbix_needs_no_reader(self):
         with tempfile.TemporaryDirectory() as d:

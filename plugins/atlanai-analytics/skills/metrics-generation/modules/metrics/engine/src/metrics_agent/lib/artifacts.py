@@ -32,6 +32,7 @@ RUN_ARTIFACTS: dict[str, str] = {
     # lane A
     "bi_facts.json": "bi_facts.schema.json",
     "a1_sidecar.json": "a1_sidecar.schema.json",
+    "page_scope.json": "page_scope.schema.json",
     "question_units.json": "question_units.schema.json",
     "fragments/*.widget.json": "widget_fragment.schema.json",
     "fragments/*.dashboard.json": "dashboard_fragment.schema.json",

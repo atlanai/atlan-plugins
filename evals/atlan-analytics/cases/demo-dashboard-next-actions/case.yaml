@@ -17,10 +17,10 @@ graders:
     criteria: |
       PASS if the response gives the supplied dashboard location, then ends on the question
       "What would you like to do next?" with options that offer Ask more questions, Change a
-      rule and see what happens, Continue building on real data and an exit choice, in any
+      rule and see what happens, Build one on your own data and an exit choice, in any
       wording, as plain lines (this host has no question tool). Check how accurate it is may
       be offered too: the check has not run. Calling real-data setup
-      separate from the demo is correct. FAIL if the reply offers to design a dashboard again,
+      separate from the demo is correct. FAIL if the reply offers to build a dashboard again,
       tells the person to open a new chat for real data, ends only with a restart command,
       puts anything after the options, mentions a helper it ran or did not run,
       automatically starts real-data setup, invents new results, or claims the local

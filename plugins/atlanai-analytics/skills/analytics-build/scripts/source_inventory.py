@@ -17,6 +17,10 @@ def source_kind(path):
         return 'powerbi_project'
     if suffix in ('.twb', '.tds', '.twbx', '.tdsx'):
         return 'tableau'
+    if name.endswith('.coverage.json'):
+        # A history pull's coverage sidecar (`querylog.jsonl.coverage.json`) counts what the pull left out: it is part of
+        # that history, never a second source (0.9.74 read "Find your sources: 2 found" for one table).
+        return None
     if suffix == '.duckdb':
         return 'duckdb'
     if suffix in ('.sqlite', '.sqlite3'):
@@ -81,8 +85,8 @@ def _plugin_files(directory, name):
 ROLES = {'powerbi': ('bi', 'Power BI report or model'), 'powerbi_project': ('bi', 'Power BI project'),
          'tableau': ('bi', 'Tableau workbook'), 'model_candidate': ('bi', 'semantic model'),
          'metric_catalogue': ('bi', 'governed metric catalogue'),
-         'dashboard_html': ('bi', 'HTML dashboard'), 'query_history': ('history', 'query history export'),
-         'saved_sql': ('history', 'saved SQL'), 'rowsets': ('data', 'saved row sets'),
+         'dashboard_html': ('bi', 'HTML dashboard'), 'query_history': ('history', 'past queries export'),
+         'saved_sql': ('history', 'SQL files'), 'rowsets': ('data', 'saved row sets'),
          'duckdb': ('data', 'DuckDB database'), 'sqlite': ('data', 'SQLite database'),
          'data_file': ('data', 'data file')}
 ORDER = ('bi', 'history', 'data')

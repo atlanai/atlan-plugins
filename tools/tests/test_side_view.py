@@ -59,7 +59,7 @@ class SideView(unittest.TestCase):
         early = make_run(self.root / 'early', saved=False)
         interaction = json.loads((early / 'interaction.json').read_text(encoding='utf-8'))
         (early / 'interaction.json').write_text(json.dumps({k: v for k, v in interaction.items() if k != 'intent'}), encoding='utf-8')
-        self.assertEqual(side_page.snapshot(early)['title'], 'Analytics setup', 'before the use case: a neutral name, never a stray folder\'s')
+        self.assertEqual(side_page.snapshot(early)['title'], 'Your agent', 'before the use case: a neutral name, never a stray folder\'s')
 
     def test_a_metric_shows_the_runs_current_truth(self):
         run = make_run(self.root, demo=True, saved=False)
@@ -98,7 +98,7 @@ class SideView(unittest.TestCase):
         at(run, 'preview')
         self.record(run, 'connect', 'context')
         self.assertEqual(visuals.render('context', visuals.build_spec('context', run)),
-                         '△ **3 ran cleanly** · 1 need a look · on your data')
+                         '△ **3 passed** · 1 needs your review · on your data')
 
     def test_the_choice_is_read_from_the_engine_when_the_config_lives_elsewhere(self):
         run = make_run(self.root, warehouse='snowflake', chosen={'bi': False, 'history': True}, saved=False)
@@ -159,7 +159,7 @@ class SideView(unittest.TestCase):
         checks.write_text(json.dumps(entries), encoding='utf-8')
         self.assertEqual(side_view.due(run), ['sources', 'group', 'tiles', 'described', 'drafted', 'metrics', 'rules', 'links', 'build', 'context'])
         self.assertEqual(visuals.render('context', visuals.build_spec('context', run)),
-                         '△ **3 ran cleanly** · 1 need a look · on your data')
+                         '△ **3 passed** · 1 needs your review · on your data')
 
     def test_failed_checks_need_a_look_and_say_so(self):
         run = make_run(self.root, failing=2, saved=False)

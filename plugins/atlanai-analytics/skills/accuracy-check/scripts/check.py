@@ -11,6 +11,7 @@ from) and "note" (the rule the SQL encodes). A generated set and a brought one l
     python3 check.py show --evals <eval-dir>
     python3 check.py edit --evals <eval-dir> --question <number> --text "<new wording>"
     python3 check.py drop --evals <eval-dir> --questions <numbers or ids>
+    python3 check.py next --evals <eval-dir> --run <run-dir>
     python3 check.py link --evals <eval folder> --org <organization slug>
 
 `start` finds the built run, where its context lives, how its SQL is executed and the sets the
@@ -20,7 +21,8 @@ questions up for scoring. On a warehouse run nothing on this machine can run SQL
 each trusted SQL to a file and returns `pending_gold`: the host runs each one with the warehouse
 query tool, and `gold` reads the results (from the transcript of the agent that ran them, or from
 result files) and sets the questions up for scoring. `link` gives the Atlan pages of a saved check:
-the agent's runs and the last run. Every command prints one JSON object; exit 2 means something
+the agent's runs and the last run. `next`, after the result, names what to add next from what the
+run could not read or left out. Every command prints one JSON object; exit 2 means something
 the person must supply. Standard library only.
 """
 from __future__ import annotations
@@ -36,8 +38,12 @@ import sys
 BUILD = pathlib.Path(__file__).resolve().parents[2] / "analytics-build" / "scripts"
 RUNNER, HARNESS = BUILD / "project.py", BUILD / "analytics_eval.py"
 sys.path.insert(0, str(BUILD))
+import python_version  # noqa: E402
 
-from eval_runs import Blocked, execution, find_run, load, use_case  # noqa: E402
+python_version.require()
+
+from eval_runs import Blocked, execution, find_run, load, questions, use_case  # noqa: E402
+from run_facts import report_name  # noqa: E402
 
 
 def dump(path: pathlib.Path, obj) -> None:
@@ -58,7 +64,7 @@ def _values(node):
 
 
 def saved_to(run: pathlib.Path):
-    """The Atlan Trident workspace the run's context was saved to, or None for this machine only:
+    """The Atlan workspace the run's context was saved to, or None for this machine only:
     the run's publication receipt, else what a save recorded beside the context."""
     ws = ((load(run / "run.json", {}) or {}).get("publication") or {}).get("workspace_id")
     # The save's approved plan is written by code, whatever shape the save's own records take.
@@ -87,11 +93,20 @@ def evals_dir(project: pathlib.Path, run: pathlib.Path) -> pathlib.Path:
     return ev
 
 
+def _written(line: str) -> bool:
+    try:
+        return json.loads(line).get("generated") is True
+    except (ValueError, AttributeError):
+        return False
+
+
 def sets(project: pathlib.Path) -> list:
     found = []
     for f in sorted((project / ".atlan-evals" / "sets").glob("*.jsonl")):
         rows = [l for l in f.read_text().splitlines() if l.strip()]
-        found.append({"file": str(f), "name": f.stem, "questions": len(rows)})
+        # eval-generation marks each question it wrote; a set the person brought carries no mark.
+        written = bool(rows) and all(_written(l) for l in rows)
+        found.append({"file": str(f), "name": f.stem, "questions": len(rows), "written": written})
     return found
 
 
@@ -123,25 +138,28 @@ def cmd_start(a) -> dict:
            "before_after": before_after,
            "checks": checks(project, run),
            "new_check": "Every request to check accuracy starts a new eval folder. Use `checks` only "
-                        "when the person asks to compare with an earlier run."}
+                        "when the person asks to compare with an earlier run.",
+           # A check that starts on an agent built earlier opens with what it holds.
+           **show_agent(run)}
     if not found:
         out["next"] = "generate"
         return out
     # With a set in the folder the person chooses, even when there is one: a caller that skips
     # this question tests questions nobody picked.
     q = lambda n: f"{n} question{'' if n == 1 else 's'}"  # noqa: E731
-    names = ", ".join(f"{s['name']}, {q(s['questions'])}" for s in found)
+    names = ", ".join(f"{s['name']} ({q(s['questions'])})" for s in found)
     out["ask"] = {
-        "question": "Which questions should I test with?",
-        "text": (f"This folder has {len(found)} eval set{'s' if len(found) != 1 else ''}: {names}, with their "
-                 "trusted answers.\nNext I ask each question to a fresh agent that sees only your context, "
-                 + ("and to one that sees schema only, and compare both answers with the trusted one. "
-                    if before_after else "and compare its answer with the trusted one. ")
-                 + "Which questions should I test with?"),
+        "question": "Which questions should I test your agent with?",
+        "text": ("I test your agent on questions with known answers. "
+                 f"This folder has {len(found)} set{'s' if len(found) != 1 else ''}: {names}.\n"
+                 "Your agent answers each question in a fresh chat. "
+                 "A second chat answers from column names only. I compare both answers with the known one. "
+                 "Which questions should I test your agent with?"),
         "options": [{"label": f"{s['name']} ({q(s['questions'])})",
-                     "description": "The eval set you already have."} for s in found]
-                   + [{"label": f"Generate {a.questions} new questions",
-                       "description": "From your dashboard and the queries your analysts run most."}]}
+                     "description": "Written earlier from what your team already asks, each with its known answer."
+                     if s["written"] else "Your own questions, each with its known answer."} for s in found]
+                   + [{"label": f"Write {a.questions} new questions",
+                       "description": "From what your team already asks, in dashboard tiles and past queries."}]}
     return out
 
 
@@ -153,11 +171,11 @@ def _keep(res: dict):
     if res.get("error"):
         return str(res["error"])[:300]
     if res.get("truncated"):
-        return "truncated"
+        return "the result was cut short"
     if not res.get("rows"):
-        return "no rows"
+        return "returned nothing"
     if len(res["rows"]) > MAX_ROWS:
-        return f"{len(res['rows'])} rows: too long a list for one question to reproduce"
+        return f"{len(res['rows'])} rows: a list too long for one question to answer"
     return None
 
 
@@ -176,7 +194,7 @@ def gold_local(run: pathlib.Path, ev: pathlib.Path, records: list) -> dict:
         except json.JSONDecodeError:
             res = {"status": "error", "message": (proc.stderr or proc.stdout)[:300]}
         if res.get("status") != "ok":
-            res = {"error": res.get("message") or res.get("reason") or "did not run"}
+            res = {"error": res.get("message") or res.get("reason") or "didn't work on your data"}
         why = _keep(res)
         if why:
             failed.append({"id": r["id"], "why": why})
@@ -195,7 +213,7 @@ def gold_host(ev: pathlib.Path, records: list, transcripts: list) -> dict:
     gdir, inbox = ev / "eval" / "gold", ev / "eval" / "gold-in"
     out, failed, missing = [], [], []
     for r in records:
-        res, why, source = None, "no result file and no transcript given", None
+        res, why, source = None, "no result came back", None
         given = inbox / f"{r['id']}.json"
         if given.is_file():
             res, source = harness.normalize_result(given.read_text()), "file"
@@ -208,7 +226,7 @@ def gold_host(ev: pathlib.Path, records: list, transcripts: list) -> dict:
                 why = reason
         if res is None and re.search(r"truncated|capped the rows", why):
             # It ran, and returned more rows than one response holds: too many to compare whole.
-            failed.append({"id": r["id"], "why": "too many rows to compare: the result came back in pages"})
+            failed.append({"id": r["id"], "why": "too many rows to compare in one answer"})
             continue
         if res is None:  # the SQL was not run as written: not the question's fault, so it is not dropped
             missing.append({"id": r["id"], "why": why})
@@ -243,11 +261,60 @@ def read_set(src: pathlib.Path) -> list:
         except json.JSONDecodeError:
             raise Blocked(f"{src.name} line {n} is not JSON.")
         if not (r.get("question") and r.get("sql")):
-            raise Blocked(f"{src.name} line {n} needs a question and its sql.")
+            raise Blocked(f"{src.name} line {n} needs a question and its SQL.")
         rows.append(r)
     if not rows:
         raise Blocked(f"{src.name} holds no questions.")
     return rows
+
+
+# A moment shown this recently is this sitting's: a later session shows it again.
+SITTING = 3 * 3600
+
+
+def _shown_since(run: pathlib.Path, kinds: tuple, since: float) -> bool:
+    """Whether one of these moments was shown after `since` (seconds since the epoch) and within this sitting."""
+    import side_view
+    floor = max(since, datetime.datetime.now(datetime.timezone.utc).timestamp() - SITTING)
+    for m in side_view._state(run)["moments"]:
+        try:
+            at = datetime.datetime.fromisoformat(m.get("at")).timestamp()
+        except (TypeError, ValueError):
+            continue
+        if m.get("kind") in kinds and at >= floor:
+            return True
+    return False
+
+
+def _hand_over(run: pathlib.Path, kind: str) -> dict:
+    """A moment drawn whole, handed over with the result the check reads, and marked shown: a chip only a guide asked
+    for went undrawn in the dry run (2026-11-25)."""
+    import side_view
+    return side_view.handed(side_view.show_card(run, kind))
+
+
+def show_questions(run: pathlib.Path, since: float = None) -> dict:
+    """The chip that says the questions are written. With `since` (the set file's time), not when writing the set
+    already showed it in this sitting. The side page lists the questions."""
+    if since is not None and _shown_since(run, ("questions",), since):
+        return {}
+    return _hand_over(run, "questions")
+
+
+def _set_time(plan: dict) -> float:
+    """When the set this check loads was written, so a chip shown since then is not shown again."""
+    try:
+        return pathlib.Path(plan.get("file") or "").stat().st_mtime
+    except OSError:
+        return 0.0
+
+
+def show_agent(run: pathlib.Path) -> dict:
+    """What a check works on, as it starts: the agent this folder holds. Not when this sitting already showed it or the
+    build's own card."""
+    if _shown_since(run, ("agent", "build", "saved"), 0):
+        return {}
+    return _hand_over(run, "agent")
 
 
 def finish(ev: pathlib.Path, plan: dict, ran: dict) -> dict:
@@ -256,7 +323,7 @@ def finish(ev: pathlib.Path, plan: dict, ran: dict) -> dict:
     kept = {g["id"] for g in ran["ran"]}
     records = [r for r in records if r["id"] in kept]
     if not records:
-        raise Blocked(f"No trusted SQL in {name} ran on this run's data: " +
+        raise Blocked(f"I couldn't work out the known answer to any question in {name} from your data: " +
                       "; ".join(f"{f['id']}: {f['why']}" for f in ran["failed"]))
     by_id = {str(r.get("id") or f"q{i}"): r for i, r in enumerate(rows, 1)}
     dump(ev / "work" / "spec.json", {"name": name, "source_description": f"eval set {name}.jsonl", "records": records})
@@ -269,7 +336,9 @@ def finish(ev: pathlib.Path, plan: dict, ran: dict) -> dict:
     return {"status": "ok", "run": str(run), "evals": str(ev), "context_saved_to": saved_to(run), "set": name,
             # eval-generation marks each question it wrote; a set the person brought carries no mark.
             "generated": all(r.get("generated") is True for r in rows), "execution": plan["execution"],
-            "questions": len(records), "dropped": ran["failed"], "selection": str(ev / "work" / "selection.json")}
+            "questions": len(records), "dropped": ran["failed"], "selection": str(ev / "work" / "selection.json"),
+            # Not again when writing the set just showed it.
+            **show_questions(run, since=_set_time(plan))}
 
 
 def cmd_load(a) -> dict:
@@ -282,7 +351,7 @@ def cmd_load(a) -> dict:
                 "golden_sql": r["sql"], "review_status": "approved", "provenance": {"source": f"eval set {src.stem}"},
                 "modes": []} for i, r in enumerate(rows, 1)]
     how = execution(run)
-    plan = {"set": src.stem, "run": str(run), "execution": how, "rows": rows, "records": records}
+    plan = {"set": src.stem, "file": str(src), "run": str(run), "execution": how, "rows": rows, "records": records}
     if how["via"] == "local":
         return finish(ev, plan, gold_local(run, ev, records))
     # A warehouse run: the host runs each trusted SQL. Keep the plan so `gold` can finish it.
@@ -315,54 +384,38 @@ def cmd_gold(a) -> dict:
         raise Blocked("No result yet for " + "; ".join(f"{m['id']}: {m['why']}" for m in ran["missing"]) +
                       ". Run each one's sql_file exactly as written and pass that transcript, or save its raw "
                       "result to eval/gold-in/<id>.json, then run `gold` again.")
-    ran["failed"] += [{"id": m["id"], "why": "not run: " + m["why"]} for m in ran["missing"]]
+    ran["failed"] += [{"id": m["id"], "why": "not tested: " + m["why"]} for m in ran["missing"]]
     return finish(ev, plan, ran)
-
-
-def _cell(value) -> str:
-    """One value as a person reads it: a number with separators, a date without a time."""
-    if value is None:
-        return "none"
-    text = str(value).strip()
-    try:
-        number = float(text)
-        if re.fullmatch(r"[+-]?\d+(\.\d+)?", text):
-            return f"{int(number):,}" if number.is_integer() else f"{number:,.2f}".rstrip("0").rstrip(".")
-    except ValueError:
-        pass
-    text = re.sub(r"^(\d{4}-\d{2}-\d{2})[ T]00:00(:00(\.0+)?)?([+-]00:?00|Z)?$", r"\1", text)
-    return text.replace("|", "/").replace("\n", " ")
-
-
-def _expected(gold: dict) -> str:
-    """A trusted result as a person reads it: one value on its own, otherwise its size and the
-    first row's leading values. Column names stay out: a query's aliases (ms, cnt) mean nothing
-    to the person."""
-    rows = gold.get("rows") or []
-    if not rows:
-        return "no rows"
-    first = [_cell(v) for v in rows[0] if _cell(v) not in ("", "none")]
-    if len(rows) == 1 and len(rows[0]) == 1:
-        return first[0] if first else "none"
-    shown = ", ".join(first[:3]) + (", …" if len(first) > 3 else "")
-    return f"1 row: {shown}" if len(rows) == 1 else f"{len(rows)} rows, starting {shown}"
 
 
 def cmd_show(a) -> dict:
     """The loaded set as one markdown table, for the person to read before it runs: the number
-    each question keeps in every report, the question, the metric it tests and its trusted answer."""
+    each question keeps in every report, the question, the metric it tests and its trusted answer.
+    The side page lists the same questions from the same record."""
     ev = pathlib.Path(a.evals)
-    spec = load(ev / "work" / "spec.json")
-    if not spec:
+    asked = questions(ev)
+    if not asked:
         raise Blocked(f"No loaded set in {ev}: run `check.py load` (and `gold` on a warehouse run) first.")
-    picked = {s.get("id"): s for s in load(ev / "work" / "selection.json", []) or []}
     clean = lambda t: " ".join(str(t or "").split()).replace("|", "/")  # noqa: E731
-    lines = ["| # | Question | Tests | Expected |", "| ---: | --- | --- | --- |"]
-    for n, r in enumerate(spec["records"], 1):
-        gold = load(ev / "eval" / "gold" / f"{r['id']}.json", {}) or {}
-        lines.append(f"| {n} | {clean(r['question'])} | {clean((picked.get(r['id']) or {}).get('metric')) or 'none named'} "
-                     f"| {clean(_expected(gold))} |")
-    return {"status": "ok", "questions": len(spec["records"]), "table": "\n".join(lines)}
+    lines = ["| # | Question | Metric it tests | Known answer |", "| ---: | --- | --- | --- |"]
+    lines += [f"| {r['n']} | {clean(r['question'])} | {clean(r['metric']) or 'No metric yet'} | {clean(r['known'])} |"
+              for r in asked["rows"]]
+    return {"status": "ok", "questions": asked["total"], "table": "\n".join(lines), "ask": run_ask(asked["total"])}
+
+
+def run_ask(n: int) -> dict:
+    """The question that asks to run a shown set, worded for one question or for several."""
+    one = n == 1
+    return {"question": "Test your agent on this question?" if one else f"Test your agent on these {n} questions?",
+            "options": [{"label": "Test it (Recommended)" if one else "Test them (Recommended)",
+                         "description": "I test it with your agent's metrics and with column names only." if one else
+                         f"I test all {n}, with your agent's metrics and with column names only."},
+                        {"label": "Edit the question" if one else "Edit questions",
+                         "description": "Reword it before testing." if one else
+                         "Reword a question or leave some out before testing."},
+                        {"label": "Skip for now",
+                         "description": "Keep it on this machine and test later." if one else
+                         "Keep the questions on this machine and test later."}]}
 
 
 def cmd_edit(a) -> dict:
@@ -374,8 +427,8 @@ def cmd_edit(a) -> dict:
     if not spec:
         raise Blocked(f"No loaded set in {ev}: run `check.py load` (and `gold` on a warehouse run) first.")
     if any((d / "results.jsonl").is_file() for d in (ev / "hillclimb").glob("*")):
-        raise Blocked("This set already has a scored run. A scored set never changes: edit the set file, "
-                      "then run a new check.")
+        raise Blocked("These questions already have a score, so they stay as they are. To reword one, "
+                      "I'll change the set and start a new test.")
     records = spec["records"]
     rec = next((r for n, r in enumerate(records, 1) if a.question in (str(n), r["id"])), None)
     if rec is None:
@@ -409,8 +462,8 @@ def cmd_drop(a) -> dict:
     if not spec:
         raise Blocked(f"No loaded set in {ev}: run `check.py load` (and `gold` on a warehouse run) first.")
     if any((d / "results.jsonl").is_file() for d in (ev / "hillclimb").glob("*")):
-        raise Blocked("This set already has a scored run. A scored set never changes: load the set again "
-                      "for a new check, then drop.")
+        raise Blocked("These questions already have a score, so they stay as they are. To leave some out, "
+                      "I'll start a new test without them.")
     records = spec["records"]
     # A question is named by its number in the list the person was shown, or by its id.
     want = {s.strip() for s in a.questions.split(",") if s.strip()}
@@ -421,7 +474,7 @@ def cmd_drop(a) -> dict:
                       f"Name each by its number, 1 to {len(records)}.")
     kept = [r for r in records if r not in gone]
     if not kept:
-        raise Blocked("That drops every question. Keep at least one, or choose Not now.")
+        raise Blocked("That removes every question. Keep at least one, or choose Skip for now.")
     ids = {r["id"] for r in gone}
     dump(ev / "work" / "spec.json", {**spec, "records": kept})
     dump(ev / "work" / "selection.json",
@@ -431,6 +484,102 @@ def cmd_drop(a) -> dict:
         (ev / "eval" / "gold" / f"{i}.json").unlink(missing_ok=True)
     stage(ev, re.sub(r"[^a-z0-9]+", "-", str(spec.get("name") or "eval-set").lower()).strip("-") or "eval-set")
     return {"status": "ok", "evals": str(ev), "questions": len(kept), "dropped": sorted(ids)}
+
+
+SMALL_SET = 5  # a score on fewer questions is too thin to save for a team
+LEAD = "Give me more to build from and your agent gets sharper, and so does this score."
+LEAD_QUESTIONS = "Give me more questions and this score gets sharper."
+# The grant each warehouse needs before its query history can be read, as the query-history reference names it.
+# The person asks their admin: nothing here changes a permission.
+HISTORY_GRANT = {
+    "snowflake": "Ask your Snowflake admin to grant your role the SNOWFLAKE.GOVERNANCE_VIEWER database role. "
+                 "I never change permissions myself.",
+    "databricks": "Ask your Databricks admin for read access to the system.query.history table. "
+                  "I never change permissions myself.",
+}
+HISTORY_EXPORT = "Ask someone with access to export your team's past queries to a file. I never change permissions myself."
+UNREAD = re.compile(r"(past queries|query history)[^,;.]*\b(not readable|unreadable|not read|refused|blocked)"
+                    r"|\b(couldn't|could not|can't|cannot) read[^,;.]*(past queries|query history)", re.I)
+
+
+def run_gaps(run: pathlib.Path) -> dict:
+    """What this run could not read or left out, from its own files: whether past queries were used, or could not be
+    read; the dashboard and whether pages were left out; whether tables were named beyond the dashboard's tiles."""
+    inter = load(run / "interaction.json", {}) or {}
+    meta = load(run / "run.json", {}) or {}
+    engine = pathlib.Path(meta.get("engine_run") or "engine")
+    engine = engine if engine.is_absolute() and engine.is_dir() else run / engine.name
+    config = load(run / "engine-config.json", {}) or {}
+    inputs = config.get("inputs")
+    if not isinstance(inputs, dict):
+        # The engine keeps its own copy of the agreed inputs, written as JSON.
+        yml = load(engine / "run.yml", {})
+        inputs = yml.get("inputs") if isinstance(yml, dict) else None
+    inputs = inputs if isinstance(inputs, dict) else {}
+    log = run / "context" / "querylog.jsonl"
+    history_used = bool(inputs.get("history")) or (log.is_file() and any(l.strip() for l in log.read_text().splitlines()))
+    warehouse = ((load(run / "state.json", {}) or {}).get("warehouse") or {})
+    kind = str(warehouse.get("kind") or "").lower() if isinstance(warehouse, dict) else ""
+    readiness = inter.get("readiness") if isinstance(inter.get("readiness"), dict) else {}
+    named = " ".join(str(inter.get("report") or "").split())
+    report, _, pages = named.partition(":")
+    bi = bool(inputs.get("bi")) or bool(report.strip())
+    return {"demo": inter.get("flow") == "demo", "warehouse": kind or None,
+            "history_used": history_used,
+            "history_unreadable": not history_used and bool(UNREAD.search(str(readiness.get("result") or ""))),
+            "dashboard": bi, "report": report.strip() or None,
+            "pages_left_out": bi and bool(pages.strip()) and "all pages" not in pages.lower(),
+            "tables_named": bool(config.get("tables")) or bool(inputs.get("schema"))}
+
+
+def next_options(gaps: dict, questions: int) -> list:
+    """Up to 4 options for what to add next, biggest gap first, then saving (5 questions or more) and stopping."""
+    gaps_first = []
+    if not gaps["demo"]:
+        if gaps["history_unreadable"] or (gaps["warehouse"] and not gaps["history_used"]):
+            gaps_first.append({"key": "past_queries", "label": "Let me read your past queries",
+                               "description": HISTORY_GRANT.get(gaps["warehouse"] or "", HISTORY_EXPORT)
+                               if gaps["history_unreadable"] else
+                               "I read what your team already asks on your warehouse, and build your agent from it."})
+        if gaps["pages_left_out"]:
+            gaps_first.append({"key": "other_pages", "label": "Add the other pages",
+                               "description": f"The pages of {report_name(gaps['report'])} I left out, so your agent covers the "
+                                              "whole dashboard."})
+        elif gaps["dashboard"]:
+            gaps_first.append({"key": "another_dashboard", "label": "Add another dashboard",
+                               "description": "Another dashboard your team uses, so your agent covers more of what "
+                                              "they ask."})
+        else:
+            gaps_first.append({"key": "a_dashboard", "label": "Add a dashboard",
+                               "description": "A dashboard your team uses, so your agent answers what it shows."})
+        if gaps["dashboard"] and not gaps["history_used"] and not gaps["tables_named"]:
+            gaps_first.append({"key": "tables", "label": "Name the tables your team uses",
+                               "description": "Tables beyond the dashboard's tiles, so your agent answers more than "
+                                              "the tiles show."})
+    gaps_first.append({"key": "own_questions", "label": "Add questions of your own",
+                       "description": "Questions your team asks, each with its known answer, so the score covers "
+                                      "them too."})
+    tail = ([{"key": "save", "label": "Save this score to Atlan Trident",
+              "description": "Save this score to Atlan Trident, so your team can see it."}] if questions >= SMALL_SET else []) \
+        + [{"key": "done", "label": "I'm done", "description": "Stop here. Your agent stays ready to ask."}]
+    return gaps_first[:4 - len(tail)] + tail
+
+
+def cmd_next(a) -> dict:
+    """After the result: one line asking for more, and one question whose options come from this run's own gaps."""
+    ev, run = pathlib.Path(a.evals), pathlib.Path(a.run)
+    spec = load(ev / "work" / "spec.json")
+    if not spec:
+        raise Blocked(f"No loaded set in {ev}: run `check.py load` first.")
+    if not run.is_dir():
+        raise Blocked(f"No run at {run}.")
+    gaps = run_gaps(run)
+    n = len(spec.get("records") or [])
+    options = next_options(gaps, n)
+    sources = any(o["key"] not in ("own_questions", "save", "done") for o in options)
+    return {"status": "ok", "lead": LEAD if sources else LEAD_QUESTIONS, "question": "What should I add next?",
+            "options": [{"label": o["label"], "description": o["description"]} for o in options],
+            "keys": [o["key"] for o in options], "questions": n, "gaps": gaps}
 
 
 def cmd_link(a) -> dict:
@@ -443,7 +592,7 @@ def cmd_link(a) -> dict:
     ids = (load(pathlib.Path(a.evals) / "state.json", {}) or {}).get("ids") or {}
     agent, runs = ids.get("agent_id"), ids.get("experiments") or {}
     if not runs:
-        raise Blocked("This check is not saved to Atlan Trident yet: no run is recorded.")
+        raise Blocked("These test results aren't saved to Atlan Trident yet.")
     base = f"{a.origin}/{quote(a.org, safe='')}/registry/evals/experiments"
     last = list(runs.values())[-1]
     # A check saved without an agent has no agent page: its runs list under All runs.
@@ -484,6 +633,10 @@ def main(argv=None) -> int:
     c.add_argument("--evals", required=True)
     c.add_argument("--questions", required=True, help="numbers in the shown list, or ids, comma separated")
     c.set_defaults(func=cmd_drop)
+    c = s.add_parser("next", help="after the result: what to add next, from what this run could not read or left out")
+    c.add_argument("--evals", required=True)
+    c.add_argument("--run", required=True, help="the run the check tested, as load returned it")
+    c.set_defaults(func=cmd_next)
     c = s.add_parser("link", help="the Atlan pages of a check saved to Trident")
     c.add_argument("--evals", required=True)
     c.add_argument("--org", required=True)

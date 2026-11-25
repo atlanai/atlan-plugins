@@ -6,6 +6,9 @@ from pathlib import Path
 from dashboard_errors import FlowError
 from trident.core import Service, clean, digest, source_link
 
+# A run's status label as the person reads it in its summary: the label itself is compared, and stays as it is.
+SAID = {'Agent ready to try': 'Your agent is ready to try', 'Local metrics ready to try': 'Ready to try here, on this machine'}
+
 
 class Run:
     def __init__(self, directory):
@@ -201,10 +204,12 @@ class Run:
                              and agent_matches
                              else 'Local metrics ready to try' if usable else 'Preparing dashboard'}
         counts = view['summary']
-        workflow['display_summary'] = (f"{workflow['label']}. {usable} of {counts['measures']} metrics available. "
-            f"Dashboard checks: {counts['passed_cases']} of {counts['measured_cases']} compared passed; "
+        # `label` is what other code compares; the person reads its words here.
+        said = SAID.get(workflow['label'], workflow['label'])
+        workflow['display_summary'] = (f"{said}. {usable} of {counts['measures']} metrics available. "
+            f"Dashboard checks: {counts['passed_cases']} of {counts['measured_cases']} compared passed, "
             f"{counts['unmeasured_cases']} unmeasured. "
-            + (f"Held-out questions: {evaluation['passed']} of {evaluation['scored']} scored passed; "
+            + (f"Held-out questions: {evaluation['passed']} of {evaluation['scored']} scored passed, "
                f"{evaluation['unmeasured']} unmeasured." if evaluation.get('state') == 'complete'
                else 'Held-out accuracy: Not run.')) if state.get('title') else None
         # This is a derived read model. Never rewrite underlying source or publication evidence.

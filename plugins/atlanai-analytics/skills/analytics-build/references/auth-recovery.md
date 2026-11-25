@@ -65,9 +65,8 @@ start multiple OAuth flows. Keep the returned `attempt_id` for later observation
 
 ## 2. Open the sign-in page and watch the host login task
 
-When sign-in is needed, tell the user why and where first: "I'm opening the Atlan sign-in
-page so these metrics can be saved where your company's Atlan finds them. Sign in to your
-company's Atlan there; I'll resume this setup when the connection is ready." Launch the supported client command as a host
+When sign-in is needed, tell the user why and where first: "Opening Atlan sign-in in your
+browser so your agent can be saved there. I'll carry on once you're signed in." Launch the supported client command as a host
 background task, or a yielding terminal task with a retained task/session ID:
 
 - Codex: `codex mcp login atlan` for the observed server of that name.
@@ -88,7 +87,7 @@ Keep the parent turn alive with as few turns as the host allows. Prefer the task
 notification; without one, check the native task handle at most every 30 seconds. This is
 the background watcher: a real host task with a retained handle, not a promise to check
 later. Continue independent survey/authoring work while waiting; serialize run mutations.
-Give status only when it changes, or once a minute at most. Do not schedule an automation,
+Give status as [when to talk](setup/progress.md#when-to-talk) says. Do not schedule an automation,
 create an OS daemon, add an agent, inspect credential files or start hidden model calls.
 
 A host with no background task or browser tool gets the core sign-in step for that host in
@@ -118,7 +117,7 @@ On cancellation, failure or the ten-minute deadline, stop watching and cancel on
 owned login task if it is still running. Record `canceled`/`failed`; polling records expiry
 as `timed_out`. Give the relevant fallback below and the exact saved run directory. Do not
 restart OAuth indefinitely. A stale event from an older attempt cannot resume this run.
-Tell the user once that candidates and the pending stage are saved, then name the one missing
+Tell the user once that their metrics, saved queries and progress are saved, then name the one missing
 action. After three failed attempts at the same step, stop that step; do not describe or start
 another attempt, and say so once in plain words ("I've stopped retrying"), never as a tally.
 Avoid a procedural recap when a short saved-state update answers the request: the saved
@@ -190,7 +189,7 @@ details ask, even when the checkpoint supplied them. Add the
 one missing action, relevant host-specific installation/sign-in instructions and the saved-run
 resume step. Details expose SQL, source and checks without dumping them by default. Repeat
 the sample even if it appeared in commentary; progress may collapse. A file link supplements
-it. Say "Your drafts are saved; sign in to publish" rather than a machine status token. If
+it. Say "Your agent is saved on this machine. Sign in to save it to Atlan Trident." rather than a machine status token. If
 no candidate exists, say so instead of fabricating one. Distinguish local checked
 candidates from released Atlan context; do not offer retrieval-backed answers until verified.
 When the preview comes from a saved/supplied checkpoint, label check results as prior-run

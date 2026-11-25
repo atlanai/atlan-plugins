@@ -8,7 +8,8 @@ running.
 statement types beyond a single SELECT, UNION among them. Put each check in its own scalar
 subquery, `SELECT (SELECT …) AS a, (SELECT …) AS b`, one column per metric. When the tool
 refuses a statement type the definition itself needs (a UNION inside a metric's source), record
-that metric as not executable through this tool, with the tool's reason, and keep it parse-only;
+that metric as not executable through this tool, say "<metric> can't be tested through this
+warehouse tool: <reason>. Its definition is kept as written." and keep it parse-only;
 never rewrite the definition to get it to run.
 
 Read only the section for the recorded warehouse, or for the dialect a metric names when none
@@ -173,4 +174,5 @@ fallbacks and the view an admin can create), [through a CLI](warehouses/cli.md) 
 
 Use `select 1` as the check, its `information_schema` for tables and columns, and its own
 documented read-only query history. Record its name as `dialect`. If you can't find a
-read-only history source, ask for an export file.
+read-only history source, say "I can't find past queries for <warehouse>. If someone with access
+exports them to a file, I'll use that."

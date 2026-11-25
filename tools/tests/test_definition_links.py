@@ -81,7 +81,7 @@ class AutomaticOrganizationTest(unittest.TestCase):
             self.assertNotIn("token", call.args[0])
 
     def test_rejects_different_gateway(self):
-        with self.assertRaisesRegex(ValueError, "MCP gateway"):
+        with self.assertRaisesRegex(ValueError, "different Atlan address"):
             self.resolve([{**self.status, "gateway": "https://api.example.com"}])
 
     def test_rejects_missing_or_ambiguous_active_membership(self):
@@ -95,12 +95,12 @@ class AutomaticOrganizationTest(unittest.TestCase):
             self.resolve([self.status, {**self.identity, "org_id": "org_other"}])
 
     def test_rejects_artifact_from_another_workspace(self):
-        with self.assertRaisesRegex(ValueError, "MCP workspace"):
+        with self.assertRaisesRegex(ValueError, "same workspace as this chat"):
             self.resolve([self.status, self.identity,
                           {**self.artifact, "workspace_id": "workspace_other"}])
 
     def test_rejects_concurrent_account_switch(self):
-        with self.assertRaisesRegex(ValueError, "connection changed"):
+        with self.assertRaisesRegex(ValueError, "sign-in changed"):
             self.resolve([self.status, self.identity, self.artifact,
                           {**self.status, "orgID": "org_other"}])
 
@@ -109,6 +109,6 @@ class AutomaticOrganizationTest(unittest.TestCase):
         import subprocess
         result = subprocess.CompletedProcess([], 1, stdout="private response", stderr="private error")
         with patch.object(module.subprocess, "run", return_value=result):
-            with self.assertRaisesRegex(ValueError, "metadata read failed") as caught:
+            with self.assertRaisesRegex(ValueError, "couldn't read this from Atlan Trident") as caught:
                 module._cli_json(["api", "get", "registry:/users/me"])
             self.assertNotIn("private", str(caught.exception))
