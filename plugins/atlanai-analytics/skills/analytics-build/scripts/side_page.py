@@ -28,7 +28,7 @@ except ImportError:
 from urllib.parse import urlsplit
 import http.client
 
-from run_facts import RunFacts, clip, count, first_question, number, read_json, sentence
+from run_facts import RunFacts, clip, count, first_question, number, read_json, same_figure, sentence
 
 PAGE = Path(__file__).with_name('side_page.html')
 NEVER_RAN = "It wasn't tested."
@@ -502,7 +502,9 @@ def details(f):
         # Beside the dashboard's own figure: the number its tile's query returned, when it returned one.
         derived = (d.get('provenance') or {}).get('derived_from') if isinstance(d.get('provenance'), dict) else []
         tile = next((f.tile_figures[x] for x in derived or [] if x in f.tile_figures), None) if value else None
-        tile = {'name': tile[0], 'value': number(tile[1], unit), 'same': number(tile[1], unit) == value} if tile else None
+        raw = v['rows'][0] if v and v['ok'] and len(v['rows']) == 1 else None
+        raw = raw[0] if isinstance(raw, list) and raw else raw
+        tile = {'name': tile[0], 'value': number(tile[1], unit), 'same': same_figure(raw, tile[1], unit)} if tile else None
         description = ctx.get('description') or card.get('description')
         metrics.append({k: x for k, x in (
             ('name', sentence(ctx.get('display_name') or card.get('display_name') or m['name'])),
@@ -626,7 +628,16 @@ def snapshot(run, engine_dir=None):
     agent = ready.get('agent') if isinstance(ready, dict) else None
     state = side_view.stopped(run, engine_dir)
     d = details(f)
+    # The accuracy check's questions are outputs too: listed once written, each row filled as its answers come back.
+    import eval_runs
+    ev = eval_runs.questions_folder(run)
+    tests = eval_runs.questions(ev) if ev else None
+    # The page is the folder's: the other agents built here, and a dashboard built from this one's answers.
+    others = eval_runs.others(run)
     return {
+        **({'tests': tests} if tests and tests['rows'] else {}),
+        **({'others': others} if others else {}),
+        **({'dashboard': {'built': True}} if f.interaction.get('dashboard_result') == 'built' else {}),
         'v': 1, 'flow': flow, 'updated': _now(),
         'title': facts.get('title') or (f.use_case and f.use_case[:1].upper() + f.use_case[1:]) or 'Your agent',
         'subtitle': facts.get('tagline') or f.purpose or None,
@@ -660,6 +671,37 @@ def _fingerprint(run):
                     st = e.stat()
                     h.update(('%s/%s %d %d\n' % (folder.name, e.name, st.st_size, st.st_mtime_ns)).encode())
             except OSError:  # removed while the folder was read, such as a record rewritten
+                continue
+    import eval_runs
+    ev = eval_runs.questions_folder(run)
+    project = run.parent.parent if run.parent.name in eval_runs.ROOTS else run.parent
+    # The folder's other builds, read with a plain listing: a folder removed while it is read is skipped.
+    for root in eval_runs.ROOTS:
+        try:
+            names = sorted(os.listdir(project / root))
+        except OSError:
+            continue
+        for name in names:
+            try:
+                st = (project / root / name / 'context' / 'metrics.json').stat()
+                h.update(('%s %d %d\n' % (name, st.st_size, st.st_mtime_ns)).encode())
+            except OSError:
+                continue
+    try:
+        hill = sorted(ev / 'hillclimb' / n for n in os.listdir(ev / 'hillclimb')) if ev else []
+    except OSError:
+        hill = []
+    for folder in (ev / 'work', ev / 'eval' / 'gold', *hill, *(p / s for p in hill for s in ('answers', 'agent_results'))) if ev else ():
+        try:
+            entries = sorted(os.scandir(folder), key=lambda e: e.name)
+        except OSError:
+            continue
+        for e in entries:
+            try:
+                if e.is_file():
+                    st = e.stat()
+                    h.update(('%s/%s %d %d\n' % (folder, e.name, st.st_size, st.st_mtime_ns)).encode())
+            except OSError:
                 continue
     engine = RunFacts(run).engine
     try:
@@ -1034,12 +1076,27 @@ def open_page(run, host=None, explicit=True):
     return {'url': url, 'started': started, 'opened': opened, 'moved': moved, 'host': host}
 
 
-# The one line the person reads when the side page first opens; every flow says the same (dashboard-flow, visuals).
+# The one line the person reads when the side page first opens during a build; every flow says the same
+# (dashboard-flow, visuals).
 OPENED_LINE = ("A page has opened beside this chat. It lists each metric and saved query as it's found, and why anything "
                "is left out.")
 
 
-def instruction(opened, widget=False):
+def _built(run):
+    import side_view
+    return run is not None and 'build' in side_view.seen(run)
+
+
+def opened_line(run=None):
+    """The page's first line: the build as it goes, or, once the build's card closed it, what the page holds."""
+    if not _built(run):
+        return OPENED_LINE
+    import eval_runs
+    tests = ', and each test question with its known answer' if eval_runs.questions_folder(run) else ''
+    return "A page has opened beside this chat with your agent's metrics and saved queries%s." % tests
+
+
+def instruction(opened, widget=False, run=None):
     """What the agent does with the page it was handed: open it where the host has a pane, or name it once."""
     url = opened.get('url')
     if not url:
@@ -1055,13 +1112,14 @@ def instruction(opened, widget=False):
                 'open panes, and show it again if not: the page reports itself visible even in a closed pane, so only the '
                 'layout can tell. If the app cannot show it because its window is not on screen, say nothing, and never '
                 'its address: it is there when the person opens the window. %s Once it shows, say once, in one short '
-                'line: "%s" Nothing more about it after that; the cards point to it. From here the page carries each '
-                'metric step and the task list carries the build: follow the build with `PROJECT drafts --wait` in the '
-                'foreground, as progress says.' % (url, follows, OPENED_LINE))
+                'line: "%s" Nothing more about it after that; the cards point to it.%s'
+                % (url, follows, opened_line(run), '' if _built(run) else
+                   ' From here the page carries each metric step and the task list carries the build: follow the build '
+                   'with `PROJECT drafts --wait` in the foreground, as progress says.'))
     if opened.get('opened'):
         return ('The side page opened in the person\'s browser at %s. Say once, in one short line: "%s" Nothing more '
                 'about it now: the next chip in a question names it. %s'
-                % (url, OPENED_LINE.replace('beside this chat', 'in your browser'), follows))
+                % (url, opened_line(run).replace('beside this chat', 'in your browser'), follows))
     return ('Say nothing about the side page now: the next chip in a question names its address, %s. %s' % (url, follows))
 
 
@@ -1082,9 +1140,9 @@ def reminder(run, start=True):
             return None
     host = os.environ.get('CLAUDE_CODE_ENTRYPOINT') or ''
     if opened.get('moved'):
-        return 'The side page restarted at a new address. ' + instruction(opened)
+        return 'The side page restarted at a new address. ' + instruction(opened, run=run)
     if host == 'claude-desktop' and not (run / 'view' / 'seen.json').is_file():
-        return instruction({**opened, 'host': host})
+        return instruction({**opened, 'host': host}, run=run)
     return None
 
 

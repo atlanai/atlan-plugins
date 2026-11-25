@@ -131,6 +131,7 @@ the link. Use the workspace returned with that artifact, not a guessed default.
 ## Context kept on this machine
 
 Local metrics and saved queries have no Atlan page. Under **Based on**, cite each as "Metric:
-<name>, on this machine at <path>" or "Saved query: <name>, on this machine at <path>". Then add
+<name>, stored on this machine" or "Saved query: <name>, stored on this machine", never with
+its file path. Then add
 "Nothing to open yet. Each one gets a page in Atlan once you save it there."
 Never fabricate a saved link for an unpublished item or let a missing link block an answer.

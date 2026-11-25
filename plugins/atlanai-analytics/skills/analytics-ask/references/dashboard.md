@@ -36,10 +36,11 @@ give the layout in words and stop. Keep it real and small:
 - Every number comes from the same metrics and queries, run through the ask route. Do not
   write new SQL for a number a metric already defines, and never type a number in by hand.
 - Each tile names its metric, linked to its page in Atlan when it has one.
-- Do not publish it anywhere. Then say where it is in one line: "Your dashboard is at <path>.
-  Open it in your browser." for a file, or "Your dashboard is the page beside this chat." for
-  a Claude dashboard, and one line on what it shows ("Pod S1 target for the latest quarter,
-  by pod, with every quarter in a table below.").
+- Do not publish it anywhere. Then say where it is in one line: "[Open your dashboard](<file
+  URL>) in your browser. It's in this folder." for a file, as a link, never its path written
+  out, or "Your dashboard is the page beside this chat." for a Claude dashboard, and one line
+  on what it shows ("Gross margin for the latest quarter, by job type, with every quarter in a
+  table below.").
 - **What comes after.** In own-data setup the dashboard is the last step: record `PROJECT
   journey dashboard --answer built`, then end with [the closing message](../../analytics-build/references/setup/ready.md)
   (`PROJECT question close`), printed as it is, as the last thing in the reply. In a demo,

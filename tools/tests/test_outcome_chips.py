@@ -58,7 +58,7 @@ class Chips(unittest.TestCase):
         self.assertEqual(first('group'), '» **2 questions your team asks** · found in 2 of your 3 past queries')
         self.assertEqual(first('tiles'), '▦ **2 tiles read** · each written as a question with SQL')
         # Each count says where it came from, so 110, 95, 24, 30, 25 and 8 read as one story.
-        self.assertEqual(first('described'), '❝ **4 questions written** · from your 2 questions and 2 dashboard tiles')
+        self.assertEqual(first('described'), '❝ **4 saved queries written** · from your 2 questions and 2 dashboard tiles')
         self.assertEqual(first('metrics'), '◆ **2 metrics** · 1 duplicate merged')
         self.assertEqual(first('rules'), '= **Detailed information added to 2 metrics** · what each counts and leaves out')
         self.assertEqual(self.show('links'), '⋈ **1 link between metrics** · e.g. Gross margin uses Rework cost')
@@ -173,11 +173,11 @@ class Chips(unittest.TestCase):
 
     def test_the_chips_that_were_already_there_say_their_outcome(self):
         self.assertEqual(self.show('sources'), '▤ **129 rows** of your data · 2 tables, 3 past queries, Power BI dashboard')
-        self.assertEqual(self.show('context'), '✓ **Every test passed** · on your data · Gross margin £118,681')
+        self.assertEqual(self.show('context'), '✓ **Every metric works** · on your data · Gross margin £118,681')
         failing = make_run(self.root / 'f', failing=1)
         self.assertEqual(self.show('context', failing), '△ **3 passed** · 1 needs your review · on your data')
         demo = make_run(self.root / 'demo', demo=True)
-        self.assertEqual(self.show('context', demo, data=[facts()]), "✓ **Every test passed** · on Fixit's data · Gross margin £118,681")
+        self.assertEqual(self.show('context', demo, data=[facts()]), "✓ **Every metric works** · on Fixit's data · Gross margin £118,681")
 
     def test_a_demo_s_chips_name_the_firm_never_the_person(self):
         # The demo's welcome says "Made-up data; nothing of yours is touched"; a fresh reader of h8 then met "your 110 past
@@ -207,7 +207,7 @@ class Chips(unittest.TestCase):
         # A first-time reader of a live run never saw the dashboard's own figure beside the agent's: nothing showed why
         # to trust either. Across 40 earlier runs, 151 of 159 such pairs matched and 8 did not.
         self.tiled(self.run, '118681.0')
-        self.assertEqual(self.show('context'), '✓ **Every test passed** · on your data · Gross margin £118,681\n'
+        self.assertEqual(self.show('context'), '✓ **Every metric works** · on your data · Gross margin £118,681\n'
                                                "  Gross margin matches its Gross margin tile's formula.")
         detail = self.show('context', widget=True).split('</summary>', 1)[1]
         self.assertIn("Each metric was tested on your data and returned a number.", detail)
@@ -393,11 +393,13 @@ class Chips(unittest.TestCase):
 
     def test_a_fitted_line_breaks_at_a_word(self):
         # A live run's rule chip ended "... at each crew member's or machine's hourly rate" cut as "at ea…".
+        self.assertEqual(visuals._fit_words("Waste per job at each crew member's or machine's hourly rate", 40),
+                         "Waste per job at each crew member's or…")
+        # A formula is never cut at all: a links chip shows its example whole or leaves it out.
         write(self.run / 'engine' / 'metric_relationships.json', {'edges': [
             {'from': 'Delivered Material Waste Rate', 'to': 'Delivered Material Waste', 'relation': 'derivation', 'role': 'numerator'},
             {'from': 'Delivered Material Waste Rate', 'to': 'Delivered Materials Cost', 'relation': 'derivation', 'role': 'denominator'}]})
-        line = self.show('links')
-        self.assertTrue(line.endswith('rate = Delivered…'), line)
+        self.assertEqual(self.show('links').split('\n')[0], '⋈ **2 links between metrics**')
 
     def test_a_later_answer_with_one_row_has_no_ring(self):
         spec = {'question': 'How much?', 'headline': 'Barn: £1', 'rows': [['Barn', 1]]}
@@ -556,10 +558,13 @@ class Engine(unittest.TestCase):
         self.assertEqual(code, 3)
         return json.loads(out.getvalue())
 
-    def test_each_gate_reminds_the_agent_to_show_what_the_step_produced(self):
+    def test_each_gate_sends_the_session_back_to_the_wait_that_hands_over_the_chip(self):
+        # The dry run, 2026-11-25: told here to run the chip command, the session never did. The wait hands the chip over.
         run = make_run(self.root)
-        self.assertIn('visual next', self.advance(run / 'engine')['visual'])
-        self.assertIn('no words of your own', self.advance(run / 'engine')['visual'], 'the chip is the update')
+        said = self.advance(run / 'engine')['visual']
+        self.assertIn('`PROJECT drafts --wait`', said)
+        self.assertIn('a helper ignores this', said)
+        self.assertIn('no words of your own', said, 'the chip is the update')
 
     def test_an_engine_run_outside_a_setup_run_carries_no_reminder(self):
         self.assertNotIn('visual', self.advance(self.root / 'standalone' / 'engine'))

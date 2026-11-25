@@ -10,7 +10,7 @@ truth**, read-only SQL and safety rules apply. Answer here without creating a pr
 eval, agent or registry write. No subagents are needed.
 
 If a setup run was selected, or this folder holds one kept local, follow
-[setup retrieval](references/retrieval.md) and return. Resolve ambiguity only among relevant runs in this project. Otherwise continue
+[setup retrieval](references/retrieval.md) and return. Otherwise continue
 below using existing Atlan context. Ordinary questions require no local run, publication
 receipt or DuckDB. Do not search the whole machine or substitute drafts for released context.
 
@@ -72,8 +72,9 @@ you meant something else."
 
 ## 3. Reach the data
 
-For a selected project run with `execution.kind: duckdb`, use its recorded Python runtime
-and `project.py execute` as [project setup](../analytics-build/references/project.md) describes.
+For a project run on this machine (SQLite or DuckDB), run each query with
+`PROJECT execute` as [project setup](../analytics-build/references/project.md) describes,
+never by opening its database file.
 This is an available data connection; do not ask for Snowflake or a new MCP server. Keep
 the binding across turns and use fresh released definitions and fresh query results.
 
@@ -105,7 +106,10 @@ Apply [explanation checks](references/answer-checks.md) to numerical claims.
 1. Write one SELECT or WITH statement that keeps the definition's formula, population, mandatory
    filters and grain, adding only the filters the question needs. Check column names against
    the definition or the table's columns; never guess one.
-2. Run it with the warehouse query tool, with a LIMIT on anything returning rows.
+2. Run it with the warehouse query tool, with a LIMIT on anything returning rows. In a setup or
+   demo run, add `"answer": {"question": "<question>", "metrics": ["<each used>"]}` to the
+   answering `PROJECT execute` request and show its card first (on a warehouse,
+   `PROJECT visual answer --input -`: [visuals](../analytics-build/references/setup/visuals.md#data-files)).
 3. Before answering, check the result:
    - the window is complete, or the answer says it is partial (this week so far);
    - a rate has a non-zero denominator, and segment shares add up to the total;
@@ -129,8 +133,6 @@ good ÷ answered ratings, Q2 2026: 94.1%"). Then, in the layout of
   which source answered when two conflicted, and why (the conventions' **Source of truth**);
 - the SQL, only when the person asks to see it.
 
-In a setup or demo run, record its `answer` moment and show what it prints ([visuals](../analytics-build/references/setup/visuals.md)).
-
 ## 6. Close the gap
 
 For missing definitions, corrections or a request to save/share the answer, follow
@@ -138,4 +140,4 @@ For missing definitions, corrections or a request to save/share the answer, foll
 question no published metric covers, or a wrong rule, follow [next steps](references/next-steps.md).
 
 End with one `Next:` line: one a step above names, else "Next: ask a follow-up, or ask to
-see the SQL."
+see the SQL." A setup run ends as [retrieval](references/retrieval.md) says.

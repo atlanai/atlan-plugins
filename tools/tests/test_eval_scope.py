@@ -239,6 +239,9 @@ class ScopeTest(unittest.TestCase):
         self.assertEqual(Path(res["set"]), self.tmp / ".atlan-evals" / "sets" / "revenue-check.jsonl")
         self.assertEqual(rows, [{"id": "m1", "question": "Total net revenue?", "sql": "SELECT 1",
                                  "tests": "Net Revenue", "from": "dashboard tile", "generated": True}])
+        # Written questions are an output: the chip comes with the result, and the side page lists them.
+        self.assertIn("test question", res["show_first"])
+        self.assertIn("show_first", res["visual"])
 
     def test_ready_turns_any_set_file_into_an_approved_spec_to_save(self) -> None:
         sets = self.tmp / ".atlan-evals" / "sets"
@@ -662,7 +665,7 @@ class ScopeTest(unittest.TestCase):
         ev = self.scored_check()
         run = self.warehouse_run()
         (run / "interaction.json").write_text(json.dumps({
-            "report": "Pod Targets: all pages", "readiness": {"result": "1 of 1 tiles, past queries not readable"}}))
+            "report": "Region Targets: all pages", "readiness": {"result": "1 of 1 tiles, past queries not readable"}}))
         (run / "engine-v2" / "run.yml").write_text(json.dumps({"inputs": {"history": [], "schema": [], "bi": ["powerbi"]}}))
         out = self.check("next", "--evals", str(ev), "--run", str(run))
         self.assertEqual(out["keys"], ["past_queries", "another_dashboard", "tables", "done"])
@@ -672,11 +675,11 @@ class ScopeTest(unittest.TestCase):
         self.assertEqual(out["question"], "What should I add next?")
         self.assertLessEqual(len(out["options"]), 4)
         # Pages left out, and past queries read: the other pages, then the person's own questions.
-        (run / "interaction.json").write_text(json.dumps({"report": "Pod Targets: Overview"}))
+        (run / "interaction.json").write_text(json.dumps({"report": "Region Targets: Overview"}))
         (run / "context" / "querylog.jsonl").write_text('{"sql": "select 1"}\n')
         out = self.check("next", "--evals", str(ev), "--run", str(run))
         self.assertEqual(out["keys"], ["other_pages", "own_questions", "done"])
-        self.assertIn("Pod Targets", out["options"][0]["description"])
+        self.assertIn("Region Targets", out["options"][0]["description"])
         # Five questions or more can be saved for the team; a demo offers no source it could not read.
         gaps = {**check.run_gaps(run), "demo": True}
         keys = [o["key"] for o in check.next_options(gaps, 8)]

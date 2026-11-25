@@ -13,6 +13,8 @@ import re
 import context_contracts as contracts
 
 CURRENCY = {'GBP': '£', 'USD': '$', 'EUR': '€'}
+# A card's rule line: a metric's description past this is a paragraph, not a rule.
+RULE_LINE = 90
 # Survey statuses of a source the run can read; a Tableau workbook surveys as needing the model's review.
 USABLE = ('available', 'needs_model_review')
 # The dashboard kinds source_inventory.source_kind reports, and the tool each one is.
@@ -74,9 +76,12 @@ def number(value, unit=None):
     if value is None or isinstance(value, bool):
         return 'blank'
     if isinstance(value, str):
-        # A warehouse can return a decimal as text ("12.277778"): it reads as a number, rounded like one. Whole digits
+        # A warehouse can return a number as text: a decimal ("12.277778") reads as a number, rounded like one, and so
+        # do whole digits where the metric has a unit ("1500" in USD). Without one, or with a leading zero, whole digits
         # stay as they came: they can be an id, a year or a zip code ("00123", "2026").
-        if not re.fullmatch(r'\s*-?\d+\.\d+\s*', value):
+        decimal = re.fullmatch(r'\s*-?\d+\.\d+\s*', value)
+        whole = (unit or '').strip() and re.fullmatch(r'\s*-?(0|[1-9]\d*)\s*', value)
+        if not (decimal or whole):
             return value
         value = float(value)
     if not isinstance(value, (int, float)) or not math.isfinite(value):
@@ -102,6 +107,19 @@ def number(value, unit=None):
     if tiny:
         text = text.rstrip('0').rstrip('.')
     return ('-' if rounded < 0 else '') + symbol + text
+
+
+def report_name(report):
+    """A dashboard named as a person would: "the Box Office Pulse dashboard", "the Sales report", never without "the"."""
+    report = ' '.join(str(report or '').split())
+    return report and ('the %s' % report if re.search(r'\b(dashboard|report)$', report, re.I) else 'the %s dashboard' % report)
+
+
+def same_figure(value, figure, unit=None):
+    """Whether a checked value and a tile's figure read as the same number, a warehouse's number sent as text
+    included: each is read as a number before both are written in the metric's unit."""
+    read = lambda v: float(v) if isinstance(v, str) and re.fullmatch(r'\s*-?\d+(\.\d+)?\s*', v) else v  # noqa: E731
+    return number(read(value), unit) == number(read(figure), unit)
 
 
 def first_question(text):
@@ -146,7 +164,7 @@ def clip(text, width):
 
 def short_name(text, width=60):
     """A use case as a name: a long answer's own short name, the text before its first ":" or ".", else the answer cut
-    at a word. "AE pod targets: what each pod's S1 target is. Table: GTM_OPE…" reads as "AE pod targets"."""
+    at a word. "Region targets: what each region's quarterly target is. Table: SALES_OPS…" reads as "Region targets"."""
     text = ' '.join(str(text or '').split())
     if len(text) > width:
         head = re.split(r':|\.(?=\s|$)', text, maxsplit=1)[0].strip()
@@ -546,7 +564,7 @@ class RunFacts:
             tile = next((self.tile_figures[x] for x in derived or [] if x in self.tile_figures), None)
             if ok and tile and len(values) == 1:
                 shown = number(tile[1], unit)
-                rows[-1]['tile'] = {'name': tile[0], 'value': shown, 'same': shown == rows[-1]['value']}
+                rows[-1]['tile'] = {'name': tile[0], 'value': shown, 'same': same_figure(values[0][0], tile[1], unit)}
         rows.sort(key=lambda r: r['origin'] != 'tile')
         metrics_ran = sum(r['ok'] for r in rows)
         queries_ran = sum(_passed(checks.get('sql_query:' + q['name']) or {}) for q in queries)
@@ -595,13 +613,31 @@ class RunFacts:
 
     def unit_for(self, name):
         """The unit of the context's metric with this name, or None when the context has no such metric."""
+        m = self._metric(name)
+        return (self.unit_of(m) or None) if m else None
+
+    def _metric(self, name):
         wanted = sentence(name or '').lower()
         if not wanted:
             return None
         for m in self.file('context', 'metrics.json', kind=list):
             if isinstance(m, dict) and wanted in (sentence(m.get('display_name') or '').lower(), sentence(m.get('name') or '').lower()):
-                return self.unit_of(m) or None
+                return m
         return None
+
+    def rule_for(self, name):
+        """A metric's rule in its own words, for a card's one line: its description's first clause, or None when that
+        runs past a line."""
+        m = self._metric(name)
+        lead = re.split(r'(?<=[.:;])\s', str((m or {}).get('description') or '').strip())[0].rstrip('.:;').strip()
+        return lead if 0 < len(lead) <= RULE_LINE else None
+
+    @cached_property
+    def currency(self):
+        """The one currency the context's metrics are in, or None with none or several."""
+        units = {str(self.unit_of(m) or '').upper() for m in self.file('context', 'metrics.json', kind=list) if isinstance(m, dict)}
+        units &= set(CURRENCY)
+        return units.pop() if len(units) == 1 else None
 
     @cached_property
     def publication(self):

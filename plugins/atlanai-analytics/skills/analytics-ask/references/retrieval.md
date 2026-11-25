@@ -11,12 +11,17 @@ number from the run and another from a fresh guess. With several runs, or none t
 the question, continue with released context and say "None of the metrics kept on this machine
 measures this, so I looked in Atlan."
 
+An answer from a selected run, given to the person, ends on the run's next question instead of a
+`Next:` line, as the setup's [ready step 3](../../analytics-build/references/setup/ready.md)
+says: `PROJECT question next`, asked as it is given, so the accuracy check and the dashboard stay
+one pick away. A helper answering for an accuracy check ends with its JSON instead.
+
 ## Explicit local exploration
 
 When the person selected Keep local and asks about that prepared local dataset, answer as
 local exploration. Read the selected run's saved definitions, source evidence and execution
 binding. Use its read-only `PROJECT execute` with a JSON request containing `sql`, separate
-`parameters` and `limit`. Preserve the local definition's formula and filters, run fresh SQL,
+`parameters` and `limit`, and `answer` on the query that answers, as the Ask skill's step 4 says. Preserve the local definition's formula and filters, run fresh SQL,
 and apply [explanation checks](answer-checks.md). When the run has no local database and its
 checks ran on a warehouse, run the definition through the recorded warehouse query tool
 instead. Label the answer "Sample data on this machine" for a local database, or "Local definition,

@@ -12,16 +12,17 @@ from pathlib import Path
 import re
 
 import visual_kit as k
-from run_facts import RunFacts, agent_name, count, first_question, from_dashboard, number, read_json, sentence, table_name, their, whole  # noqa: F401 (re-exported)
+from run_facts import RunFacts, agent_name, count, first_question, from_dashboard, number, read_json, report_name, sentence, table_name, their, whole  # noqa: F401 (re-exported)
 
 KINDS = ('connect', 'found', 'sources', 'group', 'tiles', 'described', 'drafted', 'metrics', 'rules', 'links', 'build', 'context',
-         'saved', 'answer', 'edit')
+         'saved', 'answer', 'edit', 'questions', 'agent')
 # The moments big enough for a mini card. A later answer gets a chip. A context kept on this machine shows nothing: the
 # person has just chosen it.
 CARDS = ('build', 'saved', 'answer', 'edit')
 # In a terminal, the moments that come right before a native question, and where in it their lines go. A question's own
 # text is always shown; text written just before it folds into a one-line summary or is left out (live runs, 2026-11-12).
 ASKED = {'found': "the next native question's text, first",
+         'questions': "the next native question's text, first",
          'context': "the save question's text in place of its count line (the banner, the two lines under it and the "
                     "question stay as they are)",
          'saved': "the ready question's text, first"}
@@ -36,12 +37,15 @@ def asked(kind, demo, saved=False):
     return ASKED.get(kind) or (ASKED_DEMO.get(kind) if demo else None) or (ASKED_SAVED.get(kind) if saved else None)
 # The moments whose data the agent writes, the fields each needs, and the shape of every field.
 DATA = {
-    'saved': {'workspace': str},
+    'build': {'aside': str},
+    'saved': {'workspace': str, 'aside': str},
     'answer': {'question': str, 'headline': str, 'summary': str, 'unit': str, 'highlight': str, 'rule': str,
                'rows': 'rows', 'proof': 'names', 'breakdown': dict},
     'edit': {'metric': str, 'before': str, 'after': str, 'note': str, 'values': 'values', 'added': 'labels', 'removed': 'labels'},
 }
-REQUIRED = {'saved': ('workspace',), 'answer': ('question', 'headline'), 'edit': ('metric', 'values')}
+REQUIRED = {'build': (), 'saved': ('workspace',), 'answer': ('question', 'headline'), 'edit': ('metric', 'values')}
+# The one line of its own words a card takes, under its counts: why this build, in the person's terms, never a number.
+ASIDE = 140
 SHAPES = {'rows': '[label, number] pairs', 'names': 'a list of {"name": ...}', 'labels': 'a list of names',
           'values': 'a list of [name, before, after]', str: 'text', dict: 'an object'}
 # A text card's inside width: it fits an 80-column window with room to spare, and a split pane.
@@ -68,6 +72,75 @@ def _shaped(value, shape):
     return isinstance(value, list) and all(isinstance(r, list) and len(r) >= 3 for r in value)
 
 
+def answer_from(given, result, facts=None):
+    """The answer card's data from what the session names (the question, the metrics it used, and any words of its own:
+    `headline`, `summary`, `rule`, `highlight`, `unit`) and the rows its query returned. Without a headline of its own,
+    the card leads with the metric's value (the one value, or the column named for the metric), or with a breakdown's
+    first row in the query's own order. None without a question or anything to lead with."""
+    question = given.get('question')
+    if not isinstance(question, str) or not question.strip():
+        return None
+    names = [n.strip() for n in given.get('metrics') or [] if isinstance(n, str) and n.strip()]
+    data = {'question': question.strip(), **({'proof': [{'name': n} for n in names]} if names else {})}
+    data.update({k: given[k].strip() for k in ('headline', 'summary', 'rule', 'highlight', 'unit')
+                 if isinstance(given.get(k), str) and given[k].strip()})
+    unit = data.get('unit') or (facts.unit_for(names[0]) if facts and names else None)
+    num = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)  # noqa: E731
+    key = lambda s: re.sub(r'[^a-z0-9]', '', str(s).lower())  # noqa: E731
+    columns = [c.get('name') if isinstance(c, dict) else str(c) for c in result.get('columns') or []]
+    rows = [r for r in result.get('rows') or [] if isinstance(r, list) and r]
+    if len(rows) == 1:
+        at = [i for i, v in enumerate(rows[0]) if num(v)]
+        named = [i for i in at if names and i < len(columns) and key(columns[i]) == key(names[0])]
+        lead = named[0] if named else at[0] if len(at) == 1 else None
+        if lead is not None and 'headline' not in data:
+            data['headline'] = '%s: %s' % (names[0] if names else sentence(columns[lead].replace('_', ' ')), number(rows[0][lead], unit))
+        parts = _row_parts(columns, rows[0], lead, facts) if lead is not None else []
+        if parts:
+            data['parts'] = parts
+    elif len(rows) > 1:
+        value = next((i for i, v in enumerate(rows[0]) if num(v)), None)
+        label = next((i for i, v in enumerate(rows[0]) if v is not None and not num(v)), None)
+        if value is not None and label is not None:
+            data['rows'] = [[str(r[label]), r[value]] for r in rows[:12] if len(r) > max(value, label) and num(r[value])]
+            if data['rows'] and 'headline' not in data:
+                data['headline'] = '%s: %s' % (data['rows'][0][0], number(data['rows'][0][1], unit))
+                data.setdefault('highlight', data['rows'][0][0])
+    return data if data.get('headline') else None
+
+
+MONEY = re.compile(r'(^|_)(fee|fees|value|sales|revenue|amount|price|cost|paid|spend|income)(_|$)')
+DAY = re.compile(r'^(\d{4})-(\d{2})-(\d{2})')
+# The parts a one-row answer's card lists under its number.
+PARTS = 6
+
+
+def _row_parts(columns, row, lead, facts):
+    """A one-row answer's other values, each labelled by its column and read in its own unit, never the lead's (the
+    review of 2026-11-24 read face value in the rate's unit: "121941250%"). A column named for one of the run's
+    metrics takes that metric's unit, money the run's one currency, a whole number is a count, and a first and a last
+    date read as one period."""
+    from datetime import date
+    parts, days = [], []
+    for i, value in enumerate(row):
+        if i == lead or i >= len(columns):
+            continue
+        name = str(columns[i])
+        day = DAY.match(value) if isinstance(value, str) else None
+        if day:
+            days.append(date(*map(int, day.groups())))
+            continue
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            continue
+        unit = (facts.unit_for(name.replace('_', ' ')) or (facts.currency if MONEY.search(name.lower()) else None)) if facts else None
+        label = name.replace('_', ' ').strip()
+        parts.append([label[:1].upper() + label[1:], number(value, unit or ('count' if float(value).is_integer() else None))])
+    if len(days) == 2:
+        first, last = sorted(days)
+        parts.append(['Period', '%d %s to %d %s' % (first.day, first.strftime('%b %Y'), last.day, last.strftime('%b %Y'))])
+    return parts[:PARTS]
+
+
 def check_data(kind, data):
     """Why a moment's data file cannot be used, naming the field, or None when it is fine."""
     if kind not in DATA:
@@ -80,6 +153,12 @@ def check_data(kind, data):
     for field, shape in DATA[kind].items():
         if field in data and not _shaped(data[field], shape):
             return '%s.json: `%s` must be %s.' % (kind, field, SHAPES[shape])
+    aside = data.get('aside')
+    if isinstance(aside, str) and (len(aside) > ASIDE or '\n' in aside):
+        return '%s.json: `aside` is one line of at most %d characters.' % (kind, ASIDE)
+    if isinstance(aside, str) and re.search(r'\d', aside):
+        return ('%s.json: `aside` holds no number: every number on a card comes from the run. Say it in words, or leave '
+                'it out.' % kind)
     unproven = _unproven(data) if kind == 'answer' else None
     if unproven:
         return ('answer.json: the summary says %s, which its rows, headline and question do not show. Leave that number '
@@ -138,6 +217,24 @@ def _names(value):
 
 def collect(kind, facts):
     """What the run's own files say about a moment."""
+    if kind == 'agent' and facts.file('context', 'metrics.json', kind=list):
+        # What a later session works on: the agent this folder already holds, before anything else is shown.
+        import datetime
+        built = datetime.datetime.fromtimestamp((facts.dir / 'context' / 'metrics.json').stat().st_mtime)
+        return {'metrics': len(facts.file('context', 'metrics.json', kind=list)),
+                'queries': len(facts.file('context', 'queries.json', kind=list)),
+                'built': '%d %s' % (built.day, built.strftime('%b')), 'saved': bool(facts.publication) and not facts.local}
+    if kind == 'questions':
+        # An accuracy check's questions, once loaded with their known answers: the side page lists each one.
+        import eval_runs
+        ev = eval_runs.questions_folder(facts.dir)
+        asked = eval_runs.questions(ev) if ev else None
+        if not (asked and asked['rows']):
+            return {}
+        tiles, queries = sum(r['from'] == 'tile' for r in asked['rows']), sum(r['from'] == 'query' for r in asked['rows'])
+        # A set the person brought is theirs: named, never "from your dashboard".
+        return {'questions': asked['total'], 'tiles': tiles, 'queries': queries,
+                **({'set': asked['name']} if asked.get('name') and all(r['from'] == 'set' for r in asked['rows']) else {})}
     if kind == 'found' and facts.found[0]:
         # What the survey and the warehouse connection found, right before the person chooses what to build from.
         return {'found': facts.found[0], 'kinds': facts.found[1], 'said': facts.found[2]}
@@ -161,7 +258,8 @@ def collect(kind, facts):
         return {'funnel': dict(facts.funnel, metrics=len(kept)) if kept else facts.funnel,
                 'merged': kept or [m['name'] for m in facts.merged],
                 'evidence': [m for m in facts.merged if m['name'].lower() in names] if kept else facts.merged, 'took': _took(facts),
-                'saved_queries': saved, 'held': facts.held, 'report': facts.report}
+                'saved_queries': saved, 'held': facts.held, 'report': facts.report,
+                **({'question': facts.interaction['question']} if facts.interaction.get('question') else {})}
     # The checks are over only when every item has its verdict: a chip before that would count unrun items as needing a look.
     if kind == 'context' and facts.checks_over:
         c = facts.context
@@ -351,18 +449,23 @@ def _first_sentence(text):
     return first if not first or first[-1] in '.!?' else first + '.'
 
 
+# The longest example a links chip shows on its line: beside its count it fits a chat pane and an 80-column window.
+LINK_EXAMPLE = 40
+
+
 def _link(edges):
-    """One link, read as what it is: a ratio of two metrics, a metric that is part of another, or one that uses others."""
+    """One link, read as what it is: a ratio of two metrics, a metric that is part of another, or one that uses others.
+    The first kind with an example short enough to show whole, else the shortest of all."""
     named = lambda x: sentence(str(x))
+    ratios, parts, uses = [], [], []
     for source in dict.fromkeys(x['from'] for x in edges):
         roles = {x.get('role'): x['to'] for x in edges if x['from'] == source}
         if 'numerator' in roles and 'denominator' in roles:
-            return '%s = %s ÷ %s' % (named(source), named(roles['numerator']), named(roles['denominator']))
-    narrower = next((x for x in edges if x.get('relation') == 'restriction'), None)
-    if narrower:
-        return '%s is part of %s' % (named(narrower['from']), named(narrower['to']))
-    source = edges[0]['from']
-    return '%s uses %s' % (named(source), ' and '.join(named(x['to']) for x in edges if x['from'] == source))
+            ratios.append('%s = %s ÷ %s' % (named(source), named(roles['numerator']), named(roles['denominator'])))
+        uses.append('%s uses %s' % (named(source), ' and '.join(named(x['to']) for x in edges if x['from'] == source)))
+    parts += ['%s is part of %s' % (named(x['from']), named(x['to'])) for x in edges if x.get('relation') == 'restriction']
+    found = ratios + parts + (uses if not (ratios or parts) else [])
+    return next((x for x in found if len(x) <= LINK_EXAMPLE), min(found or uses, key=len))
 
 
 def _took(facts):
@@ -430,6 +533,12 @@ def build_spec(kind, run=None, data=None, engine_dir=None):
         unit = facts.unit_for(first) if first else None
         if unit:
             spec['unit'] = unit
+    if kind == 'answer' and facts and not spec.get('rule'):
+        # The rule the answer used, in its metric's own words, when the session gave none.
+        first = next((p.get('name') for p in spec.get('proof') or [] if isinstance(p, dict) and p.get('name')), None)
+        rule = facts.rule_for(first) if first else None
+        if rule:
+            spec['rule'] = rule
     if kind == 'answer' and str(spec.get('unit') or '').lower() == 'currency':
         # A rule recorded as a bare currency: the answer's own headline says which.
         sign = re.search(r'[£$€]', str(spec.get('headline') or '').rpartition(': ')[2])
@@ -550,7 +659,7 @@ def _ticker(kind, s):
 
 # Each step's own mark in a terminal, and the name of its drawing in a widget.
 MARKS = {'found': '◇', 'sources': '▤', 'group': '»', 'tiles': '▦', 'described': '❝', 'metrics': '◆', 'rules': '=', 'links': '⋈',
-         'ok': '✓', 'look': '△'}
+         'ok': '✓', 'look': '△', 'questions': '❝'}
 FOUND_MARKS = {'dashboard': 'dashboard', 'database': 'database', 'query history': 'history'}
 # Where each metric step's own chip sits, in the task list's own step names (Build your context: metrics and saved
 # queries, Merge duplicate metrics, Add detailed information to each metric and saved query), and what comes next: one set of names
@@ -681,7 +790,8 @@ def _outcome(kind, s):
              'what': 'Each tile %s is now written as a question, kept with SQL for its number.' % on}
     elif kind == 'described' and s.get('described'):
         # Each count says where it came from, as on main: the review of PR 205 found this chip and the next had lost it.
-        o = {'mark': 'described', 'bold': count(s['described'], 'question') + ' written',
+        # Saved queries, as the build card counts them: "questions written" read as the accuracy check's test questions.
+        o = {'mark': 'described', 'bold': count(s['described'], 'saved query', 'saved queries') + ' written',
              # From one source the count would only repeat itself ("5 questions written · from your 5 questions").
              'tail': ('from %s %s and %s' % (their(s.get('firm')), count(s['past'], 'question'), count(s['tiles'], 'dashboard tile'))
                       if s.get('past') and s.get('tiles') else 'from %s dashboard\'s tiles' % their(s.get('firm')) if s.get('tiles')
@@ -708,9 +818,21 @@ def _outcome(kind, s):
              'rows': s['rows'],
              'what': 'Each note says what the metric counts, what it leaves out and the SQL behind it.'}
     elif kind == 'links' and s.get('links'):
-        o = {'mark': 'links', 'bold': count(s['links'], 'link') + ' between metrics', 'tail': 'e.g. ' + s['example'] if s.get('example') else '',
+        # An example shows whole or not at all: cut mid-formula it read as a broken sum. Every link is in the opened rows.
+        example = s.get('example') or ''
+        o = {'mark': 'links', 'bold': count(s['links'], 'link') + ' between metrics',
+             'tail': 'e.g. ' + example if example and len(example) <= LINK_EXAMPLE else '',
              'rows': s.get('rows'),
              'what': 'Some metrics are built from others. Change one definition, and the ones built on it follow.'}
+    elif kind == 'agent' and s.get('metrics'):
+        o = {'mark': 'ok', 'bold': 'Your agent: %s and %s' % (count(s['metrics'], 'metric'),
+                                                               count(s.get('queries', 0), 'saved query', 'saved queries')),
+             'tail': 'built %s, saved to Atlan' % s['built'] if s.get('saved') else 'built %s' % s['built']}
+    elif kind == 'questions' and s.get('questions'):
+        where = [x for x in ('%d from your dashboard' % s['tiles'] if s.get('tiles') else '',
+                             '%d from past queries' % s['queries'] if s.get('queries') else '') if x]
+        o = {'mark': 'described', 'bold': count(s['questions'], 'test question') + ' written',
+             'tail': ', '.join(where) or ('from your set %s' % s['set'] if s.get('set') else '')}
     elif kind == 'context' and s.get('total'):
         where = 'on %s data' % their(s.get('firm')) if s.get('firm') or not s.get('warehouse') else 'on your %s data' % s['warehouse']
         review = lambda n: '%d %s your review' % (n, 'needs' if n == 1 else 'need')
@@ -719,12 +841,14 @@ def _outcome(kind, s):
         elif s.get('need_look'):
             o = {'mark': 'look', 'bold': review(s['need_look']), 'tail': where}
         elif mismatch(s.get('metrics')):
-            # Every test ran, but a metric gives another number than its tile: never "Every test passed" over that
+            # Every test ran, but a metric gives another number than its tile: never "Every metric works" over that
             # (0.9.74, Ticketfuddle: Sell-through 76.1% against its tile's 81.5%).
             o = {'mark': 'look', 'bold': mismatch(s.get('metrics')), 'tail': where}
         else:
             shown = s.get('featured')
-            o = {'mark': 'ok', 'bold': 'Every test passed',
+            # Not "Every test passed": beside the accuracy check's test questions, it read as accuracy already
+            # tested (the joint run, 2026-11-25).
+            o = {'mark': 'ok', 'bold': 'Every metric works',
                  'tail': where + (' · %s %s' % (shown[0], _minus(shown[1])) if shown and shown[1] not in (None, 'not run') else '')}
         o.update(_beside_dashboard(s.get('metrics') or [], where, s.get('need_look')))
     if not o:
@@ -784,11 +908,11 @@ def chip(kind, s):
 # Mini cards ------------------------------------------------------------------------------------
 
 def _source_line(f, report=''):
-    """Where the questions written came from, so the counts on the card add up on their face: "From 1 tile on Pod
-    Targets" when they all came from a named report, else "From 2 dashboard tiles and 4 past queries"."""
+    """Where the questions written came from, so the counts on the card add up on their face: "From 1 tile on the Job
+    Margins dashboard" when they all came from a named report, else "From 2 dashboard tiles and 4 past queries"."""
     shown, asked = f.get('tiles', 0), f.get('questions', 0) - f.get('tiles', 0)
     if shown and asked <= 0 and report:
-        return 'From %s on %s' % (count(shown, 'tile'), report)
+        return 'From %s on %s' % (count(shown, 'tile'), report_name(report))
     parts = [x for x in (count(shown, 'dashboard tile') if shown else '',
                          count(asked, 'past query', 'past queries') if asked > 0 else '') if x]
     return 'From ' + ' and '.join(parts) if parts else ''
@@ -799,6 +923,19 @@ def _from(e):
     parts = [x for x in (count(e['tiles'], 'tile') if e and e.get('tiles') else '',
                          count(e['queries'], 'past query', 'past queries') if e and e.get('queries') else '') if x]
     return 'from ' + ' and '.join(parts) if parts else ''
+
+
+def _by_source(names, evidence):
+    """The names under where each came from, in words: the dashboard's first, then past queries, then any other. None
+    when nothing is known of where they came from, so the names stay one plain list."""
+    known = {m['name'].lower(): m for m in evidence or [] if isinstance(m, dict) and m.get('name')}
+    if not known:
+        return None
+    groups = [('From your dashboard', []), ('From past queries', []), ('Also', [])]
+    for name in names:
+        e = known.get(sentence(name).lower()) or known.get(str(name).lower()) or {}
+        groups[0 if e.get('tiles') else 1 if e.get('queries') else 2][1].append(name)
+    return [g for g in groups if g[1]]
 
 
 def _evidence(s, name):
@@ -822,6 +959,9 @@ def _parts(kind, s):
                                         count(held['queries'], 'saved query', 'saved queries') if held.get('queries') else '') if x)
         # The counts carry the headline; the dashboard's name goes in the source line (the person's words, 2026-11-23).
         return {'icon': 'metric', 'title': 'Your agent is built',
+                # How the person got here: a build started from their question says so first.
+                'pre': 'Built to answer: ' + s['question'] if s.get('question') else '',
+                'why': s.get('aside', ''),
                 'meta': 'in %d min' % s['took'] if s.get('took') else '',
                 'value': count(f['metrics'], 'metric') + (
                     ' and ' + count(s['saved_queries'], 'saved query', 'saved queries') if s.get('saved_queries') else ''),
@@ -833,32 +973,35 @@ def _parts(kind, s):
                 'legend': [x for x in (('fq', '%d from past queries' % asked) if asked > 0 else None,
                                        ('ft', '%d from dashboard tiles' % tiles) if tiles else None) if x] if asked > 0 and tiles else [],
                 'most': ['Found most often', most['name'], _from(most)] if most and most['tiles'] + most['queries'] > 1 else None,
-                'names': s.get('merged') or [], 'marked': [m['name'] for m in evidence if m['tiles']],
+                'names': s.get('merged') or [], 'groups': _by_source(s.get('merged') or [], evidence),
                 'more': ['Every metric and how it\'s worked out', s.get('page')]}
     if kind == 'saved' and s.get('metrics') and not s.get('local'):
         featured = s.get('featured')
-        return {'icon': 'check-circle', 'title': 'Saved to Atlan',
+        return {'icon': 'check-circle', 'title': 'Saved to Atlan', 'why': s.get('aside', ''),
                 'value': '%s, %s' % (count(len(s['metrics']), 'metric'), count(s.get('queries', 0), 'saved query', 'saved queries')),
                 'line': 'In %s, where chats with Atlan Analytics look for metrics' % (s.get('workspace') or 'your workspace'),
                 'note': ('Validated on %s: %d of %d passed' % (_where(s), s['kept'], s['total'])
                          + (', %d %s your review' % (s['need_look'], 'needs' if s['need_look'] == 1 else 'need')
                             if s.get('need_look') else '')) if s.get('total') else '',
                 'kv': [[' · '.join(x for x in (featured[0], _from(_evidence(s, featured[0]))) if x), featured[1]]] if featured else [],
-                'names': s['metrics'], 'marked': [m['name'] for m in s.get('evidence') or [] if m['tiles']]}
+                'names': s['metrics'], 'groups': _by_source(s['metrics'], s.get('evidence'))}
     if kind == 'answer' and s.get('headline'):
         label, value = _headline(s)
         rows = [r for r in s.get('rows') or [] if isinstance(r, list) and len(r) > 1 and isinstance(r[1], (int, float))]
         if not _ordered([r[0] for r in rows]):
             # Bars read top to bottom, longest first, unless their labels have an order of their own (0.9.74 kept the
-            # query's order: EMEA 39 below Majors 9). A loss is as long as its size.
+            # query's order: North 39 below Retail 9). A loss is as long as its size.
             rows = sorted(rows, key=lambda r: -abs(r[1]))
         shown = rows[:BARS] + [r for r in rows[BARS:] if r[0] == s.get('highlight')][:1]
         proof = [sentence(x['name']) for x in s.get('proof') or [] if isinstance(x, dict) and x.get('name')]
         return {'icon': 'chart', 'title': 'Answer', 'pre': s.get('question', ''), 'value': value, 'neg': value.startswith('-'),
-                'line': label, 'why': s.get('summary', ''),
+                # The metric the sources line names is not said again under the number; a row that answers keeps its label.
+                'line': '' if proof[:2] and sentence(label).lower() in [n.lower() for n in proof[:2]] else label,
+                'why': s.get('summary', ''),
                 'bars': [{'label': str(r[0]), 'value': r[1], 'shown': number(r[1], s.get('unit')), 'mark': r[0] == s.get('highlight')}
                          for r in shown],
                 'rule': [s['rule']] if s.get('rule') else [],
+                'parts': [p for p in s.get('parts') or [] if isinstance(p, list) and len(p) == 2],
                 'sources': [[n, _from(_evidence(s, n)) or 'a saved query'] for n in proof[:2]],
                 'rest': '+%d more behind this answer' % (len(proof) - 2) if len(proof) > 2 else '',
                 'more': ['How this was worked out', s.get('page')]}
@@ -885,6 +1028,19 @@ def _scale(bars):
     return -low / ((high - low) or 1), (high - low) or 1
 
 
+def _names_html(rows, hidden):
+    """The names, past the cap ending on how many more. Under their words, in one grid: a group that wraps keeps to its
+    own column, and every group's names start in the same place."""
+    e = k.e
+    spans = lambda items, last: ''.join('<span>%s</span>' % e(n) for n in items) + ('<span>+%d more</span>' % hidden if last and hidden else '')
+    if not rows:
+        return ''
+    if not rows[0][0]:
+        return '<div class="nm">%s</div>' % spans(rows[0][1], True)
+    return '<div class="ng">%s</div>' % ''.join('<b>%s</b><div class="nm">%s</div>' % (e(label), spans(items, i == len(rows) - 1))
+                                                for i, (label, items) in enumerate(rows))
+
+
 def card_html(p):
     e = k.e
     bars = ''
@@ -904,9 +1060,14 @@ def card_html(p):
             '<span>%s</span><span class="bk">%s</span><b>%s</b>' % (e(label), ''.join(
                 '<i class="%s" style="width:%.1f%%"></i>' % (cls, n / most * 100) for cls, n in segs if n), '{:,}'.format(n_all))
             for label, n_all, segs in p['funnel'])
-    marked = set(p.get('marked') or [])
     names = p.get('names') or []
-    shown = names if len(names) <= NAMES else names[:NAMES - 1]
+    # Each group on its own line, under its words; past the cap, the last line shown says how many more.
+    left, rows = (len(names) if len(names) <= NAMES else NAMES - 1), []
+    for label, items in p.get('groups') or ([('', names)] if names else []):
+        if left > 0:
+            rows.append((label, items[:left]))
+            left -= len(rows[-1][1])
+    hidden = len(names) - sum(len(items) for _, items in rows)
     value = e(_minus(p['value'])).replace(' → ', ' <s>→</s> ')
     more = p.get('more')
     return k.card(
@@ -921,12 +1082,12 @@ def card_html(p):
         + ''.join('<div class="ba"><span>%s</span><b%s>%s</b><span>%s</span></div>' % (e(l), ' class="now"' if l == 'After' else '', e(_minus(v)), e(r))
                   for l, v, r in p.get('ba') or [])
         + bars + ''.join('<div class="mu">%s</div>' % e(r) for r in p.get('rule', []))
+        + ('<div class="kv pt">%s</div>' % ''.join('<span>%s</span><b>%s</b>' % (e(a), e(_minus(b))) for a, b in p['parts']) if p.get('parts') else '')
         + ('<div class="kv">%s</div>' % ''.join('<span>%s</span><b>%s</b>' % (e(a), e(_minus(b))) for a, b in p['kv']) if p.get('kv') else '')
         + ('<div class="kv">%s</div>' % ''.join('<span><b>%s</b></span><span>%s</span>' % (e(a), e(b)) for a, b in p['sources']) if p.get('sources') else '')
         + ('<div class="mu">%s</div>' % e(p['rest']) if p.get('rest') else '')
         + ('<div class="mu">%s</div>' % e(p['note']) if p.get('note') else '')
-        + ('<div class="nm">%s%s</div>' % (''.join('<span>%s%s</span>' % ('<i></i>' if n in marked else '', e(n)) for n in shown),
-                                           '<span>+%d more</span>' % (len(names) - len(shown)) if len(names) > len(shown) else '') if names else '')
+        + _names_html(rows, hidden)
         + ''.join('<div class="mu">%s</div>' % e(p[key]) for key in ('held', 'next') if p.get(key))
         + ('<div class="mf">%s</div>' % ' · '.join('<span class="add">%s</span>' % e(c) if c.startswith('+ ') else '<span class="rem">%s</span>' % e(c)
                                                    if c.startswith('- ') else e(c) for c in p['chips']) if p.get('chips') else '')
@@ -1057,7 +1218,7 @@ def card_text(p, plain=False):
     groups += [(_text_bars(p['bars']) if p.get('bars') else [], False),
                ([x for r in p.get('rule', []) for x in _wrap(r)], False),
                ([_fit(left, WIDTH - len(_minus(right)) - 2).ljust(WIDTH - len(_minus(right))) + _minus(right)
-                 for left, right in p.get('kv') or []], True),
+                 for left, right in (p.get('kv') or []) + (p.get('parts') or [])], True),
                ([x for name, why in p.get('sources') or [] for x in _wrap('%s, %s' % (name, why))], False),
                ([p['rest']] if p.get('rest') else [], False),
                (_wrap(p['note']) if p.get('note') else [], False),

@@ -38,8 +38,12 @@ import sys
 BUILD = pathlib.Path(__file__).resolve().parents[2] / "analytics-build" / "scripts"
 RUNNER, HARNESS = BUILD / "project.py", BUILD / "analytics_eval.py"
 sys.path.insert(0, str(BUILD))
+import python_version  # noqa: E402
 
-from eval_runs import Blocked, execution, find_run, load, use_case  # noqa: E402
+python_version.require()
+
+from eval_runs import Blocked, execution, find_run, load, questions, use_case  # noqa: E402
+from run_facts import report_name  # noqa: E402
 
 
 def dump(path: pathlib.Path, obj) -> None:
@@ -89,11 +93,20 @@ def evals_dir(project: pathlib.Path, run: pathlib.Path) -> pathlib.Path:
     return ev
 
 
+def _written(line: str) -> bool:
+    try:
+        return json.loads(line).get("generated") is True
+    except (ValueError, AttributeError):
+        return False
+
+
 def sets(project: pathlib.Path) -> list:
     found = []
     for f in sorted((project / ".atlan-evals" / "sets").glob("*.jsonl")):
         rows = [l for l in f.read_text().splitlines() if l.strip()]
-        found.append({"file": str(f), "name": f.stem, "questions": len(rows)})
+        # eval-generation marks each question it wrote; a set the person brought carries no mark.
+        written = bool(rows) and all(_written(l) for l in rows)
+        found.append({"file": str(f), "name": f.stem, "questions": len(rows), "written": written})
     return found
 
 
@@ -125,7 +138,9 @@ def cmd_start(a) -> dict:
            "before_after": before_after,
            "checks": checks(project, run),
            "new_check": "Every request to check accuracy starts a new eval folder. Use `checks` only "
-                        "when the person asks to compare with an earlier run."}
+                        "when the person asks to compare with an earlier run.",
+           # A check that starts on an agent built earlier opens with what it holds.
+           **show_agent(run)}
     if not found:
         out["next"] = "generate"
         return out
@@ -141,7 +156,8 @@ def cmd_start(a) -> dict:
                  "A second chat answers from column names only. I compare both answers with the known one. "
                  "Which questions should I test your agent with?"),
         "options": [{"label": f"{s['name']} ({q(s['questions'])})",
-                     "description": "Your own questions, each with its known answer."} for s in found]
+                     "description": "Written earlier from what your team already asks, each with its known answer."
+                     if s["written"] else "Your own questions, each with its known answer."} for s in found]
                    + [{"label": f"Write {a.questions} new questions",
                        "description": "From what your team already asks, in dashboard tiles and past queries."}]}
     return out
@@ -252,6 +268,55 @@ def read_set(src: pathlib.Path) -> list:
     return rows
 
 
+# A moment shown this recently is this sitting's: a later session shows it again.
+SITTING = 3 * 3600
+
+
+def _shown_since(run: pathlib.Path, kinds: tuple, since: float) -> bool:
+    """Whether one of these moments was shown after `since` (seconds since the epoch) and within this sitting."""
+    import side_view
+    floor = max(since, datetime.datetime.now(datetime.timezone.utc).timestamp() - SITTING)
+    for m in side_view._state(run)["moments"]:
+        try:
+            at = datetime.datetime.fromisoformat(m.get("at")).timestamp()
+        except (TypeError, ValueError):
+            continue
+        if m.get("kind") in kinds and at >= floor:
+            return True
+    return False
+
+
+def _hand_over(run: pathlib.Path, kind: str) -> dict:
+    """A moment drawn whole, handed over with the result the check reads, and marked shown: a chip only a guide asked
+    for went undrawn in the dry run (2026-11-25)."""
+    import side_view
+    return side_view.handed(side_view.show_card(run, kind))
+
+
+def show_questions(run: pathlib.Path, since: float = None) -> dict:
+    """The chip that says the questions are written. With `since` (the set file's time), not when writing the set
+    already showed it in this sitting. The side page lists the questions."""
+    if since is not None and _shown_since(run, ("questions",), since):
+        return {}
+    return _hand_over(run, "questions")
+
+
+def _set_time(plan: dict) -> float:
+    """When the set this check loads was written, so a chip shown since then is not shown again."""
+    try:
+        return pathlib.Path(plan.get("file") or "").stat().st_mtime
+    except OSError:
+        return 0.0
+
+
+def show_agent(run: pathlib.Path) -> dict:
+    """What a check works on, as it starts: the agent this folder holds. Not when this sitting already showed it or the
+    build's own card."""
+    if _shown_since(run, ("agent", "build", "saved"), 0):
+        return {}
+    return _hand_over(run, "agent")
+
+
 def finish(ev: pathlib.Path, plan: dict, ran: dict) -> dict:
     """Keep the questions whose trusted SQL ran, write the spec and selection, and stage them."""
     name, rows, records = plan["set"], plan["rows"], plan["records"]
@@ -271,7 +336,9 @@ def finish(ev: pathlib.Path, plan: dict, ran: dict) -> dict:
     return {"status": "ok", "run": str(run), "evals": str(ev), "context_saved_to": saved_to(run), "set": name,
             # eval-generation marks each question it wrote; a set the person brought carries no mark.
             "generated": all(r.get("generated") is True for r in rows), "execution": plan["execution"],
-            "questions": len(records), "dropped": ran["failed"], "selection": str(ev / "work" / "selection.json")}
+            "questions": len(records), "dropped": ran["failed"], "selection": str(ev / "work" / "selection.json"),
+            # Not again when writing the set just showed it.
+            **show_questions(run, since=_set_time(plan))}
 
 
 def cmd_load(a) -> dict:
@@ -284,7 +351,7 @@ def cmd_load(a) -> dict:
                 "golden_sql": r["sql"], "review_status": "approved", "provenance": {"source": f"eval set {src.stem}"},
                 "modes": []} for i, r in enumerate(rows, 1)]
     how = execution(run)
-    plan = {"set": src.stem, "run": str(run), "execution": how, "rows": rows, "records": records}
+    plan = {"set": src.stem, "file": str(src), "run": str(run), "execution": how, "rows": rows, "records": records}
     if how["via"] == "local":
         return finish(ev, plan, gold_local(run, ev, records))
     # A warehouse run: the host runs each trusted SQL. Keep the plan so `gold` can finish it.
@@ -321,50 +388,19 @@ def cmd_gold(a) -> dict:
     return finish(ev, plan, ran)
 
 
-def _cell(value) -> str:
-    """One value as a person reads it: a number with separators, a date without a time."""
-    if value is None:
-        return "none"
-    text = str(value).strip()
-    try:
-        number = float(text)
-        if re.fullmatch(r"[+-]?\d+(\.\d+)?", text):
-            return f"{int(number):,}" if number.is_integer() else f"{number:,.2f}".rstrip("0").rstrip(".")
-    except ValueError:
-        pass
-    text = re.sub(r"^(\d{4}-\d{2}-\d{2})[ T]00:00(:00(\.0+)?)?([+-]00:?00|Z)?$", r"\1", text)
-    return text.replace("|", "/").replace("\n", " ")
-
-
-def _expected(gold: dict) -> str:
-    """A trusted result as a person reads it: one value on its own, otherwise its size and the
-    first row's leading values. Column names stay out: a query's aliases (ms, cnt) mean nothing
-    to the person."""
-    rows = gold.get("rows") or []
-    if not rows:
-        return "nothing"
-    first = [_cell(v) for v in rows[0] if _cell(v) not in ("", "none")]
-    if len(rows) == 1 and len(rows[0]) == 1:
-        return first[0] if first else "none"
-    shown = ", ".join(first[:3]) + (", …" if len(first) > 3 else "")
-    return f"1 row: {shown}" if len(rows) == 1 else f"{len(rows)} rows, starting {shown}"
-
-
 def cmd_show(a) -> dict:
     """The loaded set as one markdown table, for the person to read before it runs: the number
-    each question keeps in every report, the question, the metric it tests and its trusted answer."""
+    each question keeps in every report, the question, the metric it tests and its trusted answer.
+    The side page lists the same questions from the same record."""
     ev = pathlib.Path(a.evals)
-    spec = load(ev / "work" / "spec.json")
-    if not spec:
+    asked = questions(ev)
+    if not asked:
         raise Blocked(f"No loaded set in {ev}: run `check.py load` (and `gold` on a warehouse run) first.")
-    picked = {s.get("id"): s for s in load(ev / "work" / "selection.json", []) or []}
     clean = lambda t: " ".join(str(t or "").split()).replace("|", "/")  # noqa: E731
     lines = ["| # | Question | Metric it tests | Known answer |", "| ---: | --- | --- | --- |"]
-    for n, r in enumerate(spec["records"], 1):
-        gold = load(ev / "eval" / "gold" / f"{r['id']}.json", {}) or {}
-        lines.append(f"| {n} | {clean(r['question'])} | {clean((picked.get(r['id']) or {}).get('metric')) or 'No metric yet'} "
-                     f"| {clean(_expected(gold))} |")
-    return {"status": "ok", "questions": len(spec["records"]), "table": "\n".join(lines), "ask": run_ask(len(spec["records"]))}
+    lines += [f"| {r['n']} | {clean(r['question'])} | {clean(r['metric']) or 'No metric yet'} | {clean(r['known'])} |"
+              for r in asked["rows"]]
+    return {"status": "ok", "questions": asked["total"], "table": "\n".join(lines), "ask": run_ask(asked["total"])}
 
 
 def run_ask(n: int) -> dict:
@@ -507,7 +543,7 @@ def next_options(gaps: dict, questions: int) -> list:
                                "I read what your team already asks on your warehouse, and build your agent from it."})
         if gaps["pages_left_out"]:
             gaps_first.append({"key": "other_pages", "label": "Add the other pages",
-                               "description": f"The pages of {gaps['report']} I left out, so your agent covers the "
+                               "description": f"The pages of {report_name(gaps['report'])} I left out, so your agent covers the "
                                               "whole dashboard."})
         elif gaps["dashboard"]:
             gaps_first.append({"key": "another_dashboard", "label": "Add another dashboard",

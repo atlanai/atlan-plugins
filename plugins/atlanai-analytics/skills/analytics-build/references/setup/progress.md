@@ -15,12 +15,15 @@ the app's own labels for each command and helper.
   question's own text.
 - **While a build or a check runs**, the task list, the chips and the side page carry it. Write
   nothing of your own: no heartbeat, no "still", no line that repeats a chip, no count the list
-  already shows. A wake that changed nothing on screen gets no words. Four things break the
+  already shows. A wake that changed nothing on screen gets no words. Five things break the
   silence, each in one line:
   - a step that no chip names starts: its start line, once, where the flow's file gives one;
   - a problem that changes something for the person: what happened, the count, what happens next;
   - the person asks ("what's happening?", "is it stuck?"): the current step and its real counts,
     then keep waiting in the same turn;
+  - the app reminds you the person has not heard from you: one line of at most 12 words, the
+    step under way and its real count ("Your agent has answered 6 of 11 questions."), never the
+    same line twice and never about helpers, files, scripts or scoring, then keep waiting;
   - only where there is no task list (a terminal), when nothing new has reached the screen for
     about 3 minutes: during the build, the line the wait hands over in `say`, word for word, and
     nothing when it gives none; at other waits, the step under way and its count, once. Where a
@@ -74,8 +77,8 @@ page shows each batch as it lands; the chat shows each step's end:
    of its own, saving each batch with its own write as soon as it is ready, never several in one
    script. The engine's refusal names each field to fix, so the subagent never reads the
    engine's code to check its answers first. It returns when its gate is accepted or the gate
-   needs the person; then run the `visual next` of the step that ended (it is quick) and show what
-   it gives in the same message that starts the next gate's subagent: nothing comes between a
+   needs the person; the wait then hands over the chip of the step that ended, in `show_first`:
+   show it in the same message that starts the next gate's subagent. Nothing comes between a
    step's end and its chip, and the build never waits on a chip. The app shows each
    subagent's name to the person: name each for what it does ("Describing each saved query"), never a
    gate's name. For the card gate, run the gate result's `after_each_batch.split` (`PROJECT
@@ -89,9 +92,9 @@ page shows each batch as it lands; the chat shows each step's end:
    passes `--timeout` under it. It prints one line: do what it says, then run it again in the
    same message. Never end the turn between waits: a turn that ends without words is sent back
    for them, while a turn that keeps going is not.
-   - **A step ended**: run `visual next`, then show what it gives in the same message that starts
-     the next gate's subagent: the wait names it in `start` (its prompt), and the build waits on
-     nothing else. With `show_widget` it draws the step's one-line chip, before and
+   - **A step ended**: show the chip the wait hands over in `show_first` (else run `visual next`)
+     in the same message that starts the next gate's subagent: the wait names it in `start` (its
+     prompt), and the build waits on nothing else. Then wait again. With `show_widget` it draws the step's one-line chip, before and
      after the side page opens. In a terminal that keeps a task list (as you recorded with
      `PROJECT journey tasks`), once the page is open it hands back the task list and `say`, one
      line to write word for word as your only words; with no task list, each step's end shows
@@ -116,8 +119,9 @@ page shows each batch as it lands; the chat shows each step's end:
    gate, an answer folder, a record or a "visual moment"; give each widget the title its
    `visual` result names.
 
-A host with no background subagent writes the gates in this session instead and runs `visual
-next` once each gate is accepted. On every host the batches stay on the side page, never in the
+A host with no background subagent writes the gates in this session instead, with no words of your
+own between them (the task list and the chips say what is happening), and shows the chip each
+`ENGINE advance` result hands over in `show_first` (also on its stderr) before writing the next gate. On every host the batches stay on the side page, never in the
 chat. When a gate refuses a batch, the subagent that wrote it fixes it. Never show a value
 before its check.
 

@@ -547,16 +547,41 @@ def main(argv=None):
     if args.command in ('prepare', 'advance', 'export', 'powerbi-report') and code in (0, 3) \
             and _in_setup_run(args.run):
         # A setup run shows what each step produced as it finishes; the gate the agent answers next is the moment to.
-        result['visual'] = ("Show what the engine's last step produced: run the setup helper's `PROJECT visual next` (with "
-                            "`--widget` where you have `show_widget`), and again while it says more is due. The chip is the "
-                            "update: add no words of your own about the step, the engine or its files.")
+        # The dry run, 2026-11-25: told here to run `visual next`, the session never did. The wait hands the chip over,
+        # and keeps the turn going; a helper, which runs no wait, leaves the chip for the session.
+        shown, show = _hand_over(args.run)
+        result['visual'] = ((show + ' Then, ' if shown else '') +
+                            "In the session that talks to the person (a helper ignores this): run `PROJECT drafts --wait` "
+                            "now, in this same turn. It hands over what this step made, as the chip to show, and names the "
+                            "next helper to start. The chip is the update: add no words of your own about the step, the "
+                            "engine or its files.")
+        if shown:
+            result['show_first'] = shown
     print(json.dumps(result, ensure_ascii=False))
+    if result.get('show_first'):
+        # A session filtered this result to a few keys and lost the step it was told (validation run G, 2026-11-25).
+        print('show_first, as in this result (show it once):\n' + result['show_first'], file=sys.stderr)
     if args.command in ('powerbi-report', 'pages') and code == 3:
         # It runs as a background task the app watches, which shows a non-zero exit as "failed": a pause at the first
         # gate is this command's normal end (0.9.76's live run showed "failed" the moment sign-in worked). The result's
         # `status` and `gate` still say it paused.
         return 0
     return code
+
+
+def _hand_over(run):
+    """The chips the build has reached, drawn and marked shown, when no build wait is following it: the session is then
+    driving the engine itself, so this result is the one it reads. With a wait running, the wait hands them over."""
+    build = Path(__file__).resolve().parents[3] / 'analytics-build' / 'scripts'
+    sys.path.insert(0, str(build))
+    try:
+        import side_view
+        setup = Path(run).resolve().parent
+        if side_view.waiting(setup):
+            return '', ''
+        return side_view.show_due(setup, run), side_view.SHOW_FIRST
+    except Exception:  # noqa: BLE001 - the chips stay due for the wait or the next helper result
+        return '', ''
 
 
 def _in_setup_run(run):

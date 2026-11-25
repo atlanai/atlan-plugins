@@ -19,7 +19,8 @@ Paths:
   --runtime <runtime>`.
 - `<build-dir>` is the `analytics-build` skill's directory beside it. It holds the shared
   helpers: `PROJECT` is `<build-dir>/scripts/project.py` and `CONTEXT` is
-  `<build-dir>/scripts/context_contracts.py`.
+  `<build-dir>/scripts/context_contracts.py`. `EDIT` is
+  `python3 "<build-dir>/../analytics-demo/scripts/edit_metric.py" --run-dir "<run>"`.
 
 This skill needs the complete Analytics plugin, including its sibling `analytics-build`
 skill. A standalone download that misses either cannot initialize the engine; refresh the
@@ -65,7 +66,7 @@ Effective compiler-review failures become structured publication holds; never by
 
 | The definition is | Do |
 | --- | --- |
-| In this run, not yet published | Change it through the engine, run `check`, and return "Changed <metric>." then "Before: <old rule> · <test result>" and "After: <new rule> · <test result>" |
+| In this run, not yet published | Write `{"name", "changes": [{"path", "value"}], "before", "after"}` (each rule in plain words) to a file outside the run and run `EDIT <that file>`: it changes the definition, re-checks it and hands over the edit card in `show_first`, which says the change. Without a card, return "Changed <metric>." then "Before: <old rule> · <test result>" and "After: <new rule> · <test result>" |
 | Published, and the person owns the run that made it | The same, then `save` as a revision of the same metric, never a new one |
 | Published by someone else, or the request came from an answer | `propose`: a proposal for its owners. It never saves |
 

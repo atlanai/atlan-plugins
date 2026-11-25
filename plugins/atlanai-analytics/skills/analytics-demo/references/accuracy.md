@@ -59,20 +59,28 @@ questions are shown with their expected answers, in step 2, because the person h
   then step 3, with no list to confirm.
 - **Generate:** run `eval-generation` `generate` (not its `save`) with 8 questions, passing
   `--limit 8` to its `SCOPE pick`, then `CHECK load` on the set it wrote, then step 2. A demo
-  check stays at 8 questions, so it ends in about 4 minutes with both passes.
+  check stays at 8 questions, so it ends in about 8 minutes with both passes.
 
 `CHECK load` drops a question whose trusted SQL fails or returns nothing; name how many.
 
 ## 2. Generated questions: show them, then ask to run them
 
-The person has not seen these, so show them before running: the questions in the chat, then one
-short native question to choose. The questions never go in the question's text, where a list this
-long wraps and breaks.
+The person has not seen these, so show them before running: the questions on the side page, one
+chip in the chat, then one short native question to choose. The questions never go in the
+question's text, where a list this long wraps and breaks.
 
-**First, the questions in the chat.** `CHECK show --evals <evals-run>` prints the set as one
-markdown table: the number each question keeps in the score, the misses and any fix, the
-question, the metric it tests, and the trusted answer (a single value, or the result's size and
-first values). Send this as a chat message, filled in, with the table exactly as printed:
+**First, the questions on the side page.** `CHECK load` (or `CHECK gold`) hands over one chip in
+`show_first`, "<N> test questions written", with where they came from, and the side page lists
+every question under the number it keeps in the score, with the metric it tests and its known
+answer. During the check the page fills each row with your agent's answer as it comes back, and
+marks it once scored. Show the chip as its `side view` line says, and add no line of your own
+about the questions or the page.
+
+**Only when that line says the side page is not open**, the questions go in the chat instead.
+`CHECK show --evals <evals-run>` prints the set as one markdown table: the number each question
+keeps in the score, the question, the metric it tests, and the trusted answer (a single value, or
+the result's size and first values). Send this as a chat message, filled in, with the table
+exactly as printed:
 
 ```
 <N> questions to test your <agent> on <the use case>. Each comes from a tile on <firm>'s dashboard or a
@@ -80,7 +88,7 @@ past query its analysts wrote. The known answer is what that tile or past query 
 
 <the table, as CHECK show printed it>
 
-Each question is answered twice from a clean start: once with your agent's metrics, and once with column names only. About <4 or 8> minutes.
+Each question is answered twice from a clean start: once with your agent's metrics, and once with column names only. About <8 or 20> minutes.
 ```
 
 With one question, it reads: "1 question to test your <agent> on <the use case>. It comes from a
@@ -107,9 +115,9 @@ question; Skip for now.
   wording>"` for each reworded question and `CHECK drop --evals <evals-run> --questions
   <numbers>` for those left out. A reworded question keeps its trusted SQL and expected answer, so
   it must still ask for exactly what that SQL returns: when the new wording asks for something
-  else (another period, another measure), say so in one line and keep the old wording. Then
-  print `CHECK show` again in the chat and ask its `ask` again. The set file
-  keeps the new wording and the dropped questions.
+  else (another period, another measure), say so in one line and keep the old wording. The side
+  page shows the new wording by itself (without it, print `CHECK show` again in the chat). Then
+  ask its `ask` again. The set file keeps the new wording and the dropped questions.
 - **Skip for now** keeps the set on this machine and ends with "What would you like to do next?",
   whose text is one line: "The questions stay on this machine."
 
@@ -206,7 +214,8 @@ is refused and the owner must act in Metric Studio. A question marked to reword 
 and in the score until its wording is changed; say so in one line beside the next score. With
 nothing ticked, or Keep the score, go to step 5.
 
-- **Context on this machine:** write `{"name": "<metric>", "changes": <the fix's changes>}` to
+- **Context on this machine:** write `{"name": "<metric>", "changes": <the fix's changes>, "before": "<old
+  rule, plain words>", "after": "<new rule, plain words>"}` to
   `<evals-run>/fix-request.json`, never in the run (an answering agent that reads the proposed
   rule there no longer tests the context), and run `EDIT <that file>`. It keeps the old version beside the run (never where answering agents read), raises the
   version, re-checks the metric and keeps the engine's own copies of it in step; a failing check

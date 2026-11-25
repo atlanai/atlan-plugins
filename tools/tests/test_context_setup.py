@@ -450,6 +450,24 @@ class SQLiteCheckProgress(unittest.TestCase):
         self.run.check_metric({'name': 'total-1'})
         self.assert_progress('complete', 2)
 
+    def test_one_call_runs_every_check_and_names_each_that_failed(self):
+        # The joint run of 2026-11-25: one command per metric and saved query, 27 in all, so the session wrote a script
+        # around them, and the checks chip their results hand over never reached the chat.
+        self.seed_checks('SELECT SUM(missing_column) FROM site.work')
+        self.run.check()
+        out = self.run.check_all()
+        self.assertEqual((out['ran'], out['passed']), (2, 1))
+        self.assertEqual([(f['kind'], f['name']) for f in out['failed']], [('saved query', 'work-total')])
+        self.assert_progress('complete-with-held-items', 2)
+
+    def test_one_call_check_is_refused_where_each_statement_runs_on_a_warehouse(self):
+        from unittest import mock
+        self.seed_checks()
+        warehouse = {'kind': 'warehouse', 'dialect': 'snowflake', 'tool': 'snow__sql_exec_tool'}
+        with mock.patch.object(self.run, 'execution_binding', return_value=warehouse), \
+                self.assertRaisesRegex(ValueError, 'check-query and check-metric'):
+            self.run.check_all()
+
     def test_failed_check_keeps_held_status_after_another_candidate_succeeds(self):
         import local_data
         self.seed_checks('SELECT SUM(missing_column) FROM site.work')

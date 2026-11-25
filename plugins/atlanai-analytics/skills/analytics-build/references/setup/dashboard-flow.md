@@ -66,8 +66,8 @@ about.
    says. This session starts it as a background command (in Claude Code, Bash with
    `run_in_background`), never in a terminal tab, says the interview's line once, then waits for
    it in the same turn with `PROJECT wait-task`, as that module says: a turn that ends here takes
-   the task list with it. Say the person is signed in only once its result's `sign_in` is
-   `signed_in`.
+   the task list with it. Say the person is signed in only when the wait returns `signed_in`,
+   with its `say` line.
 3. **Fetch what can be picked.** A background helper fetches the link or reads the file and
    returns names and counts only: for a **workspace link**, its reports with their page and
    measure counts; for a **report link or file**, its pages with their tile counts. For a
@@ -78,8 +78,9 @@ about.
    the same workspace from earlier is reused only when it is under an hour old, and the line
    says so: "Using your workspace as it was at 19:01." Otherwise fetch again: a report
    edited since would be built from old definitions.
-4. **Ask.** Draw the sources chip first, `PROJECT visual found --widget` (what was read: the report
-   and the warehouse). A workspace link asks "Which report should I build your agent from?" first, the reports as options
+4. **Ask.** The sources chip comes with the first `PROJECT` result once the run exists, as its
+   `show_first`, or from `PROJECT visual found --widget` before then (what was read: the report and
+   the warehouse); show it before the question. A workspace link asks "Which report should I build your agent from?" first, the reports as options
    with their counts in each description. Then one multi-select question, "Which pages matter
    to you?": up to three pages as options, largest first, plus "All pages". With more pages,
    the question's own text lists them all and the free-text entry takes any page by name.
@@ -192,18 +193,19 @@ Rough times, from a 37-tile report; scale by the number of tiles:
 
 When the build ends, ask one question; the checks are optional and theirs to choose:
 
-"Test your agent's metrics on `<warehouse>`? Each is worked out once on your data, so you see
-its real number before you choose where to keep it. About `<time>`."
+"Run each metric once on `<warehouse>`? You see its real number on your data before you choose
+where to store your context. About `<time>`."
 
 | Option | Description |
 | --- | --- |
-| Test them (Recommended) | "Each metric and saved query is tested once, read-only." |
-| Skip for now | "Nothing is tested. Each metric is first worked out when you ask for it. A save to Atlan would hold untested metrics." |
+| Run them (Recommended) | "Each metric and saved query runs once on your data, read-only." |
+| Skip for now | "Nothing runs now. Each metric is first worked out when you ask for it. A save to Atlan would hold metrics that never ran." |
 
 Record their answer with `PROJECT journey checks --answer run` or `--answer skip`. Never record
 a skip they did not choose, and never say "as you asked" about anything they did not ask.
 
-- **Run**: run every check as [build and check](build-check.md) says. On a warehouse,
+- **Run**: on this machine, `PROJECT check-all`, once. On a warehouse, run every check as
+  [build and check](build-check.md) says:
   `PROJECT check-query` and `check-metric` answer `run_on_warehouse` with the one statement to
   run: send it through the chat's read-only SQL tool for that warehouse, the one item 3 already
   used, then run the same command again with `"result"`, the rows it returned or why it failed,

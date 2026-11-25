@@ -82,6 +82,9 @@ class Drafts(unittest.TestCase):
         done = self.wait()
         self.assertEqual(done['event'], 'done')
         self.assertIn('`PROJECT check`', done['next'], 'the structural pass comes before any question')
+        # The build's end moves the list too, like every other result: it sat on the links step otherwise.
+        self.assertIn('task_list', done)
+        self.assertIn('Set your task list', done['next'])
 
     def test_without_a_task_list_a_batch_is_not_reported(self):
         # A terminal with no task list: nothing to update between steps, so the wait goes on until a step ends.
@@ -144,6 +147,16 @@ class Drafts(unittest.TestCase):
         self.assertIn("Only a step that no chip names gets a start line", said)
         # h18t set the next subagent up first, wrote its own line meanwhile, and dropped the step's chip.
         self.assertLess(said.index('`visual next`'), said.index('subagent'), 'the chip first')
+
+    def test_a_step_end_says_to_wait_again_in_the_same_turn(self):
+        # The dry run, 2026-11-25: a step end with no helper to start was the one result that never said to wait again,
+        # so the session ended its turn on "still being written in the background", drew no chip, and every later
+        # step ran turn by turn as helpers woke it.
+        self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': 'm2_ingest', 'verdict': 'ok'}]})
+        said = self.wait()['next']
+        self.assertIn('run `PROJECT drafts --wait` again', said)
+        self.assertIn('never end the turn', said)
+        self.assertLess(said.index('`visual next`'), said.index('drafts --wait'), 'the chip, then the wait')
 
     def test_a_step_under_way_shows_its_count_and_a_time_left_from_its_own_pace(self):
         # The time left follows the step's pace since its prompt was written, so it moves as the work does.

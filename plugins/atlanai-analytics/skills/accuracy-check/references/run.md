@@ -73,9 +73,10 @@ trusted results come from the warehouse, and no model copies a value:
 
 1. `EVAL todo --variant baseline --reps 1` lists the questions not yet run. A stopped run
    resumes here.
-2. Start one subagent per question, 10 at a time, each 10 in one message and in the foreground (a
-   generated set has 20), so a batch comes back together: start the next 10 when a batch has replied.
-   Write nothing between batches: the app shows each helper by name, as
+2. Start the helpers 10 at a time, each 10 in one message: 5 questions with the context and the
+   same 5 with column names only ([before and after](#before-and-after)), so both passes finish
+   together. Write nothing between batches or while their answers are scored: the app shows each
+   helper by name, and the side page's test list fills as each is scored, as
    [when to talk](../../analytics-build/references/setup/progress.md#when-to-talk) says. For each:
    1. Spawn a subagent on the Haiku model (the Agent tool's `model: haiku`), which keeps a run's
       cost down, with this prompt, filled in:
@@ -91,7 +92,9 @@ trusted results come from the warehouse, and no model copies a value:
       ```
       `<how to run SQL>` follows `execution.via`. Local: "Run SQL only through the run's query
       runner, never by opening a database file: write {"sql": "<sql>", "limit": 1000} to a file
-      and run python3 "<build-dir>/scripts/project.py" --run-dir "<run>" execute <that file>".
+      and run python3 "<build-dir>/scripts/project.py" --run-dir "<run>" execute <that file>.
+      It refuses DESCRIBE and PRAGMA; `SELECT * FROM <table> LIMIT 0` returns its columns with
+      no rows."
       A warehouse: "Run SQL only with <the warehouse query tool>, read-only, on <warehouse>,
       in the <dialect> dialect. Run the one statement your answer states, whole, before you
       answer."
@@ -105,33 +108,32 @@ trusted results come from the warehouse, and no model copies a value:
       Never name the eval folder in the prompt: an agent told to avoid it writes the name into
       its own search filters, and the audit then marks the run contaminated. Keep the Agent
       tool's `output_file`: it is the transcript.
-   2. Save its final JSON as `<evals-run>/hillclimb/baseline/answers/<id>_rep0.json`. An agent
-      that ends without the JSON object is asked once, in the same subagent, for that object
-      alone. With none still, save its last message there as it is.
-   3. Get the result of its `sql` as
-      `<evals-run>/hillclimb/baseline/agent_results/<id>_rep0.json`. Never edit the agent's SQL,
-      not even a table prefix: a query that fails as given is `agent_sql_error`. An empty `sql`
-      needs no run.
-      - **Local:** run it exactly as given with `PROJECT execute` and save the output there.
-      - **A warehouse:** the agent already ran it. `EVAL agent-result --transcript <output_file>
-        --answer-file <answer> --out <that file>` reads the result from the agent's own tool
-        call. An agent that states no SQL, or a stand-in such as "the SQL above", is
-        graded on the last read it ran (`source: transcript_last_call`); one that ran nothing
-        returns `source: none`, and is recorded without `--agent-result`. When it returns `source: replay`, the result could not be read whole, or the
-        agent stated a statement it did not run: have a runner subagent run the `sql_file` it
-        names exactly as written, as above, then `EVAL agent-result` again with the runner's
-        transcript. A statement the warehouse rejects in the replay too is saved as
-        `{"error": "<the tool's message>"}`. A tool timeout is not the agent's miss: record it
-        as `--class harness_error`.
-   4. `EVAL record --variant baseline --case <id> --rep 0 --judge --answer-file <answer> --agent-result <agent result> --gold-result <evals-run>/eval/gold/<id>.json --transcript <output_file>`.
-      A run that failed outside the agent (a timeout, a tool error) is
-      `record --class harness_error --reason "<what failed>"` with no answer file. `record`
-      refuses an answer that states SQL with no `--agent-result`: finish the replay first.
-   5. When `record` returns `status: judge`, it wrote no row: the exact comparison refused an
-      answer that ran. Start one subagent on its `model` with its `prompt` as the whole prompt,
-      unchanged, save the JSON it replies with to `verdict_file`, and run the same `record` again
-      with `--verdict <verdict_file>`. Start every judge a batch needs at once. Never rule
-      yourself, and never tell a judge what you expect.
+   2. In the same turn as the batch, run `EVAL collect --run <run> --via <execution.via>` with one
+      `--agent <variant>:<id>=<output_file>` per helper started so far (`baseline` with the
+      context, `raw` with column names only), in the foreground, and run it again, writing
+      nothing, while it returns `waiting`. The helpers' reports arrive while it waits. It saves
+      each helper's final JSON as its answer, gets the result of its `sql` (run exactly as given
+      through the run's runner on this machine; read from the helper's own run on a warehouse,
+      or from the last read it ran when it states none) and records the row, so each is scored
+      the moment it finishes. Start the next batch once `pending` no longer names the last one.
+      Never write a script around these commands, and never edit an answer, a SQL statement or
+      a results file: `collect` writes them, and a query that fails as given is `agent_sql_error`.
+   3. What `collect` hands back besides `recorded`:
+      - `judge`: the exact comparison refused an answer that ran. Start one subagent per entry,
+        all in one message, on its `model` with its `prompt` as the whole prompt, unchanged, then
+        run `collect` again with `--judge <variant>:<id>=<that judge's output_file>` added for
+        each. Never rule yourself, and never tell a judge what you expect.
+      - `no_json`: ask that helper once, in the same subagent, for its JSON object alone, then
+        `collect` again. With none still, save its last message as
+        `<evals-run>/hillclimb/<variant>/answers/<id>_rep0.json` and `collect` again.
+      - `replay` (a warehouse only): the result could not be read whole, or the helper stated a
+        statement it did not run. Have a runner subagent run the statement exactly as written,
+        then `EVAL agent-result --transcript <the runner's output_file> --answer-file <its
+        answer> --out <evals-run>/hillclimb/<variant>/agent_results/<id>_rep0.json`, and
+        `collect` again. A statement the warehouse rejects in the replay too is saved there as
+        `{"error": "<the tool's message>"}`.
+      - `refused`: its `reason` says what to fix. A tool timeout is not the agent's miss:
+        `EVAL record --variant <variant> --case <id> --class harness_error --reason "<what failed>"`.
 3. `EVAL summary --variant baseline --require-isolation` must show one row per question. It
    refuses a score while a row lacks its agent's transcript: re-record that row with
    `--transcript`. Never quote a partial run.
@@ -152,7 +154,7 @@ again, each to a fresh agent with only the source tables' schema and no addition
 
      Answer this question using only the schema of these tables: <tables>.
      You may inspect table and column names, data types and declared keys with read-only
-     schema queries; DESCRIBE TABLE is usually the quickest. Do not read comments, descriptions, sample rows, distinct values,
+     schema queries; on a warehouse DESCRIBE TABLE is usually the quickest. Do not read comments, descriptions, sample rows, distinct values,
      profiles, query history, dashboards, documentation, metrics or saved queries.
      Do not explore data values or run intermediate data queries. Write the final answer
      SQL from the question and schema alone, then execute that statement to get the answer.
@@ -164,14 +166,13 @@ again, each to a fresh agent with only the source tables' schema and no addition
    - Supply only the question, table identifiers and execution instructions, with no firm
      background, source-survey findings or other context. Schema reads must select structural
      fields only (never comments or descriptions). The final answer query may read data;
-     that permission does not allow sampling or profiling before writing it. Review the
-     transcript for this boundary before recording: discard a pass that reads additional
-     context and rerun it in a fresh agent with schema only. Never score that attempt.
-   - Its files go under `<evals-run>/hillclimb/raw/` and every `EVAL` call names `--variant raw`.
-   - `EVAL record` adds `--raw <run>`: an answer whose agent reached for a skill, an Atlan tool,
-     any MCP server other than the warehouse's, or the run's context folder is `raw_used_context`
-     and leaves both scores, as `report` says. Counted as a miss, it would flatter the context. It keeps `--judge`: both passes are graded the
-     same way.
+     that permission does not allow sampling or profiling before writing it.
+   - Name each of its helpers to `collect` as `raw:<id>=<output_file>`: its files go under
+     `<evals-run>/hillclimb/raw/`, and every other `EVAL` call names `--variant raw`.
+   - `collect` checks each raw answer's transcript: one whose agent reached for a skill, an Atlan
+     tool, any MCP server other than the warehouse's, or the run's context folder is
+     `raw_used_context` and leaves both scores, as `report` says. Counted as a miss, it would
+     flatter the context. Its judges are the context pass's: both passes are graded the same way.
 2. `EVAL summary --variant raw --require-isolation` must show one row per question.
 3. `EVAL before-after --before raw --after baseline` returns the comparison. Its `result` holds
    every number the person reads: `accuracy` and `baseline` (percentages), `lift` (points),
@@ -193,7 +194,9 @@ way, in plain words, with no tool or file names.
 **The card first.** Where you have `show_widget`, draw the comparison's `widget` (on a demo,
 `ACC result --widget`) before the result: the before-and-after card, with every question's mark.
 The text then leaves out the banner and `lines.before_after`, which the card shows. Without
-`show_widget`, the text carries them as below.
+`show_widget`, the text carries them as below. With the side page open, the card counts the
+questions that changed and the page lists each one with both answers, under the same numbers:
+never list them in the chat as well.
 
 **What it holds, in this order.** The script computes every number; you write the words.
 
@@ -249,7 +252,7 @@ Small set (2 questions, ahead):
 <banner>
 Accuracy: 100%. Both questions right.
 With column names only: 50%. With your agent: 100%.
-Pod targets came out right because your agent used the dashboard's own rule.
+Gross margin came out right because your agent used the dashboard's own rule.
 Based on 2 questions. Add more for a sharper score.
 ```
 
@@ -268,8 +271,8 @@ plain lines under its number: the question; `Tests <metric>`; `Expected <value>.
 
 Before the result, write the why file, `<evals-run>/hillclimb/<variant>/why.json`: for each
 missed question id, `{"why": "<one cause from the table below>", "detail": "<one plain
-sentence>"}`, read from the agent's answer and SQL against the trusted SQL. The report groups
-the misses by that cause. A miss you leave out is printed as "Not yet explained", and the
+sentence>"}`, read from the agent's answer and SQL against the trusted SQL. `EVAL report` reads it
+from there and groups the misses by that cause. A miss you leave out is printed as "Not yet explained", and the
 report's `unexplained` names it: explain it and print the report again.
 
 Write the `Why` value exactly. The report prints the cause as `Shown`, and so do you in chat.

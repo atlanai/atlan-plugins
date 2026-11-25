@@ -272,7 +272,8 @@ WAITED = {
             "nothing answers it yet: start that step's subagent on `start.prompt` in that same message unless one is "
             "working on it (when `start.first` is given, run it first "
             "and start one subagent per share it gives), never just wait. "
-            "Only a step that no chip names gets a start line, the one its flow's file gives.",
+            "Only a step that no chip names gets a start line, the one its flow's file gives. Then run `PROJECT drafts "
+            "--wait` again in that same message, whether or not a step started: never end the turn while the build runs.",
     'due': "Add no words of your own: something is ready to show, and no step has ended. Run `visual next` with the "
            "flags of every `visual` call now and do what it says, then run `PROJECT drafts --wait` again.",
     'ready': "Add no words of your own: every share of the definitions is back. Run `ENGINE advance` once, send each "
@@ -286,6 +287,18 @@ WAITED = {
             "as build and check says, then draw the build's card, `PROJECT visual build --widget` where you have "
             "`show_widget`, before any question: it closes the build.",
     'again': "Add no words of your own: the wait timed out while new things were showing. Run `PROJECT drafts --wait` again.",
+}
+
+
+# A step's end and a moment due, when the event carries what the run reached in `show_first`.
+SHOWN = {
+    'step': "Show `show_first` first, before any words or call, as its `side view` lines say: the chip names the step "
+            "that starts, so add no words of your own. When `start` names a step, its prompt is written and nothing "
+            "answers it yet: start that step's subagent on `start.prompt` in that same message unless one is working on "
+            "it (when `start.first` is given, run it first and start one subagent per share it gives). Then run `PROJECT "
+            "drafts --wait` again in that same message: never end the turn while the build runs.",
+    'due': "Show `show_first` first, before any words or call, as its `side view` lines say, then run `PROJECT drafts "
+           "--wait` again in that same message.",
 }
 
 
@@ -331,7 +344,16 @@ def wait(root, engine_dir=None, timeout=540, quiet=180, interval=2.0, out=None, 
         # Every result carries the list as the run's files now have it, where the session keeps one: the side page reads
         # those files live, and a list moved only by some events sat at "3 of 4" beside a page showing all 4 defined.
         nxt = WAITED[event]
-        if 'task_list' not in extra and event != 'done':
+        if event in SHOWN:
+            # The moment comes whole with the event: told to run `visual next`, the dry run's session never did.
+            import side_view
+            try:
+                shown = side_view.show_due(root, engine_dir)
+            except Exception:  # noqa: BLE001 - the event still goes out; the moment stays due for the next one
+                shown = ''
+            if shown:
+                extra['show_first'], nxt = shown, SHOWN[event]
+        if 'task_list' not in extra:
             import visuals
             if visuals.keeps_tasks(root):
                 try:
@@ -342,6 +364,11 @@ def wait(root, engine_dir=None, timeout=540, quiet=180, interval=2.0, out=None, 
         print(json.dumps({'event': event, **extra, 'next': nxt}, ensure_ascii=False), file=out, flush=True)
 
     while True:
+        import side_view
+        try:
+            side_view.mark_waiting(root)
+        except OSError:  # the wait goes on; the engine may then hand a chip over itself
+            pass
         record = _record(engine)
         done = set(record.get('steps') if isinstance(record.get('steps'), list) else [])
         stages = engine.json(engine.dir / 'manifest.json').get('stages') or []

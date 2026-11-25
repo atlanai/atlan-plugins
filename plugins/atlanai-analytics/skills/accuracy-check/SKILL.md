@@ -33,6 +33,9 @@ command as separate argv entries; zsh does not split a string holding one.
 
 ## Run a set
 
+A helper result with `show_first` carries a chip or card the run has reached: show it before
+any other words or call.
+
 1. **Find the run.** `CHECK start --project <project>` returns the built run, `context_saved_to`
    (where the context lives; `null` means this machine only), `execution` (where its SQL runs)
    and the project's sets, and `before_after`, always true. A caller that knows the run passes
@@ -50,8 +53,9 @@ command as separate argv entries; zsh does not split a string holding one.
    describes, and `CHECK gold` finishes the same way. `work/selection.json` holds each
    question's metric, source and expected answer.
 3. **Show a set the person has not seen, and confirm it.** A set generated in this request is
-   shown before it runs: the table `CHECK show` prints, as a chat message, then one native
-   question, worded as `CHECK show`'s `ask` gives it ("Test your agent on these <N> questions?",
+   shown before it runs: on the side page, with the chip `CHECK load` hands over (the table
+   `CHECK show` prints, as a chat message, only where that chip's line says the page is not open),
+   then one native question, worded as `CHECK show`'s `ask` gives it ("Test your agent on these <N> questions?",
    or "Test your agent on this question?" for one), with its options, as the
    demo's [generated questions](../analytics-demo/references/accuracy.md#2-generated-questions-show-them-then-ask-to-run-them)
    step words it. The questions never go in the question's text. `CHECK edit` rewords a question

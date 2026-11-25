@@ -42,6 +42,11 @@ up the tools that build metrics. They stay on this machine and are reused next t
 `ENGINE setup` as part of the requested workflow through the host permission controls, with one
 `--feature <name>` per required feature. It installs no Registry writer, glossary writer,
 observer or model SDK. Do not install everything to answer a local-file request.
+What it installs, for a person or a policy that asks before any install: a private Python
+environment in the runtime folder, holding the build tools and their dependencies, every
+version pinned by the plugin's constraints file, binary wheels only, from this machine's own
+package index; nothing outside that folder changes. Say that; never read the plugin's own files
+to find it out.
 
 An MCP tool visible in chat is not an installed input plug. Capture evidence through that
 authorized tool into the core's common file formats and use `local-files`, preserving custody
@@ -75,9 +80,11 @@ browser opens on its own and the command listens on localhost for the answer, so
 typed. **Then wait for it in the same turn**, so the turn, and the host's task list with it, does
 not end while the person signs in: run `python3 "<analytics-build>/scripts/project.py" wait-task
 --output <its output file>` in the foreground with a ten-minute timeout. It returns `done` with
-the command's last line, `signed_in` the moment the person finishes signing in (write its `say`
-line, word for word), `sign_in` with a device-code line, or `waiting`; after any but `done`, run
-it again with the `--after` it gives.
+the command's last line (even when "Signed in." came just before it: the report is read by
+then), `signed_in` the moment the person finishes signing in (write its `say` line, word for
+word), `sign_in` with a device-code `line`, or with the browser sign-in's `address` (give that
+address only if the person says no browser opened), or `waiting`; after any but `done`, run it
+again with the `--after` it gives.
 
 It signs in as the person: in their browser (authorization code with PKCE: single sign-on,
 nothing to copy) where one can open on this machine, else by device code (an SSH or cloud

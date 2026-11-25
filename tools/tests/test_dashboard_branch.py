@@ -167,6 +167,13 @@ class DashboardBranch(unittest.TestCase):
         self.assertNotIn('Needs your review', recap)
         self.assertIn("They aren't tested yet: you skipped the tests.", recap)
 
+    def test_the_closing_message_says_not_validated_without_giving_the_reason_again(self):
+        # The save question and the ready recap had each said "you skipped the tests"; a third time read as a reproach.
+        self.skip_checks()
+        closing = questions.close(self.run)['text']
+        self.assertIn('not validated yet', closing)
+        self.assertNotIn('you skipped the tests', closing)
+
     def test_a_refused_command_leaves_progress_as_it_was(self):
         # Live, a refused check marked the stage failed and the side page said the build had stopped.
         write(self.run / 'progress.json', {'stage': 'check', 'status': 'complete'})

@@ -270,12 +270,13 @@ def _listed(model, flow=None):
 
 
 def _picked(report):
-    """The report and pages as the person picked them, in words: "Coverage on CL Leaderboard", never two colons."""
+    """The report and pages as the person picked them, in words: "Overview on the Sales dashboard", never two colons."""
+    from run_facts import report_name
     name, _, pages = str(report or '').partition(':')
     name, pages = name.strip(), pages.strip()
     if not pages:
         return name
-    return 'all pages of %s' % name if pages.lower() == 'all pages' else '%s on %s' % (pages, name)
+    return 'all pages of %s' % report_name(name) if pages.lower() == 'all pages' else '%s on %s' % (pages, report_name(name))
 
 
 def _dashboard(model):

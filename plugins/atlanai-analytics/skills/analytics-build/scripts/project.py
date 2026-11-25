@@ -4,13 +4,20 @@
 The metrics engine owns authoring; Registry calls use authenticated MCP.
 This helper never publishes, executes repository scripts, installs software or runs evals.
 """
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import python_version  # noqa: E402
+
+python_version.require()
+
 import argparse
 import hashlib
 import importlib.util
 import json
 from pathlib import Path
 import re
-import sys
 import time
 import uuid
 from types import SimpleNamespace
@@ -117,18 +124,9 @@ def wait_task(output, after=0, timeout=540, interval=2.0):
             text = ''
         # Whole lines only: a sign-in line still being written could lose its code.
         complete = text[:text.rfind('\n') + 1]
-        new = complete[seen:] if len(complete) > seen else ''
-        for line in new.splitlines(keepends=True):
-            if line.strip() == 'Signed in.':
-                # The person just finished in their browser: say so now, not a minute later when the report is read.
-                return {'status': 'signed_in', 'after': seen + new.index(line) + len(line),
-                        'say': "You're signed in. Reading your report now, about a minute.",
-                        'next': 'Write `say` word for word, then run this command again with --after, in this same turn.'}
-            if re.search(r'devicelogin|enter the code|use a web browser to open', line, re.I):
-                return {'status': 'sign_in', 'line': line.strip()[:300], 'after': seen + new.index(line) + len(line),
-                        'next': 'Relay this line to the person once, then run this command again with --after.'}
         # The result is the last line that is a JSON object; a host may add a line after it when the command exits
-        # (Claude Code: "[exited with code N]"), which also ends the wait when no result came.
+        # (Claude Code: "[exited with code N]"), which also ends the wait when no result came. A result in the file
+        # comes first: its report is already read, so a sign-in line before it is no longer news.
         lines = [x.strip() for x in complete.splitlines() if x.strip()]
         for line in reversed(lines[-20:]):
             try:
@@ -137,6 +135,23 @@ def wait_task(output, after=0, timeout=540, interval=2.0):
                 continue
             if isinstance(last, dict) and last.get('status'):
                 return {'status': 'done', 'result': last, 'next': "Go on as the command's result says, in this same turn."}
+        new = complete[seen:] if len(complete) > seen else ''
+        held = new.splitlines(keepends=True)
+        for i, line in enumerate(held):
+            past = seen + sum(len(x) for x in held[:i + 1])
+            if line.strip() == 'Signed in.':
+                # The person just finished in their browser: say so now, not a minute later when the report is read.
+                return {'status': 'signed_in', 'after': past,
+                        'say': "You're signed in. Reading your report now, about a minute.",
+                        'next': 'Write `say` word for word, then run this command again with --after, in this same turn.'}
+            if re.search(r'devicelogin|enter the code|use a web browser to open', line, re.I):
+                return {'status': 'sign_in', 'line': line.strip()[:300], 'after': past,
+                        'next': 'Relay this line to the person once, then run this command again with --after.'}
+            if re.search(r'open this address:\s*$', line, re.I) and i + 1 < len(held) and held[i + 1].strip().startswith('https://'):
+                # A browser sign-in opens on its own where it can: its address is only for when it does not.
+                return {'status': 'sign_in', 'address': held[i + 1].strip(), 'after': past + len(held[i + 1]),
+                        'next': 'The sign-in opens in the person\'s browser on its own. Give them this address only if '
+                                'they say no browser opened, then run this command again with --after.'}
         exited = next((re.search(r'exited with code (-?\d+)', x) for x in reversed(lines[-3:])
                        if re.search(r'exited with code -?\d+', x)), None)
         if exited:
@@ -412,6 +427,28 @@ class Project(ContextState):
             progress.update(self, 'check', completed=index + 1, total=len(items))
         return progress.update(self, 'check', 'complete-with-held-items' if any(c['errors'] for c in checks.values()) else 'complete',
                                completed=len(items), total=len(items))
+
+    def check_all(self, request=None):
+        """Every saved query's and metric's check in one call, on local data. One command per item, 27 in the joint run
+        of 2026-11-25, had the session write a script around them, and the chips their results hand over never reached
+        the chat. A check that fails is a result too, never a reason to stop."""
+        binding = self.execution_binding()
+        if not binding or binding['kind'] not in LOCAL:
+            raise ProjectError('On a warehouse each check\'s statement runs with its own tool: use check-query and '
+                               'check-metric, one at a time, as build-check says.')
+        failed, ran = [], 0
+        for item in metric_preview.candidates(self):
+            name = item['body'].get('name', '')
+            ran += 1
+            try:
+                done = self.check_execution({'name': name, 'parameters': {}, **({'example_index': 0} if item['kind'] == 'metric' else {})},
+                                            item['kind'])
+            except ValueError as exc:
+                done = {'status': 'held', 'errors': [str(exc)]}
+            if done.get('status') == 'held' or done.get('error'):
+                failed.append({'kind': 'metric' if item['kind'] == 'metric' else 'saved query', 'name': name,
+                               'reason': str(done.get('error') or (done.get('errors') or [''])[0])[:200]})
+        return {'status': 'ok', 'ran': ran, 'passed': ran - len(failed), 'failed': failed}
 
     def check_query(self, request):
         return self.check_execution(request, 'sql_query')
@@ -767,9 +804,10 @@ class Project(ContextState):
                 'next': 'Use these retrieved definitions to execute fresh SQL.'}
 
 
-def _due(run, engine_dir=None):
+def _due(run, engine_dir=None, hand_over=True):
     """What the chat and the side page still need, named on whatever helper result comes next: the moments the run has
-    reached but not shown, and a side page nobody has opened yet."""
+    reached but not shown, handed over whole unless the command only reads (it then names them and writes nothing), and
+    a side page nobody has opened yet."""
     import side_page
     import side_view
     try:
@@ -778,12 +816,40 @@ def _due(run, engine_dir=None):
     except Exception:  # noqa: BLE001 - the view never fails a command whose own work succeeded
         return {}
     out = {'side_page': page} if page else {}
-    if kinds:
+    shown = side_view.show_due(run, engine_dir) if kinds and hand_over else ''
+    if shown:
+        # The dry run, 2026-11-25: told on every result to run `visual`, the session never did. The moment comes whole.
+        out.update(side_view.handed(shown))
+    elif kinds:
         out['visual'] = ('Due: run this helper\'s %s before going on, with the flags of every `visual` call (`--data` for a '
                          'demo, `--widget` where you have `show_widget`).' % ', then '.join('`visual %s`' % k for k in kinds))
     return out
 
 
+def _answer_card(run, given, result):
+    """The answer card, with the query that answers the person: built from the question and metrics the session names
+    and the rows the query returned. A query run without `answer` (an accuracy check's helper) carries nothing."""
+    import side_view
+    import visuals
+    from run_facts import RunFacts
+    try:
+        data = visuals.answer_from(given, result, RunFacts(run))
+    except Exception:  # noqa: BLE001 - the card never fails the query that answered
+        return {}
+    return side_view.handed(side_view.show_card(run, 'answer', data)) if data else {}
+
+
+def _saved_card(run, payload):
+    """The card that says what was saved to Atlan, with the receipt that records the save: the workspace by the name
+    the session read it by, when the payload carries it."""
+    import side_view
+    data = {k: payload[k] for k in ('workspace', 'aside') if isinstance(payload.get(k), str) and payload[k].strip()}
+    return side_view.handed(side_view.show_card(run, 'saved', data if 'workspace' in data else None))
+
+
+# Commands that only read the run: they name what is due and write nothing.
+READ_ONLY = ('experience', 'preview')
+# What a result that carries the moments the run has reached says to do with them.
 # The moments that end a metric step or the checks: each carries the host's task list as it now stands.
 TASK_MOMENTS = ('described', 'drafted', 'metrics', 'rules', 'links', 'context')
 # The chips that end a metric step and start the next.
@@ -821,6 +887,7 @@ def main():
     sub.add_parser('history')
     sub.add_parser('status')
     sub.add_parser('check')
+    sub.add_parser('check-all', help='Run every saved query\'s and metric\'s check on local data, in one call')
     found = sub.add_parser('discover', help='Supported sources in a folder, by name and size only. Needs no run and creates nothing.')
     found.add_argument('--workspace', default='.')
     location = sub.add_parser('location')
@@ -904,12 +971,12 @@ def main():
     house.add_argument('--bulk-via', choices=('cli', 'tool', 'file'), help='How larger reads go, when not through the tool')
 
     asking = sub.add_parser('question', help="The save or ready question's text and options, or the closing message, composed from the run's files")
-    asking.add_argument('kind', choices=('save', 'ready', 'close'))
+    asking.add_argument('kind', choices=('save', 'ready', 'next', 'close'))
     asking.add_argument('--widget', action='store_true', help='Where the chips and cards are drawn as widgets: the text keeps its count line')
     asking.add_argument('--data', type=Path, action='append', default=[], help="A demo's facts file")
     asking.add_argument('--engine-dir', type=Path)
     asking.add_argument('--accuracy', action='store_true',
-                        help='The ready question: the accuracy check is available for this run and has not run yet')
+                        help='The ready question, or the next one after an answer: the accuracy check is available for this run and has not run yet')
     asking.add_argument('--recap', action='store_true',
                         help='The ready question on a resumed run, where the save question was not shown in this chat')
     asking.add_argument('--score', type=int, help="The closing message: the accuracy check's percentage, when it ran")
@@ -1007,6 +1074,11 @@ def main():
                     given = json.loads(raw, parse_constant=lambda name: float('nan'))
                 except ValueError:
                     raise ProjectError("A moment's data is one JSON object.") from None
+                if args.kind == 'answer' and isinstance(given, dict) and isinstance(given.get('result'), dict):
+                    # A warehouse's answer: the question, the metrics and the rows the warehouse returned, as a query
+                    # that answers the person takes them on this machine.
+                    from run_facts import RunFacts
+                    given = visuals.answer_from(given, given['result'], RunFacts(run)) or {}
                 problem = visuals.check_data(args.kind, given)
                 if problem:
                     raise ProjectError(problem)
@@ -1040,7 +1112,7 @@ def main():
                 side_view.note(run, 'connect')
                 more = ' Then run `visual next` again: more is due.' if following and side_view.due(run, args.engine_dir) else ''
                 print('side view: ' + json.dumps({**{k: opened[k] for k in ('url', 'error') if k in opened},
-                                                  'next': side_page.instruction(opened, args.widget) + more}, ensure_ascii=False))
+                                                  'next': side_page.instruction(opened, args.widget, run) + more}, ensure_ascii=False))
                 return 0
             if not args.widget and visuals.keeps_tasks(run) and args.kind in visuals.ON_PAGE and 'connect' in side_view.seen(run):
                 # In a terminal with a task list and the side page open, a metric step's end is one plain line. A host that
@@ -1076,9 +1148,10 @@ def main():
                     shown = ''
                 # In a terminal the first chip in a question names the side page, so its address reaches the person
                 # in text that is always shown, and the agent composes nothing.
-                page = side_page.running(run) if asked and shown and args.kind in ('found', 'sources') else None
+                page = side_page.running(run) if asked and shown and args.kind in ('found', 'sources', 'questions') else None
                 if page:
-                    shown += '\n↗ Follow the build, and how each metric is reached: ' + page
+                    shown += ('\n↗ Each question with its known answer, and your agent\'s as it comes back: ' if args.kind == 'questions'
+                              else '\n↗ Follow the build, and how each metric is reached: ') + page
             except (ValueError, KeyError, TypeError, AttributeError, OSError) as exc:
                 # A file the run wrote in a shape this cannot read leaves the moment unshown, never the run stopped.
                 print('side view: ' + json.dumps({'error': 'This moment could not be read: %s' % type(exc).__name__}))
@@ -1142,6 +1215,10 @@ def main():
             reminder = side_page.reminder(run)
             if reminder:
                 steps.append(reminder)
+            if shown and args.kind == 'questions' and not side_page.running(run):
+                # The page lists the questions; without one, the chat must, or the person tests questions never seen.
+                steps.append("The side page is not open, so nothing lists these questions yet: send the table `CHECK show` "
+                             "prints, as a chat message and as it is, before the question that asks to test them.")
             if not steps:
                 # A moment with nothing to show still says what to do: given silence, a session filled it with its own line.
                 steps.append('Nothing to show for this moment yet: carry on, with no words about it.')
@@ -1156,9 +1233,10 @@ def main():
             run = safe_path(args.run_dir)
             data = [json.loads(path.read_text(encoding='utf-8')) for path in args.data]
             try:
-                extra = {'ready': {'accuracy': args.accuracy, 'recap': args.recap},
+                extra = {'ready': {'accuracy': args.accuracy, 'recap': args.recap}, 'next': {'accuracy': args.accuracy},
                          'close': {'score': args.score, 'scored': args.scored}}.get(args.kind, {})
-                asked = getattr(questions, args.kind)(run, args.widget, data, args.engine_dir, **extra)
+                compose = questions.after_answer if args.kind == 'next' else getattr(questions, args.kind)
+                asked = compose(run, args.widget, data, args.engine_dir, **extra)
             except ValueError as exc:
                 raise ProjectError(str(exc)) from None
             except Exception as exc:  # noqa: BLE001 - a run file in a shape this cannot read: say so, never a traceback
@@ -1180,11 +1258,12 @@ def main():
                 asked['next'] = ('Set your task list to `task_list` first, where it is given. ' if asked.get('task_list') else '') + ('Print this `text` exactly as given, with its line breaks, as the last thing in your reply. '
                                  'Then, only when the build found caveats the person should know (a metric that totals across '
                                  'periods, a filter its tile always applies, a review warning), add a blank line, "Good to '
-                                 'know" and one "- " line per caveat, each said once in this conversation. Ask no question, '
-                                 'draw no banner and call no tool after it.')
+                                 'know" and one "- " line per caveat, each said once in this conversation. Nothing about the '
+                                 'accuracy check or how it was scored: its card said it. No number the run\'s files do not '
+                                 'hold, such as a range you work out. Ask no question, draw no banner and call no tool after it.')
                 print(json.dumps(asked, ensure_ascii=False))
                 return 0
-            for kind in asked.pop('shown'):
+            for kind in asked.pop('shown', []):
                 try:
                     side_view.note(run, kind)
                 except OSError:
@@ -1196,7 +1275,7 @@ def main():
                 ('Ask one native question now: this `header`, this `question` as its text exactly as given, with its '
                              'line breaks and leading spaces, and these `options` in order%s. Write nothing before it, and never '
                              'reword or shorten it: every count is the run\'s own.%s'
-                             % (', with the host\'s free-text entry' if args.kind == 'ready' else '',
+                             % (', with the host\'s free-text entry' if args.kind in ('ready', 'next') else '',
                                 ' Add nothing to it: caveats go in the closing message (`PROJECT question close`).'
                                 if args.kind == 'ready' else
                                 ' This run\'s sample checks ran with the warehouse\'s own tool and none of their results is in '
@@ -1213,7 +1292,7 @@ def main():
                 return 0
             opened = side_page.open_page(run)
             print(json.dumps({**{k: opened[k] for k in ('url', 'error') if k in opened},
-                              'next': side_page.instruction(opened, False)}, ensure_ascii=False))
+                              'next': side_page.instruction(opened, False, run)}, ensure_ascii=False))
             return 0
         if args.command in ('experience', 'journey') and not safe_path(args.run_dir).is_dir():
             raise ProjectError('The saved run is unavailable. Supply its existing directory to resume.')
@@ -1223,6 +1302,7 @@ def main():
         elif args.command == 'status': result = project.current()
         elif args.command == 'bind': result = project.bind(args.database, args.tables, args.schema)
         elif args.command == 'check': result = project.check()
+        elif args.command == 'check-all': result = project.check_all()
         elif args.command == 'preview': result = project.preview(None if args.all else args.limit, args.format, args.kind)
         elif args.command == 'experience': result = project.experience(args.engine_dir, args.format, args.detail, args.focus, args.host, args.server)
         elif args.command == 'checklist':
@@ -1260,20 +1340,34 @@ def main():
                 raw = sys.stdin.read(4_000_001)
                 if len(raw.encode()) > 4_000_000:
                     raise ProjectError('Readback input exceeds the local artifact limit.')
-                result = project.publication(json.loads(raw))
+                payload = json.loads(raw)
             else:
-                result = project.publication(project.read(safe_path(args.request)))
+                payload = project.read(safe_path(args.request))
+            result = project.publication(payload)
+            result = {**_saved_card(project.root, payload), **result}
+        elif args.command == 'execute':
+            request = project.read(safe_path(args.request))
+            result = project.execute(request)
+            if isinstance(request.get('answer'), dict):
+                result = {**_answer_card(project.root, request['answer'], result), **result}
         elif args.command == 'acquisition': result = acquisition.cached(project, project.read(safe_path(args.request)))
         else: result = getattr(project, args.command.replace('-', '_'))(project.read(safe_path(args.request)))
-        if isinstance(result, dict) and args.command != 'status':
-            # The side view's lines lead: a result cut short keeps them.
-            due = _due(project.root, getattr(args, 'engine_dir', None))
+        if isinstance(result, dict) and args.command not in ('status', 'execute'):
+            # The side view's lines lead: a result cut short keeps them. A query's result carries none: the accuracy
+            # check's answering helpers run it, and a moment handed to a helper never reaches the person.
+            reads = args.command in READ_ONLY or args.command == 'journey' and args.action in ('status', 'resume')
+            due = _due(project.root, getattr(args, 'engine_dir', None), hand_over=not reads)
+            if due.get('show_first') and result.get('show_first'):
+                # The steps the run reached come first, then the card this result made.
+                result = {**result, 'show_first': due.pop('show_first') + '\n\n' + result['show_first']}
             result = {**due, **{k: v for k, v in result.items() if k not in due}}
         if isinstance(result, str):
             print(result)
         else:
             output = json.dumps(result, allow_nan=False)
-            if len(output.encode()) > 4096 and not args.full:
+            # A moment handed over rides along whatever its size: only the result's own fields move it to a file.
+            own = json.dumps({k: v for k, v in result.items() if k not in ('show_first', 'visual')}, allow_nan=False)
+            if len(own.encode()) > 4096 and not args.full:
                 # A file per call: the accuracy check runs its answers at once, and one file per command let a large
                 # result overwrite another, so an answer read another question's rows. A day's results are kept.
                 kept = project.root / 'results'
@@ -1282,7 +1376,7 @@ def main():
                         old.unlink(missing_ok=True)
                 target = kept / ('%s-%s.json' % (args.command, uuid.uuid4().hex[:12]))
                 project.write(target, result)
-                compact = {**{k: result[k] for k in ('side_page', 'visual') if k in result},
+                compact = {**{k: result[k] for k in ('side_page', 'visual', 'show_first') if k in result},
                            'status': result.get('status', 'ok'), 'result_file': str(target),
                            'next': 'Read the relevant fields from this private result artifact.'}
                 if args.command == 'preview':

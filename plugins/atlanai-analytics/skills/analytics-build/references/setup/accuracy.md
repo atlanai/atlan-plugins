@@ -67,7 +67,7 @@ sources do not name it.
   the new one.
 - **A warehouse build.** `CHECK load` returns `pending_gold` and the answering agents run their
   SQL on the warehouse, as accuracy-check's run procedure describes. Use the warehouse query
-  tool this build already used. The option's time stays about 8 minutes.
+  tool this build already used. The option's time stays about 20 minutes, a minute a question.
 - **Facts.** There is no facts file: `<agent name>`, `<firm>` and the use case come from this run's
   intent and sources, as above.
 - **Generating.** When `eval-generation` `generate` returns blocked, say its reason in one line,

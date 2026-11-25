@@ -70,7 +70,8 @@ read-only validation, table scope, parameter bindings, schema check and separate
 The evidence records example and composition separately. Neither establishes source equivalence or dashboard parity; compare
 the source calculation and relevant edge cases separately.
 Run `check-query` on every saved query and `check-metric` on every metric: a query left at
-`schema_checked` has not run. Their request files are `{"name": "<query>", "parameters": {}}`
+`schema_checked` has not run. On local data, `PROJECT check-all` runs them all in one call and names each that failed; run
+it, never a script of your own around the single checks. Their request files are `{"name": "<query>", "parameters": {}}`
 and `{"name": "<metric>", "example_index": 0, "parameters": {}}`.
 For a metric with no dimensions, the check looks for a second row and holds the metric if it
 finds one. For a trusted reference for the same filters and period, include `expected_value`

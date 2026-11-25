@@ -33,8 +33,8 @@ class CutAtAWord(unittest.TestCase):
         self.assertIn(visuals._fit(said, 30)[:-1].split()[-1], said.split())
 
     def test_a_long_use_case_reads_as_its_own_short_name(self):
-        typed = "AE pod targets: what each pod's S1 target is. Table: GTM_OPS.POD_TARGETS_BY_QUARTER"
-        self.assertEqual(short_name(typed), 'AE pod targets')
+        typed = "EU region targets: what each region's quarterly target is. Table: SALES_OPS.REGION_TARGETS_BY_QUARTER"
+        self.assertEqual(short_name(typed), 'EU region targets')
         self.assertEqual(short_name('Job margin'), 'Job margin')
         self.assertEqual(short_name('Revenue by region. Which regions grew fastest over the last four quarters and why'),
                          'Revenue by region')
@@ -46,8 +46,8 @@ class AnswerBars(unittest.TestCase):
         return [b['label'] for b in visuals._parts('answer', spec)['bars']]
 
     def test_bars_read_largest_first(self):
-        # 0.9.74: EMEA 39 listed below Majors 9, in the query's own order.
-        self.assertEqual(self.bars([['Majors', 9], ['EMEA', 39], ['APAC', 20]]), ['EMEA', 'APAC', 'Majors'])
+        # 0.9.74: a region of 39 listed below one of 9, in the query's own order.
+        self.assertEqual(self.bars([['Retail', 9], ['North', 39], ['South', 20]]), ['North', 'South', 'Retail'])
         self.assertEqual(self.bars([['Barn', -1200], ['Turbine base', -6360], ['Cat flap', 440]]),
                          ['Turbine base', 'Barn', 'Cat flap'], 'a loss is as long as its size')
 

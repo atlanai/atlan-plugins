@@ -199,7 +199,8 @@ into your own private `readbacks.json`, or send that same JSON on stdin to
 `PROJECT publication -`. The host does not have to save a tool-result file. Do not recover
 responses from a session transcript or ask the customer to create a file. IDs alone cannot
 establish release state or a complete definition. Do not reconstruct responses from search results or local drafts. Run
-`PROJECT publication "<readbacks.json>"`; the helper normalizes the responses and validates
+`PROJECT publication "<readbacks.json>"`, with `workspace`, the workspace's display name, beside
+`workspace_id`: its result hands over the saved card in `show_first`. The helper normalizes the responses and validates
 their release state and definition schemas. Old hand-normalized receipts must be fetched again.
 It stores IDs, release/version and definition hashes in the run, not reusable local definitions.
 The helper records host MCP evidence; it does not independently contact or verify Atlan.

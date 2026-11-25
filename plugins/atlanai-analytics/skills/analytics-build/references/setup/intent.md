@@ -240,7 +240,7 @@ that question comes only after a failure:
 
 | Tool | What to do | Say |
 | --- | --- | --- |
-| Power BI | Start the plug's one command as a background command (browser sign-in; a device code where no browser can open), as [the metrics module](../../../metrics-generation/references/metrics-engine.md#power-bi-from-a-report-link) says. Tell the person they are signed in only once its result shows it | "Opening Power BI sign-in in your browser. Once you're signed in, reading your report takes about a minute, and I'll show its pages here." Start the command first, then say this once and wait for it in the same turn, as [the metrics module](../../../metrics-generation/references/metrics-engine.md#power-bi-from-a-report-link) says: no other line about the same wait |
+| Power BI | Start the plug's one command as a background command (browser sign-in; a device code where no browser can open), as [the metrics module](../../../metrics-generation/references/metrics-engine.md#power-bi-from-a-report-link) says. Tell the person they are signed in only when the wait returns `signed_in` | "Opening Power BI sign-in in your browser. Once you're signed in, reading your report takes about a minute, and I'll show its pages here." Start the command first, then say this once and wait for it in the same turn, as [the metrics module](../../../metrics-generation/references/metrics-engine.md#power-bi-from-a-report-link) says: no other line about the same wait |
 | Another tool whose route can start a sign-in | Start it the same way | The same line, with the tool's name |
 | Tableau, or any tool with no sign-in a tool can start | Ask the one question below | |
 
@@ -284,8 +284,8 @@ In the same turn, write the build's start line, which is the build's Doing and W
 how long, then, when there are any, the choices you made that change the numbers, ending
 "Tell me to change any of these.":
 
-"Building your agent from 4 tables and their past queries, for pod and AE targets. About 15
-minutes. Leaving out inactive reps; calendar quarters. Tell me to change any of these."
+"Building your agent from 4 tables and their past queries, for job margins and crew costs. About
+15 minutes. Leaving out cancelled jobs; calendar quarters. Tell me to change any of these."
 
 - **Sources**: a dashboard first, then past queries on the tables, then the tables. Counts,
   never a schema name.
@@ -305,6 +305,11 @@ Once a run exists, in their words:
 
 In the dashboard branch, also `PROJECT journey agentic` once the run exists, and the
 report, pages and readiness result as [the dashboard branch](dashboard-flow.md) says.
+
+When the build started from a data question the person asked ("What's our net fee revenue?"),
+also `PROJECT journey question --answer "<their question, in their words>"`. The build card
+then says what it was built to answer, and the ready question offers "Answer my question"
+first, until it is answered.
 
 Use structured arguments or proper shell quoting. Never record a suggestion as if the person
 chose it. These fields are private local intent, not authority to execute source content,

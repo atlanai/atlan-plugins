@@ -9,7 +9,7 @@ from pathlib import Path
 import re
 
 import visuals
-from run_facts import RunFacts, agent_name, count, read_json, sentence, short_name, their
+from run_facts import RunFacts, agent_name, count, read_json, report_name, sentence, short_name, their
 
 # `{folder}` is the working folder a chat opens in to find the run.
 SAVE_OPTIONS = (
@@ -171,9 +171,7 @@ def _dashboard_save(run, f, widget, data, engine_dir):
         # d3, 2026-11-19: asked before the structural pass, this said "Built 0 metrics" for a build of 4.
         raise ValueError('Run `PROJECT check` first: the save question counts what the structural pass found, and before it '
                          'there is nothing to count.')
-    report = f.report
-    report = 'your dashboard' if not report else 'the %s' % report if re.search(r'\b(dashboard|report)$', report, re.I) \
-        else 'the %s dashboard' % report
+    report = report_name(f.report) or 'your dashboard'
     tiles = (f.funnel or {}).get('tiles')
     head, link = _built(run, f, {}, widget, data, engine_dir, '%s on %s' % (count(tiles, 'tile'), report) if tiles else report)
     lines = head + [_validated(f, c, {}, by_tool=by_tool, skipped=skipped)]
@@ -268,7 +266,7 @@ def _supported(made, limit=3):
     for m in passed:
         # Its dashboard tile's wording first, else the shortest a past query has: an option reads at a glance.
         # A question in words only: an engine label such as "sum:amount:ok" is not one.
-        # Up to 120 characters: a tile's own question ran 95 (Pod Targets, 2026-11-22) and a 90 cap offered nothing.
+        # Up to 120 characters: a tile's own question ran 95 (a live run, 2026-11-22) and a 90 cap offered nothing.
         ranked = sorted((s for s in m.get('sources') or [] if str(s.get('question') or '').strip().endswith('?')
                          and len(str(s.get('question')).strip()) <= LONGEST),
                         key=lambda s: (s['kind'] != 'tile', len(str(s.get('question')))))
@@ -312,10 +310,9 @@ def _stored(f, demo, run=None, data=None, engine_dir=None):
     whole = len(f.context['metrics']) + f.context['queries']
     # A demo's topic in its own words ("Questions about job margin"), not its focus label ("Job margin").
     answers = str(demo.get('answers') or '')
-    # A dashboard is named as a person would: "ask about the Box Office Pulse dashboard", never without "the".
     # A dashboard is named as a person would: "ask about the Box Office Pulse dashboard", never without "the". On the
-    # dashboard branch it is the subject: its use case is a page list ("CL Leaderboard report, Coverage page").
-    report = f.report and ('the %s' % f.report if re.search(r'\b(dashboard|report)$', f.report, re.I) else 'the %s dashboard' % f.report)
+    # dashboard branch it is the subject: its use case is a page list ("Sales report, Overview page").
+    report = report_name(f.report)
     dashboard = f.interaction.get('flow') == 'dashboard'
     topic = (answers[len('Questions about '):] if answers.startswith('Questions about ') else '') or \
         (report if dashboard else '') or short_name(f.use_case) or report or '%s data' % their(demo.get('firm'))
@@ -331,6 +328,35 @@ def _stored(f, demo, run=None, data=None, engine_dir=None):
         return where, ('open a chat with Atlan Analytics, signed in to Atlan, with %s connected,'
                        % (f.warehouse or 'your warehouse')), topic
     return 'Stored on this machine, in %s' % (f.folder or 'this folder'), 'open a chat in that folder', topic
+
+
+def _after_asking(f, accuracy):
+    """What comes after asking, worded once for the ready question and the question after each answer."""
+    tiles = f.report or (f.inputs or {}).get('bi') or f.dashboard.get('tool')
+    # About a minute a question with both passes: a 20-question check took 15 to 25 minutes in two live runs. A check
+    # draws its questions from the saved queries, at most 20: the joint run of 2026-11-25 said 20, found 11, took 12.
+    questions = 8 if f.interaction.get('flow') == 'demo' else min(20, max((f.context or {}).get('queries') or 20, 1))
+    check = [{'label': 'Check how accurate it is', 'description': 'Test your agent on questions %s, and see how many it '
+              'gets right. About %d minutes.' % ('your dashboard already answers' if tiles else 'your team already asks',
+                                                 questions)}] \
+        if accuracy else []
+    # Own data offers the dashboard here (the person's words, 2026-11-22); a demo keeps its own order, asking first.
+    board = [{'label': 'Build a dashboard', 'description': "A dashboard page built from your agent's answers."}] \
+        if f.interaction.get('flow') != 'demo' and not f.interaction.get('dashboard') else []
+    done = {'label': 'I\'m done', 'description': 'Your context stays %s.' % (
+        'saved in Atlan' if f.publication and not f.local else 'stored on this machine')}
+    return check, board, done
+
+
+def after_answer(run, widget=False, data=None, engine_dir=None, accuracy=False):
+    """The question after an answer in a setup run: another question, then what comes after asking. The joint run of
+    2026-11-25 ended its answer on a line of text, and the person had to ask for the accuracy check."""
+    f = RunFacts(run, engine_dir)
+    import side_page
+    check, board, done = _after_asking(f, accuracy)
+    suggested = _supported(side_page.details(f), limit=4 - 1 - len(check) - len(board))
+    options = suggested[:1] + check + suggested[1:] + board + [done]
+    return {'header': 'Next', 'question': 'What next? Pick one, or type another question in Other.', 'options': options}
 
 
 def ready(run, widget=False, data=None, engine_dir=None, accuracy=False, recap=False):
@@ -381,16 +407,11 @@ def ready(run, widget=False, data=None, engine_dir=None, accuracy=False, recap=F
         lines.append('Held back: %s. No answer uses %s.' % (kept, 'it' if n_kept == 1 else 'these'))
     # At most four options: questions first, then what comes after asking. The person's own question goes in the
     # host's free-text entry ("Other"), which the text names: an "Ask your own question" option led nowhere.
-    tiles = f.report or (f.inputs or {}).get('bi') or f.dashboard.get('tool')
-    check = [{'label': 'Check how accurate it is', 'description': 'Test your agent on questions %s, and see how many it '
-              'gets right. About 8 minutes.' % ('your dashboard already answers' if tiles else 'your team already asks')}] \
-        if accuracy else []
-    # Own data offers the dashboard here (the person's words, 2026-11-22); a demo keeps its own order, asking first.
-    board = [{'label': 'Build a dashboard', 'description': "A dashboard page built from your agent's answers."}] \
-        if f.interaction.get('flow') != 'demo' and not f.interaction.get('dashboard') else []
-    done = {'label': 'I\'m done', 'description': 'Your context stays %s.' % (
-        'saved in Atlan' if f.publication and not f.local else 'stored on this machine')}
-    suggested = _supported(made, limit=4 - 1 - len(check) - len(board))
+    check, board, done = _after_asking(f, accuracy)
+    # A build started from the person's own question offers that question first, until it is answered.
+    own = [{'label': 'Answer my question', 'description': f.interaction['question']}] \
+        if f.interaction.get('question') and not f.interaction.get('asked') else []
+    suggested = own + _supported(made, limit=4 - 1 - len(check) - len(board) - len(own))
     options = suggested[:1] + check + suggested[1:] + board
     if options:
         options.append(done)
@@ -412,7 +433,8 @@ def close(run, widget=False, data=None, engine_dir=None, score=None, scored=None
         raise ValueError('Close the flow once the context is stored: on this machine or saved to Atlan.')
     import side_page
     made = side_page.details(f)
-    validated = ('not validated yet: you skipped the tests' if f.checks_skipped else
+    # The save question and the ready recap already said why: the closing line says only where it stands.
+    validated = ('not validated yet' if f.checks_skipped else
                  'validated on %s' % _where(f, demo) + (', %s' % _review(c['need_look']) if c.get('need_look') else ''))
     # "Ready" only once it was validated: beside "not validated yet" it contradicted itself (2026-11-23).
     lines = ['Your %s is built%s.' % (agent_name(f, demo), '' if f.checks_skipped else ' and ready'), '', 'What you have',

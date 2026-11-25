@@ -27,8 +27,8 @@ On own data, add `--accuracy` when [check accuracy](accuracy.md) says the check 
 demo, add it until the check has run, so the demo's ready question offers it too.
 Add `--recap` on a resumed run, where the save question was not asked in this chat: only then
 does the text say again what was built.
-With `show_widget`, add `--widget` here, after a save to Atlan first drawing
-`PROJECT visual saved --widget`. Ask one native question with the `header`, the `question` text
+With `show_widget`, add `--widget` here. After a save to Atlan, the saved card came with
+`PROJECT publication`'s result: it goes before this question. Ask one native question with the `header`, the `question` text
 and the `options` it prints, exactly as given, and the host's free-text entry. When it prints no
 options, ask no native question: print the text as the last thing in the reply and wait.
 
@@ -113,10 +113,11 @@ numbers. Every answer has three parts, in this order:
    With the context only on this machine, the list names each one without a link and ends:
    "Nothing to open yet. After a save to Atlan, each metric named here has a page to open."
 3. After the first answer, record `PROJECT journey asked`. Finish all questions in the
-   selected request before the `Next:` line. After an own-data answer, that line offers
-   Ask more questions, Check how accurate it is (until it has run), Build a dashboard and
-   I'm done. Build a dashboard follows
-   [the dashboard](../../../analytics-ask/references/dashboard.md).
+   selected request, then, after an own-data answer, end on one native question instead of a
+   `Next:` line: `PROJECT question next`, with `--accuracy` while the ready question offered
+   the check and it has not run. Ask its `header`, `question` and `options` exactly as given;
+   they offer another question, Check how accurate it is, Build a dashboard and I'm done. Build
+   a dashboard follows [the dashboard](../../../analytics-ask/references/dashboard.md).
 
 With the first answer on own data, say once per conversation: "This answer came from the metrics
 and saved queries built from your dashboard and past queries. Each one it used is named below."

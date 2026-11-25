@@ -192,7 +192,7 @@ class Checklist(unittest.TestCase):
         first = result['steps'][1]
         self.assertEqual((first['id'], first['status'], first['needs_you']), ('scope', 'in_progress', True))
         result = self.compact(self.run.journey('report', answer='Sales pipeline:  Overview, Stages'))
-        self.assertEqual(result['steps'][1]['content'], 'Pick report and pages: Overview, Stages on Sales pipeline')
+        self.assertEqual(result['steps'][1]['content'], 'Pick report and pages: Overview, Stages on the Sales pipeline dashboard')
         check = result['steps'][2]
         self.assertEqual((check['status'], check['needs_you']), ('in_progress', False), 'a check that finds nothing needs nobody')
         check = self.compact(self.run.journey('readiness', answer='18 of 25 tiles, stage list out of date', waits=True))['steps'][2]
@@ -321,7 +321,7 @@ class Checklist(unittest.TestCase):
     def test_a_readiness_result_that_waits_keeps_its_item_open_while_the_build_is_prepared(self):
         # 0.9.74, run 3: the check advances the build to its first written step, and the waiting result ticked anyway.
         self.run.journey('agentic')
-        self.run.journey('report', answer='Pod targets: all pages')
+        self.run.journey('report', answer='Region targets: all pages')
         self.progress(stage='build', status='running')
         steps = self.compact(self.run.journey('readiness', answer="0 of 1 tiles, report's model not readable", waits=True))['steps']
         self.assertEqual([(r['id'], r['status']) for r in steps[2:4]], [('readiness', 'in_progress'), ('metrics', 'pending')])

@@ -71,7 +71,8 @@ since its answer sets the steps (a list set before it changed under the person),
 question's text. Follow
 [one presentation flow](references/setup/presentation.md): read each moment's file when
 reached and never replace a moment with a status line. Show each moment's chip or card, from
-the first survey on, as [visuals](references/setup/visuals.md) says.
+the first survey on, as [visuals](references/setup/visuals.md) says. A helper result with
+`show_first` carries one: show it before any other words or call. Run each helper command on its own and read all it returns: a script or filter of yours drops its chip.
 
 1. **Choose what your agent answers.** [The interview](references/setup/intent.md)'s card 1, and the
    branch's own ask. Skip what the request already said.

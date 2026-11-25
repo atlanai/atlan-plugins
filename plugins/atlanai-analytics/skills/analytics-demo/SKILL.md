@@ -13,7 +13,8 @@ is: no separators (zsh fails on `echo =====`), no scripts that cut it.
 
 Read [the tour rules](references/tour.md) before the welcome: what to say at every moment,
 the two words for what gets built, and the rule against naming people. They apply to every
-step below. Chips and cards follow [visuals](../analytics-build/references/setup/visuals.md).
+step below. Chips and cards follow [visuals](../analytics-build/references/setup/visuals.md). A
+helper result with `show_first` carries one: show it before any other words or call. Run each helper command on its own and read all it returns: a script or filter of yours drops its chip.
 The technical stages are the shared setup procedure in
 [setup](../analytics-build/references/setup.md), run on the demo's working folder. `PROJECT`
 means the helper named there, from the `analytics-build` skill's `scripts/`. `DEMO` means

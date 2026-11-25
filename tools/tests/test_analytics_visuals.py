@@ -82,8 +82,8 @@ class Moments(unittest.TestCase):
         self.assertEqual(self.show('sources', run), '▤ **129 rows** of your data · 2 tables, Power BI dashboard')
 
     def test_checks_show_what_ran_and_what_needs_a_look(self):
-        self.assertEqual(self.show('context'), '✓ **Every test passed** · on your data · Gross margin £118,681')
-        self.assertEqual(self.show('context', data=[facts()]), '✓ **Every test passed** · on your data · Gross margin £118,681',
+        self.assertEqual(self.show('context'), '✓ **Every metric works** · on your data · Gross margin £118,681')
+        self.assertEqual(self.show('context', data=[facts()]), '✓ **Every metric works** · on your data · Gross margin £118,681',
                          "a demo's facts never name the person's own data")
         failing = make_run(self.root / 'f', failing=1)
         self.assertEqual(self.show('context', failing), '△ **3 passed** · 1 needs your review · on your data',
@@ -91,7 +91,7 @@ class Moments(unittest.TestCase):
         warehouse = make_run(self.root / 'w', warehouse='snowflake')
         self.assertIn('on your Snowflake data', self.show('context', warehouse))
         demo = make_run(self.root / 'd', demo=True)
-        self.assertEqual(self.show('context', demo, data=[facts()]), "✓ **Every test passed** · on Fixit's data · Gross margin £118,681")
+        self.assertEqual(self.show('context', demo, data=[facts()]), "✓ **Every metric works** · on Fixit's data · Gross margin £118,681")
 
     def test_the_data_chip_follows_what_the_person_chose(self):
         dashboard_only = make_run(self.root / 'd', chosen={'bi': True, 'history': False})
@@ -503,9 +503,10 @@ class Helper(unittest.TestCase):
                 break
             time.sleep(0.1)
         self.assertIsNone(side_page.running(self.run))
-        self.assertNotIn('side_page', json.loads(self.project('checklist')))
-        self.assertIsNone(side_page.running(self.run), 'any other helper call leaves it stopped: no wait, no restart')
-        self.project('visual', 'sources')
+        self.assertNotIn('side_page', json.loads(self.project('experience', '--format', 'json')))
+        self.assertIsNone(side_page.running(self.run), 'a call that only reads leaves it stopped: no wait, no restart')
+        handed = json.loads(self.project('checklist'))
+        self.assertIn('show_first', handed, 'a moment due comes with the next result that can show it')
         self.assertEqual(side_page.running(self.run), url, 'the next moment brings it back at its address: an open tab reconnects')
 
     def test_a_page_that_stopped_comes_back_even_when_nothing_new_is_due(self):

@@ -26,18 +26,21 @@ new rule needs.
 
 ## 2. Make the change
 
-Call `metrics-generation` `edit` on that metric with the chosen change. It changes the
-definition through the engine, re-runs the check and returns the old rule, the new rule and
-both check results. The metric keeps its identity; this is a revision, not a new metric.
+Write `{"name": "<metric>", "changes": [...], "before": "<old rule, plain words>", "after": "<new
+rule, plain words>"}` to a file outside the run and run `EDIT <that file>`, with `EDIT` as
+`python3 "<demo-dir>/scripts/edit_metric.py" --run-dir "<run>"` and `<demo-dir>` this skill's
+directory. It changes the definition,
+re-runs the check and keeps the old version beside the run. The metric keeps its identity; this
+is a revision, not a new metric.
 
 If the check on the new rule fails, say so in one line, keep the old rule, and offer one
 other change. Never show a failed check as a result.
 
 ## 3. Show the difference
 
-Record the `edit` moment ([visuals](../../analytics-build/references/setup/visuals.md)) with the
-values from the edit's result. Its card is the difference: before and after, each with its
-rule, and what joined or left the count. In a terminal its lines take the block's place,
+`EDIT`'s result hands over the `edit` card in `show_first`
+([visuals](../../analytics-build/references/setup/visuals.md)): the difference, before and after,
+each with its rule. Add `added` and `removed` to the request for what joined or left the count. In a terminal its lines take the block's place,
 unchanged; with `show_widget`, draw it right before the reply or question. Only when the
 helper prints nothing, fill this block instead. How either reaches the person depends on
 where the context lives (step 4): it is either the last reply text of the turn or the text

@@ -38,7 +38,7 @@ NONE = "none"
 
 def norm(name) -> str:
     """A page name as a person may type it: case, surrounding quotes and runs of spaces,
-    underscores or hyphens do not matter ("call  scoring", "Call_Scoring", "CALL SCORING")."""
+    underscores or hyphens do not matter ("job  costs", "Job_Costs", "JOB COSTS")."""
     text = unicodedata.normalize("NFKC", str(name or "")).strip().strip("\"'`").strip()
     return re.sub(r"[\s_\-]+", " ", text).casefold()
 

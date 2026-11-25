@@ -52,9 +52,9 @@ PRODUCT = {'name': 'p2', 'kind': 'member', 'column': 'product', 'table': 'sales'
 # Eight tiles on five pages: Overview names a tooltip page, and shows the region that Region
 # Detail's drillthrough is bound to, which alone does not bring that page in (the person's
 # pick decides, 2026-11-23); Product Drill is a drillthrough nothing on Overview opens.
-USAGE = [unit('Overview', 'v1', columns=('Region',)), unit('Overview', 'v2', links=('Sales Tip',)),
+USAGE = [unit('Overview', 'v1', columns=('Region',)), unit('Overview', 'v2', links=('Margin Tip',)),
          unit('Region Detail', 'd1', columns=('Region',), params=(REGION,)),
-         unit('Sales Tip', 't1'), unit('Call Scoring', 'c1'), unit('Call Scoring', 'c2'),
+         unit('Margin Tip', 't1'), unit('Job Costs', 'c1'), unit('Job Costs', 'c2'),
          unit('Product Drill', 'p1', params=(PRODUCT,)), unit('Product Drill', 'p2', params=(PRODUCT,))]
 
 
@@ -66,13 +66,13 @@ def record(*pages, every=False):
 class Matching(unittest.TestCase):
     def test_picked_pages_keep_their_tiles_and_the_pages_those_tiles_name(self):
         kept, dropped, scope = page_scope.apply(USAGE, record('Overview'))
-        self.assertEqual({u['container'] for u in kept}, {'Overview', 'Sales Tip'})
+        self.assertEqual({u['container'] for u in kept}, {'Overview', 'Margin Tip'})
         self.assertEqual(scope['chosen'], ['Overview'])
-        self.assertEqual({(s['page'], s['why']) for s in scope['supporting']}, {('Sales Tip', 'linked')})
-        self.assertEqual({d['unit_id'].split('::')[2] for d in dropped}, {'Region Detail', 'Call Scoring', 'Product Drill'})
+        self.assertEqual({(s['page'], s['why']) for s in scope['supporting']}, {('Margin Tip', 'linked')})
+        self.assertEqual({d['unit_id'].split('::')[2] for d in dropped}, {'Region Detail', 'Job Costs', 'Product Drill'})
         self.assertTrue(all(d['reason'] == 'not_on_chosen_pages' and 'was not picked' in d['detail'] for d in dropped))
         self.assertEqual(sorted((x['page'], x['units']) for x in scope['left_out']),
-                         [('Call Scoring', 2), ('Product Drill', 2), ('Region Detail', 1)])
+                         [('Job Costs', 2), ('Product Drill', 2), ('Region Detail', 1)])
         artifacts.validate({'contract_version': '1.0', 'vendor': 'powerbi', 'units': [], 'dropped': dropped,
                             'page_scope': scope}, 'question_units.schema.json')
 
@@ -83,30 +83,30 @@ class Matching(unittest.TestCase):
         self.assertEqual(page_scope.digest(record(every=True)), page_scope.digest(None))
 
     def test_a_name_with_other_case_or_spacing_still_matches(self):
-        for name in ('call scoring', '  CALL  SCORING ', 'Call_Scoring', "'Call Scoring'"):
+        for name in ('job costs', '  JOB  COSTS ', 'Job_Costs', "'Job Costs'"):
             with self.subTest(name=name):
                 kept, _dropped, scope = page_scope.apply(USAGE, record(name))
-                self.assertEqual({u['container'] for u in kept}, {'Call Scoring'})
-                self.assertEqual((scope['chosen'], scope['unmatched']), (['Call Scoring'], []))
-        self.assertEqual(page_scope.digest(record('call scoring')), page_scope.digest(record('CALL_SCORING')))
+                self.assertEqual({u['container'] for u in kept}, {'Job Costs'})
+                self.assertEqual((scope['chosen'], scope['unmatched']), (['Job Costs'], []))
+        self.assertEqual(page_scope.digest(record('job costs')), page_scope.digest(record('JOB_COSTS')))
 
     def test_a_pick_naming_no_page_filters_nothing_and_says_so(self):
         kept, dropped, scope = page_scope.apply(USAGE, record('Coverage'))
         self.assertEqual((kept, dropped, scope['applied']), (USAGE, [], False))
         self.assertIn("No page of this report is called 'Coverage'", scope['note'])
         self.assertIn('Overview', scope['note'])
-        kept, _dropped, scope = page_scope.apply(USAGE, record('Call Scoring', 'Coverage'))
+        kept, _dropped, scope = page_scope.apply(USAGE, record('Job Costs', 'Coverage'))
         self.assertEqual(len(kept), 2)
         self.assertEqual(scope['unmatched'], ['Coverage'])
         self.assertIn("No page is called 'Coverage'", scope['note'])
 
     def test_the_reader_names_tooltip_and_drillthrough_pages_but_not_navigation(self):
-        names = {'tip_page': 'Sales Tip', 'drill': 'Region Detail', 'other': 'Call Scoring'}
+        names = {'tip_page': 'Margin Tip', 'drill': 'Region Detail', 'other': 'Job Costs'}
         lit = lambda v: {'expr': {'Literal': {'Value': f"'{v}'"}}}  # noqa: E731
         visual = {'visual': {'visualContainerObjects': {
             'visualTooltip': [{'properties': {'type': lit('ReportPage'), 'section': lit('tip_page')}}],
             'visualLink': [{'properties': {'drillthroughSection': lit('drill'), 'navigationSection': lit('other')}}]}}}
-        self.assertEqual(sorted(powerbi._page_links(visual, names)), ['Region Detail', 'Sales Tip'])
+        self.assertEqual(sorted(powerbi._page_links(visual, names)), ['Region Detail', 'Margin Tip'])
         self.assertEqual(powerbi._page_links({'section': lit('nowhere')}, names), [])
 
 
@@ -157,18 +157,18 @@ class QuestionUnits(unittest.TestCase):
 
     def test_only_the_chosen_pages_and_their_supporting_pages_reach_generation(self):
         self.build()   # the report read whole first, as the fetch does before the pick
-        self.assertTrue(any('Call_Scoring' in p.name for p in (self.run / 'fragments').iterdir()))
+        self.assertTrue(any('Job_Costs' in p.name for p in (self.run / 'fragments').iterdir()))
         artifacts.write(self.run, 'page_scope.json', record('overview'), 'page_scope.schema.json')
         ctx = self.build()
         self.assertEqual({u['unit_id'].split('::')[2] for u in ctx.out['units']},
-                         {'Overview', 'Sales Tip'})
+                         {'Overview', 'Margin Tip'})
         self.assertEqual(ctx.out['page_scope']['chosen'], ['Overview'])
         self.assertEqual(sum(d['reason'] == 'not_on_chosen_pages' for d in ctx.out['dropped']), 5)
         self.assertEqual(ctx.counts['page_scope'], page_scope.digest(record('Overview')))
         self.assertEqual(ctx.counts['out_of_scope'], 5)
         self.assertTrue(any('left out' in s for s in ctx.said))
         # Only the kept units' fragments stay: a page picked away leaves none behind.
-        self.assertFalse(any('Call_Scoring' in p.name for p in (self.run / 'fragments').iterdir()))
+        self.assertFalse(any('Job_Costs' in p.name for p in (self.run / 'fragments').iterdir()))
 
     def test_every_page_builds_every_tile_as_before(self):
         ctx = self.build()

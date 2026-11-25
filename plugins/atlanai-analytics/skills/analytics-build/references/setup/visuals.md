@@ -57,13 +57,25 @@ before going on. While the engine builds, its result after each gate says so too
 | The engine merged the metrics | `metrics` | Chip: the metrics by name | |
 | The engine wrote each metric's rule | `rules` | Chip: one metric's rule | |
 | The engine linked the metrics | `links` | Chip: how one metric builds on others | |
-| Every check has run, right before the save question | `build` | Mini card (without widgets, the save question says it in sentences). It counts the checks, so it has nothing to show before them | |
+| The build ends: its context is in the run and its structural check has run | `build` | Mini card, before any question: it closes the build, before the question about testing it. In a terminal it waits for the save question, which says it in sentences | |
 | Every check has run, after the build card | `context` | Chip: what ran, and what needs your review; without widgets, a sentence in the save question | |
-| Saved to Atlan | `saved` | Mini card before the ready question; nothing when kept on this machine, which the person has just chosen | `saved.json` |
-| A question answered | `answer` | Mini card the first time, then a chip | `answer.json` |
-| A rule changed | `edit` | Mini card | `edit.json` |
+| Saved to Atlan | `saved` | Mini card before the ready question; nothing when kept on this machine, which the person has just chosen | with `PROJECT publication` |
+| A question answered | `answer` | Mini card the first time, then a chip | with the query that answers |
+| A rule changed | `edit` | Mini card | with `EDIT` |
+| Test questions written or loaded for a check | `questions` | Chip: how many, and where they came from; the side page lists each one | |
+| A session starts a check on an agent built earlier | `agent` | Chip: what the agent holds, and when it was built | |
 
-The helper names the first twelve when they are due. Once the side page is open, where you keep a
+These moments come with the results you read: a helper result, the build's wait, `CHECK start`,
+`CHECK load`, `SCOPE emit`, the query that answers the person, the save's receipt
+(`PROJECT publication`) and a rule change (`EDIT`) hand each one over in `show_first`, drawn and
+marked shown. Show it
+before any other words or call; never draw one of them a second time.
+
+**One line of your own.** The build card takes one line in `build.json` (`aside`, through
+`--input`), and the saved card one in `PROJECT publication`'s payload (`aside`): why this build, in the person's terms ("Built from the
+dashboard you shared this morning."). One line, no number: every number comes from the run.
+
+The helper hands the first twelve over when they are due. Once the side page is open, where you keep a
 task list, `drafted`, `metrics`, `rules` and `links` hand back the task list and one line, `say`,
 instead of a chip. A chip or card is the moment's result line:
 add no other line that repeats its numbers. After an answer's card, the reply leads with what
@@ -114,16 +126,20 @@ Pass a moment's file on standard input as a here-document: `PROJECT visual <kind
 writes it as `<kind>.json` in the run directory and records the moment in one step. Copy values
 from the result that produced them; leave out a field you do not have, never fill one in.
 
-- `saved.json`: `workspace`, its display name. Write no counts: the helper reads what is live
-  from the publish receipt `PROJECT publication` recorded. Kept on this machine, skip the file.
-- `answer.json`: `question`; `headline`, what answers and its number, such as
-  `Turbine base: -£6,360`; `summary`, the answer's first sentence, without the headline's number
-  and with no number the rows, headline or question do not show (the helper refuses one); `unit` from the metric;
-  `rows`, `[label, value]` pairs from the query result in its order (at most 12); `highlight`,
-  the label of the row that answers; `rule`, the metric's rule in one line; `proof`, `[{name}]`
-  of the metrics and queries the answer used. For a question that asks why, add `breakdown`
-  with `steps` as `[label, signed value]` from the query that splits the answering row.
-- `edit.json`: from the edit result: `metric`, `before` and `after` rules in plain words,
-  `values` as `[name, before, after, unit]`, and `added` and `removed` as lists of short labels
-  for the re-asked question. Add `note` when a dashboard was built before the change: it still
-  shows the old rule until it is rebuilt.
+- The save: `PROJECT publication`'s payload takes `workspace`, the workspace's display name,
+  beside `workspace_id`, and its result hands the card over. Write no counts: the helper reads
+  what is live from the receipt it records. Kept on this machine, there is no card.
+- An answer: the request of the query that answers (`PROJECT execute`) takes `answer`:
+  `question`, the person's question, and `metrics`, the name of each metric or saved query the
+  answer used. The card leads with the metric and its value (or a breakdown's first row) and
+  lists the result's rows. Add `headline`, what answers and its number such as
+  `Turbine base: -£6,360`, when the answering row is not the first; `summary`, the answer's first
+  sentence, without the headline's number and with no number the rows, headline or question do
+  not show (the helper refuses one); `rule`, the metric's rule in one line; and for a question
+  that asks why, `breakdown` with `steps` as `[label, signed value]` from the query that splits
+  the answering row. On a warehouse, after the result, run `PROJECT visual answer --input -`
+  with the same and `result`, the `columns` and `rows` the warehouse returned.
+- A rule change: `EDIT`'s request takes `before` and `after`, each rule in plain words, and its
+  result hands the card over with the metric's checked value before and after. Add `added` and
+  `removed` as lists of short labels for the re-asked question, and `note` when a dashboard was
+  built before the change: it still shows the old rule until it is rebuilt.

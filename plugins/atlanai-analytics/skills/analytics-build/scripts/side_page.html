@@ -162,6 +162,7 @@ button.sech { cursor: pointer; }
 /* Two lines on a phone, where a row's value and state leave its description little room (as Studio's lists). */
 @media (max-width: 520px) { .row .pw.ell { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; } }
 .row .v { font-size: 13px; color: var(--text-default); white-space: nowrap; }
+.row .tn { min-width: 18px; font-size: 12px; color: var(--text-subtle); align-self: flex-start; padding-top: 1px; }
 .row.nw, .row.fl { animation: land 1.8s ease-out; }
 @keyframes land { 0%, 40% { box-shadow: inset 0 0 0 2px var(--ring-brand), inset 0 0 0 100vmax var(--bg-brand-subtle); } to { box-shadow: inset 0 0 0 2px transparent, inset 0 0 0 100vmax transparent; } }
 .cant { display: flex; gap: 10px; padding: 8px; align-items: flex-start; }
@@ -333,7 +334,9 @@ const findDraft = (S, id) => draftsOf(S).find(d => txt(d.id) === txt(id)) || nul
 /* What a screen reader hears as the page changes: the output, never the step. */
 function outputLabel(S) {
   const ms = metricsOf(S), done = ms.filter(m => stateOf(m) === 'checked').length;
-  return ms.length ? pl(ms.length, 'metric') + (done ? ', ' + grp(done) + ' tested' : '') : '';
+  const ts = testsOf(S), right = ts.filter(r => tstateOf(r) === 'right').length;
+  const tests = ts.length ? pl(ts.length, 'test question') + (right ? ', ' + grp(right) + ' right' : '') : '';
+  return [ms.length ? pl(ms.length, 'metric') + (done ? ', ' + grp(done) + ' tested' : '') : '', tests].filter(Boolean).join('; ');
 }
 const STOPPED = {paused: 'Paused', blocked: 'Waiting for your answer in the chat', access_needed: 'Waiting for access: see the chat'};
 
@@ -462,16 +465,50 @@ function queriesList(S, UI) {
   });
   return [qs.length, tabs + `<div class="lst">${rows.join('')}</div>`];
 }
-/* Before any metric the page opens on the queries in plain words, until a metric lands or the person picks a list. */
+/* The accuracy check's questions, numbered as the accuracy card in the chat numbers them: each with its known answer,
+   then your agent's answer as it comes back, and its mark once scored. */
+const testsOf = S => obj(S.tests) ? arr(S.tests.rows).filter(r => obj(r) && txt(r.question)) : [];
+const findTest = (S, n) => testsOf(S).find(r => String(r.n) === String(n)) || null;
+const tstateOf = r => !obj(r.agent) ? 'wait' : r.agent.right === true ? 'right' : r.agent.right === false ? 'missed' : 'answered';
+const onlyAgent = r => obj(r.agent) && r.agent.right === true && obj(r.names) && r.names.right === false;
+const TLABEL = {right: ['Right', 'ok'], missed: ['Missed', 'warn'], answered: ['Answered', ''], wait: ['Waiting', 'idle']};
+const tbadge = (S, r) => { const s = tstateOf(r); return badgeOf(s === 'wait' && txt(S.tests.state) === 'ready' ? 'Not tested yet' : TLABEL[s][0], TLABEL[s][1]); };
+const answerOf = p => obj(p) ? txt(p.value) || (txt(p.answer) ? 'Answered without a result' : '') : '';
+function testsList(S, UI) {
+  const ts = testsOf(S);
+  if (!ts.length) return [0, ''];
+  const counts = {right: 0, missed: 0, only: 0};
+  ts.forEach(r => { const s = tstateOf(r); if (s in counts) counts[s] += 1; if (onlyAgent(r)) counts.only += 1; });
+  const keep = r => !UI.tfilter || (UI.tfilter === 'only' ? onlyAgent(r) : tstateOf(r) === UI.tfilter);
+  // Right and missed show once anything is scored; "right only with your agent" once the column-names pass is too.
+  const tabs = counts.right || counts.missed ? pills('tflt', 'Show', [['all', 'All', ts.length], ['right', 'Right', counts.right],
+    ['missed', 'Missed', counts.missed], ...(ts.some(r => obj(r.names) && r.names.right != null) ? [['only', 'Right only with your agent', counts.only]] : [])], UI.tfilter || 'all') : '';
+  const rows = ts.filter(keep).map(r => `<button type="button" class="row tr${String(UI.test) === String(r.n) ? ' sel' : ''}" data-act="t" data-t="${esc(r.n)}" data-k="t:${esc(r.n)}" data-f="t:${esc(r.n)}" data-s="${tstateOf(r)}">`
+    + `<span class="tn num">${esc(r.n)}</span>${named(r.question, '', (txt(r.known) ? 'Known: ' + txt(r.known) : 'Known answer worked out when tested') + (answerOf(r.agent) ? ' · Your agent: ' + answerOf(r.agent) : ''), 'cl2')}${tbadge(S, r)}</button>`);
+  const order = '<div class="lgd">Each known answer comes from your dashboard or a past query. Your agent answers every question from a clean start, and so does one with column names only.</div>';
+  return [ts.length, tabs + order + `<div class="lst">${rows.join('')}</div>`];
+}
+/* Before any metric the page opens on the queries in plain words, until a metric lands or the person picks a list. Once
+   an accuracy check has written its questions, it opens on those: they are the newest output. */
 function listOf(S, UI) {
-  const qn = queriesList(S, UI)[0], mn = metricsList(S, UI)[0];
+  const qn = queriesList(S, UI)[0], mn = metricsList(S, UI)[0], tn = testsOf(S).length;
+  if (tn && (UI.list === 'tests' || !UI.list)) return 'tests';
   return qn && (UI.list === 'queries' || !UI.list && !mn) ? 'queries' : 'metrics';
 }
 /* One switch between the lists, metrics first (the person's pick, 2026-11-18), as Studio keeps metrics and saved
    queries on separate pages: a long query list never pushes the metrics down, and one list moves at a time. */
 function lists(S, UI) {
-  const [mn, mb] = metricsList(S, UI), [qn, qb] = queriesList(S, UI), cur = listOf(S, UI);
-  return `<div class="sec">${pills('list', 'Show list', [['metrics', 'Metrics', mn], ['queries', 'Saved queries', qn]], cur).replace('class="flt"', 'class="flt top"')}${cur === 'queries' ? qb : mb}</div>` + cantBlock(S, UI);
+  const [mn, mb] = metricsList(S, UI), [qn, qb] = queriesList(S, UI), [tn, tb] = testsList(S, UI), cur = listOf(S, UI);
+  const shown = [['metrics', 'Metrics', mn], ['queries', 'Saved queries', qn], ...(tn ? [['tests', 'Test questions', tn]] : [])];
+  return `<div class="sec">${pills('list', 'Show list', shown, cur).replace('class="flt"', 'class="flt top"')}${cur === 'tests' ? tb : cur === 'queries' ? qb : mb}</div>` + cantBlock(S, UI) + folderBlock(S, UI);
+}
+/* The page is the folder's: a dashboard built from this agent's answers, and the other agents built here, each once it
+   exists. */
+function folderBlock(S, UI) {
+  const os = arr(S.others).filter(o => obj(o) && txt(o.name));
+  const dash = obj(S.dashboard) && S.dashboard.built ? `<div class="card lst"><div class="cant">${ic('grid', 's')}<span class="mm"><span class="nm">A dashboard built from your agent’s answers</span><span class="ty">In this folder</span></span></div></div>` : '';
+  const body = os.length ? `<div class="card lst">${os.map(o => `<div class="cant">${ic('metric', 's')}<span class="mm"><span class="nm">${esc(o.name)}</span><span class="ty">${esc(pl(o.metrics, 'metric') + ' and ' + pl(o.queries, 'saved query', 'saved queries') + (txt(o.built) ? ' · built ' + txt(o.built) : ''))}</span></span></div>`).join('')}</div>` : '';
+  return (dash ? section('dash', 'Dashboard', null, true, dash, false) : '') + (body ? section('others', 'Also in this folder', os.length, openOf(UI, 'others', true), body, true) : '');
 }
 
 /* A metric's own view, under the checklist */
@@ -632,10 +669,34 @@ function queryView(S, UI, id) {
     + prow(UI, 'cols', 'Columns, tables and filters', null, pkv('table', 'Tables', pchips(q.tables, 'psc')), false)
     + '</div></div>';
 }
+/* A test question's own view: its known answer beside each pass's, then what each answered, with its SQL and, when a
+   judge decided it, why. */
+const PASS_SAYS = {true: ['Right', 'ok'], false: ['Missed', 'warn']};
+function passCell(S, label, p) {
+  if (!obj(p)) return pcell(label, marker(txt(S.tests.state) === 'ready' ? 'Not tested yet' : 'Waiting', 'idle'), '');
+  const m = PASS_SAYS[String(p.right)];
+  return pcell(label, esc(answerOf(p) || 'No answer'), m ? marker(m[0], m[1]) : esc('Being scored'));
+}
+function passBody(UI, key, p) {
+  if (!obj(p)) return '';
+  return (txt(p.answer) ? `<p class="pdsc">${esc(p.answer)}</p>` : '') + (txt(p.why) ? `<div class="pnote">${esc(p.why)}</div>` : '')
+    + code(p.sql, 'sql:' + key, UI, 'the SQL');
+}
+function testView(S, UI, n) {
+  const r = findTest(S, n);
+  if (!r) return `<div class="card empty">${ic('query', 's')}<span>This question is no longer in the check.</span></div>`;
+  const from = r.from === 'tile' ? 'From a dashboard tile' : r.from === 'query' ? 'From a past query' : r.from === 'set' ? 'From your set' : '';
+  return `<div class="prof">${crumb('Test questions', 'Question ' + r.n)}<h1 class="ptitle">${esc(r.question)}</h1>`
+    + pmeta(S, ['Question ' + r.n, txt(r.metric) ? 'Tests ' + txt(r.metric) : '', from])
+    + pstrip([pcell('Known answer', esc(txt(r.known) || 'Worked out when tested'), ''), passCell(S, 'Your agent', r.agent), passCell(S, 'Column names only', r.names)])
+    + '<div class="xpl">A test question has a known answer. Your agent answers it from a clean start, and its result is compared with the known answer. So does an agent that sees only column names, to show what your agent adds.</div>'
+    + `<div class="ppanel">${prow(UI, 'tagent', 'Your agent’s answer', null, passBody(UI, 'a' + r.n, r.agent))}${prow(UI, 'tnames', 'With column names only', null, passBody(UI, 'n' + r.n, r.names), false)}</div></div>`;
+}
 function detailOf(S, UI) {
   if (UI.metric) return metricView(S, UI, UI.metric);
   if (UI.draft) return draftView(S, UI, UI.draft);
   if (UI.query) return queryView(S, UI, UI.query);
+  if (UI.test) return testView(S, UI, UI.test);
   return '';
 }
 
@@ -650,7 +711,8 @@ function view(S, UI) {
     + (STOPPED[S.state] ? `<div class="card stop">${ic('alert', 's')}<span>${esc(STOPPED[S.state])}</span></div>` : '');
   const detail = detailOf(S, UI);
   if (!UI.wide) return `<div class="sp2">${top}${detail || lists(S, UI)}</div>`;
-  const pick = listOf(S, UI) === 'queries' ? [ic('query', 's'), 'Pick a saved query to see its SQL and where it came from.']
+  const pick = listOf(S, UI) === 'tests' ? [ic('query', 's'), 'Pick a question to see each answer and its SQL.']
+    : listOf(S, UI) === 'queries' ? [ic('query', 's'), 'Pick a saved query to see its SQL and where it came from.']
     : [ic('metric', 's'), 'Pick a metric to see how it’s worked out and where it came from.'];
   return `<div class="wd2"><div>${top}${lists(S, UI)}</div><div class="wr">${detail || `<div class="card empty">${pick[0]}<span>${pick[1]}</span></div>`}</div></div>`;
 }
@@ -658,7 +720,7 @@ function view(S, UI) {
 
 /* State, painting and the live feed */
 const THEME_KEY = 'atlan-analytics-side-page-theme';
-const UI = {metric: null, query: null, draft: null, filter: null, from: null, tog: new Set(), wide: false, link: 'wait', theme: 'system',
+const UI = {metric: null, query: null, draft: null, test: null, filter: null, from: null, tog: new Set(), wide: false, link: 'wait', theme: 'system',
   list: null};
 const app = document.getElementById('app');
 const STA = {};
@@ -670,12 +732,14 @@ function readHash() {
   UI.metric = p.get('m') || null;
   UI.query = p.get('q') || null;
   UI.draft = p.get('d') || null;
+  UI.test = p.get('t') || null;
 }
 function writeHash() {
   const p = new URLSearchParams();
   if (UI.metric) p.set('m', UI.metric);
   if (UI.query) p.set('q', UI.query);
   if (UI.draft) p.set('d', UI.draft);
+  if (UI.test) p.set('t', UI.test);
   const want = p.toString() ? '#' + p.toString() : '';
   if (location.hash === want) return;
   try { history.replaceState(null, '', location.pathname + location.search + want); } catch (e) { /* the address is a convenience */ }
@@ -768,7 +832,7 @@ function reveal(k) {
   if (!wasOpen && MOTION) setTimeout(go, 320); else go();
 }
 function paint(fresh) {
-  const before = fresh && MOTION && seenOnce && !UI.metric && !UI.query && !UI.draft ? placesOf() : null;
+  const before = fresh && MOTION && seenOnce && !UI.metric && !UI.query && !UI.draft && !UI.test ? placesOf() : null;
   const y = window.scrollY, wr = app.querySelector('.wr'), wy = wr ? wr.scrollTop : 0;
   const ae = document.activeElement, fk = ae && app.contains(ae) && ae.dataset ? ae.dataset.k : null;
   app.innerHTML = view(S, UI);
@@ -788,7 +852,7 @@ function paint(fresh) {
   if (fk) { const el = [...app.querySelectorAll('[data-k]')].find(x => x.dataset.k === fk); if (el) el.focus({preventScroll: true}); }
   if (before) settle(before);
   // Studio's motion: a profile slides in when it is opened, never when new data repaints it.
-  const dk = UI.metric ? 'm:' + UI.metric : UI.query ? 'q:' + UI.query : UI.draft ? 'd:' + UI.draft : '';
+  const dk = UI.metric ? 'm:' + UI.metric : UI.query ? 'q:' + UI.query : UI.draft ? 'd:' + UI.draft : UI.test ? 't:' + UI.test : '';
   if (dk && dk !== shownDetail) { const pf = app.querySelector('.prof'); if (pf) pf.classList.add('enter'); }
   shownDetail = dk;
   const line = S ? outputLabel(S) : '';
@@ -866,12 +930,26 @@ document.addEventListener('click', e => {
   } else if (act === 'qflt') {
     UI.qfilter = a.dataset.v === 'all' ? null : a.dataset.v;
     paint();
+  } else if (act === 'tflt') {
+    UI.tfilter = a.dataset.v === 'all' ? null : a.dataset.v;
+    paint();
+  } else if (act === 't') {
+    UI.test = a.dataset.t; UI.metric = null; UI.query = null; UI.draft = null; UI.from = null;
+    paint();
+    if (!UI.wide) window.scrollTo(0, 0);
+    else { const wr = app.querySelector('.wr'); if (wr) wr.scrollTop = 0; }
+  } else if (act === 'back' && UI.test) {
+    const was = UI.test;
+    UI.test = null;
+    paint();
+    const r = [...app.querySelectorAll('.tr')].find(x => x.dataset.t === was);
+    if (r) { r.scrollIntoView({block: 'center'}); r.focus({preventScroll: true}); }
   } else if (act === 'd') {
-    UI.draft = a.dataset.d; UI.metric = null; UI.query = null; UI.from = null;
+    UI.draft = a.dataset.d; UI.metric = null; UI.query = null; UI.test = null; UI.from = null;
     paint();
     window.scrollTo(0, 0);
   } else if (act === 'm' || act === 'q') {
-    UI.draft = null;
+    UI.draft = null; UI.test = null;
     if (act === 'm') { UI.metric = a.dataset.m; UI.query = null; UI.from = null; }
     else { UI.from = UI.query ? UI.from : UI.metric; UI.metric = null; UI.query = a.dataset.q; }
     paint();
@@ -896,7 +974,7 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  if ((UI.metric || UI.query || UI.draft) && !UI.wide) { const b = app.querySelector('.back'); if (b) b.click(); }
+  if ((UI.metric || UI.query || UI.draft || UI.test) && !UI.wide) { const b = app.querySelector('.back'); if (b) b.click(); }
   else if (UI.query) { UI.query = null; UI.metric = UI.from; UI.from = null; paint(); }
 });
 window.addEventListener('hashchange', () => { readHash(); paint(); window.scrollTo(0, 0); });

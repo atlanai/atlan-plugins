@@ -1,4 +1,4 @@
-"""What the second live dashboard run (2026-11-23, CL Leaderboard) showed, held here."""
+"""What the second live dashboard run (2026-11-23) showed, held here."""
 import json
 from pathlib import Path
 import sys
@@ -25,8 +25,8 @@ class SecondRun(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_the_picked_pages_read_as_words_not_two_colons(self):
-        self.assertEqual(checklist._picked('CL Leaderboard: Coverage'), 'Coverage on CL Leaderboard')
-        self.assertEqual(checklist._picked('Sales: all pages'), 'all pages of Sales')
+        self.assertEqual(checklist._picked('Job Margins: Coverage'), 'Coverage on the Job Margins dashboard')
+        self.assertEqual(checklist._picked('Sales: all pages'), 'all pages of the Sales dashboard')
         self.assertEqual(checklist._picked('Sales'), 'Sales')
 
     def test_the_side_page_opens_with_the_first_drafted_queries(self):
