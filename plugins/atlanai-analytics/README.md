@@ -4,14 +4,14 @@ This plugin builds your agent: it answers your data questions in plain English f
 context, the metrics and saved queries the plugin builds and tests. Each answer names the metric
 or saved query it used, or says when it had to write new SQL for the question.
 
-It builds that context from what your team already relies on: dashboards first, then past
-queries, then table definitions. It tests each metric and saved query on your data, when it can reach
+You start from a dashboard, from the tables your agent should cover, or by letting it suggest
+from what your warehouse is used for most. It tests each metric and saved query on your data, when it can reach
 your data, before you keep them on this machine or save them to share with your team.
 
 ## You need
 
 - **To try a sample:** Python 3.11 or 3.12. Put `python3.12` or `python3.11` on your `PATH`, or use `py -3.12` on Windows. Samples bring their own data and need no account.
-- **For your own data:** the same Python, and a dashboard file, a warehouse your coding agent can reach (such as Snowflake or Databricks), or both. For a warehouse, read access to its tables, and to past queries if you build from them.
+- **For your own data:** the same Python, and a dashboard file, a warehouse your coding agent can reach (such as Snowflake or Databricks), or both. For a warehouse, read access to its tables. To let it suggest what to build, it also reads the warehouse's past queries.
 - **To save for your team (optional):** an Atlan account, signed in through the `atlanai` plugin. The plugin installs either way, and without a sign-in everything stays on this machine.
 
 ## Quick start
@@ -22,7 +22,7 @@ your data, before you keep them on this machine or save them to share with your 
    | You want to | Claude Code | Codex | Or say |
    |---|---|---|---|
    | Learn how it works on a sample | `/atlanai-analytics:analytics-demo` | `$analytics-demo` | *"Show me how this works on a sample use case"* |
-   | Build your agent from your own data or a dashboard | `/atlanai-analytics:analytics-build` | `$analytics-build` | *"Help me use this dashboard to ask questions about my data"* |
+   | Build your agent from a dashboard or your tables | `/atlanai-analytics:analytics-build` | `$analytics-build` | *"Help me use this dashboard to ask questions about my data"* |
    | Ask your agent a question | `/atlanai-analytics:analytics-ask` | `$analytics-ask` | *"What was revenue last quarter, by region?"* |
 
    In other hosts, name the skill: *"Use the analytics-demo skill"*. Your own words work too, but
