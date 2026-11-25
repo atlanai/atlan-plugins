@@ -1,6 +1,6 @@
 # Getting started: running the agent on your own data
 
-The [README](../README.md) gets you through a five-minute demo on synthetic data. This guide
+The [README](../../plugins/atlanai-analytics/skills/metrics-generation/modules/metrics/engine/README.md) gets you through a five-minute demo on synthetic data. This guide
 takes you from there to your own estate: install, describe the run once in `run.yml`, test the
 connections, run it, answer the authored gates with an AI assistant, and choose where the
 results go.
@@ -9,7 +9,7 @@ You need Python 3.11 to 3.12, a clone of this repository, and (for the gates) an
 assistant that can follow the gate instructions in `gates/`, for example Claude Code.
 
 Running it on a customer's estate? Ask for the access first: [What access to ask the customer
-for](guides/customer-access.md) lists it per source (Snowflake, Power BI, Tableau).
+for](../../plugins/atlanai-analytics/skills/metrics-generation/modules/metrics/engine/docs/guides/customer-access.md) lists it per source (Snowflake, Power BI, Tableau).
 
 The steps, in order:
 
@@ -55,12 +55,12 @@ do, step by step, if you prefer to run it yourself.
 No API credential for the BI tool? The `fetch-bi-in-browser` skill captures the definitions
 from your own signed-in browser (the tool's own downloads), with the values each widget shows,
 into one folder the run reads with `local-files`; see
-[What access to ask the customer for](guides/customer-access.md#no-api-credential-the-browser-route).
+[What access to ask the customer for](../../plugins/atlanai-analytics/skills/metrics-generation/modules/metrics/engine/docs/guides/customer-access.md#no-api-credential-the-browser-route).
 
 Your assistant has the BI vendor's own MCP server (Tableau's `tableau-mcp`, Microsoft's Power
 BI MCP servers) but the run has no plug credential? The `fetch-bi-over-mcp` skill calls its
 read-only tools, saves the answers, and converts them into the same kind of capture folder; see
-[the MCP route](guides/customer-access.md#no-plug-credential-but-an-mcp-server-the-mcp-route).
+[the MCP route](../../plugins/atlanai-analytics/skills/metrics-generation/modules/metrics/engine/docs/guides/customer-access.md#no-plug-credential-but-an-mcp-server-the-mcp-route).
 
 Every route, and what each needs and can verify:
 
@@ -137,7 +137,7 @@ No environment variables. Leave out `history` or `bi` if you have only one of th
 
 A Power BI scan result, paginated report (`.rdl`) or scorecard is read the same way, with its
 own `bi_vendor`; a file holding several models takes `bi_model` to name the one to read. See
-[Power BI service inputs](guides/power-bi-service-inputs.md).
+[Power BI service inputs](../../plugins/atlanai-analytics/skills/metrics-generation/modules/metrics/engine/docs/guides/power-bi-service-inputs.md).
 
 A model whose tables the warehouse cannot be told from its own sources (a Fabric Direct Lake
 model names OneLake storage, often a copy of warehouse tables) takes `bi_tables`: a JSON file
@@ -777,7 +777,7 @@ loopback address), else with a device code, as over SSH. `sign_in: device` or
 refused by name. `metrics-agent setup --check` says
 which it found. Whatever signed in, the fetch takes the richest route that identity's rights
 allow: the definitions, else a report's `.pbix` export, plus the admin scanner's metadata for
-an admin; the [Power BI plug's README](../packages/metrics-agent-powerbi/README.md) lists the
+an admin; the [Power BI plug's README](../../plugins/atlanai-analytics/skills/metrics-generation/modules/metrics/engine/packages/metrics-agent-powerbi/README.md) lists the
 routes. The definitions are fetched into the run directory; a resumed run reuses them. If you
 already have an extract on disk, set `bi:` to it instead of `targets` and nothing is fetched.
 A run reads every model the fetch brought, one model each (`model` narrows it to one); a
@@ -827,7 +827,7 @@ role is the first lock. For native history, replace `shape_table` above with
 `SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY`, and set the run's bounded `tables` and absolute
 `window.start` / `window.end` dates. The end is exclusive at midnight UTC. Without explicit
 bounds, the native route uses the previous 90 days. It blocks on overflow instead of returning
-a partial corpus; see the [Snowflake plug](../packages/metrics-agent-snowflake/README.md).
+a partial corpus; see the [Snowflake plug](../../plugins/atlanai-analytics/skills/metrics-generation/modules/metrics/engine/packages/metrics-agent-snowflake/README.md).
 
 ### D. An Atlan tenant
 
@@ -1058,12 +1058,12 @@ your layer no longer has.
 - **`PAUSED : waiting at the <gate> gate`**: expected. Answer it (§6) and re-run.
 - **`NO SQL CHECK: nothing was compiled`** when the run ends: the run has no
   `inputs.sql_check`, so every statement is `parse_only`. Add a SQL-check plug if the warehouse
-  can be reached ([what to ask for](guides/customer-access.md)).
+  can be reached ([what to ask for](../../plugins/atlanai-analytics/skills/metrics-generation/modules/metrics/engine/docs/guides/customer-access.md)).
 - **A statement labelled `needs_review`**: the SQL check did not pass (a table the warehouse
   does not have, a permission). It stays in the layer, flagged, and is not published as verified.
 - **The run changed under you**: a run directory remembers the `run.yml` it started from and
   refuses to resume if the file changed. Restore it, or start again with `--fresh`.
 
 More: [`design/plugs.md`](design/plugs.md) for every plug and setting, and
-[`PIPELINE.md`](../PIPELINE.md), the operator's reference, for every stage, flag, contract and
+[`PIPELINE.md`](../../plugins/atlanai-analytics/skills/metrics-generation/modules/metrics/engine/PIPELINE.md), the operator's reference, for every stage, flag, contract and
 gate.

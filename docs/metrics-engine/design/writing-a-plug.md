@@ -620,7 +620,7 @@ An **observer** watches a run. Each stage is its own process, so `start_run` and
 run once per stage. An observer must never stop a run on purpose, and must let a stage's own
 failure through `stage_span` unchanged; when it fails, the core says so once and the run goes on
 untraced, unless the operator made tracing required (`METRICS_AGENT_TRACE_REQUIRED=1`), in which case the
-core stops the run and asks them. [`examples/plugs/jsonl-trace`](../../examples/plugs/jsonl-trace)
+core stops the run and asks them. [`examples/plugs/jsonl-trace`](../examples/plugs/jsonl-trace)
 is a complete one in under a hundred lines, with a README to follow; the two SQL-check examples
 beside it have one too.
 

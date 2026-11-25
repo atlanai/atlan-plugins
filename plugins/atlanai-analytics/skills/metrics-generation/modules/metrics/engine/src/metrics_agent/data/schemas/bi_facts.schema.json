@@ -1540,7 +1540,7 @@
     },
     "declared": {
       "type": "object",
-      "description": "What the model DECLARES about this metric, in the shape a metric card uses, so a consumer copies it rather than interprets it (lib/declared.py writes it; design: docs/design/declared-models-contract.md). OPTIONAL: a reader whose model declares no dimensions, relationships or keys omits it, and every stage reads the measure exactly as before. Every SQL field is fully qualified; a table that plays two roles is written as a derived table under its role name in `source`, and that name qualifies every reference to it.",
+      "description": "What the model DECLARES about this metric, in the shape a metric card uses, so a consumer copies it rather than interprets it (lib/declared.py writes it; design: docs/metrics-engine/design/declared-models-contract.md). OPTIONAL: a reader whose model declares no dimensions, relationships or keys omits it, and every stage reads the measure exactly as before. Every SQL field is fully qualified; a table that plays two roles is written as a derived table under its role name in `source`, and that name qualifies every reference to it.",
       "additionalProperties": false,
       "required": [
         "entity",

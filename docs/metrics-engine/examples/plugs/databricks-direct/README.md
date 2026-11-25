@@ -1,7 +1,7 @@
 # databricks-direct (example plug)
 
 The Analytics plugin's `databricks` feature uses the
-[maintained package](../../../packages/metrics-agent-databricks/README.md), with native history,
+[maintained package](../../../../../plugins/atlanai-analytics/skills/metrics-generation/modules/metrics/engine/packages/metrics-agent-databricks/README.md), with native history,
 column metadata and browser/token sign-in. This folder remains a SQL-only authoring example;
 do not install both distributions into the same runtime.
 

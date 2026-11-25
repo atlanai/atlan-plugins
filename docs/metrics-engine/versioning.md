@@ -20,7 +20,7 @@ These are what a release promises about, and what the release notes report on:
 | Surface | Where it is defined |
 |---|---|
 | `run.yml`, the file that describes a run (`version: 1`) | `src/metrics_agent/data/schemas/run_config.schema.json` |
-| the command line: `metrics-agent run`, `stage`, `stages`, `setup`, `plugs`, and each stage's options | `metrics-agent --help`, [`PIPELINE.md`](../PIPELINE.md) |
+| the command line: `metrics-agent run`, `stage`, `stages`, `setup`, `plugs`, and each stage's options | `metrics-agent --help`, [`PIPELINE.md`](../../plugins/atlanai-analytics/skills/metrics-generation/modules/metrics/engine/PIPELINE.md) |
 | the entry-point groups a package registers in: `metrics_agent.plugs`, `metrics_agent.readers`, `metrics_agent.stages`, `metrics_agent.artifacts` | [`design/writing-a-plug.md`](design/writing-a-plug.md) |
 | the socket contracts every plug follows | [`design/sockets.md`](design/sockets.md), `src/metrics_agent/sockets.py` |
 | the common formats and the artifacts a run writes, including the prompt bundles at each gate | `src/metrics_agent/data/schemas/` |
@@ -41,7 +41,7 @@ The agent is in **0.x**. While it is:
 
 A pull request that breaks the public interface says so in its title (a `!` after the type, as
 in `feat!: …`) and in a `BREAKING CHANGE:` footer, which is how it reaches the release notes
-(see [`CONTRIBUTING.md`](../CONTRIBUTING.md)).
+(see [`CONTRIBUTING.md`](CONTRIBUTING.md)).
 
 ## From 1.0
 
