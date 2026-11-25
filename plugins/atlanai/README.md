@@ -60,7 +60,9 @@ Claude Code and Cursor run these as `/atlanai:<command>`: `get-started`, `use-sk
 `atlan-use-skill`, `atlan-continue`, `atlan-share`). Those four skills hide their own slash
 entries, and the commands hide themselves from the model, so the menu and the model's skill list
 each show every task once. `feedback [what happened]` drafts feedback for Atlan from the
-conversation with `atlan-troubleshoot`, shows it, and leaves sending it to you. The other skills are invoked by name
+conversation with `atlan-troubleshoot`, shows it, and leaves sending it to you. `dont-sync` keeps
+the current session from ever syncing to any organization from this computer, through aireg's
+`trace exclude`, and shows what it deleted where the session was already uploaded. The other skills are invoked by name
 (`/atlanai:atlan-author-skills`), or simply by asking.
 
 ## Alongside other Atlan plugins
