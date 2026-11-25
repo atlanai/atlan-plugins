@@ -116,6 +116,17 @@ class SQLiteEstateTest(unittest.TestCase):
             with self.assertRaises(sqlite3.DatabaseError):
                 run._engine._conn.execute(f"ATTACH '{self.dir / 'other.sqlite'}' AS other")
 
+    def test_the_runner_reads_a_table_named_in_the_engines_three_parts(self):
+        # The engine names a SQLite table DB.SCHEMA.TABLE with the file as both (`shop.shop.orders`), and the definition
+        # helpers write cards from those names: SQLite refused every such statement (37 of 39 cards in one live run).
+        from metrics_agent.plugs import local_files
+        with local_files.LocalFiles({'database': str(self.db)}, dialect='sqlite').sql_runner() as run:
+            self.assertEqual(run.fetch('SELECT SUM(o.sold) FROM SHOP.SHOP.ORDERS o', 10)[1], [(10,)])
+            self.assertEqual(run.fetch('SELECT SUM(sold) FROM "shop"."shop"."orders"', 10)[1], [(10,)])
+            self.assertEqual(run.fetch("SELECT 'shop.shop.orders' AS name FROM shop.orders LIMIT 1", 10)[1],
+                             [('shop.shop.orders',)], 'text that only spells the name is left as it is')
+            self.assertGreaterEqual(run.explain('SELECT channel FROM shop.shop.orders'), 0)
+
     def compile(self, formula, group_by):
         unit = {'unit_id': 'u', 'warehouse_tables': ['shop.orders'], 'group_by': group_by,
                 'measures': [{'name': 'm', 'aggregation': 'custom', 'formula_language': 'tableau-calc',

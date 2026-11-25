@@ -29,7 +29,7 @@ graders:
       The demo run in this folder is a job profit agent for Fixit: 4 metrics and 4 queries
       built from 1 dashboard, checked on Fixit's data and kept on this machine. Its supported
       questions are "What did materials cost on each job?" and "Which materials were wasted
-      most?", with "Ask my own question" and "I'm done for now".
+      most?", with "Ask my own question" and "I'm done".
       PASS if the reply ends on the ready block (what was built with those counts, that it
       lives on this machine, what it can answer) and offers those questions, then waits for a
       choice. FAIL if it inserts a next-action, dashboard or real-data menu before the

@@ -48,7 +48,7 @@ nav [aria-current=step]{font-weight:600}.eyebrow{font-size:.875rem}
     page = page.replace('<p>' + esc(model['next_step']) + '</p>', '', 1)
     sample = model.get('sample')
     if sample:
-        location = 'Saved in Atlan' if sample['status'] == 'released' else 'Local, not published'
+        location = 'Saved to Atlan Trident' if sample['status'] == 'released' else 'On this machine, not saved to Atlan Trident'
         sql = sample.get('sql') or sample.get('calculation') or ''
         focus = ('<article id="focus-metric"><div class="eyebrow">' + location + '</div><h2>' + esc(sample['name'])
                  + '</h2><p>' + esc(sample['meaning']) + '</p><p class="status">' + esc(sample['status_label'])
@@ -63,12 +63,13 @@ nav [aria-current=step]{font-weight:600}.eyebrow{font-size:.875rem}
     else:
         focus = '<article><h2>No selected definition yet</h2><p>' + esc(model['next_step']) + '</p></article>'
     holds = model.get('holds', [])
-    held = ('<div class="notice"><strong>Still needs attention</strong><p>' + str(model['counts']['held'])
-            + ' items need repair before publication.</p>' + ''.join('<p>' + esc(h['name']) + ': '
+    from experience import held_line
+    held = ('<div class="notice"><strong>Held back</strong><p>' + esc(held_line(model))
+            + '</p>' + ''.join('<p>' + esc(h['name']) + ': '
             + esc(h['reason'].replace('_', ' ')) + '</p>' for h in holds[:100]) + '</div>') if model['counts']['held'] else ''
     workbench = ('<div class="workbench"><section aria-label="Selected metric">' + focus + held
                  + '</section><aside><h2>What happens next</h2><p>' + esc(model['next_step'])
-                 + '</p><p class="muted">Scope changes, pauses and publication happen in chat. This snapshot only lets you inspect saved evidence.</p></aside></div>')
+                 + '</p><p class="muted">Scope changes, pauses and saves to Atlan Trident happen in chat. This snapshot only lets you inspect saved evidence.</p></aside></div>')
     marker = '<label for="filter">'
     page = page.replace(marker, workbench + '<details class="collection"><summary>Browse saved definitions</summary>' + marker, 1)
     page = page.replace('<section class="summary"><h2>Continue in chat</h2>', '</details><section class="summary"><h2>Continue in chat</h2>', 1)

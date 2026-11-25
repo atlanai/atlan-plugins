@@ -26,8 +26,11 @@ import shutil
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "analytics-build" / "scripts"))
+import python_version  # noqa: E402
 
-from eval_runs import Blocked, engine_dir, execution, find_run, use_case  # noqa: E402
+python_version.require()
+
+from eval_runs import Blocked, built_runs, engine_dir, execution, find_run, use_case  # noqa: E402
 
 # Words that say nothing about which metric a use case needs.
 _STOP = {"a", "an", "and", "the", "of", "to", "in", "on", "for", "by", "or", "is", "it", "its", "with",
@@ -56,17 +59,17 @@ def cmd_inputs(a) -> dict:
     interaction = load(run / "interaction.json", {}) or {}
     intent = use_case(run, a.use_case or "")
     if not (intent.get("domain") or intent.get("purpose")):
-        raise Blocked("The run records no use case. Pass it with --use-case: which agent, answering what. "
-                      "Ask the person once when the conversation does not say.")
+        raise Blocked("The run records no use case. When the conversation does not say, ask once: \"What should "
+                      "your agent answer, and for whom? One line is enough.\" Pass the reply with --use-case.")
     metrics = load(run / "context" / "metrics.json", []) or []
     queries = load(run / "context" / "queries.json", []) or []
     engine = engine_dir(run)
     cards = load(engine / "metric_cards.json", {}) if engine else {}
     if not metrics or not queries:
-        raise Blocked("The run has no built metrics or queries yet. Build the context first.")
+        raise Blocked("Your agent has no metrics or saved queries yet. Once I build them, I can write questions to test it.")
     if not (cards or {}).get("metrics"):
-        raise Blocked("The run has no metric cards from the metrics engine, so no question can be tied to a "
-                      "metric. Bring a set instead: one {id, question, sql} per line in .atlan-evals/sets/.")
+        raise Blocked("I can't tie questions to your agent's metrics here. Bring your own questions instead: one "
+                      "question and its SQL per line, in .atlan-evals/sets/.")
     if ev.exists():
         shutil.rmtree(ev)
     refs_by_vq = cards.get("metric_refs_by_vq") or {}
@@ -151,7 +154,7 @@ def unfit(sql: str):
         return None  # nothing to read: the engine's own gate decides
     bare = _SQL_NOISE.sub(" ", sql or "")
     if _PROBE.search(bare):
-        return "a probe that returns no rows"
+        return "a test query that returns nothing"
     if _DATA_TEST.search(bare):
         return "a data test, not a business question"
     if _FRESHNESS.search(bare):
@@ -228,7 +231,7 @@ def cmd_pick(a) -> dict:
             p.unlink()
     selection = [{"id": c["id"], "metric": names.get(m, m) or "", "focus": bool(m) and m == focus,
                   "from": "dashboard tile" if (pool.get(c["query_id"]) or {}).get("source") == "tile" else
-                  f"past query, run {(pool.get(c['query_id']) or {}).get('runs') or 1} times"}
+                  f"past query, used {(n := (pool.get(c['query_id']) or {}).get('runs') or 1)} time{'' if n == 1 else 's'}"}
                  for m, c in chosen]
     dump(work / "selection.json", selection)
     dump(work / "pick.json", {"limit": a.limit})
@@ -250,7 +253,7 @@ def cmd_emit(a) -> dict:
             for r in spec.get("records") or []
             if r.get("review_status") != "rejected" and r.get("question") and r.get("golden_sql")]
     if not rows:
-        raise Blocked("The draft kept no question with its SQL.")
+        raise Blocked("No question could be kept with SQL that answers it.")
     # In the order they were picked, and no more than asked for: the spares fill in for a draft
     # that found a question unanswerable.
     order = {i: n for n, i in enumerate(selection)}
@@ -263,7 +266,28 @@ def cmd_emit(a) -> dict:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("".join(json.dumps(r) + "\n" for r in rows))
     return {"status": "ok", "set": str(out), "questions": len(rows), "spares_unused": spare,
-            "metrics": sorted({r["tests"] for r in rows if r["tests"]})}
+            "metrics": sorted({r["tests"] for r in rows if r["tests"]}), **_questions_chip(gen)}
+
+
+def _questions_chip(gen: pathlib.Path) -> dict:
+    """Written questions are an output: their chip comes with the result, drawn whole and marked shown, and the side
+    page lists them. Chips a guide only asked for went undrawn in the dry run (2026-11-25)."""
+    import subprocess
+    run = next((r for r in built_runs(gen.parents[2]) if r.name == gen.name), None)
+    if run is None:
+        return {}
+    runner = pathlib.Path(__file__).resolve().parents[2] / "analytics-build" / "scripts" / "project.py"
+    try:
+        done = subprocess.run([sys.executable, str(runner), "--run-dir", str(run), "visual", "questions"],
+                              capture_output=True, text=True, timeout=90)
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    text = (done.stdout or "").strip()
+    if done.returncode or not text:
+        return {}
+    return {"show_first": text,
+            "visual": "Show `show_first` now, before any other words or call: pass each widget in it to `show_widget`, "
+                      "or print its lines as they are, and do what each of its `side view` lines says."}
 
 
 def cmd_ready(a) -> dict:
@@ -271,7 +295,7 @@ def cmd_ready(a) -> dict:
     src = pathlib.Path(a.set)
     rows = [json.loads(l) for l in src.read_text().splitlines() if l.strip()]
     if not rows or not all(r.get("question") and r.get("sql") for r in rows):
-        raise Blocked(f"{src.name} needs a question and its sql on every line.")
+        raise Blocked(f"{src.name} needs a question and its SQL on every line.")
     out = src.parents[1] / "saved" / src.stem
     if out.exists():
         shutil.rmtree(out)

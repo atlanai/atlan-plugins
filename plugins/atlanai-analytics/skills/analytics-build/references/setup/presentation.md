@@ -1,7 +1,7 @@
 # One setup presentation flow
 
 Use the demo's presentation flow for every setup, with the actual sources and results of
-the selected run. There is no separate compact setup flow or word limit. Technical stage
+the selected run. There is no separate compact setup flow. Technical stage
 procedures control execution, validation and publication; these moment files control what
 the person sees and how it reaches the host's visible surface.
 
@@ -10,9 +10,9 @@ the person sees and how it reaches the host's visible surface.
 | Start | Open with [the interview](intent.md), its opening as the card's own text, then the Doing and Why lines below through every moment. Explain the outcome, sources, steps and controls before work. A chosen demo uses its full welcome from [the demo skill](../../../analytics-demo/SKILL.md). Own-data setup uses the same structure with inspected facts; never borrow a demo's people, numbers or tour. |
 | Each step starts | Show the flow's full tracker in chat and update the host task list when available, following [the checklist](checklist.md). |
 | A step of the build ends | When [the build's wait](progress.md#drafts-as-they-land) names a step's end, run `visual next` and show what it gives. The batches show on the side page, never in the chat. It needs no Doing or Why lines. |
-| The selected collection has been checked | In the discovery branch, when no dashboard was part of the build, first ask [the interview's dashboard offer](intent.md#after-the-build-in-this-branch-only-offer-a-dashboard), alone, and come back here after its answer. Then read [context built and where to keep it](save.md) and ask its question: `PROJECT question save` composes the celebration, the review (actual counts, checks, one representative definition) and the local-versus-shared choice as one native question. Never end the turn without the offer or this question. |
-| The context is saved or kept local | Own-data setup first reads [check accuracy](accuracy.md) and offers the accuracy check. Then read [ready for questions](ready.md). Ask the ready question, with the ready block, material limitations and supported questions as its text, for both demo and own-data setup. Answer only a question the person has supplied or selected. |
-| The selected questions are answered | End the turn on the answer with the `Next:` line from [ready for questions](ready.md): Ask more questions, Design a dashboard and the demo's real-data continuation. |
+| The selected collection has been checked | In the discovery branch, when no dashboard was part of the build, first ask [the interview's dashboard offer](intent.md#after-the-build-in-this-branch-only-offer-a-dashboard), alone, and come back here after its answer. Then read [context built and where to keep it](save.md) and ask its question now: `PROJECT question save` composes the celebration, the review (actual counts, checks, one representative definition) and the local-versus-shared choice as one native question. Never end the turn without the offer or this question. |
+| The context is saved or kept local | Own-data setup first reads [check accuracy](accuracy.md), which says whether the ready question offers the check. Then read [ready for questions](ready.md). Ask the ready question, with the ready block and material limitations as its text and the supported questions as its options, for both demo and own-data setup. Answer only a question the person has supplied, typed or selected. |
+| The selected questions are answered | End the turn on the answer with the `Next:` line from [ready for questions](ready.md), with the options it lists. |
 
 Every moment follows [text before a native question](../conventions.md#text-before-a-native-question-is-lost):
 a block to read before a choice is the question's own text, and a result ends its turn.
@@ -52,12 +52,10 @@ question's text, so the rule, holds and limitations go there, never before the q
 
 ## Say what and why, as the demo does
 
-Own-data setup talks as the demo does ([the tour rules](../../../analytics-demo/references/tour.md),
-"Say what and why at every moment"), with this run's facts. Before each moment, two short
-lines as an ordinary reply, at most 35 words together; after it, the result in one line, in
-the past tense, with counts. Never a file name, helper name or query-pattern count in those
-lines, and never the words candidate, engine, gate, hold, export or Registry. A difference
-from a report is news: name it, say why, and count it.
+When to say a pair, and when to say nothing, is [when to talk](progress.md#when-to-talk); its
+words follow [the conventions](../conventions.md#words-the-person-reads). Own-data setup uses the
+pairs below with this run's facts, as the demo uses its own. A difference from a report is news:
+name it, say why, and count it.
 
 The look at what is connected before the interview has no line: it is silent, as
 [the interview](intent.md) says. The first Doing and Why come after the answers.

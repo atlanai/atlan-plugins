@@ -116,7 +116,7 @@ class DatabricksModuleTests(unittest.TestCase):
                 assert callable(options['credentials_provider']) and 'access_token' not in options
             with mock.patch.dict(os.environ,{},clear=True),mock.patch.object(auth,'at_terminal',return_value=False):
                 try:auth.connection_options(settings)
-                except ValueError as exc:assert 'real terminal' in str(exc)
+                except ValueError as exc:assert 'needs a terminal' in str(exc)
                 else:raise AssertionError('Unattended OAuth started')
             with mock.patch.dict(os.environ,{'DATABRICKS_TOKEN':'synthetic-token'},clear=True):
                 options=auth.connection_options(settings)

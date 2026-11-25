@@ -14,13 +14,13 @@ def access_blocker(exc):
     # Connector error strings are classified locally and never copied into artifacts.
     text = str(exc).upper()
     if "UC_NOT_ENABLED" in text:
-        code, ask = "database_not_visible", "Use Unity Catalog-enabled compute in a workspace assigned to the appropriate metastore; do not change grants automatically"
+        code, ask = "database_not_visible", "This needs a Databricks SQL warehouse with Unity Catalog, in a workspace attached to the right metastore."
     elif state == "42501" or any(v in text for v in ("PERMISSION_DENIED", "INSUFFICIENT_PERMISSIONS")):
-        code, ask = "no_select_grant", "Ask the warehouse administrator for read access to the selected source"
+        code, ask = "no_select_grant", "Ask your warehouse admin for read access to the selected source."
     elif state.startswith("28") or any(v in text for v in ("UNAUTHENTICATED", "INVALID_ACCESS_TOKEN")):
-        code, ask = "warehouse_sign_in_failed", "Repeat the selected Databricks sign-in without sharing credentials"
+        code, ask = "warehouse_sign_in_failed", "Sign in to Databricks again the same way. Never paste credentials into the chat."
     elif state in ("42P01", "42704") or "TABLE_OR_VIEW_NOT_FOUND" in text:
-        code, ask = "object_not_visible", "Confirm the selected table exists and the role can read it"
+        code, ask = "object_not_visible", "Check that the selected table exists and that the role can read it."
     else:
         return None
     return access.blocker(code, source="databricks-direct", stage="sql_check",

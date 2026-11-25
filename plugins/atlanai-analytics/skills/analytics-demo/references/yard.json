@@ -3,7 +3,7 @@
  "flow": "demo",
  "connect": {
   "title": "Job profit agent for Fixit & Co.",
-  "tagline": "Answers questions about Fixit's jobs in plain English, and shows how every number is worked out"
+  "tagline": "Answers questions about Fixit's jobs in plain English, and shows how each number is worked out"
  },
  "ready": {
   "agent": "job profit agent",

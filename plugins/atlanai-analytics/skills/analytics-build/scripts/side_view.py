@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import time
 
 try:
     import fcntl
@@ -128,13 +129,88 @@ def _shows(kind, run, engine_dir):
         return False
 
 
+# The build's own steps. Once its card is shown they would come after it, out of order, so they stay back (validation
+# run G, 2026-11-25: they came in a lump after the card, and none was drawn).
+STEPS = ('found', 'sources', 'group', 'tiles', 'described', 'drafted', 'metrics', 'rules', 'links')
+
+
 def due(run, engine_dir=None):
     """The moments the run's files can show but the side view has not recorded, in order."""
     run = Path(run)
     if not (run / 'run.json').is_file():
         return []
     done = set(seen(run, engine_dir))
-    return [kind for kind in MIDWAY if kind not in done and _shows(kind, run, engine_dir)]
+    late = 'build' in done
+    return [kind for kind in MIDWAY if kind not in done and not (late and kind in STEPS) and _shows(kind, run, engine_dir)]
+
+
+# A wait that marked itself this recently is following the build: it looks every few seconds, and a session acts on
+# what it prints and waits again within a minute or so.
+WAIT_FRESH = 120
+
+
+def mark_waiting(run, at=None):
+    """The build wait says it is running, each time it looks: the engine then leaves the chips to it."""
+    _write(Path(run) / 'view' / 'waiting.json', json.dumps({'at': time.time() if at is None else at}))
+
+
+def waiting(run):
+    """Whether a build wait is following the build now. With none, the session drives the engine itself, and the
+    engine's own result hands over each chip."""
+    at = read_json(Path(run) / 'view' / 'waiting.json', dict, {}).get('at')
+    return isinstance(at, (int, float)) and time.time() - at < WAIT_FRESH
+
+
+# What a result that carries a moment tells the session.
+SHOW_FIRST = ('Show `show_first` now, before any other words or call: it is what the run has reached, as the chat shows '
+              'it. Pass each widget in it to `show_widget`, or print its lines as they are, and do what each of its '
+              '`side view` lines says.')
+
+
+def handed(shown):
+    """The fields a result carries a drawn moment in: nothing when nothing was drawn."""
+    return {'show_first': shown, 'visual': SHOW_FIRST} if shown else {}
+
+
+def show_card(run, kind, data=None):
+    """A card drawn from what the result that produced it holds, as `visual <kind> --input -` draws it, and recorded:
+    the result carries it whole. A guide line alone left the answer card undrawn (dry run C, 2026-11-25). Empty when it
+    cannot be drawn, so that result never fails for it."""
+    import subprocess
+    import sys
+    cmd = [sys.executable, str(Path(__file__).with_name('project.py')), '--run-dir', str(run), 'visual', kind]
+    try:
+        done = subprocess.run(cmd + (['--input', '-'] if data else []), input=json.dumps(data) if data else None,
+                              capture_output=True, text=True, timeout=90)
+    except (OSError, subprocess.SubprocessError):
+        return ''
+    return (done.stdout or '').strip() if done.returncode == 0 else ''
+
+
+def show_due(run, engine_dir=None, limit=4):
+    """What the chat must show now, handed over whole: each moment the run has reached and not shown, as `visual next`
+    draws it (a widget in the desktop app, a chip's lines in a terminal) with its own `side view` line, and marked
+    shown. Empty when nothing is due or a moment cannot be drawn: the result that carries it never fails for it."""
+    import subprocess
+    import sys
+    shown = []
+    for _ in range(limit):
+        before = due(run, engine_dir)
+        if not before:
+            break
+        cmd = [sys.executable, str(Path(__file__).with_name('project.py')), '--run-dir', str(run), 'visual', 'next']
+        try:
+            done = subprocess.run(cmd + (['--engine-dir', str(engine_dir)] if engine_dir else []),
+                                  capture_output=True, text=True, timeout=90)
+        except (OSError, subprocess.SubprocessError):
+            break
+        text = (done.stdout or '').strip()
+        if done.returncode or not text or 'Nothing new to show yet' in text:
+            break
+        shown.append(text)
+        if due(run, engine_dir) == before:
+            break  # a moment that drew nothing new is left to its own call, never repeated here
+    return '\n\n'.join(shown)
 
 
 def _rows(run, flow, kinds, engine_dir):

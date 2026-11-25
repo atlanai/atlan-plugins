@@ -4,7 +4,7 @@
 
 ## 5. Show the metrics before asking where to publish
 
-**No Atlan connection, no destination question.** Before offering Atlan Trident, check that
+**No Atlan connection, no destination question.** Before offering Atlan, check that
 this session has the Atlan tools (`registry__list_workspaces`) and that the connection is
 enabled and signed in. When it is not, or the person says the core `atlanai` plugin is missing,
 do not ask where to save: end as [connection recovery](../auth-recovery.md) sections 3 and 4
@@ -28,8 +28,8 @@ all generated or executed queries "verified". Mention any remaining source-revie
 the handoff even when publication holds are zero.
 If a sample already appeared, show a material definition/check change before continuing.
 A helper output or linked file is not a visible sample. Expand to five/all only on request.
-Use a short contextual choice when a decision is missing: an existing destination or Keep
-local. Mention Show details and Show more as available actions without repeating a menu after
+Use a short contextual choice when a decision is missing: an existing destination or Keep it
+on this machine. Mention Show details and Show more as available actions without repeating a menu after
 every step. If publication was requested already, continue under its existing authorization.
 
 **Show five:** run `PROJECT preview --limit 5 --format markdown` and display its text in the
@@ -65,8 +65,7 @@ recovery. Never retry an uncertain remote mutation blindly. Carry approved write
 release and full MCP readback. Record receipts with `PROJECT publication` as the local
 procedures describe. A draft or local plan is not publication.
 When definitions already exist, say which, how many and where, and why reuse beats a copy:
-"6 of the 8 metrics were already saved in Analytics Demo by an earlier run, so I reused them;
-2 are new." Use actual counts and names, never only "everything was already created".
+"6 of the 8 metrics were already in Analytics Demo, so I reused them. 2 are new." Use actual counts and names, never only "everything was already created".
 Reusing everything still requires the visible preview before marking Ready. Explain count
 changes: name any candidate kept only for validation, deduplicated, held or replaced by a
 released definition, with its reason. Preserve those local candidates and coverage decisions;

@@ -18,7 +18,8 @@ Return the warehouse connections this machine has, without reading any data:
 2. SQL tools behind Atlan, then the host's own connectors, then an installed vendor CLI with
    a saved connection, as [warehouse discovery](connect.md) steps 1 to 3 find them.
 
-For each, return the product, how it is reached, and whether its check statement answered.
+For each, return the product, how it is reached, and whether its check statement answered,
+as one line: "<Product> · through <Atlan / this app / the CLI> · answered" (or "didn't answer").
 A connector that only offers sign-in is returned as "needs sign-in". Run at most one check
 statement per connection. Never open a credential or connection config file.
 
@@ -33,7 +34,7 @@ Every statement is read-only with a limit.
 Alongside the warehouse, note what already exists, without asking:
 
 - BI files in the working folder (`PROJECT discover`), by name and tool. Demo files never.
-- Metrics already released in Atlan for the subjects found, when the Atlan connection
+- Metrics already released in Atlan Trident for the subjects found, when the Atlan connection
   answers: one `extension__metric__search_metrics` call with the subjects' words. A failed
   or signed-out read is skipped silently; discovery does not need Atlan.
 
@@ -45,8 +46,8 @@ dashboard or existing metrics come with it. Existing metrics are reused, never r
 `PROJECT survey` on the file, or the host's tools for a link. The tables it reads are the
 first suggestions, and its measures are the numbers people ask for. Check that those tables
 exist in the chosen warehouse with one metadata statement. A report whose data is packed
-inside the file adds nothing to build from: say so in one clause and continue from the
-warehouse.
+inside the file adds nothing to build from: say "This dashboard's data is inside the file, so it
+adds no tables to build from." and continue from the warehouse.
 
 ### 2. Find the schemas in use
 
@@ -85,8 +86,8 @@ minute or two, and a timed-out statement returns nothing.
   unchanged, and after a second timeout move down a rung.
 
 Say the rung in the suggestion, in plain words, because it changes what "most used" means:
-"across your account, last 7 days", "from your own queries, last 7 days", or "by size and
-last change; usage was not readable". Missing usage is never shown as zero.
+"across your account, last 7 days", "from your own past queries, last 7 days", or "by size and
+last change, since I couldn't read how often tables are used". Missing usage is never shown as zero.
 
 **Search: always, whatever the rung.** One statement over table names and comments, in the
 databases the usage statement's tables came from (or the connection's own, with no usage):
@@ -128,7 +129,7 @@ One statement for the columns of the use cases' tables, at most twelve. From the
 
 | What | How to tell | If it cannot be told |
 | --- | --- | --- |
-| Entities | Tables that hold one row per thing: an account, a user, an order | Return the two candidates; the caller asks which the person means |
+| Entities | Tables that hold one row per thing: an account, a user, an order | Take the one more queried, and return the other as its alternative; the caller states the choice |
 | Identifiers and joins | Key columns shared between tables | Leave the join out and say so |
 | Numbers people ask for | The report's measures; otherwise the aggregates that recur in query history | Suggest none; generation mines them |
 | What to leave out | Flag and status columns such as `IS_TEST`, `IS_INTERNAL`, `IS_DELETED`, a `status` with a deleted value | Apply none and say none was found |
@@ -138,20 +139,21 @@ Never sample rows to answer these, and never print a value that identifies a per
 
 ### 5. Return the use cases
 
-- One line of what was found and where the usage came from: "Snowflake. Most used across
+- One line of what was found and where the usage came from: "On Snowflake, most used across
   your account in the last 7 days."
 - Two to four use cases, most used first. For each: a name of two to four words, one line of
   at most twelve words on what it answers, and its two to five tables by name.
 - Kept in the run, not returned for display: per table, how much it is used, what it holds,
   how it links and what will be left out. The caller shows these only when asked.
-- Anything the warehouse could not settle, as at most one question for the caller.
+- Anything the warehouse could not settle, as the choice made and its alternative, never a
+  question: the caller states it in the build's start line.
 
 Bounds: one statement each for schemas, search and columns, and one per usage rung tried; at
 most four use cases and twelve tables in all. Stop earlier when the suggestion is clear. Query history itself is pulled later, by
 generation, scoped to the confirmed tables.
 
-When no table fits, `readiness` is `none`: say which words were searched and that
-`analytics-demo` shows the flow on made-up data.
+When no table fits, `readiness` is `none`: say "No tables matched <words>. Next: try the demo,
+which shows how this works on made-up data." (the demo is `analytics-demo`).
 
 ## `access`: can the named sources be read
 
@@ -161,12 +163,12 @@ nothing is searched for or suggested. Check only that each can be read, and repo
 1. **Each dashboard**: `PROJECT survey` on a file; the host's tools for a link. Record
    whether it opened, whether it needs sign-in, its page and measure counts, and the tables
    it reads. A dashboard whose data is packed inside the file reads no warehouse table: say
-   so.
+   "This dashboard's data is inside the file, with no warehouse table behind it."
 2. **Each table**, named by the person or read by a dashboard: one metadata statement for
    all of them on the chosen warehouse. Record which exist and can be read, and which
    cannot.
-3. **Return** what can be read, with counts ("the report's 8 pages and 34 measures, 12
-   tables, all readable"), and exactly what cannot, by name, with the reason: needs sign-in,
+3. **Return** what can be read, with counts ("I can read all of it: the dashboard's 8 pages and
+   34 measures, and the 12 tables they use."), and exactly what cannot, by name, with the reason: needs sign-in,
    not found, no permission. Never a credential, a role secret or a connection string.
 
 Never widen the set: a table the person did not name and the dashboard does not read is not

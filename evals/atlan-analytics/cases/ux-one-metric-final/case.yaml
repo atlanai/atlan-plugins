@@ -30,9 +30,9 @@ graders:
       shows one released metric's business definition: meaning, calculation, population or
       filter, source and honest check status. Shipped units is the natural sample; another
       released metric shown with the same fields from the run is acceptable.
-      The helper's ready block says "8 metrics and 4 queries" built, "7 metrics, 4 queries ·
-      Saved to Atlan Trident" and "11 of 12 checked on your data first": those are the same
-      counts (8 built, 1 held) and SQL that ran before the save, not a parity claim.
+      The helper's ready block says "7 metrics, 4 saved queries · Saved to Atlan" and "7
+      metrics and 4 saved queries saved to Atlan, in Shipping; 1 metric stored on this
+      machine": those are the same counts (8 built, 1 held), not a parity claim.
       FAIL on a link in place of the sample, invented definitions, a claim of verified
       dashboard parity, or calling the held metric ready.
   - name: supported-question-handoff
@@ -47,9 +47,9 @@ graders:
       unsupported scope (another dimension, a period comparison) or separate-agent set-up.
       Saying that answers read the published definitions before running SQL is good. Two of
       these questions plus "Ask my own question" is enough. The ready block's lines describe
-      saved state: "Saved to Atlan Trident", "Live in Shipping" and "Your agent is ready" (this
-      chat with the saved context, the product's own words) are not claims that anything ran
-      or was published in this turn, nor that an agent was created.
+      saved state: "Saved to Atlan" and "In Shipping" (the context saved earlier, the
+      product's own words) are not claims that anything ran or was published in this turn,
+      nor that an agent was created.
       FAIL for claiming anything ran or was published in this turn, offering On-time rate as
       answerable, or creating an agent.
   - name: plain-reply

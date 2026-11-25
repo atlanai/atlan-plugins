@@ -56,7 +56,7 @@ class Page(unittest.TestCase):
         self.assertNotIn('drafts --wait', side_page.instruction({'url': 'http://127.0.0.1:1/k/', 'opened': True}), 'a terminal is unchanged')
 
     def test_a_metric_says_where_its_data_lives_and_where_it_was_kept(self):
-        # A metric's profile read "On this machine" for both rows on a warehouse run that was saved to Atlan.
+        # A metric's profile read "On this machine" for both rows on a warehouse run that was saved to Atlan Trident.
         page = side_page.snapshot(make_run(self.root, warehouse='snowflake'))
         self.assertEqual(page['warehouse'], 'Snowflake')
         self.assertEqual(page['saved'], {'workspace': 'Test workspace'})
@@ -67,7 +67,7 @@ class Page(unittest.TestCase):
     def test_a_page_that_cannot_start_is_named_once_so_nobody_waits_for_it(self):
         # A tester, 2026-11-19: the page never opened, and nothing in the chat said so.
         said = side_page.instruction({'error': 'no free port'})
-        self.assertIn("couldn't start on this machine", said)
+        self.assertIn("could not start on this machine", said)
         self.assertIn('once', said)
         self.assertNotIn('say nothing', said.lower())
 
@@ -420,17 +420,18 @@ class Questions(unittest.TestCase):
         asked = questions.save(run, data=[facts()])
         for word in DEMO_WORDS:
             self.assertNotIn(word, asked['question'], 'a demo facts file passed on own data is ignored')
-        self.assertIn('✓ Every metric and query ran · on your data', asked['question'])
-        self.assertTrue(asked['question'].endswith('Where should this context live?'), 'the question comes last')
-        # The task list numbers the steps (nine on own data, seven in a demo): a second numbering in the header disagreed.
+        self.assertIn('Validated on your data: all passed.', asked['question'])
+        self.assertTrue(asked['question'].endswith('Where do you want to store your context?'), 'the question comes last')
+        # The task list numbers the steps (ten on own data, eight in a demo): a second numbering in the header disagreed.
         self.assertEqual(asked['header'], 'Save')
-        self.assertEqual([o['label'] for o in asked['options']], ['Save to Atlan Trident (recommended)', 'Keep it on this machine'])
+        self.assertEqual([o['label'] for o in asked['options']], ['Save to Atlan Trident (Recommended)', 'Keep it on this machine'])
 
     def test_the_save_question_carries_the_review(self):
         # A live own-data run wrote the review as a reply and ended its turn, leaving the save question unasked.
         text = questions.save(make_run(self.root, saved=False))['question']
         self.assertIn('One metric in full: Gross margin, £118,681 on your data', text)
-        self.assertLess(text.index('One metric in full'), text.index('Where should this context live?'), 'the question comes last')
+        self.assertLess(text.index('One metric in full'), text.index('Where do you want to store your context?'),
+                        'the question comes last')
 
     def test_the_save_question_carries_the_page_address_only_in_a_terminal(self):
         # In the desktop app a link in the question opens an outside browser, never the page beside the chat.
@@ -440,7 +441,7 @@ class Questions(unittest.TestCase):
         self.assertIn('http://127.0.0.1:5/key/#m=', questions.save(run)['question'])
         desktop = questions.save(run, widget=True)['question']
         self.assertNotIn('http', desktop)
-        self.assertIn('From 1 dashboard tile and 1 past query.', desktop)
+        self.assertIn('From 1 tile and 1 past query.', desktop)
 
     def test_once_the_flow_moves_on_an_item_never_run_needs_a_look(self):
         # The ready chip read "2/4 kept" while its rows named one item to look at, and the page showed the other as
@@ -454,9 +455,9 @@ class Questions(unittest.TestCase):
         at(run, 'preview')
         made = side_page.snapshot(run)
         never = next(q for q in made['queries'] if q['name'] == 'Q jobs')
-        self.assertEqual((never['status'], never['why']), ('look', 'Its check never ran.'))
+        self.assertEqual((never['status'], never['why']), ('look', "It wasn't tested."))
         text = ' '.join(questions.ready(run)['question'].split())
-        self.assertIn('1 metric and 1 query did not pass their check', text)
+        self.assertIn("1 metric and 1 saved query didn't pass their tests", text)
 
     def test_each_saved_query_carries_its_profile_like_a_metric(self):
         # A query row on the page opened nothing, while each metric opened where it came from, its rule and its check.
@@ -517,11 +518,11 @@ class Questions(unittest.TestCase):
         checks.write_text(json.dumps(entries), encoding='utf-8')
         at(run, 'preview')
         asked = questions.save(run)
-        self.assertIn('2 metrics and 2 queries, their sample checks run on your Snowflake data with its own read-only tool',
-                      ' '.join(asked['question'].split()))
-        self.assertNotIn('need a look', asked['question'], 'no count this helper cannot see')
+        self.assertIn('answers from 2 metrics and 2 saved queries, built from your Power BI dashboard and 3 past queries. '
+                      'Validated on your Snowflake data, read-only.', ' '.join(asked['question'].split()))
+        self.assertNotIn('need your review', asked['question'], 'no count this helper cannot see')
         self.assertTrue(asked['results'], 'the agent adds the one line of results it holds')
-        self.assertNotIn('context', asked['shown'])
+        self.assertEqual(asked['shown'], ['build', 'context'], 'the text says, in sentences, what the cards would')
         from run_facts import RunFacts
         self.assertFalse(RunFacts(run).checks_over, 'so no checks chip is drawn')
         made = side_page.snapshot(run)
@@ -530,7 +531,7 @@ class Questions(unittest.TestCase):
         for stage in ('check', 'preview', 'publish', 'ready'):
             at(run, stage)
             text = json.dumps(side_page.snapshot(run))
-            for count in ('metrics and queries run', 'of 4 checked', '4 need a look', '3 need a look'):
+            for count in ('saved query passed', 'of 4 passed', '4 need your review', '3 need your review'):
                 self.assertNotIn(count, text, 'no count this helper cannot see, at %s' % stage)
 
     def test_a_saved_warehouse_run_claims_no_check_count(self):
@@ -541,7 +542,7 @@ class Questions(unittest.TestCase):
         checks.write_text(json.dumps({k: dict(v, status='schema_checked', errors=[]) for k, v in entries.items()}), encoding='utf-8')
         card = visuals.render('saved', visuals.build_spec('saved', run))
         self.assertIn('Saved to Atlan Trident', card)
-        self.assertNotIn('need a look', card)
+        self.assertNotIn('need your review', card)
         self.assertNotIn('checked on', card)
 
     def test_on_local_data_moving_on_counts_what_never_ran(self):
@@ -558,7 +559,9 @@ class Questions(unittest.TestCase):
         self.assertIn('PROJECT progress --stage preview --status running', str(refused.exception),
                       'the way on when a check cannot run')
         at(run, 'preview', 'running')
-        self.assertIn('△ 4 need a look · on your data', questions.save(run)['question'])
+        text = questions.save(run)['question']
+        self.assertIn('Validated on your data', text)
+        self.assertIn('4 need your review', text)
 
     def test_the_ready_question_waits_for_where_the_context_lives(self):
         # A live run kept its context on this machine without recording it: the ready question could not say where it lives.
@@ -567,12 +570,12 @@ class Questions(unittest.TestCase):
             questions.ready(run)
         self.assertIn('PROJECT journey keep-local', str(refused.exception))
         kept = make_run(self.root / 'kept', saved=False, local=True)
-        self.assertIn('on this machine', questions.ready(kept)['question'])
+        self.assertIn('this machine, in this folder', questions.ready(kept)['question'])
 
     def test_a_demo_ready_question_lists_no_held_items_without_its_facts(self):
         run = make_run(self.root / 'demo-held', saved=False, local=True, demo=True, failing=1)
         with mock.patch.object(questions, '_demo', return_value={}):
-            self.assertNotIn('Needs a look', questions.ready(run)['question'])
+            self.assertNotIn('Needs your review', questions.ready(run)['question'])
 
     def test_a_ready_option_is_one_question(self):
         run = make_run(self.root / 'one-q', saved=False, local=True)
@@ -650,42 +653,120 @@ class Questions(unittest.TestCase):
         self.assertEqual(asked['header'], 'Save')
 
     def test_the_save_question_says_only_what_the_person_cant_already_see(self):
-        # The copy budget (the team, 2026-11-19): no banner and no "hard part" line. On desktop the cards above say
-        # what was built, so the question opens on the count line; in a terminal the card is the question's own text.
+        # The copy budget (the team, 2026-11-19 and 2026-11-22): no banner and no "hard part" line. On desktop the build
+        # card above says what was built, so the question opens on the validation; in a terminal the text says it in
+        # sentences.
         for widget in (True, False):
             text = questions.save(make_run(self.root / str(widget), saved=False, demo=True), widget=widget, data=[facts()])['question']
             for gone in ('CONTEXT BUILT', 'You turned', 'hard part'):
                 self.assertNotIn(gone, text)
             self.assertIn('One metric in full', text)
-            self.assertTrue(text.endswith('Where should this context live?'))
+            self.assertTrue(text.endswith('Where do you want to store your context?'))
             if widget:
-                self.assertTrue(text.startswith("2 metrics and 2 queries, every one ran on Fixit's data."), text[:80])
+                self.assertTrue(text.startswith("Validated on Fixit's data: all passed."), text[:80])
             else:
-                self.assertIn('Built from your sources', text, 'the build card is part of the question in a terminal')
+                self.assertTrue(text.startswith("Your job profit agent is built.\nIt answers from 2 metrics and 2 saved queries, "
+                                                "built from Fixit's Power BI dashboard and 3 past queries.\n"
+                                                "Validated on Fixit's data: all passed."), text[:200])
 
-    def test_a_widget_host_keeps_the_count_line(self):
+    def test_a_widget_host_leaves_what_was_built_to_the_card(self):
         asked = questions.save(make_run(self.root, saved=False), widget=True)
-        self.assertIn('2 metrics and 2 queries, every one ran on your data.', asked['question'])
-        self.assertNotIn('Built from your sources', asked['question'], 'the card is drawn as a widget instead')
+        self.assertTrue(asked['question'].startswith('Validated on your data: all passed.'), asked['question'][:80])
+        for gone in ('is built', 'answers from', "how it's calculated"):
+            self.assertNotIn(gone, asked['question'], 'the card is drawn as a widget instead')
+        self.assertEqual(asked['shown'], [])
 
-    def test_the_ready_question_hands_over_what_was_built(self):
+    def test_the_save_question_draws_no_bars_and_no_next_line(self):
+        # 0.9.75: block characters break and wrap in a question's proportional font, and a "Next:" line before the
+        # question said the question twice.
+        for name, demo, widget in (('own', False, False), ('own-w', False, True), ('demo', True, False), ('demo-w', True, True)):
+            with self.subTest(name=name):
+                run = make_run(self.root / name, saved=False, demo=demo)
+                (run / 'view').mkdir(exist_ok=True)
+                (run / 'view' / 'server.json').write_text(json.dumps({'url': 'http://127.0.0.1:5/key/'}), encoding='utf-8')
+                text = questions.save(run, widget=widget, data=[facts()])['question']
+                for block in '█░▓':
+                    self.assertNotIn(block, text)
+                self.assertFalse([x for x in text.splitlines() if x.strip().startswith('Next:')], text)
+
+    def test_the_ready_question_says_where_the_context_is_stored_and_what_to_ask(self):
         run = make_run(self.root, local=True)
         asked = questions.ready(run, data=[facts()])
         text = asked['question']
-        self.assertIn('Your agent is ready.', text, 'own data names no demo agent')
-        self.assertIn('Where it lives        on this machine', text)
-        self.assertNotIn('See the environment', text, 'own data has no tour')
-        self.assertTrue(text.endswith('What would you like to ask?'))
+        self.assertTrue(text.startswith('Stored on this machine, in this folder. To use it later, open a chat in that folder '
+                                        'and ask about Job margin.'), text[:120])
+        self.assertNotIn('job profit agent', text, 'own data names no demo agent')
+        for row in ('- Kept', '- Ask it later', '- What it answers'):
+            self.assertNotIn(row, text)
+        self.assertNotIn('Tour the demo data', text, 'own data has no tour')
+        self.assertTrue(text.endswith('What would you like to ask? Pick one, or type your own in Other.'))
         self.assertEqual([o['label'] for o in asked['options']], ['What is the gross margin in pounds?', 'How much did rework cost?',
-                                                                  'Ask my own question', "I'm done for now"],
-                         "each a question the build wrote for a metric that passed its check, the dashboard's wording first, "
-                         "then the person's own")
+                                                                  'Build a dashboard', "I'm done"],
+                         "each a question the build wrote for a metric that passed its check, the dashboard's wording first; "
+                         "the person's own goes in the free-text entry")
+        self.assertEqual(asked['options'][-1]['description'], 'Your context stays stored on this machine.')
 
-    def test_a_demo_ready_question_names_its_agent_and_tour(self):
+    def test_the_ready_question_repeats_the_save_question_only_on_a_recap(self):
+        # The save question just said what was built and how it was validated: the ready question says it again only for
+        # a resumed run, where the person has not seen the save question in this chat.
+        for name, kwargs in (('local', {'local': True}), ('atlan', {}), ('atlan-w', {'widget': True})):
+            with self.subTest(name=name):
+                widget = kwargs.pop('widget', False)
+                run = make_run(self.root / name, **kwargs)
+                text = questions.ready(run, widget=widget)['question']
+                for said in ('is built', 'is ready', 'It answers from', 'Validated on', 'passed their tests'):
+                    self.assertNotIn(said, text)
+                recap = questions.ready(run, widget=widget, recap=True)['question']
+                self.assertIn('Your agent for Job margin is ready.', recap)
+                self.assertIn('It answers from 2 metrics and 2 saved queries', recap)
+
+    def test_the_ready_question_offers_four_options_at_most(self):
+        run = make_run(self.root, local=True)
+        asked = questions.ready(run, accuracy=True)
+        self.assertEqual([o['label'] for o in asked['options']], ['What is the gross margin in pounds?', 'Check how accurate it is',
+                                                                  'Build a dashboard', "I'm done"])
+        self.assertEqual(len(questions.ready(make_run(self.root / 'atlan'), accuracy=True)['options']), 4)
+
+    def test_a_demo_ready_question_names_its_tour_and_its_agent_on_a_recap(self):
         demo = dict(facts(), ready={'agent': 'job profit agent', 'answers': 'Questions about job margin', 'tour': 'https://example.com/tour/'})
-        text = questions.ready(make_run(self.root, local=True, demo=True), data=[demo])['question']
-        self.assertIn('Your job profit agent is ready.', text)
-        self.assertIn('See the environment   https://example.com/tour/', text)
+        run = make_run(self.root, local=True, demo=True)
+        asked = questions.ready(run, data=[demo])
+        self.assertIn('To tour the demo data: https://example.com/tour/ shows the firm and its data.', asked['question'])
+        self.assertNotIn('Build a dashboard', [o['label'] for o in asked['options']], 'a demo keeps its own order')
+        self.assertIn('Your job profit agent is ready.', questions.ready(run, data=[demo], recap=True)['question'])
+
+    def test_the_closing_message_says_what_was_built_and_how_to_use_it(self):
+        local = questions.close(make_run(self.root / 'local', local=True))
+        self.assertEqual(list(local), ['text'])
+        text = local['text']
+        self.assertTrue(text.startswith('Your agent for Job margin is built and ready.'))
+        self.assertIn("It's stored on this machine, in this folder.", text)
+        self.assertIn('save it to Atlan Trident', text, 'a local run is told how to share it')
+        self.assertNotIn('Accuracy', text, 'no score when the check never ran')
+        scored = questions.close(make_run(self.root / 'scored', local=True), score=80, scored=10)['text']
+        self.assertIn('- Accuracy: 80% on 10 test questions.', scored)
+        atlan = questions.close(make_run(self.root / 'atlan'))['text']
+        self.assertIn('Saved to Atlan Trident, in Test workspace.', atlan)
+        self.assertNotIn('save it to Atlan Trident', atlan)
+        self.assertNotIn('Accuracy', atlan)
+        one = questions.close(make_run(self.root / 'one'), score=100, scored=1)['text']
+        self.assertIn('- Accuracy: 100% on its test question.', one)
+        for said in (text, scored, atlan, one):
+            self.assertFalse(said.rstrip().endswith('?'), 'it ends on no question')
+            for block in '█░▓':
+                self.assertNotIn(block, said)
+
+    def test_the_close_command_prints_the_message_and_what_to_do_with_it(self):
+        import subprocess
+        from analytics_run import SCRIPTS
+        run = make_run(self.root, local=True)
+        out = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(run), 'question', 'close',
+                              '--score', '80', '--scored', '10'], capture_output=True, text=True)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        said = json.loads(out.stdout)
+        self.assertEqual(set(said), {'text', 'next'})
+        self.assertIn('- Accuracy: 80% on 10 test questions.', said['text'])
+        self.assertIn('Ask no question', said['next'])
 
     def test_a_demo_that_left_out_its_facts_still_names_its_firm(self):
         # A live desktop run called `visual connect` without `--data`; the demo's working folder names the demo.
@@ -707,7 +788,19 @@ class Questions(unittest.TestCase):
         entries = json.loads(checks.read_text(encoding='utf-8'))
         checks.write_text(json.dumps({k: ({'status': 'failed', 'errors': ['x']} if k.startswith('metric:') else v) for k, v in entries.items()}),
                           encoding='utf-8')
-        self.assertGreaterEqual(len(questions.ready(run)['options']), 2, 'the question tool needs two options')
+        # With nothing to pick there is no native question; with any option there are two at least, as the tool needs.
+        asked = questions.ready(run)
+        self.assertEqual([o['label'] for o in asked['options']], ['Build a dashboard', "I'm done"],
+                         'no question passed: own data still offers the dashboard')
+        self.assertTrue(asked['question'].endswith("What would you like to ask? Type it in Other, or pick what's next."))
+        self.assertEqual([o['label'] for o in questions.ready(run, accuracy=True)['options']],
+                         ['Check how accurate it is', 'Build a dashboard', "I'm done"])
+        interaction = run / 'interaction.json'
+        interaction.write_text(json.dumps(dict(json.loads(interaction.read_text(encoding='utf-8')), dashboard='built')),
+                               encoding='utf-8')
+        asked = questions.ready(run)
+        self.assertEqual(asked['options'], [], 'no question passed, no check and a dashboard built: the person types')
+        self.assertTrue(asked['question'].endswith('What would you like to ask?'))
 
     def test_a_demo_ready_question_is_headed_by_its_step_without_its_facts(self):
         run = make_run(self.root, local=True, demo=True)
@@ -719,8 +812,8 @@ class Questions(unittest.TestCase):
         meta['publication']['artifacts'] = meta['publication']['artifacts'][:1]
         (run / 'run.json').write_text(json.dumps(meta), encoding='utf-8')
         text = ' '.join(questions.ready(run)['question'].split())
-        # By kind, so it adds up against the card's "1 metric, 0 queries" and "2 metrics and 2 queries" built.
-        self.assertIn('1 metric in Test workspace in Atlan Trident; 1 metric and 2 queries on this machine', text)
+        # By kind, so it adds up against the saved card's "1 metric" and the 2 metrics and 2 saved queries built.
+        self.assertIn('1 metric saved to Atlan Trident, in Test workspace; 1 metric and 2 saved queries stored on this machine', text)
 
     def test_the_save_question_waits_for_every_check(self):
         run = make_run(self.root, saved=False)

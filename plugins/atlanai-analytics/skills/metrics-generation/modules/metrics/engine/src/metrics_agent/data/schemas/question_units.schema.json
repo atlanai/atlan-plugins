@@ -1034,6 +1034,45 @@
         "minLength": 1
       },
       "description": "Present when the run reads several BI models: each distinct vendor, sorted. `vendor` is their shared vendor, or `mixed` when they differ."
+    },
+    "page_scope": {
+      "type": "object",
+      "description": "The pages the person chose (`page_scope.json`) and what A2 did with them. Absent when no pages were chosen. Every unit left out is also in `dropped[]`, reason `not_on_chosen_pages`.",
+      "properties": {
+        "requested": {"type": "array", "items": {"type": "string", "minLength": 1}, "description": "The page names asked for; empty for every page."},
+        "all": {"type": "boolean"},
+        "applied": {"type": "boolean", "description": "Whether units were left out. False for every page, and for a pick that names no page of the report (see `note`)."},
+        "chosen": {"type": "array", "items": {"type": "string", "minLength": 1}, "description": "The report's pages the names matched."},
+        "supporting": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "page": {"type": "string", "minLength": 1},
+              "for": {"type": "string", "minLength": 1, "description": "The kept page whose tiles need it."},
+              "why": {"enum": ["linked"], "description": "`linked`: a tile names it as its tooltip or drillthrough target. A page offered only because a tile shows its drillthrough column is never kept."}
+            },
+            "additionalProperties": false,
+            "required": ["page", "for", "why"]
+          }
+        },
+        "left_out": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "page": {"type": "string"},
+              "units": {"type": "integer", "minimum": 1}
+            },
+            "additionalProperties": false,
+            "required": ["page", "units"]
+          }
+        },
+        "unmatched": {"type": "array", "items": {"type": "string", "minLength": 1}, "description": "Names asked for that matched no page."},
+        "note": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false,
+      "required": ["requested", "all", "applied", "chosen", "supporting", "left_out", "unmatched", "note"]
     }
   },
   "additionalProperties": false,

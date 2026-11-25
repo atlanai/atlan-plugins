@@ -717,6 +717,61 @@ class DriftTest(unittest.TestCase):
         self.assertEqual(self.drift(text), [])
 
 
+class TermsTest(unittest.TestCase):
+    """Analytics' words for what it saves, held outside code and the vendored engine."""
+
+    def terms(self, text: str, *parts: str) -> list[str]:
+        return lint.lint_terms(lint.TERMS_ROOT.joinpath(*parts), text)
+
+    def test_flags_saved_sql(self) -> None:
+        errors = self.terms("Save metrics and saved SQL.\n", "skills", "x", "SKILL.md")
+        self.assertEqual([e.split(": ", 1)[0] for e in errors], ["plugins/atlanai-analytics/skills/x/SKILL.md:1"])
+
+    def test_leaves_quoted_terms_the_engine_and_other_plugins_alone(self) -> None:
+        self.assertEqual(self.terms("Never say `saved SQL`.\n", "skills", "x", "SKILL.md"), [])
+        self.assertEqual(self.terms("saved SQL\n", "skills", "x", "modules", "GATE.md"), [])
+        self.assertEqual(lint.lint_terms(lint.PLUGINS / "atlanai" / "x.md", "saved SQL\n"), [])
+
+
+class ContentsTest(unittest.TestCase):
+    """Long add-on references with sections open with a Contents list that names each one."""
+
+    def contents(self, text: str) -> list[str]:
+        return lint.lint_contents(lint.TERMS_ROOT / "skills" / "x" / "references" / "r.md", text)
+
+    def test_flags_a_missing_list_and_a_stale_entry(self) -> None:
+        body = "# R\n" + "".join(f"## S{n}\n" + "line\n" * 100 for n in range(3))
+        self.assertIn("without a `## Contents` list", self.contents(body)[0])
+        stale = "# R\n## Contents\n\n- S0\n- S1\n- Old\n\n" + body[4:]
+        self.assertEqual(self.contents(stale), ["plugins/atlanai-analytics/skills/x/references/r.md: `## Contents` does not list 'S2'"])
+
+    def test_leaves_short_files_few_sections_and_skills_alone(self) -> None:
+        self.assertEqual(self.contents("# R\n## A\n## B\n## C\n"), [])
+        self.assertEqual(self.contents("# R\n## A\n" + "line\n" * 400), [])
+        self.assertEqual(self.contents("# R\n" + "".join(f"## S{n}\n" + "line\n" * 70 for n in range(3))), [])
+        long = "# R\n" + "".join(f"## S{n}\n" + "line\n" * 100 for n in range(3))
+        self.assertEqual(lint.lint_contents(lint.TERMS_ROOT / "skills" / "x" / "SKILL.md", long), [])
+
+
+class LinksTest(unittest.TestCase):
+    """Relative Markdown links resolve; web links, anchors and code are left alone."""
+
+    def test_flags_a_missing_target_and_leaves_the_rest(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "docs").mkdir()
+            (root / "docs" / "here.md").write_text("x", encoding="utf-8")
+            path = root / "docs" / "page.md"
+            text = ("[ok](here.md#part) [gone](missing.md) [web](https://example.com) [top](#a)\n"
+                    "`[code](nowhere.md)`\n```\n[fenced](nowhere.md)\n```\n")
+            saved, lint.ROOT = lint.ROOT, root
+            try:
+                errors = lint.lint_links(path, text)
+            finally:
+                lint.ROOT = saved
+        self.assertEqual(errors, ["docs/page.md:1: links to missing missing.md"])
+
+
 class VoiceTest(unittest.TestCase):
     """The voice rule in AGENTS.md: no em dashes, no exclamations, no filler, outside code."""
 
