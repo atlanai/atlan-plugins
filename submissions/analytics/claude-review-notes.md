@@ -79,6 +79,8 @@ install time.
 1. Re-validate this branch in the existing draft and update the counts above.
 2. Split `bicompile.py`, then remove its exception from `tools/lint.py`.
 3. Resolve or explain the download-and-run findings line by line.
-4. Ask whether Atlan is a Verified organization. An unverified publisher's plugin can be refused for
-   the download-and-run and credential findings.
-5. Data handling and compliance answers, and the review contact, confirmed by their owners.
+4. Data handling and compliance answers, and the review contact, confirmed by their owners (open
+   questions on CTX-552).
+
+Atlan is a Verified organization (Directory → Help and appeals, 2026-11-25), so the download-and-run
+and credential findings are warnings to explain, not grounds to refuse.
