@@ -130,7 +130,7 @@ query in the card's source and keeps its required predicates in that query.
 Operators can give check evidence in `metric_checks.json` in the engine run. Use
 `{"contract_version":"1.0","metrics":{"Monthly Active Users":{"snapshot_period_column":"DB.S.ACTIVITY.SNAPSHOT_MONTH","expected_value":120}}}`
 with the merged metric name. Use `expected_tolerance` only with a trusted expected value for
-the same filters and period. This evidence stays outside the Trident card.
+the same filters and period. This evidence stays outside the Atlan Trident card.
 
 ## A task with `derived_source`
 

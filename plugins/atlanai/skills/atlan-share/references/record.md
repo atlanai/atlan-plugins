@@ -174,7 +174,7 @@ so there is no second copy to drift.
 ## When `publish_output` is not served
 
 The tool is the agent app's. A gateway that predates the move serves the same tool, with the
-same arguments, under Trident's prefix: when `mcp__search_tools` for `publish_output`
+same arguments, under Trident's `registry__` prefix: when `mcp__search_tools` for `publish_output`
 returns that name and not the agent app's, call the one it returns. When neither is served (a
 gateway older than the tool, or an organization without the agent app), and when a refusal with
 no field ([above](#refused-with-no-field)) sends you here, record in separate calls, giving

@@ -5,7 +5,7 @@ license: Apache-2.0
 user-invocable: false
 ---
 
-# Using a Trident skill here
+# Using an Atlan Trident skill here
 
 A skill in Atlan is a versioned bundle: a `SKILL.md` plus the files it references. There are
 two ways to use one:

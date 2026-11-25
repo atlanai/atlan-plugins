@@ -3,7 +3,7 @@
 # Copyright 2026 Atlan Pte. Ltd.
 """C5 — emit the verified-query layer. The run's canonical artifact.
 
-Warehouse-neutral and Atlan Trident-neutral by design, so the layer can be diffed, reviewed and
+Warehouse-neutral and destination-neutral by design, so the layer can be diffed, reviewed and
 re-pushed without re-running anything upstream. `layer_sha` binds every downstream artifact to
 exactly this content: one edit changes it, and a re-push is then visibly a new source revision
 rather than a silent overwrite.
