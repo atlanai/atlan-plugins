@@ -10,7 +10,7 @@ This add-on does not run an independent held-out evaluation.
 
 `dashboard_evaluate` stores references in local `grader-only.json`. Its read/exported runtime context does not expose that file. This is an API separation, not an OS sandbox: a fully privileged host could still read the local file. A genuinely blind benchmark needs a separately restricted process/toolset.
 
-The Registry dataset projection contains `input.question`, `expected:null` and a gold digest in `extra`. Gold must not be published as answerer-retrievable context. Results are a local report until an approved Registry eval workflow uploads them with the correct agent, dataset, experiment and trace identities.
+The Atlan Trident dataset projection contains `input.question`, `expected:null` and a gold digest in `extra`. Gold must not be published as answerer-retrievable context. Results are a local report until an approved Trident eval workflow uploads them with the correct agent, dataset, experiment and trace identities.
 
 Start with one useful page. After source reconciliation, grow toward 20–50 real questions with breakdowns, date windows, denominators, blanks and known semantic traps. Do not make a universal accuracy claim from a few dashboard cards.
 
@@ -28,7 +28,7 @@ whose comparisons are unmeasured because report values are missing, the source c
 is unavailable, or snapshots differ. Each question carries its validation status. Failed SQL,
 known wrong results, incomplete security/filter scope and unconverted DAX are not suggested.
 
-`ready_with_warnings` permits continuing to Registry save/release and questions. It never asserts publication or a passing score. Carry validation reasons and
+`ready_with_warnings` permits continuing to Trident save/release and questions. It never asserts publication or a passing score. Carry validation reasons and
 the report cutoff with each saved metric. Answer using fresh authorized warehouse results
 and disclose their cutoff when known; do not describe current results as historical report
 parity. Full validation still requires complete scope and every planned check passing.

@@ -20,7 +20,7 @@ unfamiliar kind, `registry__get_kind_schema { "kind": "…" }` describes it.
 ## Platform kinds
 
 `app`, `app_action`, `harness_vendor`, `model` and `agent_framework` are the platform's own
-records: the apps installed in the registry, their actions and the catalogues of vendors, models
+records: the apps installed in Atlan Trident, their actions and the catalogues of vendors, models
 and frameworks. They can outnumber everything people made (80 of 90 artifacts on a new
 organization). In a "what do we have?" answer, subtract them from the total and give the
 remainder, adding at most "not counting N platform records"; never list them by kind or lead

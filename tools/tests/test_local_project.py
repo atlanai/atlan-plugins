@@ -312,7 +312,7 @@ class DuckDBFlow(unittest.TestCase):
         self.assertTrue(answer['columns'][0]['type'].startswith('DECIMAL'))
 
     def test_publish_readback_restart_retrieve_fresh_answer(self):
-        # The Registry transport is a test double; DuckDB execution is real.
+        # The Atlan Trident transport is a test double; DuckDB execution is real.
         remote = readbacks()
         self.assertEqual(self.run.execute({'sql': remote['artifacts'][0]['metadata']['definition']['sql']})['rows'], [['34.75']])
         self.run.publication(copy.deepcopy(remote))

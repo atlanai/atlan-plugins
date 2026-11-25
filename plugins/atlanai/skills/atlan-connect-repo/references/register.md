@@ -43,7 +43,7 @@ From the user's checkout, read:
 - **Contributors.** Contributor email addresses become detected users of the workspace, which
   workspace members can see. Send them only when the user agrees; collect them with
   `git log --format=%ae` and deduplicate. Omit `contributors` otherwise.
-- **Which artifacts to link.** Show names and paths; existing registry artifacts are the
+- **Which artifacts to link.** Show names and paths; existing Atlan Trident artifacts are the
   candidates, matched by workspace and name or by a `source_id` equal to their path. A name
   match alone is not identity, and several plausible matches block the link.
 

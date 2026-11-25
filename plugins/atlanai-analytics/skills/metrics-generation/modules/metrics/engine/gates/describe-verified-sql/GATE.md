@@ -33,7 +33,7 @@ layer with, at most, different wording.
 
 ## Why these three fields, and in this order
 
-The registry ranks a weighted full-text index. Four fields, and you write three of them:
+Atlan Trident ranks a weighted full-text index. Four fields, and you write three of them:
 
 | weight | field | what it holds |
 |---|---|---|

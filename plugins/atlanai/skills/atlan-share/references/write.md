@@ -46,7 +46,7 @@ mcp__call_write_tool {
 - **Something hosted elsewhere** is `external_url` with no file.
 - Add `project_id` to `metadata` when the settings or the user name one. Producer and session
   fields follow `skills/atlan-share/references/record.md`. Add one `edges` entry,
-  `{"rel_type": "used_skill", "to_id": "skill_…"}`, for each registry skill this session loaded.
+  `{"rel_type": "used_skill", "to_id": "skill_…"}`, for each Atlan Trident skill this session loaded.
 
 **A new version** is the same call with the earlier share's `source_id` and the new content. It
 appends to the share's file, or writes nothing to it when the text is unchanged, and makes the

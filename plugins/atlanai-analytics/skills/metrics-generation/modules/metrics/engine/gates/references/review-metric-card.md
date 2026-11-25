@@ -29,7 +29,7 @@ population merely to reuse a convenient breakdown or obtain a matching current t
 
 ## Explain the grain
 
-The Registry's `grain` field is one descriptive string, not a key-column list. Describe the
+Atlan Trident's `grain` field is one descriptive string, not a key-column list. Describe the
 complete key there; structured keys and evidence can also live in
 `extensions.atlan_analytics.grain_evidence`. Grain means the key of one row in the metric's
 source, not the outer aggregate's GROUP BY

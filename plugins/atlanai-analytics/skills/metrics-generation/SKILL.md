@@ -7,7 +7,7 @@ description: "Atlan Analytics: generate, check, edit or save metrics and saved S
 
 A capability. It turns surveyed sources into `metric` and `sql_query` definitions, checks
 them, changes them, and saves them locally or to Atlan Trident. The engine lives in this
-skill's `modules/metrics/`; the plugin drives the conversation and Registry publication. A
+skill's `modules/metrics/`; the plugin drives the conversation and Atlan Trident publication. A
 person can call it directly; `analytics-demo`, `analytics-build` and `analytics-ask` call it.
 
 Read [shared conventions](../analytics-build/references/conventions.md) first: task
@@ -77,7 +77,7 @@ count, say which and show its check status again ([reconciliation](references/me
   local) and publish only after the person approves that concrete plan. An approval of one
   plan does not cover a changed one. Respect explicit draft requests.
 
-Registry writes use the Atlan MCP connection with the person's sign-in. If registry tools are
+Trident writes use the Atlan MCP connection with the person's sign-in. If Trident tools are
 missing or sign-in is required, follow
 [connection recovery](../analytics-build/references/auth-recovery.md) and resume the save.
 

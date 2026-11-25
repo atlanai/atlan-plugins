@@ -2,7 +2,7 @@
 
 Use for questions about a setup's destination, access to it, or creating a new workspace.
 Answer the question before resuming setup. An explanation-only request needs no source
-survey, sample metric, Registry call, permission question or publication plan.
+survey, sample metric, Atlan Trident call, permission question or publication plan.
 
 ## New workspace requested
 

@@ -68,8 +68,8 @@ command as separate argv entries; zsh does not split a string holding one.
 - Ask only what these steps ask: which set, and whether to run a generated one. Never ask which
   model, how many runs per question, where to run or whether to publish: this skill fixes them.
 - When `CHECK start` is blocked because the folder holds no built context, say its reason in one
-  line and stop. This skill scores a context built with Atlan Analytics; it does not score a
-  registry agent's own eval set, and it never falls back to another harness or to memory of an
+  line and stop. This skill scores a context built with Atlan Analytics; it does not score an
+  Atlan Trident agent's own eval set, and it never falls back to another harness or to memory of an
   earlier run.
 
 ## Test again

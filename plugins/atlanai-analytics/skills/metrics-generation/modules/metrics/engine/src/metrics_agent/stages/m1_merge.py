@@ -22,8 +22,8 @@ Two different things are reconciled here and they are not the same problem:
 
   * **Duplicates** — the same statement in both lanes. One object survives, carrying both
     lanes' evidence.
-  * **Name conflicts** — different statements that happen to share a name. Both survive; the
-    registry requires names unique per (workspace, kind), so the history one is disambiguated
+  * **Name conflicts** — different statements that happen to share a name. Both survive;
+    Atlan Trident requires names unique per (workspace, kind), so the history one is disambiguated
     by its own id. Renaming the BI object instead would move the governed name, which is the
     thing that made BI authoritative in the first place.
 
@@ -147,7 +147,7 @@ def body(ctx: stage.Ctx) -> None:
         obj = dict(o)
         if obj["name"] in used_names:
             # A NAME COLLISION IS NOT A DUPLICATE. Different statements that happen to share
-            # a name both belong in the layer; the registry only requires the NAME be unique.
+            # a name both belong in the layer; Trident only requires the NAME be unique.
             obj["name"] = f"{obj['name']}-{str(obj['vq_id']).rsplit('-', 1)[-1][:8]}"
             renamed += 1
         used_names.add(obj["name"])
@@ -172,7 +172,7 @@ def body(ctx: stage.Ctx) -> None:
             o["name_provisional"] = False
             described += 1
         # A NAME THAT ARRIVED FROM PROSE CAN COLLIDE LIKE ANY OTHER. Re-checked here rather
-        # than trusted, because the registry refuses the whole batch over one duplicate.
+        # than trusted, because Trident refuses the whole batch over one duplicate.
         for o in merged:
             if o["name"] in used_after:
                 o["name"] = f"{o['name']}-{str(o['vq_id']).rsplit('-', 1)[-1][:8]}"
@@ -183,7 +183,7 @@ def body(ctx: stage.Ctx) -> None:
     layer = {
         "contract_version": "1.0",
         # THE LAYER'S VERSION, OVER ITS CONTENT. Hashed over the ids alone, a re-described
-        # layer kept its version, so the registry could not tell the new prose from the old.
+        # layer kept its version, so Trident could not tell the new prose from the old.
         # Identity is each object's `source_id`, never this.
         # A timestamp (a witness's `executed_at`) is when, not what: left in, every re-run
         # would be a new version.

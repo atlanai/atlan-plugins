@@ -39,7 +39,7 @@ is checked against `all_metrics`, not against the shortlist.
 
 ## The four relationships
 
-You say what the relationship **is**. The stage maps it to the registry's own edge vocabulary.
+You say what the relationship **is**. The stage maps it to Atlan Trident's own edge vocabulary.
 
 | `relation` | means | `role` | published as an edge | on the card as |
 |---|---|---|---|---|
@@ -98,7 +98,7 @@ it is what a consumer needs before dividing one by the other.
 
 **4. `label` is optional and worth writing when you can better it.** Every edge gets one
 either way : composed from the relation and the role, with a warning appended when `exact` is
-false : because the registry renders it per edge and a bare line between two names tells a
+false : because Trident renders it per edge and a bare line between two names tells a
 reader nothing. Write your own when you can say something the shape cannot: *"the replies,
 before they are divided by the reached"* beats *"numerator of this ratio"*.
 

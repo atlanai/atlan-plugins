@@ -37,8 +37,8 @@ Re-adding an archived path starts a new concept identity without requiring resto
 the same editor and requires a concrete `if_match` bundle etag.
 
 **Create never updates a bundle.** A duplicate name or source identity refuses with `409`.
-The generic registry archive append remains available for deliberate complete-tree imports,
-and replaces the full tree; do not use it for routine memory edits. The current registry can
+The generic Atlan Trident archive append remains available for deliberate complete-tree imports,
+and replaces the full tree; do not use it for routine memory edits. Today Trident can
 also refuse a tree that exactly matches a historical version with `409`; head remains intact.
 Re-read before choosing a meaningful content change.
 

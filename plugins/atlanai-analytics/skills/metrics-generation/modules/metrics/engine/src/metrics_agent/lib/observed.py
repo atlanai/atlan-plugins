@@ -11,7 +11,7 @@ lane; the policy below is applied once, here, so both lanes shape the result ide
 
 WHERE THEY LAND, and why it is two places:
 
-  input.observed_values   a flat list of strings. This is what the registry's own `q` filter
+  input.observed_values   a flat list of strings. This is what Atlan Trident's own `q` filter
                           scans — `record_text_matches` reads `input`, `expected`, `label` and
                           `categories`, and its `in_values` handles a string OR an array of
                           strings. It does NOT read `extra`.

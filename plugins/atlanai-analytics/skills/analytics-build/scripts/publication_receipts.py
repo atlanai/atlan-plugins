@@ -1,6 +1,6 @@
 """Validate captured MCP receipts and record a resumable publication without model copying.
 
-No network or Registry writes. New runs still discover live definitions and reconcile them.
+No network or Atlan Trident writes. New runs still discover live definitions and reconcile them.
 """
 import argparse
 import hashlib

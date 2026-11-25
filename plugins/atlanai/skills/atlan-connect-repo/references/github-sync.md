@@ -47,7 +47,7 @@ Inspect the selected Git checkout, or the current one if none was named:
 - `.registry/manifest.yml`, if any: its `registries`, `exports`, `publish.to`,
   and every other key, which you must preserve;
 - the older setup, if any: `.atlan/package.json`, and the earlier Atlan
-  registry workflows, `atlan-preflight.yml` and `atlan-publish.yml`;
+  Trident workflows, `atlan-preflight.yml` and `atlan-publish.yml`;
 - workflows that already use `atlanai/ai-registry-action`;
 - **skills:** directories with a case-sensitive `SKILL.md` at their root, in
   `skills/`, `.claude/skills/`, `.agents/skills/`, `.codex/skills/`, and
@@ -142,7 +142,7 @@ After the pull request merges:
 1. Open the publish run on the default branch. It must succeed and end with a
    notice such as `published 3, unchanged 0, skipped 0`. If it fails, the
    action comments on the merged pull request; report that error.
-2. Read back each selected skill and agent in the workspace with the Registry
+2. Read back each selected skill and agent in the workspace with the Trident
    MCP tools. Each must be active, in the selected workspace, with this
    repository as its source. Each agent must pin the skills its `depends_on`
    names, and hold its folder's files.

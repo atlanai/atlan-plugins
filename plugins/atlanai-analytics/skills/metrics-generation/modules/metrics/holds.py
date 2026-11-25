@@ -1,4 +1,4 @@
-"""Publication eligibility from structured engine checks, without Registry I/O.
+"""Publication eligibility from structured engine checks, without Atlan Trident I/O.
 
 The common engine owns review matching, including stale SQL findings. The adapter consumes
 its effective C4 verdicts; prose, labels and missing warehouse access cannot create a hold.

@@ -1419,9 +1419,9 @@ def requalify(expr_sql: str, new_alias: str, dialect: str) -> str:
 # --------------------------------------------------------------------------- dimensions
 # `extract_feat` strips qualifiers on purpose: its `group_by` and `select` feed the SHAPE
 # KEY, where two queries aliasing the same table `d` and `dim` MUST collapse to one shape.
-# Reusing those value-free strings as the source for registry dimensions is what made every
+# Reusing those value-free strings as the source for Atlan Trident dimensions is what made every
 # dimension unpublishable — `d.department` had already become `department`, so the expression
-# the registry needs was gone before D3 ever looked. These functions read the tree again and
+# Trident needs was gone before D3 ever looked. These functions read the tree again and
 # keep the qualifier.
 
 # A dimension is not only a GROUP BY. Each of these roles independently evidences one.
@@ -1449,7 +1449,7 @@ def _dim_entry(node: exp.Expression, dialect: str, role: str,
     author's SELECT alias — that is the business word a person searches for — and falls back
     to the bare column.
     """
-    # TWO spellings, deliberately. `sql` is what the registry gets, rebound onto the metric's
+    # TWO spellings, deliberately. `sql` is what Trident gets, rebound onto the metric's
     # own alias so it composes with the canonical statement. `raw_sql` is what the parent
     # actually wrote, and it is what D1b's recorded GROUP BY is matched against — matching on
     # the rebound text would miss every entity-side dimension, because D1b runs before the
@@ -1564,7 +1564,7 @@ def join_clauses(tree: exp.Expression, dialect: str,
                  rename: dict[str, str] | None = None) -> list[dict[str, Any]]:
     """Every JOIN in the statement, verbatim, with the alias it introduces.
 
-    The registry never parses `join.sql` — it is opaque text — so the verbatim clause is both
+    Trident never parses `join.sql` — it is opaque text — so the verbatim clause is both
     the most accurate thing to publish and the cheapest to produce. The alias is what lets a
     dimension say WHICH join it needs.
     """

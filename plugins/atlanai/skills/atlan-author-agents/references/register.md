@@ -1,6 +1,6 @@
 # Registering agents and harnesses
 
-The registry records the agent, its configuration and outputs. The agent app also owns
+Atlan Trident records the agent, its configuration and outputs. The agent app also owns
 the native Atlan runtime; local and custom providers can remain catalog-only. Registration
 is a JSON create and does not by itself deploy or start the agent. Runtime authentication
 uses its machine identity.
@@ -99,14 +99,14 @@ See `skills/atlan-author-agents/references/update-an-agent.md`.
 ```
 
 Each entry pins one skill version. Omit `version_ordinal` to pin the skill's **current
-release**; the registry fills in the ordinal and the version's `source_digest`. A pin never
+release**; Trident fills in the ordinal and the version's `source_digest`. A pin never
 moves on its own - a skill publishing a new release changes no agent until you write a new
 pin, and on a released agent that write is a new agent version.
 
-The `uses_skill` edges follow the manifest: the registry derives one per pinned skill and
+The `uses_skill` edges follow the manifest: Trident derives one per pinned skill and
 archives the rest, shortly after the write. A write answers with the agent's handle alone, so
 send `"full": true` on the create or patch that writes `skills`: its result then carries the
-pins, with the ordinal and digest the registry filled in, and you report from it without a read.
+pins, with the ordinal and digest Trident filled in, and you report from it without a read.
 Read the derived edges with `registry__get_related_artifacts` only when someone needs the graph
 itself.
 

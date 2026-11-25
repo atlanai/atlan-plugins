@@ -55,7 +55,7 @@ OUT = "metric_cards.json"
 CHECKS = "metric_checks.json"
 
 # The fields the author writes. Everything else on the card is bookkeeping this stage fills in.
-# These are the Registry's metric vocabulary. Outside them the gateway publishes the
+# These are Atlan Trident's metric vocabulary. Outside them the gateway publishes the
 # artifact and records a `draft_vocabulary` warning against it, which never clears.
 AGGREGATIONS = ("sum", "count", "count_distinct", "min", "max", "ratio", "custom")
 DATATYPES = ("integer", "decimal", "string", "boolean", "date", "timestamp")
@@ -75,7 +75,7 @@ def card_aggregation(value):
 REQUIRED = ("name", "description", "domain", "formula", "population",
             "aggregation", "output", "source")
 # `grain` may be empty: "if nothing in the statement shows what makes a row unique, leave it
-# empty" (the skill), and the registry holds it as optional. Requiring a value forced the
+# empty" (the skill), and Trident holds it as optional. Requiring a value forced the
 # author to invent a key.
 OPTIONAL = ("grain", "exclusions", "filters", "mandatory_filters", "joins", "dimensions",
             "examples", "depends_on", "unit", "notes")
@@ -87,7 +87,7 @@ def _evidence(m: dict, sources: list[dict], stmts: dict, dialect: str,
 
     Advisory, and never blocking: a statement the parser cannot read contributes nothing and
     the author still has its SQL in full. `declare_joins` and `build` are the same functions
-    R1 uses to emit a record's dimensions, so what the author is shown is what the registry
+    R1 uses to emit a record's dimensions, so what the author is shown is what Trident
     would accept.
     """
     entity = str(m.get("entity") or "")
@@ -537,8 +537,8 @@ def _ingest(ctx: stage.Ctx) -> None:
                 ctx.say(f"x3: {a.get('name')!r}: aggregation {agg.get('type')!r} is recorded "
                         f"as 'custom'; its formula carries the function.")
                 agg["type"] = card_aggregation(agg.get("type"))
-        # THE SHAPE FIRST, THEN THE READING. `authored_metric_cards.schema.json` mirrors the
-        # registry's own metric contract, which is `deny_unknown_fields` all the way down: an
+        # THE SHAPE FIRST, THEN THE READING. `authored_metric_cards.schema.json` mirrors
+        # Trident's own metric contract, which is `deny_unknown_fields` all the way down: an
         # extra key anywhere fails typed deserialisation before a single gateway rule runs and
         # comes back as a bare 422 naming no field. Checking it here names the field and the
         # card instead, and it happens before the readings below so a malformed file does not
@@ -680,7 +680,7 @@ def _ingest(ctx: stage.Ctx) -> None:
             # query at all. A consumer composing SQL needs a statement it can run and adapt,
             # so `sql` is the one that is declared and `table` stays absent.
             q = str(src.get("sql") or "").strip()
-            # `source.sql` IS THE FROM CLAUSE. The registry's `Source` is "a table or SQL
+            # `source.sql` IS THE FROM CLAUSE. Trident's `Source` is "a table or SQL
             # source" and takes exactly one of `table` and `sql`, so this is the text after
             # FROM — not a worked example of the query. It is OPTIONAL: a metric over one
             # plain table says so in `source.entity` and leaves this empty.
@@ -1067,7 +1067,7 @@ def _ingest(ctx: stage.Ctx) -> None:
 
     # THE MODEL NAMES ITS METRIC. A card built from a declared metric takes the declared
     # name, in words; the author's stays as a synonym. A name another card holds already is
-    # never taken, compared as the registry compares it (`metric_ref`, case-folded).
+    # never taken, compared as Trident compares it (`metric_ref`, case-folded).
     renamed = _name_by_declaration(cards, declared_of)
     if completed or renamed:
         ctx.count(declared_completed={**completed, **({"named": len(renamed)} if renamed
@@ -1077,7 +1077,7 @@ def _ingest(ctx: stage.Ctx) -> None:
                 + (f"; {len(renamed)} card(s) named as declared" if renamed else "") + ".")
 
     doc = {"contract_version": "1.0",
-           # The registry's own contract version, not this stage's — the card layer declares
+           # Trident's own contract version, not this stage's — the card layer declares
            # which metric spec it was written against.
            "spec_version": "1.0-draft.1",
            "dialect": dialect,

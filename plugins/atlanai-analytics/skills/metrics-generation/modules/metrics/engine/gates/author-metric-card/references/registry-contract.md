@@ -1,7 +1,7 @@
-# The registry's metric contract
+# Atlan Trident's metric contract
 
-The rules the Atlan Agent Registry applies to a `metric`, for spec version `1.0-draft.4`. The
-Registry's specification is public: https://github.com/atlanai/ai-registry. An earlier spec is
+The rules Atlan Trident applies to a `metric`, for spec version `1.0-draft.4`. Trident's
+specification is public: https://github.com/atlanai/ai-registry. An earlier spec is
 refused; a metric stored under one upgrades by an append that raises `definition.version`.
 
 **Unknown keys are refused everywhere.** One unexpected key anywhere fails validation before
@@ -35,7 +35,7 @@ field. `extensions` is the only place arbitrary data may go.
 | `extensions` | map | no | preserved, uninterpreted |
 
 **Retired, and refused if sent:** `status`, `approved_by`, `approved_at` (draft 2 : lifecycle and
-releases are the registry's), `owner` (draft 4 : the envelope's `owner_id` is the owner) and
+releases are Trident's), `owner` (draft 4 : the envelope's `owner_id` is the owner) and
 `domain` (draft 4). The card still carries a `domain`; the agent publishes it as
 `extensions.metrics_agent.domain`.
 

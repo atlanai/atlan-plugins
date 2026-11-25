@@ -1,9 +1,9 @@
 """Catch customer-identifying values before an eval set is shared.
 
 A mined query is written by someone who already has access to the data. An eval
-set is pushed to a registry other people read, so the question and its golden SQL
-travel further than the query ever did. Anything identifying a real customer must
-not make that trip.
+set is pushed to Atlan Trident, which other people read, so the question and its
+golden SQL travel further than the query ever did. Anything identifying a real
+customer must not make that trip.
 
 This is not hypothetical. A selected candidate can carry customer identifiers in
 its literals — a filter on a customer's tenant domain, or customer company names

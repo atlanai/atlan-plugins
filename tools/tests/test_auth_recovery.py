@@ -1,4 +1,4 @@
-"""Host task observations are distinct from current-host Registry readiness."""
+"""Host task observations are distinct from current-host Atlan Trident readiness."""
 import json
 from pathlib import Path
 import subprocess

@@ -6,12 +6,12 @@ metric's owners review in Metric Studio:
 - a **fix** when the person said a published metric's number was wrong, and why.
 
 It only proposes. It never creates or saves a metric, even for someone who could. It needs
-registry access; the warehouse query tool is used when one is recorded or connected.
+Atlan Trident access; the warehouse query tool is used when one is recorded or connected.
 
 ## 1. Name the gap
 
 From this conversation, write down:
-- the kind: **new metric** (an answer said nothing in the registry covered the measure) or
+- the kind: **new metric** (an answer said nothing in Trident covered the measure) or
   **fix** (the person corrected a published metric);
 - the measure in a few words, the workspace the answer read, and for a fix the metric's id;
 - each question as the person asked it, when, and who asked, by name (ask in the confirmation
@@ -22,7 +22,7 @@ to propose rather than guess.
 
 ## 2. Check what exists
 
-Open a registry session as **Registry calls** in the conventions describes, then:
+Open a Trident session as **Atlan Trident calls** in the conventions describes, then:
 - **New metric:** search the workspace for the measure under its likely names
   (`registry__search_artifacts`, kind `metric`). If a metric already covers it, write nothing
   and point the person to it: the agent missed it, the metric isn't missing.
@@ -66,7 +66,7 @@ For a new metric, put `new-` before `<metric>` in both. Its record leaves `subje
 sets `subject_name` to the new metric's name, has no base or `changes`, and carries `proposed`
 (`{name, display_name, description, definition}`) and a top-level `rationale`.
 
-If the registry refuses the write because the person can only view the workspace, write the
+If Trident refuses the write because the person can only view the workspace, write the
 proposal nowhere else: Metric Studio lists only the proposals in the metric's workspace. Give
 the person the full record instead, so the draft is not lost, and say who can file it: for a
 fix, the metric's owner (its `owner_id`); otherwise anyone who can edit the workspace.

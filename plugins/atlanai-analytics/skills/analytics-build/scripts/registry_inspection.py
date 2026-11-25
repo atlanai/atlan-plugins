@@ -1,4 +1,4 @@
-"""Read-only Registry inspection through the installed CLI; no credential reads or writes."""
+"""Read-only Atlan Trident inspection through the installed CLI; no credential reads or writes."""
 import json
 import math
 import re

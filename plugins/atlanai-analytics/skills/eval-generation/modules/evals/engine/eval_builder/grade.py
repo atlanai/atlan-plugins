@@ -129,7 +129,7 @@ def grade_record(record) -> Grade:
     modes = list(record.modes or [])
     if not modes and record.golden_sql:
         # Re-derive from the SQL rather than trusting an empty field: a record
-        # hand-written or pulled back from the registry carries no modes.
+        # hand-written or pulled back from Atlan Trident carries no modes.
         scored = score_candidate(Candidate(query_id=record.id, sql=record.golden_sql))
         modes = [m for m in scored.modes if m in FAILURE_MODES]
     g.modes = modes
@@ -170,7 +170,7 @@ def grade_all(records) -> list[Grade]:
 
 
 def summarise(grades: list[Grade]) -> dict:
-    """Aggregates in the shape the registry's experiment `summary` expects."""
+    """Aggregates in the shape Trident's experiment `summary` expects."""
     if not grades:
         return {}
     scores = [g.score for g in grades]

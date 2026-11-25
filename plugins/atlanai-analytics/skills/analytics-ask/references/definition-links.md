@@ -27,7 +27,7 @@ a person can belong to several organizations. Read only these fields; email, nam
 roles, permissions and credentials are unnecessary for composing a link.
 
 Use the host's existing authenticated API transport for this fixed GET when available.
-Do not invent an MCP tool name: the current Registry MCP catalog does not expose this
+Do not invent an MCP tool name: the current Atlan Trident MCP catalog does not expose this
 self-profile read. In Codex and Claude Code with the Atlan CLI, the bundled helper uses:
 
 ```

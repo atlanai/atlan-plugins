@@ -2,7 +2,7 @@
 # Copyright 2026 Atlan Pte. Ltd.
 """Every field of a metric definition, and the rule that fills it.
 
-The contract (the Atlan Agent Registry's metric validation): `spec_version` `1.0-draft.4`,
+The contract (Atlan Trident's metric validation): `spec_version` `1.0-draft.4`,
 controlled vocabularies on `aggregation.type`, `reaggregation`, `null_handling` and
 `output.datatype`, exactly one of `source.table`/`source.sql`, unique names within `dimensions`
 and `joins`, and every `dimensions[].required_join` naming a declared join. The layer this
@@ -20,8 +20,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-# THE METRIC KIND'S SPEC, AND ONLY IT. The registry's draft 2 retired the definition's `status`,
-# `approved_by` and `approved_at` — lifecycle and releases belong to the registry; draft 4
+# THE METRIC KIND'S SPEC, AND ONLY IT. Trident's draft 2 retired the definition's `status`,
+# `approved_by` and `approved_at` — lifecycle and releases belong to Trident; draft 4
 # retired `owner` (the envelope's `owner_id` is the owner) and `domain`. An earlier
 # spec is refused outright, and a stored draft-1 metric upgrades by an append that raises
 # `definition.version` — which r3b does, because the spec is part of the content it compares.
@@ -146,7 +146,7 @@ def zero_denominator(agg_type: str, formula: str) -> Any:
 # out named by a bare column alias, among them `pages`, `synced_at`, `triggers_4` and
 # `close_date`.
 #
-# That is not only unreadable, it is the retrieval defect: the registry's FTS document weights
+# That is not only unreadable, it is the retrieval defect: Trident's FTS document weights
 # `name` highest (A), and a name carrying no business vocabulary cannot be matched by a
 # question asked in business words. The words are available and they are FACTS FROM THE QUERY
 # — the table the measure is computed over — so the alias is qualified by them rather than by

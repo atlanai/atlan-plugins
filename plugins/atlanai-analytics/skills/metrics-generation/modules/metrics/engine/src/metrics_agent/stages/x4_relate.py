@@ -22,7 +22,7 @@ So this stage computes the CANDIDATES deterministically — same query body, sam
 shared source statements, a ratio whose halves look like published metrics — and asks a person
 which are real, what role each part plays, and how sure they are.
 
-WHERE THE ANSWER GOES. Two places, because the registry has two and they are not the same:
+WHERE THE ANSWER GOES. Two places, because Atlan Trident has two and they are not the same:
 
   * `definition.depends_on` — the metric's own payload, a flat list of metric references. This
     is what travels with the card and what a consumer holding one metric reads.
@@ -65,8 +65,8 @@ PROMPT = "x4_prompt.json"
 # checks `rel_type` against the source kind's `EdgeSpec` list before it even looks up the target.
 #
 # This is a change under us and it is worth writing down. `rel_type` used to be an unchecked
-# 64-character string: the first run of this stage wrote eight `alternative` edges and the
-# registry took them, because nothing on that stack read the manifest it published. The check
+# 64-character string: the first run of this stage wrote eight `alternative` edges and
+# Trident took them, because nothing on that stack read the manifest it published. The check
 # now exists, so those eight are edges of a type their own kind does not declare — written by a
 # door that has since been shut.
 #
@@ -304,7 +304,7 @@ def _emit(ctx: stage.Ctx) -> None:
             f"`relate-metrics` skill, then re-run with --from. THE AGENT HOLDS NO MODEL KEY.")
 
 
-# What each edge says on its face, when the author wrote nothing better. The registry renders
+# What each edge says on its face, when the author wrote nothing better. Trident renders
 # `label` per edge and it was left null on 29 of this estate's 37, so a reader saw a bare line
 # between two names and had to open both metrics to learn what joined them.
 _SAYS = {
@@ -321,7 +321,7 @@ def _label(relation: str, role: str | None, exact: bool, authored) -> str | None
     """The edge's own sentence, and a WARNING on it when the two do not nest.
 
     `exact` is the most decision-relevant fact on the graph — it answers "can I divide these?"
-    — and it lived only in `attributes`, of which the registry says plainly that nothing reads
+    — and it lived only in `attributes`, of which Trident says plainly that nothing reads
     it structurally. Four of this estate's 37 edges are inexact, which is exactly why those
     four should not look like the other 33. `CSM AI-Signal ARR` over `CSM Total ARR` can exceed
     100%, and a reader deserves to see that on the line rather than after computing it.
@@ -420,7 +420,7 @@ def _ingest(ctx: stage.Ctx) -> None:
                         f"{sorted(allowed)}; got {role!r}")
                 if not allowed and role:
                     problems.append(f"{where}: a {relation} takes no role; got {role!r}")
-                # A SYMMETRIC EDGE IS ONE FACT. The registry stores `alternative` once and
+                # A SYMMETRIC EDGE IS ONE FACT. Trident stores `alternative` once and
                 # reads it the same backwards, so asserting both directions would be two rows
                 # claiming the same thing — and the second would be the first, reversed.
                 key = (src.lower(), rel, tgt.lower())
@@ -497,7 +497,7 @@ def _write(ctx: stage.Ctx, doc: dict, cards: list[dict], edges: list[dict]) -> N
     for e in edges:
         if e["channel"] != "edge":
             # NO EDGE EXISTS FOR THIS, so it rides on the metric instead of being dropped. Both
-            # ends carry it, because an extension is not a graph the registry will traverse for
+            # ends carry it, because an extension is not a graph Trident will traverse for
             # a reader — a consumer holding one card must be able to see the sibling without
             # already knowing to look at the other.
             for a, b in ((e["from"], e["to"]), (e["to"], e["from"])):
@@ -515,7 +515,7 @@ def _write(ctx: stage.Ctx, doc: dict, cards: list[dict], edges: list[dict]) -> N
         # answer to that — which is now also why that sibling is not an edge.
         #
         # THE NAME, NOT OUR SLUG. `depends_on` is a list of METRIC REFERENCES and the only
-        # identifier a reader can resolve is the one the registry registered: `name`, unique in
+        # identifier a reader can resolve is the one Trident registered: `name`, unique in
         # the workspace and frozen at create. `metric_ref` is this agent's own invention and is
         # never sent — writing it here published references that matched nothing, and the
         # console rendered every one as "declared in depends_on, not registered in this
@@ -547,7 +547,7 @@ def _write(ctx: stage.Ctx, doc: dict, cards: list[dict], edges: list[dict]) -> N
     publishable = [e for e in edges if e["channel"] == "edge"]
     out = {"contract_version": "1.0", "stage": STAGE,
            "n_edges": len(publishable),
-           # The registry writes an edge from the artifact it hangs off, so the list is
+           # Trident writes an edge from the artifact it hangs off, so the list is
            # grouped the way `POST /artifacts/metric/{id}/relationships` is called. Only edge
            # types the `metric` kind declares appear here; the rest went to the cards.
            "edges": publishable}
