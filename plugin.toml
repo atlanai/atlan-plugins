@@ -161,9 +161,9 @@ This plugin has no hooks and ships no executable binaries.
 - **Reads:** the sources you pick, your warehouse through read-only statements (SELECT, WITH, SHOW
   or DESCRIBE, with a LIMIT on anything that returns rows), and a Power BI workspace through its
   API when you point the plugin at one.
-- **Writes:** working files in your project: `.atlan-metrics/`, `.atlan-analytics/` for dashboards,
-  `.atlan-evals/` for test questions and `atlan-analytics-demo/` for a demo. Reading a Power BI
-  workspace caches its sign-in token under `~/.cache/pbi_definition_extract/`.
+- **Writes:** working files in one folder in your project, `.atlan-analytics/`: each run, the
+  metrics runtime, test questions (`evals/`) and a demo's data (`demo/`). Add it to `.gitignore`.
+  Reading a Power BI workspace caches its sign-in token under `~/.cache/pbi_definition_extract/`.
 - **Sends:** to Atlan, only what you approve saving, through the `atlanai` plugin's connection,
   signed in as you.
 """
