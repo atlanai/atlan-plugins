@@ -11,7 +11,7 @@ your data, before you keep them on your computer or save them to share with your
 ## You need
 
 - **To try a sample:** Python 3.11 or 3.12. Put `python3.12` or `python3.11` on your `PATH`, or use `py -3.12` on Windows. Samples bring their own data and need no account.
-- **For your own data:** the same Python, and a dashboard file, a warehouse your coding agent can reach (such as Snowflake or Databricks), or both. For a warehouse, read access to its tables. To let it suggest what to build, it also reads the warehouse's past queries.
+- **For your own data:** the same Python, and a dashboard file, a warehouse your coding agent can reach (such as Snowflake or Databricks), or both. For a warehouse, read access to its tables and their past queries, which the plugin reads as extra evidence when it builds.
 - **To save for your team (optional):** an Atlan account, signed in through the `atlanai` plugin. The plugin installs either way, and without a sign-in everything stays on your computer.
 
 ## Quick start
