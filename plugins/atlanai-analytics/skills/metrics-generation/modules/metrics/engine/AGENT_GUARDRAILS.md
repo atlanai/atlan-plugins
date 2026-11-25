@@ -344,8 +344,8 @@ packages/          plug packages that depend on the core, never the reverse:
   metrics-agent-tableau/    the `tableau-cloud` plug (Tableau workbooks and their published
                    data sources, from Tableau Cloud or Tableau Server)
 examples/plugs/    community example plugs (databricks-direct, postgres-direct, jsonl-trace)
-scripts/           one-line shims, so `python scripts/<stage>.py` keeps working; and the
-                   standalone Power BI extractor (scripts/pbi-definition-extract/)
+scripts/           the standalone Power BI extractor (scripts/pbi-definition-extract/); a
+                   stage runs as `metrics-agent stage <name>`
 gates/     the LLM stages, one GATE.md each (describe-verified-sql · author-questions · propose-metrics ·
                    merge-metrics · author-metric-card · relate-metrics · review-compiler)
                    + the orchestrator (run-pipeline) and setup-run
