@@ -12,7 +12,7 @@ project, and publish new work back. Atlan's documentation is at
 npx plugins add atlanai/atlan-plugins
 ```
 
-That installs it into every coding agent on this machine. For Claude Code alone:
+That installs it into every coding agent on your computer. For Claude Code alone:
 
 ```
 claude plugin install atlanai --marketplace atlanai/atlan-plugins

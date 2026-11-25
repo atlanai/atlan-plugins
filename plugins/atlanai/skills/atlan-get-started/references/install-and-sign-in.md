@@ -13,7 +13,7 @@ support@atlan.com. The web dashboard is https://app.atlan.com.
 
 ## Install, per tool
 
-**Every coding agent on this machine, in one command** (needs Node.js 18 or later)
+**Every coding agent on your computer, in one command** (needs Node.js 18 or later)
 
 ```
 npx plugins add atlanai/atlan-plugins

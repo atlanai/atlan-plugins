@@ -30,7 +30,7 @@ new work back, all under your own sign-in.
 You need an account in an Atlan organization. You sign in through your browser with OAuth, so
 there is no API key to create or paste.
 
-**One command, every coding agent on this machine** (Node.js 18 or later):
+**One command, every coding agent on your computer** (Node.js 18 or later):
 
 ```
 npx plugins add atlanai/atlan-plugins
