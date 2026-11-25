@@ -45,7 +45,7 @@ class StructuredHoldTests(unittest.TestCase):
         self.assertEqual(set(holds.review_holds(queries, checked)), {'q-0'})
         # C4 omits a compiler-review warning when the reviewed SQL has been replaced.
         self.assertEqual(holds.review_holds(queries, report()), {})
-        with self.assertRaisesRegex(ValueError, 'compiler-review gate report'):
+        with self.assertRaisesRegex(ValueError, "each tile's SQL is checked"):
             holds.review_holds(queries, None)
         queries['objects'] = [{'vq_id': 'history-1', 'provenance': {'lane': 'history'}}]
         self.assertEqual(holds.review_holds(queries, None), {})
@@ -84,10 +84,10 @@ class StructuredHoldTests(unittest.TestCase):
                     holds.enforce_context(root, metrics, queries, links)
             document['queries'] = []
             (root / holds.FILE).write_text(json.dumps(document))
-            with self.assertRaisesRegex(ValueError, 'evidence changed'):
+            with self.assertRaisesRegex(ValueError, 'held-back items changed'):
                 holds.enforce_context(root)
             (root / holds.FILE).unlink()
-            with self.assertRaisesRegex(ValueError, 'Re-export'):
+            with self.assertRaisesRegex(ValueError, 'older plugin version'):
                 holds.enforce_context(root)
 
     def test_publication_checker_and_authorization_cli_refuse_readmission(self):
@@ -123,7 +123,7 @@ class StructuredHoldTests(unittest.TestCase):
                 marker = json.loads((root / 'metrics-source.json').read_text())
                 marker['publication_holds_sha256'] = holds.identity(stale)
                 (root / 'metrics-source.json').write_text(json.dumps(marker))
-                with self.subTest(change=change), self.assertRaisesRegex(ValueError, 'Re-export'):
+                with self.subTest(change=change), self.assertRaisesRegex(ValueError, 'Rebuild them to save'):
                     holds.enforce_context(root)
 
     def test_legacy_authored_contexts_keep_their_existing_path(self):
@@ -219,7 +219,7 @@ class ExportHoldTests(unittest.TestCase):
     def test_a_metric_with_another_error_still_refuses_the_export(self):
         def check(body):
             return (['formula: unknown column'] if body['name'] == 'Metric 7' else [], [])
-        with tempfile.TemporaryDirectory() as temp, self.assertRaisesRegex(ValueError, 'export refused'):
+        with tempfile.TemporaryDirectory() as temp, self.assertRaisesRegex(ValueError, "failed Atlan's format check"):
             self.export(Path(temp).resolve(), metric_check=check)
 
     def test_reviewed_values_come_from_the_engine_run_and_the_project_run(self):

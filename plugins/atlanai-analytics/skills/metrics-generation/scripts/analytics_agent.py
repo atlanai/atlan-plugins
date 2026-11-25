@@ -21,8 +21,8 @@ def main(argv=None):
         print('Available Analytics modules: ' + ', '.join(MODULES))
         return 0 if args in ([], ['--help'], ['-h']) else 2
     if not (PLUGIN / 'modules' / args[0] / 'driver.py').is_file():
-        print(json.dumps({'status': 'BLOCKED', 'reason': 'The Analytics module files are missing.',
-                          'fix': 'Install or refresh the complete Analytics plugin, including its modules folder.'}))
+        print(json.dumps({'status': 'BLOCKED', 'reason': 'Some Atlan Analytics files are missing.',
+                          'fix': 'Reinstall or update the Atlan Analytics plugin, then try again.'}))
         return 2
     return importlib.import_module(MODULES[args[0]]).main(args[1:])
 

@@ -1,12 +1,12 @@
 ---
 name: metrics-generation
-description: "Atlan Analytics: generate, check, edit or save metrics and saved SQL from dashboards, BI exports, models or query history. Use when asked to build, mine, refresh, fix, propose or publish a metric. Not for answering a data question (analytics-ask)."
+description: "Atlan Analytics: build, test, change or save metrics and saved queries from dashboards, BI files, models or past queries (query history). Use when asked to refresh, fix, propose or publish a metric. Not for answering a data question (analytics-ask)."
 ---
 
 # Generate, check, edit and save metrics
 
 A capability. It turns surveyed sources into `metric` and `sql_query` definitions, checks
-them, changes them, and saves them locally or to Atlan Trident. The engine lives in this
+them, changes them, and saves them on this machine or to Atlan Trident. The engine lives in this
 skill's `modules/metrics/`; the plugin drives the conversation and Atlan Trident publication. A
 person can call it directly; `analytics-demo`, `analytics-build` and `analytics-ask` call it.
 
@@ -19,7 +19,8 @@ Paths:
   --runtime <runtime>`.
 - `<build-dir>` is the `analytics-build` skill's directory beside it. It holds the shared
   helpers: `PROJECT` is `<build-dir>/scripts/project.py` and `CONTEXT` is
-  `<build-dir>/scripts/context_contracts.py`.
+  `<build-dir>/scripts/context_contracts.py`. `EDIT` is
+  `python3 "<build-dir>/../analytics-demo/scripts/edit_metric.py" --run-dir "<run>"`.
 
 This skill needs the complete Analytics plugin, including its sibling `analytics-build`
 skill. A standalone download that misses either cannot initialize the engine; refresh the
@@ -31,8 +32,10 @@ plugin when the dispatcher reports missing module files.
   nothing and show no moment. Do the operation, record the result in the caller's run, and
   return. The caller owns intent, the visible review and the destination question.
 - **A person called it**: ask only for what the operation cannot proceed without, once: the
-  source for `generate`, the metric for `edit`, the destination for `save`. Then show the
-  definition and its check status and stop.
+  source for `generate` ("Which dashboard, file or past queries should I build from?"), the
+  metric for `edit` ("Which metric should I change?"), the destination for `save` ("Keep these
+  on this machine, or save them to Atlan Trident?"). Then show the definition and its check status
+  and stop.
 
 Every operation needs a survey. With none in the run, run `source-survey` `inventory` first.
 
@@ -63,16 +66,17 @@ Effective compiler-review failures become structured publication holds; never by
 
 | The definition is | Do |
 | --- | --- |
-| In this run, not yet published | Change it through the engine, run `check`, and return the old rule, the new rule and both check results |
+| In this run, not yet published | Write `{"name", "changes": [{"path", "value"}], "before", "after"}` (each rule in plain words) to a file outside the run and run `EDIT <that file>`: it changes the definition, re-checks it and hands over the edit card in `show_first`, which says the change. Without a card, return "Changed <metric>." then "Before: <old rule> · <test result>" and "After: <new rule> · <test result>" |
 | Published, and the person owns the run that made it | The same, then `save` as a revision of the same metric, never a new one |
 | Published by someone else, or the request came from an answer | `propose`: a proposal for its owners. It never saves |
 
 Keep the metric's identity through an edit. If reconciliation changes a definition or a
-count, say which and show its check status again ([reconciliation](references/metrics/reconciliation.md)).
+count, say which and show its check status again: "<workspace> already had <metric>, so I'm
+using that definition. Its test: <test result>." ([reconciliation](references/metrics/reconciliation.md)).
 
-### `save`: local or Trident
+### `save`: this machine or Atlan
 
-- **Keep on this machine:** nothing leaves the run directory and no sign-in starts.
+- **Keep it on this machine:** nothing leaves this machine, and you don't sign in.
 - **Save to Atlan Trident:** show the checked plan with its counts (to publish, held, kept
   local) and publish only after the person approves that concrete plan. An approval of one
   plan does not cover a changed one. Respect explicit draft requests.
@@ -83,9 +87,10 @@ missing or sign-in is required, follow
 
 ## What comes back
 
-Return to the caller, or show the person, for each definition: its name, its rule in plain
-words, its population, its source, and its check status. Keep execution, source review, holds
-and release status as separate facts. Total definitions are metrics plus queries. SQL is shown
+Return to the caller, or show the person, for each definition: "<name>: <rule in plain
+words>. Counts <population>. From <source>. <Tested / Not tested / Held back, because
+<reason>>." Keep execution, source review, holds and release status as separate facts. Total
+definitions are metrics plus saved queries. SQL is shown
 only when asked. Inside a guided flow, return to that flow after the checks. Metrics-only work
 ends after the publication summary.
 

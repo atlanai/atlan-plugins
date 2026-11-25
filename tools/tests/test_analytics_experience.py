@@ -67,7 +67,7 @@ class AnalyticsExperience(unittest.TestCase):
         # A fresh reader of h9: "The build marked 5 queries for a review of their sources" beside a page that said
         # nothing of it. Said plainly, and the page shows which.
         chat = experience.render_chat(model)
-        self.assertIn('1 query is marked worth a read before you rely on it; the side page shows which', chat)
+        self.assertIn('1 query is marked worth a read before you rely on it. The side page shows which', chat)
         self.assertNotIn('source review', chat)
 
     def test_query_review_count_includes_unreviewed_and_missing_without_losing_reviewed(self):
@@ -199,7 +199,7 @@ class AnalyticsExperience(unittest.TestCase):
             model = experience.snapshot(self.run, **args)
             self.assertEqual(model['auth_status'], 'login_required')
             self.assertEqual(model['phase']['status'], 'access_needed')
-            self.assertEqual(model['phase']['label'], 'Your metrics and queries are saved in Atlan Trident')
+            self.assertEqual(model['phase']['label'], 'Your metrics and saved queries are saved to Atlan Trident')
         other_server = experience.snapshot(self.run, host='codex', server='other-atlan')
         self.assertEqual(other_server['auth_status'], 'unverified')
         self.assertEqual(self.files(), before)
@@ -280,7 +280,7 @@ class AnalyticsExperience(unittest.TestCase):
                 self.assertIsNone(model['engine'])
                 self.assertIn('engine directory is missing', model['warnings'][0])
                 self.assertIn('engine directory is missing', experience.render_chat(model))
-                self.assertNotEqual(model['phase']['label'], 'Your metrics and queries are saved in Atlan Trident')
+                self.assertNotEqual(model['phase']['label'], 'Your metrics and saved queries are saved to Atlan Trident')
                 self.assertEqual(model['counts']['released'], 1)
                 self.assertFalse((self.run.root / selected).exists())
                 self.assertEqual(self.files(), before)
@@ -334,7 +334,7 @@ class AnalyticsExperience(unittest.TestCase):
             'definition_hash': digest(body['definition']), 'status': 'schema_checked'}})
         model = experience.snapshot(self.run)
         compact = experience.render_chat(model)
-        self.assertIn('1 metric,', compact)
+        self.assertIn('1 metric and', compact)
         self.assertIn('1 source.', compact)
         self.assertIn('SUM(s.units)', compact)
         self.assertIn("s.status = 'shipped'", compact)
@@ -358,7 +358,7 @@ class AnalyticsExperience(unittest.TestCase):
         model = experience.snapshot(self.run)
         self.assertEqual(model['counts']['released'], 0)
         self.assertEqual(model['counts']['held'], 1)
-        self.assertIn('repair before publication', model['next_step'])
+        self.assertIn('held back from Atlan Trident', model['next_step'])
         body['definition']['formula'] = 'SUM(s.returns)'
         self.write('context/metrics.json', [body])
         self.assertEqual(experience.snapshot(self.run)['sample']['status'], 'draft')
@@ -381,7 +381,7 @@ class AnalyticsExperience(unittest.TestCase):
         self.assertEqual(model['sample']['status'], 'released')
         self.assertIn('only by released definitions', model['next_prompt'])
         self.assertIn('exclude held items', model['next_prompt'])
-        self.assertIn('repair before publication', experience.render_chat(model))
+        self.assertIn('held back from Atlan Trident', experience.render_chat(model))
         experience.render_html(model)
         self.assertEqual(self.files(), before)
         outstanding = copy.deepcopy(held)
@@ -415,7 +415,7 @@ class AnalyticsExperience(unittest.TestCase):
                 self.assertEqual(model['counts']['released'], 1)
                 self.assertEqual(model['sample']['status'], 'released')
                 self.assertEqual(model['phase']['status'], 'blocked')
-                self.assertIn('repair', model['next_step'])
+                self.assertIn('needs a fix', model['next_step'])
                 self.assertIn('blocking check', model['next_prompt'])
                 self.assertNotIn('Choose a question', experience.render_chat(model))
                 self.assertEqual(self.files(), before)
@@ -448,7 +448,7 @@ class AnalyticsExperience(unittest.TestCase):
         model = experience.snapshot(self.run)
         self.assertEqual(model['counts']['held'], 1)
         self.assertEqual(model['counts']['released'], 0)
-        self.assertIn('repair', model['next_step'])
+        self.assertIn('held back', model['next_step'])
         body = self.candidate()
         self.receipt(body)
         self.assertEqual(experience.snapshot(self.run)['sample']['status'], 'held')
@@ -459,12 +459,13 @@ class AnalyticsExperience(unittest.TestCase):
         self.assertNotEqual(model['sample']['status'], 'released')
 
     def test_source_sql_privacy_and_length_limits_are_explicit_not_silent_edits(self):
-        self.engine("SELECT SUM(cost) FROM work WHERE customer_id = 42")
+        # Only an email is refused since the name and ID rules were removed (2026-11-23).
+        self.engine("SELECT SUM(cost) FROM work WHERE owner = 'ann@example.com'")
         model = experience.snapshot(self.run, 'engine')
         self.assertEqual(model['sample']['calculation'], 'SUM(cost)')
         self.assertEqual(model['sample']['sql'], '')
         self.assertIn('privacy filter', ' '.join(model['sample']['detail_notes']))
-        self.assertNotIn('customer_id = 42', experience.render_html(model))
+        self.assertNotIn('ann@example.com', experience.render_html(model))
         self.engine('SELECT SUM(cost) FROM work /*' + 'x' * 12000 + '*/')
         model = experience.snapshot(self.run, 'engine')
         self.assertEqual(model['sample']['sql'], '')
@@ -503,7 +504,9 @@ class AnalyticsExperience(unittest.TestCase):
         self.candidate()
         self.write('progress.json', {'stage': 'preview', 'status': 'waiting-for-user'})
         model = experience.snapshot(self.run)
-        self.assertIn('paused', model['next_step'])
+        # 0.9.74 said "Resume here when ready" without saying how: where the work is, and what to say.
+        self.assertIn('Your work is saved on this machine. To pick up, open a chat in', model['next_step'])
+        self.assertIn('say "resume the', model['next_step'])
         self.assertIn('Resume', model['next_prompt'])
         self.write('progress.json', {'stage': 'preview', 'status': 'running'})
         self.assertIn('keep these definitions local', experience.snapshot(self.run)['next_step'])

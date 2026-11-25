@@ -24,7 +24,10 @@ before going on. While the engine builds, its result after each gate says so too
    never sees it there.
    - **With a `show_widget` tool** (the Claude desktop app): add `--widget` to every `visual`
      call and pass the HTML it prints to that tool, chips and cards alike, never in a
-     question's text. Your own words reach the person there too, so the widget is the moment's
+     question's text. Pass what a `visual` call prints before its `side view:` line as it is:
+     never send it to a file, cut it with a script, or say that you need it. Two moments in a
+     row come from one call (`visual build context`): each moment's HTML ends at its own
+     `side view:` line. Your own words reach the person there too, so the widget is the moment's
      result.
    - **Otherwise** (a terminal): the helper prints plain lines and says where they go. A moment
      that comes right before a native question goes in that question's own text, which is always
@@ -44,23 +47,35 @@ before going on. While the engine builds, its result after each gate says so too
 
 | Moment | Kind | The chat shows | Data |
 | --- | --- | --- | --- |
-| The queries are in plain words, before any metric | `connect` | Nothing: it opens the side page | |
+| The queries are in plain words, before any metric | `connect` | One line once the side page shows: "A page has opened beside this chat…", as its `next` gives it | |
 | Own data, right before choosing what to build from | `found` | Chip: the sources and the warehouse found | |
 | Data read: a demo's or local tables loaded, or a warehouse's past queries read | `sources` | Chip: the rows and what was read (a demo's opens the next question in a terminal) | |
 | The engine grouped the past queries | `group` | Chip: how many different questions | |
 | The engine wrote up the dashboard's tiles | `tiles` | Chip: the tiles, each now a question | |
 | The engine described each query | `described` | Chip: one question in plain words | |
-| The engine found the metrics in the queries | `drafted` | Chip: how many possible metrics, and in how many queries | |
+| The engine found the metrics in the queries | `drafted` | Chip: how many metrics were found, and in how many queries | |
 | The engine merged the metrics | `metrics` | Chip: the metrics by name | |
 | The engine wrote each metric's rule | `rules` | Chip: one metric's rule | |
 | The engine linked the metrics | `links` | Chip: how one metric builds on others | |
-| Metrics generated: the engine run is complete, before the checks | `build` | Mini card (in a terminal, it waits for the save question) | |
-| Every check has run | `context` | Chip: what ran, and what needs a look; in a terminal, with the build card, in the save question | |
-| Saved to Atlan Trident | `saved` | Mini card before the ready question; nothing when kept on this machine, which the person has just chosen | `saved.json` |
-| A question answered | `answer` | Mini card the first time, then a chip | `answer.json` |
-| A rule changed | `edit` | Mini card | `edit.json` |
+| The build ends: its context is in the run and its structural check has run | `build` | Mini card, before any question: it closes the build, before the question about testing it. In a terminal it waits for the save question, which says it in sentences | |
+| Every check has run, after the build card | `context` | Chip: what ran, and what needs your review; without widgets, a sentence in the save question | |
+| Saved to Atlan Trident | `saved` | Mini card before the ready question; nothing when kept on this machine, which the person has just chosen | with `PROJECT publication` |
+| A question answered | `answer` | Mini card the first time, then a chip | with the query that answers |
+| A rule changed | `edit` | Mini card | with `EDIT` |
+| Test questions written or loaded for a check | `questions` | Chip: how many, and where they came from; the side page lists each one | |
+| A session starts a check on an agent built earlier | `agent` | Chip: what the agent holds, and when it was built | |
 
-The helper names the first twelve when they are due. Once the side page is open, where you keep a
+These moments come with the results you read: a helper result, the build's wait, `CHECK start`,
+`CHECK load`, `SCOPE emit`, the query that answers the person, the save's receipt
+(`PROJECT publication`) and a rule change (`EDIT`) hand each one over in `show_first`, drawn and
+marked shown. Show it
+before any other words or call; never draw one of them a second time.
+
+**One line of your own.** The build card takes one line in `build.json` (`aside`, through
+`--input`), and the saved card one in `PROJECT publication`'s payload (`aside`): why this build, in the person's terms ("Built from the
+dashboard you shared this morning."). One line, no number: every number comes from the run.
+
+The helper hands the first twelve over when they are due. Once the side page is open, where you keep a
 task list, `drafted`, `metrics`, `rules` and `links` hand back the task list and one line, `say`,
 instead of a chip. A chip or card is the moment's result line:
 add no other line that repeats its numbers. After an answer's card, the reply leads with what
@@ -96,10 +111,10 @@ If the page cannot start, its `next` gives the one line to tell the person. Othe
 - **Anywhere else:** the next chip that goes in a question names the address the same way.
 
 The page shows what the build made, in every flow: the metrics, each in its state (Found,
-Defined, Tested, Needs a look), then the queries, then the tiles that could not be built. A click
+Defined, Tested, Not tested, Needs your review), then the queries, then the tiles that could not be built. A click
 opens a metric's definition, formula and where it was found. The build's steps, the survey, the
 choices, the save, the answers and the dashboard are the chat's and never appear on it. The page reads the run's files itself: never reload,
-rebuild or push to it, and never describe what it shows. Nothing on it leaves this machine, so
+rebuild or push to it, and never describe what it shows beyond the one line its `next` gives when it first opens. Nothing on it leaves this machine, so
 it shows the metrics, their sources and values on own data as on a demo. A card's last line points to it for the detail. If
 the page stops while nobody looks at it, the next `visual` call, `visual next` included,
 starts it again at the same address. `PROJECT view` prints the address again;
@@ -111,16 +126,20 @@ Pass a moment's file on standard input as a here-document: `PROJECT visual <kind
 writes it as `<kind>.json` in the run directory and records the moment in one step. Copy values
 from the result that produced them; leave out a field you do not have, never fill one in.
 
-- `saved.json`: `workspace`, its display name. Write no counts: the helper reads what is live
-  from the publish receipt `PROJECT publication` recorded. Kept on this machine, skip the file.
-- `answer.json`: `question`; `headline`, what answers and its number, such as
-  `Turbine base: -£6,360`; `summary`, the answer's first sentence, without the headline's number
-  and with no number the rows, headline or question do not show (the helper refuses one); `unit` from the metric;
-  `rows`, `[label, value]` pairs from the query result in its order (at most 12); `highlight`,
-  the label of the row that answers; `rule`, the metric's rule in one line; `proof`, `[{name}]`
-  of the metrics and queries the answer used. For a question that asks why, add `breakdown`
-  with `steps` as `[label, signed value]` from the query that splits the answering row.
-- `edit.json`: from the edit result: `metric`, `before` and `after` rules in plain words,
-  `values` as `[name, before, after, unit]`, and `added` and `removed` as lists of short labels
-  for the re-asked question. Add `note` when a dashboard was built before the change: it still
-  shows the old rule until it is rebuilt.
+- The save: `PROJECT publication`'s payload takes `workspace`, the workspace's display name,
+  beside `workspace_id`, and its result hands the card over. Write no counts: the helper reads
+  what is live from the receipt it records. Kept on this machine, there is no card.
+- An answer: the request of the query that answers (`PROJECT execute`) takes `answer`:
+  `question`, the person's question, and `metrics`, the name of each metric or saved query the
+  answer used. The card leads with the metric and its value (or a breakdown's first row) and
+  lists the result's rows. Add `headline`, what answers and its number such as
+  `Turbine base: -£6,360`, when the answering row is not the first; `summary`, the answer's first
+  sentence, without the headline's number and with no number the rows, headline or question do
+  not show (the helper refuses one); `rule`, the metric's rule in one line; and for a question
+  that asks why, `breakdown` with `steps` as `[label, signed value]` from the query that splits
+  the answering row. On a warehouse, after the result, run `PROJECT visual answer --input -`
+  with the same and `result`, the `columns` and `rows` the warehouse returned.
+- A rule change: `EDIT`'s request takes `before` and `after`, each rule in plain words, and its
+  result hands the card over with the metric's checked value before and after. Add `added` and
+  `removed` as lists of short labels for the re-asked question, and `note` when a dashboard was
+  built before the change: it still shows the old rule until it is rebuilt.

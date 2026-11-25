@@ -82,7 +82,7 @@ Use the existing host surface at each meaningful moment. Do not create a new app
 | Moment | Native presentation |
 | --- | --- |
 | Start | A short opening message before tool work. |
-| Start | The flow's checklist in chat and the host's task list when available, before the first helper call. |
+| Start | The flow's checklist in the host's task list once card 1 is answered (a demo: after "Start building"). |
 | Inspection finishes | Step 1 ticked with its source count, then the business summary and focus choices in the native question. |
 | Business focus is answered | A separate purpose question tailored to that focus. Wait for its answer. |
 | Both answers are known | One sentence reflecting the goal and immediate action. No extra confirmation. |

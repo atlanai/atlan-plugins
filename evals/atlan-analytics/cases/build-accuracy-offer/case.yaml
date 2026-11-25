@@ -13,15 +13,16 @@ execution:
   max_turns: 16
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:
-  - name: offers-accuracy-before-questions
+  - name: offers-accuracy-in-the-ready-question
     type: llm
     focus: last_message
     criteria: |
-      PASS if the reply offers to test how accurate the agent is before the person asks it
-      anything, on questions the dashboard or past queries already answer, and gives a choice
-      between running that check and going straight to questions.
-      FAIL if it skips the offer and only lists questions to ask, if it starts generating
-      questions or testing before the person chooses, or if it answers a data question unasked.
+      PASS if the reply shows what was built and asks what to ask, with checking how accurate
+      the agent is (on questions the dashboard or past queries already answer) as one of its
+      choices beside a question to ask, and lets the person type their own question.
+      FAIL if it asks a separate accuracy question before the ready block, leaves the check out,
+      starts generating questions or testing before the person chooses, or answers a data
+      question unasked.
   - name: no-shell-calls
     type: tool_used
     tool: Bash

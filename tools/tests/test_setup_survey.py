@@ -12,8 +12,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / 'plugins/atlanai-analytics/skills/analytics-build/scripts'
 sys.path.insert(0, str(SCRIPTS))
+import analytics_eval  # noqa: E402
 import context_contracts as contracts  # noqa: E402
-from analytics_eval import full_name_hit  # noqa: E402
+from analytics_eval import full_name_hit, pii_reason  # noqa: E402
 from source_inventory import summarize  # noqa: E402
 
 
@@ -106,36 +107,36 @@ class LabelOrNameTest(unittest.TestCase):
               # A persona, role or cohort is who a row is for, not who it is (2026-11-22, a Snowflake run).
               "u.PERSONA = 'Enterprise Architect'", "USER_PERSONA in ('Enterprise Architect', 'Data Engineer')",
               "t.ROLE_NAME = 'Data Steward'", "signup_cohort = 'Early Adopter'")
+    # The name rules were removed (2026-11-23) until the security team sets new ones: no value is refused for being a
+    # name, whatever its column or its look.
     NAMES = ("where rep = 'Jane Smith'", "status = 'Open' and owner_name = 'Jane Smith'",
-             "CASE WHEN id = 4 THEN 'Jane Smith' END AS owner_name", "CASE WHEN id = 4 THEN 'Jane Smith' END",
-             "tier in ('Gold Plus') and manager like 'Mary Jones%'",
-             "line_of_business = 'Fleet' and business_owner = 'Jane Smith'", "region_manager = 'Jane Smith'",
-             "CASE WHEN t.OWNER_ID = 4 THEN 'Jane Smith' ELSE 'Other Rep' END IN ('Jane Smith')",
-             "CASE WHEN t.CHANNEL = 'ONLINE' THEN 'Jane Smith' END AS owner_name",
-             "CASE WHEN t.CHANNEL = 'ONLINE' AND t.REP_ID = 7 THEN 'Jane Smith' END",
-             "CASE WHEN t.CHANNEL = 'ONLINE' THEN 'Fixed Spend' END = 'X' and rep = 'Jane Smith'",
-             "persona = 'Enterprise Architect' and owner = 'Jane Smith'", "profile_name = 'Jane Smith'")
-
-    def test_reviewed_values_pass_and_nothing_else(self):
-        from analytics_eval import set_reviewed_values
-        sql = "t.SPEND_BUCKET_OWNER = 'Variable Spend' and rep = 'Jane Smith'"
-        try:
-            set_reviewed_values(['Variable Spend'])
-            self.assertEqual(full_name_hit(sql), "'Jane Smith'")
-            self.assertIsNone(full_name_hit("t.SPEND_OWNER = 'Variable Spend'"))
-        finally:
-            set_reviewed_values([])
-        self.assertEqual(full_name_hit("t.SPEND_OWNER = 'Variable Spend'"), "'Variable Spend'")
+             "tier in ('Gold Plus') and manager like 'Mary Jones%'", "region_manager = 'Jane Smith'",
+             "where sales_rep = 'Jane Smith'", "rep_name not in ('Jane Smith')")
+    BARE = ("CASE WHEN id = 4 THEN 'Jane Smith' END", "t.title = 'Enterprise Architect'",
+            "job_title ilike '%Enterprise Architect%'", "where city = 'Salt Lake'")
 
     def test_business_labels_pass(self):
         for sql in self.LABELS:
             with self.subTest(sql=sql):
+                self.assertIsNone(pii_reason(sql))
+
+    def test_a_two_word_value_alone_is_not_refused(self):
+        for sql in self.BARE:
+            with self.subTest(sql=sql):
+                self.assertIsNone(pii_reason(sql))
                 self.assertIsNone(full_name_hit(sql))
 
-    def test_names_beside_people_columns_are_still_refused(self):
+    def test_no_name_is_refused_for_its_column(self):
         for sql in self.NAMES:
             with self.subTest(sql=sql):
-                self.assertIsNotNone(full_name_hit(sql))
+                self.assertIsNone(pii_reason(sql))
+
+    def test_only_an_email_is_still_refused(self):
+        self.assertEqual(pii_reason("owner = 'jane@example.com'"), 'email')
+        for sql in ("user_id = 42", "account_name = 'Acme Corp'", "ref = 'cus_8Hk2Lm9'",
+                    "k = '3f2b8c1e-9a4d-4e7b-8c2a-1d5e6f7a8b9c'"):
+            with self.subTest(sql=sql):
+                self.assertIsNone(pii_reason(sql))
 
 
 class ReviewedValuesReachEveryCheckTest(unittest.TestCase):
@@ -157,10 +158,9 @@ class ReviewedValuesReachEveryCheckTest(unittest.TestCase):
         from project import Project, ProjectError
         with tempfile.TemporaryDirectory() as tmp:
             project = Project(self.run_dir(tmp, ['Variable Spend']))
-            self.assertEqual(full_name_hit(self.SQL), "'Variable Spend'")
             with self.assertRaises(ProjectError):
                 project.check_execution({'name': 'nothing-authored'}, 'metric')
-            self.assertIsNone(full_name_hit(self.SQL))
+            self.assertIn('Variable Spend', analytics_eval._policy._REVIEWED)
 
     def test_context_check_applies_the_run_reviewed_values(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -168,7 +168,7 @@ class ReviewedValuesReachEveryCheckTest(unittest.TestCase):
             context.mkdir()
             with self.assertRaises(contracts.Blocked):  # nothing authored: the values are applied first
                 contracts.cmd_check(argparse.Namespace(dir=str(context)))
-            self.assertIsNone(full_name_hit(self.SQL))
+            self.assertIn('Variable Spend', analytics_eval._policy._REVIEWED)
 
 
 class PrivacyHoldTest(unittest.TestCase):
@@ -197,11 +197,10 @@ class ReportSqlKeepsItsNamesTest(unittest.TestCase):
                                             'extensions': {'metrics_agent': {'evidence': {'provenance': {'lane': lane}}}}}}
         return [e for e in contracts.check_query(body)[0] if ' holds ' in e]
 
-    def test_a_name_in_report_sql_ships_and_the_same_name_from_history_does_not(self):
+    def test_a_name_ships_from_report_sql_and_from_history(self):
         sql = "select count(*) from calls where rep_name not in ('Jane Smith')"
         self.assertEqual(self.errors('bi', sql), [])
-        self.assertEqual(len(self.errors('history', sql)), 1)
-        self.assertIn("a person's name", self.errors('history', sql)[0])
+        self.assertEqual(self.errors('history', sql), [])
 
     def test_an_email_in_report_sql_is_still_refused(self):
         self.assertIn('an email address', self.errors('bi', "select 1 from t where owner = 'jane@example.com'")[0])

@@ -39,6 +39,7 @@ import hashlib
 import json
 import os
 import pathlib
+import re
 from typing import Any, Iterator
 
 from metrics_agent import readers as _readers
@@ -180,14 +181,24 @@ class SQLiteRunner:
     def connect(self) -> None:
         self._engine.connect()
 
+    def _two_parts(self, sql: str) -> str:
+        """The engine names a table here DB.SCHEMA.TABLE, the file both (`tix.tix.events`, `qualify_table`), and cards
+        are written from those names; SQLite reads two parts at most, so the doubled name is read as the table it names.
+        Text inside quotes is left as it is."""
+        s = re.escape(self.schema)
+        doubled = re.compile(rf'(?i)(?<![\w."])(")?{s}(?(1)")\s*\.\s*(")?({s})(?(2)")\s*\.')
+        pieces = re.split(r"('(?:[^']|'')*')", sql)
+        return "".join(p if i % 2 else doubled.sub(lambda m: (m[2] or "") + m[3] + (m[2] or "") + ".", p)
+                       for i, p in enumerate(pieces))
+
     def explain(self, sql: str) -> int:
-        return self._engine.explain(sql)
+        return self._engine.explain(self._two_parts(sql))
 
     def fetch(self, sql: str, limit: int):
-        return self._engine.fetch(sql, limit)
+        return self._engine.fetch(self._two_parts(sql), limit)
 
     def scan(self, sql: str, batch: int) -> Iterator[list[tuple]]:
-        return self._engine.scan(sql, batch)
+        return self._engine.scan(self._two_parts(sql), batch)
 
     def columns_of(self, table: str) -> list[str]:
         """SQLite has no `information_schema`: its own `table_info` names the columns."""

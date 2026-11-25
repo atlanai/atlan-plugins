@@ -3,7 +3,7 @@
  "flow": "demo",
  "connect": {
   "title": "Ticket fees agent for Ticketfuddle",
-  "tagline": "Answers questions about its sales and fees in plain English, and shows how every number is worked out"
+  "tagline": "Answers questions about Ticketfuddle's sales and fees in plain English, and shows how each number is worked out"
  },
  "ready": {
   "agent": "ticket fees agent",

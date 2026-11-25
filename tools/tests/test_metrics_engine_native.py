@@ -372,7 +372,7 @@ class DetailTableTest(unittest.TestCase):
         cands = [{'candidate_id': 'c1'}]
         row = {'candidate_id': 'c1', 'description': 'd', 'evidence_citations': []}
         with self.assertRaises(SystemExit) as stop:
-            c3_questions._validate_model_output([{**row, 'question': 'Pod Targets (held)'}], cands)
+            c3_questions._validate_model_output([{**row, 'question': 'Region Targets (held)'}], cands)
         self.assertIn('question mark', str(stop.exception))
         out = c3_questions._validate_model_output([{**row, 'question': 'What is each pod\'s target?'}], cands)
         self.assertIn('c1', out)

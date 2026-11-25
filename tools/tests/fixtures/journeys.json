@@ -1392,7 +1392,7 @@
    "plugin": "atlanai-analytics",
    "skill": "analytics-build",
    "title": "Own data, discovery branch: warehouse, let discovery decide, pick use cases, confirm, generate and save",
-   "route": "Ask which warehouse and what to do, discover the most used tables, offer use cases with their tables, clarify what is unsettled, confirm, generate and check, save, answer one question",
+   "route": "Ask which warehouse and what to do, discover the most used tables, offer use cases with their tables, build on the pick, generate and check, save, answer one question",
    "includes": [
     "analytics-connect-warehouse",
     "analytics-bootstrap-metrics",

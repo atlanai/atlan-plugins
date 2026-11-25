@@ -3,7 +3,8 @@
 
     python3 edit_metric.py --run-dir <run> <request.json>
 
-The request is {"name", "changes": [{"path": "<definition field, dotted>", "value"}]}. The old
+The request is {"name", "changes": [{"path": "<definition field, dotted>", "value"}]}, with each rule in plain words as
+"before" and "after" for the card the result hands over ("note", "added" and "removed" as the card takes them). The old
 definition is kept beside the run, never in it, the version goes up, the metric is checked again
 and the engine's own copies follow; a failing check keeps the old rule. Prints one JSON object.
 """
@@ -21,7 +22,8 @@ from project import Project, ProjectError  # noqa: E402
 def edit_metric(run, request):
     """Change one metric in this run by definition field, as a proposal's changes name them. The
     old definition is kept beside the run and the new one must pass its check, or nothing changes."""
-    name, changes = request.get('name', ''), request.get('changes') or []
+    name, changes = request.get('name', ''), [{**c, 'path': _field(c.get('path'))} for c in request.get('changes') or []
+                                              if isinstance(c, dict)]
     path = run.context / 'metrics.json'
     bodies = run.read(path) if path.exists() else []
     body = next((b for b in bodies if name in (b.get('name'), b.get('display_name'))), None)
@@ -31,6 +33,7 @@ def edit_metric(run, request):
         raise ProjectError('Name at least one change: {"path": "<definition field, dotted>", "value": ...}.')
     old = json.loads(json.dumps(body['definition']))
     new = json.loads(json.dumps(old))
+    was = _checked(run, body['name'])
     old_text = {k: body.get(k) for k in ('description', 'display_name')}
     for change in changes:
         keys = str(change.get('path') or '').split('.')
@@ -60,10 +63,49 @@ def edit_metric(run, request):
         body['definition'] = old
         body.update(old_text)
         run.write(path, bodies)
-        raise ProjectError(f'The new rule fails its check, so the old rule is kept: {error}')
+        raise ProjectError(f'The new rule failed its test, so the old rule stays: {error}')
     _mirror_metric_edit(run, body['name'], changes, kept, version)
-    return {'status': 'ok', 'name': body['name'], 'version': version + 1, 'previous': str(kept),
-            'changed': [c['path'] for c in changes]}
+    return {**_edit_card(run, body, request, old_text, was), 'status': 'ok', 'name': body['name'], 'version': version + 1,
+            'previous': str(kept), 'changed': [c['path'] for c in changes]}
+
+
+def _field(path):
+    """A field named from the metric ("definition.formula") or from its definition ("formula"): the definition's own.
+    Named from the metric, an edit nested a second definition inside the first (dry run F, 2026-11-25)."""
+    path = str(path or '')
+    return path[len('definition.'):] if path.startswith('definition.') else path
+
+
+def _checked(run, name):
+    """The metric's checked value: the first number its check worked out, checking it now when it never was."""
+    path = run.context / 'candidate-checks.json'
+    for attempt in (0, 1):
+        check = (run.read(path) if path.exists() else {}).get('metric:' + name) or {}
+        rows = (check.get('composition') or {}).get('rows') or []
+        value = next((v for v in (rows[0] if rows and isinstance(rows[0], list) else [])
+                      if isinstance(v, (int, float)) and not isinstance(v, bool)), None)
+        if value is not None or attempt:
+            return value
+        try:
+            run.check_metric({'name': name})
+        except ValueError:
+            return None
+
+
+def _edit_card(run, body, request, old_text, was):
+    """The card that shows the change, with the edit's own result: one number before and after, and each rule in the
+    plain words the request gives (else the metric's description, when the change rewrote it)."""
+    import side_view
+    now = _checked(run, body['name'])
+    if was is None or now is None:
+        return {}
+    label = body.get('display_name') or body['name']
+    words = {k: request[k].strip() for k in ('before', 'after') if isinstance(request.get(k), str) and request[k].strip()}
+    if not words and old_text.get('description') != body.get('description'):
+        words = {'before': old_text.get('description') or '', 'after': body.get('description') or ''}
+    extra = {k: request[k] for k in ('note', 'added', 'removed') if request.get(k)}
+    data = {'metric': label, 'values': [[label, was, now]], **{k: v for k, v in words.items() if v}, **extra}
+    return side_view.handed(side_view.show_card(run.root, 'edit', data))
 
 # Where the engine keeps its own copy of a definition field (its card names a few differently).
 CARD_FIELD = {'source.sql': 'sql', 'source.entity': 'entity', 'source.alias': 'alias'}

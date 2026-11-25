@@ -43,6 +43,14 @@ class ConversationChoices(unittest.TestCase):
         self.assertEqual(set(after) - set(before), {'interaction.json'})
         self.assertEqual({k: after[k] for k in before}, before)
 
+    def test_a_pause_says_where_the_work_is_and_how_to_pick_it_up(self):
+        # 0.9.74 said "Resume here when ready" without saying how.
+        self.run.journey('domain', answer="EU region targets: what each region's quarterly target is. Table: SALES_OPS.REGION_TARGETS")
+        chat = self.run.journey('pause')['chat']
+        self.assertNotIn('Resume here', chat)
+        self.assertIn('Your work is saved on this machine. To pick up, open a chat in', chat)
+        self.assertIn('say "resume the EU region targets".', chat)
+
     def test_missing_focus_survives_scope_change_without_substitution(self):
         self.run.journey('select', 'metric-source')
         self.fixture.write('context/metrics.json', [{**self.body, 'name': 'replacement', 'source_id': 'new'}])

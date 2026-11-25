@@ -15,11 +15,12 @@ Sign-in, the first that applies (`sign_in()`):
        set: for CI and unattended runs;
     2. PBI_ACCESS_TOKEN, a token already issued for the Power BI API, used as is;
     3. a person's own sign-in, reusing the extractor's owner-only (0600) token cache, ONLY
-       when the run is at a terminal. A run that is not refuses by name instead of waiting
-       for a sign-in nobody will see. Where a browser can open on this machine
-       (`X.local_browser`: not over SSH, not on a Linux host with no display) the person
-       signs in in their own browser (the OAuth authorization code with PKCE, answered on a
-       loopback address): single sign-on, nothing to copy. It waits
+       when the run is at a terminal or in an attended background command (`ATTENDED_ENV`,
+       set only by the host module's one-command fetch). A run that is neither refuses by
+       name instead of waiting for a sign-in nobody will see. Where a browser can open on
+       this machine (`X.local_browser`: not over SSH, not on a Linux host with no display)
+       the person signs in in their own browser (the OAuth authorization code with PKCE,
+       answered on a loopback address): single sign-on, nothing to copy. It waits
        `fetch.max_sign_in_wait_seconds` (policy) for them. Elsewhere, a device code to enter
        on another device. PBI_PUBLIC_CLIENT_ID, when set, is the public client (an app
        registration of the customer's) it signs in through, for a tenant that blocks the
@@ -71,10 +72,9 @@ CERT_ENV = "PBI_CLIENT_CERTIFICATE_PATH"
 PUBLIC_CLIENT_ENV = "PBI_PUBLIC_CLIENT_ID"
 SIGN_IN_KINDS = ("device", "browser")
 ALL_SIGN_INS = (*SIGN_IN_KINDS, 'spn', 'token', 'certificate', 'managed-identity')
-NO_SIGN_IN = ("no Fabric sign-in for a run that is not at a terminal: set PBI_TENANT_ID, "
-              "PBI_CLIENT_ID and PBI_CLIENT_SECRET (a service principal) or PBI_ACCESS_TOKEN, "
-              "or run it at a terminal to sign in as yourself (the sign-in is then reused "
-              "without a terminal until it expires)")
+NO_SIGN_IN = ("Power BI needs you to sign in, and this session has no terminal for it. Start "
+              "it from a terminal (the sign-in is then reused without one until it expires). "
+              "Or set PBI_TENANT_ID, PBI_CLIENT_ID and PBI_CLIENT_SECRET, or PBI_ACCESS_TOKEN.")
 
 
 class SignInRefused(RuntimeError):
@@ -102,6 +102,18 @@ def at_terminal() -> bool:
         return False
 
 
+# Set to 1 by the host module's one-command Power BI fetch, which an assistant starts in the
+# background while the person is in the conversation: the browser opens and its loopback
+# address answers with no terminal, and a device code is relayed on stderr. Never set by
+# an unattended job.
+ATTENDED_ENV = "METRICS_AGENT_ATTENDED"
+
+
+def person_present() -> bool:
+    """A person can answer a sign-in: at a terminal, or in an attended background command."""
+    return at_terminal() or os.environ.get(ATTENDED_ENV, "").strip() == "1"
+
+
 def cached_sign_in() -> bool:
     """A person's earlier sign-in is cached for this tenant and sign-in app and has not
     expired. Only its expiry is read here; the token is never kept."""
@@ -116,15 +128,16 @@ def cached_sign_in() -> bool:
 
 def sign_in(settings=None) -> str | None:
     """How a fetch signs in, the first that applies: `spn` (all three service-principal
-    variables set), `token` (PBI_ACCESS_TOKEN set), a person at a terminal (`browser` where a
-    browser can open here, else `device`: `X.person_sign_in`), a person's cached sign-in that
+    variables set), `token` (PBI_ACCESS_TOKEN set), a person at a terminal or in an attended
+    background command (`person_present`; `browser` where a browser can open here, else
+    `device`: `X.person_sign_in`), a person's cached sign-in that
     has not expired where nobody is at a terminal (`cached`: reused, never renewed by asking),
     or None when none can. Names only are read here; no value is kept."""
     selected = (settings or {}).get('sign_in') or os.environ.get('PBI_SIGN_IN')
     if selected:
         if selected not in ALL_SIGN_INS:
             raise SignInRefused('PBI_SIGN_IN is not a supported authentication route')
-        if selected not in SIGN_IN_KINDS or at_terminal():
+        if selected not in SIGN_IN_KINDS or person_present():
             return selected
         return "cached" if cached_sign_in() else None
     if all(os.environ.get(n, "").strip() for n in SPN_ENV):
@@ -133,7 +146,7 @@ def sign_in(settings=None) -> str | None:
         return "certificate"
     if os.environ.get(TOKEN_ENV, "").strip():
         return "token"
-    if at_terminal():
+    if person_present():
         from metrics_agent_powerbi import pbi_definition_extract as X  # noqa: PLC0415
         return X.person_sign_in()
     return "cached" if cached_sign_in() else None

@@ -50,7 +50,7 @@ class DashboardBranch(unittest.TestCase):
         snap = side_page.snapshot(self.run)
         self.assertTrue(snap['build'] and all(s['state'] in ('done', 'now', 'next') for s in snap['build']))
         self.assertTrue(any(s['id'] == 'translate' and s.get('result') == '2 of 3 tiles' for s in snap['build']))
-        self.assertEqual(snap['cant'], [{'tile': 'Deal list', 'page': 'Detail', 'why': 'The translation came out malformed'}])
+        self.assertEqual(snap['cant'], [{'tile': 'Deal list', 'page': 'Detail', 'why': "It couldn't be read correctly"}])
         self.assertEqual([d['name'] for d in snap['drafts']], ['Win rate'], 'every draft the build found is listed')
         self.assertTrue(all(m.get('stage') in ('draft', 'merged', 'final', 'kept') for m in snap['metrics']))
 
@@ -61,7 +61,7 @@ class DashboardBranch(unittest.TestCase):
             {'name': 'A different name', 'reason': 'source_query_held', 'query_ids': [metric['sources'][0]['id']]}]})
         kept = next(m for m in side_page.snapshot(self.run)['metrics'] if m['name'] == metric['name'])
         self.assertEqual(kept['stage'], 'kept')
-        self.assertIn('kept back', kept['kept_reason'])
+        self.assertIn('held back', kept['kept_reason'])
 
     def hold(self):
         """The save kept back one metric whose number did not match its tile, and one query missing its tile's filter."""
@@ -97,9 +97,12 @@ class DashboardBranch(unittest.TestCase):
 
     def test_the_ready_question_offers_the_person_s_own_question(self):
         # A tester, 2026-11-19: "there was no way to ask a question unless I picked Other."
-        options = questions.ready(self.run, widget=True)['options']
-        self.assertIn('Ask my own question', [o['label'] for o in options])
-        self.assertLessEqual(len(options), 4)
+        # The product owner, 2026-11-21: an "Ask your own question" option led to a turn with nothing to pick. The
+        # host's free-text entry takes it, and the text says so.
+        asked = questions.ready(self.run, widget=True)
+        self.assertNotIn('Ask your own question', [o['label'] for o in asked['options']])
+        self.assertTrue(asked['question'].endswith('Pick one, or type your own in Other.'))
+        self.assertLessEqual(len(asked['options']), 4)
 
     def test_tiles_by_page_reports_the_real_translation_for_the_chosen_pages(self):
         got = side_page.tiles_by_page(RunFacts(self.run), ['Detail'])
@@ -122,11 +125,19 @@ class DashboardBranch(unittest.TestCase):
         self.assertIn('`PROJECT check`', str(said.exception))
         write(self.run / 'context' / 'candidate-checks.json', {k: {'status': 'schema_checked', 'errors': []} for k in structural})
         text = questions.save(self.run, widget=True)['question']
-        self.assertRegex(text, r'^Built [1-9]', text)
-        self.assertIn('you chose to skip the checks', text)
-        self.assertIn("1 tile couldn't be built", text)
+        self.assertTrue(text.startswith('Not validated yet on your data: you skipped the tests.'), text)
+        self.assertNotIn('answers from', text, 'with widgets the build card says what was built')
+        self.assertIn('1 tile stayed out', text)
         self.assertNotIn('CONTEXT BUILT', text)
         self.assertNotIn('As you asked', text)
+        asked = questions.save(self.run)
+        self.assertRegex(asked['question'], r'^Your .* is built\.\nIt answers from [1-9].* built from [1-9] tiles? on the ',
+                         asked['question'])
+        self.assertIn('you skipped the tests', asked['question'])
+        self.assertEqual(asked['shown'], ['build'])
+        for block in '█░▓':
+            self.assertNotIn(block, asked['question'])
+        self.assertFalse([x for x in asked['question'].splitlines() if x.startswith('Next:')])
 
     def skip_checks(self):
         """The person chose to skip the checks: only the structural pass ran, and the flow moved on to the save."""
@@ -146,12 +157,22 @@ class DashboardBranch(unittest.TestCase):
             self.assertEqual(item['status'], 'untested', item['name'])
             self.assertNotIn('why', item)
 
-    def test_the_ready_question_says_the_checks_were_skipped_and_lists_nothing_as_needing_a_look(self):
+    def test_the_ready_question_lists_nothing_as_needing_a_look_and_its_recap_says_the_checks_were_skipped(self):
         self.skip_checks()
         text = questions.ready(self.run, widget=True)['question']
-        self.assertNotIn('Needs a look', text)
+        self.assertNotIn('Needs your review', text)
         self.assertNotIn('checked on', text)
-        self.assertIn('not run on the data: you chose to skip the checks', text)
+        self.assertNotIn('tested', text, 'the save question just said so')
+        recap = questions.ready(self.run, widget=True, recap=True)['question']
+        self.assertNotIn('Needs your review', recap)
+        self.assertIn("They aren't tested yet: you skipped the tests.", recap)
+
+    def test_the_closing_message_says_not_validated_without_giving_the_reason_again(self):
+        # The save question and the ready recap had each said "you skipped the tests"; a third time read as a reproach.
+        self.skip_checks()
+        closing = questions.close(self.run)['text']
+        self.assertIn('not validated yet', closing)
+        self.assertNotIn('you skipped the tests', closing)
 
     def test_a_refused_command_leaves_progress_as_it_was(self):
         # Live, a refused check marked the stage failed and the side page said the build had stopped.

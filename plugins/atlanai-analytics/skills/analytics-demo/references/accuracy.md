@@ -19,20 +19,21 @@ the first question, asks before a release and replaces step 5's ending.
 sentences, in this order, naming only the decisions that are theirs: I pick 8 questions from
 `<firm>`'s dashboard and the queries its analysts already run, and show each with where it
 came from and its expected answer; you decide once whether to run them, change some or skip;
-each question goes to a fresh agent with your context and again with schema only, so the score
+each question goes to a fresh agent with your context and again with column names only, so the score
 shows beside that comparison; with a miss, you decide whether I find the fix; and only after
-the score, whether to save the check to Atlan Trident or keep it on this machine. Nothing else.
+the score, whether to save the check to Atlan Trident or store it on this machine. Nothing else.
 
 When the host keeps a task list, its items are these, in the person's words, whichever questions
-are picked: **Choose the questions**, **Ask each one to a fresh agent**, **Score the answers**.
+are picked: **Check your test questions**, **Run your agent on each question**, **Score
+the answers**.
 When the person replies "fix", add **Find what to fix**, **Apply the fix** and **Test again**
 to the list before diagnosing, and mark each done as it finishes.
 
 Every step follows [text before a native question is lost](../../analytics-build/references/conventions.md#text-before-a-native-question-is-lost):
 a block to read before choosing is the question's own text, as plain lines with no Markdown, with
 no Doing or Why lines. Every step that leads to a choice ends on a native question, except the
-score (step 3) and the result (step 5): each is the turn's last chat message, ending on a plain
-reply line, so the before and after prints whole.
+score with misses (step 3): it is the turn's last chat message, ending on a plain reply line, so
+it prints whole. The result (step 5) is the text of its native question.
 
 An eval set lives in the project (`.atlan-evals/sets/`), never fetched from Atlan Trident: never
 look up Trident, a workspace or saved evals for the questions, the run or the score. Only step
@@ -40,7 +41,15 @@ look up Trident, a workspace or saved evals for the questions, the run or the sc
 `context_saved_to` (from `CHECK start` and `CHECK load`) says where the context lives; `null` means
 this machine only.
 
-## 1. Choose the questions
+## Contents
+
+- 1. Check your test questions
+- 2. Generated questions: show them, then ask to run them
+- 3. Run your agent on each question, and score the answers
+- 4. Improve it: find the fix, apply it, test again
+- 5. The result
+
+## 1. Check your test questions
 
 Run `CHECK start` at the start of every check, even a later one in the same session: where the
 context lives can change, so never reuse an earlier answer. `CHECK start --project <project> --questions 8` returns the built run, `context_saved_to`, `execution`, the project's
@@ -58,88 +67,96 @@ questions are shown with their expected answers, in step 2, because the person h
   then step 3, with no list to confirm.
 - **Generate:** run `eval-generation` `generate` (not its `save`) with 8 questions, passing
   `--limit 8` to its `SCOPE pick`, then `CHECK load` on the set it wrote, then step 2. A demo
-  check stays at 8 questions, so it ends in about 4 minutes with both passes.
+  check stays at 8 questions, so it ends in about 8 minutes with both passes.
 
 `CHECK load` drops a question whose trusted SQL fails or returns nothing; name how many.
 
 ## 2. Generated questions: show them, then ask to run them
 
-The person has not seen these, so show them before running: the questions in the chat, then one
-short native question to choose. The questions never go in the question's text, where a list this
-long wraps and breaks.
+The person has not seen these, so show them before running: the questions on the side page, one
+chip in the chat, then one short native question to choose. The questions never go in the
+question's text, where a list this long wraps and breaks.
 
-**First, the questions in the chat.** `CHECK show --evals <evals-run>` prints the set as one
-markdown table: the number each question keeps in the score, the misses and any fix, the
-question, the metric it tests, and the trusted answer (a single value, or the result's size and
-first values). Send this as a chat message, filled in, with the table exactly as printed:
+**First, the questions on the side page.** `CHECK load` (or `CHECK gold`) hands over one chip in
+`show_first`, "<N> test questions written", with where they came from, and the side page lists
+every question under the number it keeps in the score, with the metric it tests and its known
+answer. During the check the page fills each row with your agent's answer as it comes back, and
+marks it once scored. Show the chip as its `side view` line says, and add no line of your own
+about the questions or the page.
+
+**Only when that line says the side page is not open**, the questions go in the chat instead.
+`CHECK show --evals <evals-run>` prints the set as one markdown table: the number each question
+keeps in the score, the question, the metric it tests, and the trusted answer (a single value, or
+the result's size and first values). Send this as a chat message, filled in, with the table
+exactly as printed:
 
 ```
-<N> questions to test your <agent> on <the use case>. Each comes from <firm>'s dashboard or a
-query its analysts already run; the expected answer is what that query returns.
+<N> questions to test your <agent> on <the use case>. Each comes from a tile on <firm>'s dashboard or a
+past query its analysts wrote. The known answer is what that tile or past query returns.
 
 <the table, as CHECK show printed it>
 
-Each question goes to a fresh agent with your context, and again to one with schema only, about <4 or 8> minutes.
+Each question is answered twice from a clean start: once with your agent's metrics, and once with column names only. About <8 or 20> minutes.
 ```
 
-Never rebuild the table, add SQL, or shorten it.
+With one question, it reads: "1 question to test your <agent> on <the use case>. It comes from a
+tile on <firm>'s dashboard or a past query its analysts wrote. The known answer is what that tile
+or past query returns." and "It is answered twice from a clean start: once with your agent's
+metrics, and once with column names only." Never rebuild the table, add SQL, or shorten it.
 
-**Then, in the same turn, one native question**, "Run these <N> questions?", whose text is that
-one line and nothing else:
+**Then, in the same turn, one native question**: `CHECK show`'s `ask`, its `question` and
+`options` as they are. Its text is the question alone. For several questions:
 
 | Option | Description |
 | --- | --- |
-| Run them (Recommended) | Test all <N>, with your context and with schema only. |
-| Edit questions | Change a question's wording, or leave some out, before anything runs. |
-| Skip for now | Keep the questions on this machine and run them later. |
+| Test them (Recommended) | I test all <N>, with your agent's metrics and with column names only. |
+| Edit questions | Reword a question or leave some out before testing. |
+| Skip for now | Keep the questions on this machine and test later. |
 
-- **Run them** runs the set (step 3).
+For one, the question is "Test your agent on this question?", and the options read Test it
+(Recommended), "I test it with your agent's metrics and with column names only."; Edit the
+question; Skip for now.
+
+- **Test them** (or **Test it**) runs the set (step 3).
 - **Edit questions:** ask in plain chat which questions to change and how: "reword 3 to: <new
   wording>" or "drop 2, 7". Run `CHECK edit --evals <evals-run> --question <n> --text "<new
   wording>"` for each reworded question and `CHECK drop --evals <evals-run> --questions
   <numbers>` for those left out. A reworded question keeps its trusted SQL and expected answer, so
   it must still ask for exactly what that SQL returns: when the new wording asks for something
-  else (another period, another measure), say so in one line and keep the old wording. Then
-  print `CHECK show` again in the chat and ask "Run these <N> questions?" again. The set file
-  keeps the new wording and the dropped questions.
+  else (another period, another measure), say so in one line and keep the old wording. The side
+  page shows the new wording by itself (without it, print `CHECK show` again in the chat). Then
+  ask its `ask` again. The set file keeps the new wording and the dropped questions.
 - **Skip for now** keeps the set on this machine and ends with "What would you like to do next?",
   whose text is one line: "The questions stay on this machine."
 
 Where the host has no native question tool, end the turn on the table, with one last line:
-Reply "run", "reword 3 to: <new wording>", "drop 2, 7" or "skip". Where no person can answer
+Reply "test", "reword 3 to: <new wording>", "drop 2, 7" or "skip". Where no person can answer
 (a scheduled or headless run), run them.
 
-## 3. Run and score
+## 3. Run your agent on each question, and score the answers
 
 Run the set with `accuracy-check`, as its [run it](../../accuracy-check/references/run.md#run-it) describes, with its
-[before and after](../../accuracy-check/references/run.md#before-and-after) pass using schema only,
+[before and after](../../accuracy-check/references/run.md#before-and-after) pass using column names only,
 with no additional context or exploratory data queries; only its final answer SQL reads data.
 The raw pass is started with the
 context pass. With every question right, go to step 5: the result carries the comparison.
 
-**With misses, the turn ends on the score, in the chat.** The before and after is the moment the
-person sees what their context is worth, so it is the turn's last message, which always prints
-whole, with no native question after it: text written just before a question can be cut to a
-short note, and a question's own text is rewritten into one line. Send one message, filled in,
-with nothing before it and nothing after it:
-
-````
-**<`headline`>**
+**With misses, the turn ends on the score, in the chat.** It is the turn's last message, which
+always prints whole, with no native question after it: text written just before a question can
+be cut to a short note. Write it from `ACC result --evals <evals-run>` (add `--generated` when
+`CHECK load` returned `generated: true`, and `--widget` where you have `show_widget`) as
+accuracy-check's [show the score](../../accuracy-check/references/run.md#show-the-score) describes,
+its card drawn first where there is one, then this last line. Send one message, filled in, with
+nothing before it but the card and nothing after it:
 
 ```
-<`bars`: the card below its headline, word for word>
+<the result, as show the score describes>
+
+<M> still wrong. Reply "fix" and I'll find the change behind each miss. Reply "keep" to keep this score as the bar to beat.
 ```
 
-<`changes`, the table as printed>
-
-<the run report: the score line, the runs and the misses, as its [show the score](../../accuracy-check/references/run.md#show-the-score) describes>
-
-<M> still wrong. Want me to work out what would fix them? Reply "fix" and I'll find the change behind each miss, or "keep" to keep this score as the bar to beat.
-````
-
-Where you have `show_widget` (the desktop app), show the comparison's `widget` with it first, and
-leave the bold headline, the fenced bars and `changes` out of the message: the widget draws all
-three. The run report and the last line stay as written.
+With one miss, the line reads: 1 still wrong. Reply "fix" and I'll find the change behind it.
+Reply "keep" to keep this score as the bar to beat.
 
 Then stop and wait for the reply. "fix", or any reply that asks to improve the score, is step 4.
 "keep", or any reply that accepts the score, is step 5. Name no fix in this message: the fixes
@@ -194,9 +211,9 @@ in `<evals-run>/work/spec.json`, name the fix:
 
   | Option | Description |
   | --- | --- |
-  | Fix `<n>`: `<metric>` (one option per fix; Recommended on the one that turns the most misses, unless it carries a caution) | I change `<metric>` so `<rule proposed, plain words>`, and each other metric the fix names. With the context in Atlan Trident add: "This releases the new version in `<workspace>`." |
+  | Fix `<n>`: `<metric>` (one option per fix; Recommended on the one that turns the most misses, unless it carries a caution) | I change `<metric>` so `<rule proposed, plain words>`, and any other metric the fix names. When the metrics are saved to Atlan Trident, add: "This releases the new version in `<workspace>`." |
   | Fix `<n>`: every `<kind of answer>` (one option per shared fix) | I change `<k>` metrics, `<their names>`, so `<rule proposed, plain words>`. It is the second time an answer missed this way. |
-  | Reword question `<n>` (one option per redraft) | The question names a period that moves, or asks the opposite of its SQL. I leave the context alone and mark the question to reword in the set. |
+  | Reword question `<n>` (one option per redraft) | The question names a period that moves, or asks the opposite of its SQL. I leave your agent's metrics alone and mark the question to reword. |
   | Keep the score | Apply nothing. Keep this score as the bar to beat. |
 
 The fixes the person ticks are the yes through the next score, so apply only those, in order,
@@ -205,14 +222,15 @@ is refused and the owner must act in Metric Studio. A question marked to reword 
 and in the score until its wording is changed; say so in one line beside the next score. With
 nothing ticked, or Keep the score, go to step 5.
 
-- **Context on this machine:** write `{"name": "<metric>", "changes": <the fix's changes>}` to
+- **Context on this machine:** write `{"name": "<metric>", "changes": <the fix's changes>, "before": "<old
+  rule, plain words>", "after": "<new rule, plain words>"}` to
   `<evals-run>/fix-request.json`, never in the run (an answering agent that reads the proposed
   rule there no longer tests the context), and run `EDIT <that file>`. It keeps the old version beside the run (never where answering agents read), raises the
   version, re-checks the metric and keeps the engine's own copies of it in step; a failing check
   keeps the old rule, so say so and ask "Which fixes should I apply?" again with the fixes left. A
   shared fix is one `EDIT` per metric it names, each with that metric's changes. Change only that metric,
   never a file by hand, and do not raise saved queries with the person.
-- **Context in Atlan Trident:** a ticked fix is the approval, so apply and release the fix here, with
+- **Context in Atlan:** a ticked fix is the approval, so apply and release the fix here, with
   no second approval in Metric Studio and no proposal record: the new version is the record. For
   each metric the fix changes:
   1. Read the metric's head (`registry__get_artifact`, `properties: []`) for its `etag` and
@@ -244,78 +262,51 @@ the score again as step 3 describes, with the new score; "fix" finds the next fi
 
 ## 5. The result
 
-The result block is the `text` that `ACC result --evals <evals-run> --agent <agent> --firm <firm>`
-prints, put as it is: add `--changed "<what changed, plain words>"` after a fix, `--misses "<what
-the misses share>"` with misses left, and `--generated` when `CHECK load` returned
-`generated: true`, and `--widget` where you have `show_widget`: then the card comes back as
-`widget`, not in the text. It holds these lines and nothing else:
+The result is the win moment of the check. `ACC result --evals <evals-run>` (add `--generated`
+when `CHECK load` returned `generated: true`) computes every number: `banner` when every question
+is right (shown only where no card is drawn), `accuracy`, `baseline`, `lift`, `outcome`, `questions`, `misses`, `lines` (the number
+lines, worded once, with `fixed`, "Up from <p>% before the fix.", after a fix) and `source`. Write
+the result from them as accuracy-check's
+[show the score](../../accuracy-check/references/run.md#show-the-score) describes, card first where
+you have `show_widget`; after a fix, its line on what made the difference names the rule it
+changed, in plain words. Then one
+line per version a fix released: "<metric> version <v> is released in <workspace>." No other
+line: not a significance test, a note on saved queries or past queries that still follow the old
+rule, or an offer to change a saved query, another metric or the set.
 
-1. Every question right: this banner. Otherwise no banner.
+**Then ask for more, in the same turn.** `CHECK next --evals <evals-run> --run <run>` returns
+the question, as accuracy-check's [ask for more](../../accuracy-check/references/run.md#ask-for-more)
+describes. Draw the result's card first where you have `show_widget` (`ACC result --evals <evals-run> --widget`), then ask one
+native question whose text is the result, a blank line and its `lead`, as plain lines with no
+Markdown, as [show the score](../../accuracy-check/references/run.md#show-the-score) says. When the person just replied "keep" to a score message, they have seen the score: the
+text is the released lines, if any, and the `lead`. On a demo, its options are Add questions of
+your own, Save this score to Atlan Trident (5 questions or more) and I'm done.
 
-   ```
-    *   .  '   *    .   '  *   .    '   *  .
-    '   *   .   <N> OUT OF <N> RIGHT   .   *   '
-    .   *    '   .    *   '    .   *    '  .
-   ```
+`<workspace>` is the one the context was saved to (`context_saved_to`); for a context on this
+machine it is the person's personal workspace, the `user_default` one
+`registry__list_workspaces` returns. When that read needs sign-in, follow
+[connection recovery](../../analytics-build/references/auth-recovery.md) after the person picks
+Save this score to Atlan Trident, never before: the result has already been shown.
 
-2. The result line, in percentages. After a fix: "Your <agent> has reached 100% accuracy, up
-   from <p>%, now that <what changed, plain words>." First time: "Your <agent> is at 100%
-   accuracy on the <N> questions <firm>'s analysts ask most." Some missed: "Your <agent> misses
-   <what the misses share>."
-3. The score line, word for word.
-4. The before-and-after card, word for word: schema only against your context on the same
-   questions, a bar each. `ACC result` adds it from the check's `raw` run; it is never left out.
-5. Only when `CHECK load` returned `generated: true`: the source line.
-
-No other line: not a significance test, an open question, a note on saved queries or past
-queries that still follow the old rule, or an offer to change a saved query, another metric
-or the set.
-
-**The turn ends on the result, in the chat, with the save offer as its last line.** The result
-is the moment to save, whether the context is in Atlan Trident or on this machine, and like the
-score it is the turn's last message, never a native question's text. Where `ACC result` returned a
-`widget`, show it with `show_widget` first. Then send one message, filled in, with nothing else before
-it and nothing after it:
-
-````
-```
-<the result block, `ACC result`'s text, word for word: banner, result line, score line, card>
-```
-
-<`changes` from the comparison, the table as printed; left out where the widget drew it>
-
-<one line per version a fix released: "<metric> version <v> is released in <workspace>.">
-
-Save this check to Atlan Trident? Reply "save" to put it in <workspace>: the questions, the schema only run and every run with your context, with their scores, so your team sees accuracy go from <r>% with schema only to <q>% with your context, and a digest of each trusted SQL, never the SQL. Reply "keep" to leave it on this machine.
-````
-
-When the person just replied "keep" to a score message, they have seen the score: the message
-is only the released lines and the save offer. Nothing else in either form: no notes on
-proposals, files or cleanup. Then stop and wait for the reply: "save", or any reply that asks
-to save, saves; "keep", or any reply that declines, keeps. `<workspace>` is the one the context
-was saved to (`context_saved_to`); for a context on this machine it is the person's personal
-workspace, the `user_default` one `registry__list_workspaces` returns. When that read needs
-sign-in, follow [connection recovery](../../analytics-build/references/auth-recovery.md) after
-the person replies "save", never before: the result has already been shown.
-
-On "save": have `accuracy-check`
+On **Save this score to Atlan Trident**: have `accuracy-check`
 [save the check](../../accuracy-check/references/run.md#save-to-atlan-trident) to that
 workspace. No agent is registered: the runs save without one. Saving the check never saves the
 context: a context kept on this machine stays there. `ACC saved --evals <evals-run> --agent <agent> --workspace <workspace>
 --org <organization slug> --released "<metric>:<version>"` (once per released version; `--withdrawn`
 for one the test again withdrew) prints the summary
-below. End with the demo's "What would you like to do next?" ([step 5](../SKILL.md#5-ask-a-question-then-choose-whats-next)), whose text is what was saved and where,
+below. End with the demo's "What would you like to do next?" ([step 5](../SKILL.md#5-ask-your-agent-a-question-then-choose-whats-next)), whose text is what was saved and where,
 as that `text`, put as it is, and no banner (the result was just shown):
 
 ```
 Saved to <workspace>:
-  <agent>, with <N> questions and <runs> runs scored from <p>% to <q>%
-  schema only: <r>%
+  <agent>, with <N> questions and <runs> rounds scored from <p>% to <q>%
+  column names only: <r>%
   <metric> version <v>, released            (one line per released or withdrawn version)
-See the runs in Atlan: <runs link>
+See the scores in Atlan Trident: <runs link>
 ```
 
-On "keep": the same question, whose text is one line: "The check stays on this machine."
+On **I'm done**: the closing message, as [ready](../../analytics-build/references/setup/ready.md)
+says. On **Add questions of your own**, follow ask for more, then test again.
 
 A run with no person to answer (a scheduled or headless check) saves nothing and says the
 check stays on this machine.
