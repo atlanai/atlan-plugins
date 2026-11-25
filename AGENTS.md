@@ -68,7 +68,7 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   `Use for`) with the words people say, then `Not for` naming the nearest sibling skill.
   `make check` fails on a description without `Use when` or `Use for`. The description is the
   retrieval signal twice over: the harness matches requests against it, and Trident's
-  search ranks on it once the skill is served from Atlan. Each skill opens its own session, so
+  search ranks on it once the skill is served from Atlan Trident. Each skill opens its own session, so
   a task loads one skill, not `atlan-get-started` first. Every session carries every
   description, and hosts cut a long one in their skill list, so `make check` fails on one over
   250 characters, and on a `SKILL.md` over 500 lines or 9 KiB. Keep the workflow in `SKILL.md`
@@ -206,7 +206,7 @@ own Trident tool definitions: `tools/tests/fixtures/gateway-catalogue.json` hold
 fixture (`make check` fails when either has drifted). When the live gateway changes a tool,
 refresh the catalogue, run the sync, and teach the emulator's handler any new argument; when it
 changes a refusal the skills rely on, change the emulator to match. A case that needs the emulator
-in another state (an organization without the agent app, an empty Trident, a rate limit, the
+in another state (an organization without the agent app, an empty catalogue, a rate limit, the
 data-catalog server in the plugin's place, or a skill already installed from
 `evals/atlan/fixtures/installed-skills/`) carries an `emulator.json` beside its `case.yaml`
 with the emulator's environment switches; the runner groups cases by that file, one Claude Code

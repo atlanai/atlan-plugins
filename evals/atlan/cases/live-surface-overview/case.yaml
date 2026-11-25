@@ -68,7 +68,7 @@ graders:
   - name: gives-the-shape-of-the-catalogue
     type: llm
     criteria: |
-      The organization's Atlan Trident is small: skills (security-review twice, preview-deploy, release-notes, terraform-plan-review, tf-plan-checklist, oncall-handoff, and two held for review or blocked), two outputs, and a few other kinds, across workspaces that include Platform Engineering, Marketing, Dana's Workspace and the org-wide Acme.
+      The organization has a small Atlan Trident catalogue: skills (security-review twice, preview-deploy, release-notes, terraform-plan-review, tf-plan-checklist, oncall-handoff, and two held for review or blocked), two outputs, and a few other kinds, across workspaces that include Platform Engineering, Marketing, Dana's Workspace and the org-wide Acme.
       PASS if the reply gives counts by kind (or by kind and workspace) for the whole catalogue, then says what Platform Engineering holds (a count per kind, or the skills and outputs there by name), and keeps the two apart rather than presenting the Platform Engineering rows as the whole. Leaving out pending or blocked items, or naming them as such, both pass.
       FAIL if it lists only the most recently changed rows as if they were everything, invents artifacts or workspaces, gives no numbers, or says nothing about Platform Engineering.
   - name: plain-reply

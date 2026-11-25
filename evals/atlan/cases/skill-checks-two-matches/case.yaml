@@ -14,7 +14,7 @@ execution:
     <!-- atlanai:skill-checks:start -->
     ## Atlan Trident skills
 
-    At the start of each task, check whether my organization's Atlan Trident has a skill for it,
+    At the start of each task, check whether my organization has a skill for it in Atlan Trident,
     with the atlan-use-skill skill. Use a single clear match without asking and name it in one
     line. Ask me when more than one fits, and say nothing when none does. Skip quick questions and
     tasks a skill installed here already covers.
