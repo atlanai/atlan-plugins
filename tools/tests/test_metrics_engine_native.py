@@ -189,15 +189,37 @@ class EarlierWorkTest(unittest.TestCase):
         self.assertEqual(quoted('\\` FROM t --', 'bigquery'), '`__ FROM t --`')
         # The dialect is matched whatever its case and spacing; anything else is the standard form.
         self.assertEqual(quoted('n', ' DataBricks \n'), '`n`')
-        for dialect in ('spark', 'hive', 'mysql'):
+        # Each dialect that reads a double-quoted token as a string, named here one by one.
+        for dialect in ('databricks', 'spark', 'spark2', 'hive', 'bigquery', 'mysql', 'doris', 'starrocks',
+                        'singlestore', 'drill'):
             self.assertEqual(quoted('n', dialect), '`n`', dialect)
-        # T-SQL reads double quotes as names by default, so its statements keep their bytes.
-        for dialect in ('tsql', 'snowflake', 'postgres', 'duckdb', 'redshift', '', None, 0, ['databricks']):
+        # T-SQL reads double quotes as names by default, so its statements keep their bytes; so
+        # does every dialect that does not read a backtick as a quote at all.
+        for dialect in ('tsql', 'snowflake', 'postgres', 'duckdb', 'redshift', 'trino', 'presto', 'athena',
+                        'oracle', 'sqlite', 'teradata', 'clickhouse', '', None, 0, ['databricks']):
             self.assertEqual(quoted('n', dialect), '"n"', repr(dialect))
+        # ClickHouse reads a backslash escape inside a double-quoted name, so neither a backslash
+        # nor a double quote is written there: `a\" , (SELECT 1) AS x --` stays one name.
+        self.assertEqual(quoted('a\\" , (SELECT 1) AS x --', 'clickhouse'), '"a__ , (SELECT 1) AS x --"')
+        # A blank dialect argument says nothing: the card's own dialect still decides.
+        self.assertEqual(statement({**card, 'dialect': 'databricks'}, ' ').splitlines()[0],
+                         'SELECT AVG(oee_pct) AS `oee_pct`')
         import sqlglot
         for dialect in ('databricks', 'snowflake', 'bigquery', 'postgres', 'duckdb', 'spark', 'mysql', 'tsql'):
             tree = sqlglot.parse_one(statement(derived, dialect), read=dialect)
             self.assertEqual(tree.selects[0].alias, 'n', dialect)
+        # No alias closes its own quotes: the statement stays one select item reading one table.
+        from sqlglot import exp
+        for dialect in ('databricks', 'spark', 'hive', 'mysql', 'bigquery', 'clickhouse', 'snowflake', 'postgres',
+                        'duckdb', 'trino', 'tsql'):
+            for hostile in ('a" , (SELECT 1) AS x --', 'a\\" , (SELECT 1) AS x --', 'a` , (SELECT 1) AS x --',
+                            'a\\` , (SELECT 1) AS x --', 's" CROSS JOIN secrets AS z --',
+                            's\\" CROSS JOIN secrets AS z --', 's` CROSS JOIN secrets AS z --'):
+                run = statement({'name': 'n', 'formula': 'COUNT(*)', 'output': {'alias': hostile},
+                                 'source': {'sql': '(SELECT 1 AS x)', 'alias': hostile}}, dialect)
+                tree = sqlglot.parse_one(run, read=dialect)
+                self.assertEqual(len(tree.selects), 1, (dialect, hostile))
+                self.assertEqual([t.name for t in tree.find_all(exp.Table)], [], (dialect, hostile))
         for dialect, name, read in (('databricks', 'a`b', 'a`b'), ('bigquery', 'a`b', 'a_b'), ('snowflake', 'a"b', 'a"b')):
             tree = sqlglot.parse_one(f'SELECT 1 AS {quoted(name, dialect)}', read=dialect)
             self.assertEqual(tree.selects[0].alias, read, dialect)

@@ -80,11 +80,15 @@ def quoted_identifier(name: str, dialect: str | None) -> str:
     quoted name with a string literal's backslash escapes, the parser reads a doubled
     backtick, and no spelling of a backtick or a backslash is read the same by both. A name
     must never be able to close its own quotes for one reader and not the other, so on
-    BigQuery those two characters are written as underscores."""
+    BigQuery those two characters are written as underscores. ClickHouse reads a backslash
+    escape inside a double-quoted name, so a doubled quote does not hold there either
+    (`a\\"` would end the name): its backslash and double quote are written as underscores too."""
     text = str(name)
     key = dialect.strip().lower() if isinstance(dialect, str) else ""
     if key == "bigquery":
         return "`" + text.replace("\\", "_").replace("`", "_") + "`"
+    if key == "clickhouse":
+        return '"' + text.replace("\\", "_").replace('"', "_") + '"'
     if key in _BACKTICK_DIALECTS:
         return "`" + text.replace("`", "``") + "`"
     return '"' + text.replace('"', '""') + '"'
@@ -104,7 +108,8 @@ def canonical_statement(card: dict, dialect: str | None = None) -> str:
     The output alias and a derived source's alias are quoted for `dialect`, or the card's own
     `dialect` when none is passed: the statement is run on the card's warehouse.
     """
-    dialect = dialect or card.get("dialect")
+    # A blank dialect argument says nothing, so the card's own dialect still decides.
+    dialect = (dialect.strip() if isinstance(dialect, str) else dialect) or card.get("dialect")
     formula = str(card.get("formula") or "").strip()
     alias = str(((card.get("output") or {}).get("alias")) or card.get("name") or "").strip()
     frm = str(card.get("sql") or (card.get("source") or {}).get("sql") or "").strip() \
