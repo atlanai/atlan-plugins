@@ -12,7 +12,8 @@ dependencies = [
     # Pinned to the tested release: 30.21.0 (2026-09-30) changed the AST and
     # optimizer behaviour tile pruning depends on (33 of 248 tests fail on it).
     # Raise the bound only after the suite passes on the new release.
-    "sqlglot>=30.20,<30.21",
+    # The plugin installs it from ../../../dependencies/evals.lock, hash-checked.
+    "sqlglot==30.20.0",
 ]
 
 [project.optional-dependencies]

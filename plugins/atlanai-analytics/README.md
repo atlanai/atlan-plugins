@@ -105,9 +105,12 @@ Report a problem in [Issues](https://github.com/atlanai/atlan-plugins/issues). F
 
 This plugin has no hooks and ships no executable binaries.
 
-- **Runs:** the Python helpers bundled with its skills, and a metrics runtime in its own virtual
-  environment, with pinned packages pip installs from your package index (PyPI unless pip is set
-  otherwise).
+- **Runs:** the Python helpers bundled with its skills, a metrics runtime, and the eval tools, each
+  in its own virtual environment, with exact package versions pip installs from your package index
+  (PyPI unless pip is set otherwise). The eval tools' one package is also checked against its hash.
+- **When:** nothing runs when the plugin installs. A helper runs when you start the skill that uses
+  it, as a command in the conversation that you can see; the environments are set up the first
+  time a skill needs them.
 - **Reads:** the sources you pick, your warehouse through read-only statements (SELECT, WITH, SHOW
   or DESCRIBE, with a LIMIT on anything that returns rows), and a Power BI workspace or Tableau
   site through its API when you point the plugin at one.
@@ -116,13 +119,17 @@ This plugin has no hooks and ships no executable binaries.
   the system it names (Microsoft's sign-in and Power BI or Fabric APIs, your Tableau server), never
   anywhere else.
 - **Writes:** working files in one folder in your project, `.atlan-analytics/`: each run, the
-  metrics runtime, test questions (`evals/`) and a demo's data (`demo/`). Add it to `.gitignore`.
-  Reading a Power BI workspace caches its sign-in token under `~/.cache/pbi_definition_extract/`.
+  metrics runtime, test questions and the eval tools (`evals/`) and a demo's data (`demo/`). Add it
+  to `.gitignore`. Reading a Power BI workspace caches its sign-in token under `~/.cache/pbi_definition_extract/`.
 - **Sends:** to Atlan, only what you approve saving, through the `atlanai` plugin's connection,
   signed in as you.
 - **Starts:** a progress page served on `127.0.0.1` for this machine only, opened in your browser;
   and, when you check accuracy, your own Claude Code or Codex CLI to answer each test question
   fresh, signed in as you.
+- **To stop it:** end the skill, or decline its next command. Delete `.atlan-analytics/` to remove
+  the runs, both environments and the test questions, and the cache folder above to remove the
+  Power BI sign-in. Unset the `PBI_*`, `TABLEAU_*` and `METRICS_AGENT_WAREHOUSE_DSN` variables to
+  stop it reaching those systems.
 
 See Atlan's [privacy notice](https://atlan.com/privacy-policy/).
 

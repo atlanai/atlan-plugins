@@ -2,8 +2,10 @@
 
 What the Claude plugin directory's validator reported for `plugins/atlanai-analytics`, what each
 finding is, and the explanation to give the reviewer. The first run was on main at `8adf2e1`
-(analytics 0.9.90) on 2026-11-25: 5 policy holds and 22 warnings. Re-validate this branch before
-submitting, and update the counts here.
+(analytics 0.9.90) on 2026-11-25: 5 policy holds and 22 warnings. The re-run on main at `93a57dd`
+(analytics 0.9.98) on 2026-11-26 gave 4 policy holds and 20 warnings: the "Analytics" lookalike and
+every file the validator couldn't inspect are gone, download-and-run stays at 10 and credentials
+rose from 8 to 10 (both explained below). Re-validate before submitting, and update the counts here.
 
 The submission continues the existing **Analytics** draft in the Atlan organization: the portal
 refuses a second submission for the same repository and path.
@@ -38,7 +40,7 @@ the Atlan Trident core plugin from this repository. Renaming it would break exis
 
 ## Warnings to explain
 
-### Uses a credential from the user's machine (8)
+### Uses a credential from the user's machine (10)
 
 Each one is the plugin connecting to the person's own systems, with credentials they set for that
 purpose. None is sent anywhere else.
@@ -50,6 +52,8 @@ purpose. None is sent anywhere else.
 | `metrics_agent/plugs/local_files.py` | `METRICS_AGENT_WAREHOUSE_DSN`: the path of a local DuckDB or SQLite file, opened read-only. Nothing is sent over the network, and remote reads are refused |
 | `analytics-build/scripts/side_page.py` | Serves a progress page on `127.0.0.1` only, behind a random key, and opens it in the person's browser. The browser process inherits the environment, as any launched program does. Nothing is sent off the machine |
 | `metrics-engine/docs/guides/customer-access.md` | Documentation of the access routes above |
+| `metrics-generation/modules/metrics/driver.py` (new on 2026-11-26) | Starts the plugin's own metrics runtime with the person's environment (minus `PYTHONPATH` and `PYTHONHOME`), as any program it launches gets. Separately it builds a `https://app.powerbi.com/groups/…/reports/…` link to show the person their report. It sends no credential to powerbi.com or anywhere else |
+| `metrics-generation/references/dashboard/snowflake-cli.md` (new on 2026-11-26) | Documentation. The "pass `$$`" match is Snowflake's own `EXECUTE IMMEDIATE $$ … $$` syntax, and the host is its links to docs.snowflake.com. It holds no credential and starts nothing |
 | `plugin.json` (across files: `analytics_case.py`, `accuracy-check/references/run.md`) | The accuracy check asks each question to a fresh agent: `analytics_case.py` starts the person's own Claude Code or Codex CLI with their environment, so that CLI uses its own sign-in. The plugin never reads, copies or sends the credential |
 
 Later version: ask for these values through `userConfig` with `sensitive: true`, as the checklist
@@ -64,8 +68,12 @@ The validator flagged 10 files (2 skills, 3 references, 5 Python modules: `accur
 `analytics-build/scripts/source_inventory.py`, `eval_builder/sources/powerbi/dax.py`,
 `eval_builder/sources/tableau/calc.py`). The trigger is not documented. These files share no
 installer, download, pipe-to-shell or launcher pattern that the plugin's other files lack.
-Searched on 2026-11-26: none of the 10 holds `curl`, `wget`, `uvx`, `npx`, `pip install`, a pipe to a
-shell, `shell=True`, `eval(` or `exec(`, and two of them (`powerbi/dax.py`, `tableau/calc.py`) mention no
+Searched on 2026-11-26: one real match, `eval-generation/SKILL.md`, which ran the eval builder
+through `uv run --with "sqlglot…"` (fetch a package, run it straight away). Analytics 0.9.99 replaces it:
+`eval-generation/scripts/setup_runtime.py` installs the one package from `dependencies/evals.lock`
+(exact version, hash-checked, `--only-binary`, `--no-deps`) into the project's own environment
+once, and the skill runs the builder on that. None of the other 9 holds `curl`, `wget`, `uvx`, `npx`,
+`pip install`, a pipe to a shell, `shell=True`, `eval(` or `exec(`, and two of them (`powerbi/dax.py`, `tableau/calc.py`) mention no
 download, install or command at all. The plugin's two real installers are elsewhere and were not
 flagged: `metrics/driver.py` (pip, `--only-binary=:all:` with `constraints.txt` pins) and
 `dashboard_runtime/scripts/setup_pbixray.py` (`uv pip sync --require-hashes --only-binary`).
@@ -75,7 +83,7 @@ the network):
 | File | What it is |
 |---|---|
 | `accuracy-check/SKILL.md`, `accuracy-check/references/run.md` | Instructions that run the plugin's own bundled helper, `python3 "<check-dir>/scripts/check.py"` |
-| `eval-generation/SKILL.md` | Instructions that run the bundled eval builder from the skill's own folder |
+| `eval-generation/SKILL.md` | Instructions that run the bundled eval builder from the skill's own folder. Until 0.9.99 it fetched sqlglot through `uv run --with`; it now runs on a hash-checked environment set up ahead of time |
 | `analytics-build/references/project-conventions.md` | Defines the short names for bundled helpers (`python3 "<skill-dir>/scripts/…"`) |
 | `analytics-demo/references/accuracy.md` | Defines the short names for the demo's bundled helpers (`accuracy.py`, `edit_metric.py`) |
 | `dashboard_runtime/trident/dax_syntax.py` | Parses DAX text into types for a source inventory; no SQL, no I/O beyond its input |

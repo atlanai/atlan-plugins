@@ -34,10 +34,13 @@ Paths. Pass each command as separate argv entries; zsh does not split a string h
   from the run must never see an answer. Never use `PROJECT location` here: it names a new run.
 - `SCOPE` is `python3 "<evals-dir>/scripts/scope.py"`. `EVAL` is
   `python3 "<build-dir>/scripts/analytics_eval.py" <command> --dir "<gen>"`.
-- `EVALGEN` is `uv run --no-project --with "sqlglot>=30.20,<30.21" env
-  PYTHONPATH="<evals-dir>/modules/evals/engine" python -m eval_builder.cli --work
-  "<gen>/work"`. Without `uv`, say "Writing test questions needs uv, a Python tool, on this
-  machine. Install it, then ask again." and stop.
+- `<python>` is the eval engine's own interpreter: before the first `EVALGEN`, run
+  `python3 "<evals-dir>/scripts/setup_runtime.py" --runtime "<runtime>"`, with `<runtime>` as
+  `SCOPE inputs` returns it, and take its `python`. The first time it installs one pinned
+  package into that folder; later it reuses it. When it returns `blocked`, say its `message`
+  and stop.
+- `EVALGEN` is `env PYTHONPATH="<evals-dir>/modules/evals/engine" "<python>" -m eval_builder.cli
+  --work "<gen>/work"`.
 
 ## `generate`: use case first, metric aware
 
