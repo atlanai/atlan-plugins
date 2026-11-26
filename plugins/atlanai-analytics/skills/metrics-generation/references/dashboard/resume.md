@@ -14,7 +14,7 @@ reports pending readback separately from local question availability.
 
 After the concrete agent and destination have been approved, save an exact request JSON:
 `{workspace_id, name, description, instructions}`. All four fields are nonempty strings.
-First reconcile existing agents in that workspace through the live Registry. Reuse the
+First reconcile existing agents in that workspace through live Atlan Trident. Reuse the
 matching intended agent where possible; a name match with different instructions needs review.
 
 Before a create or readback, run:
@@ -23,7 +23,7 @@ Before a create or readback, run:
 DASH stage-begin --stage agent --request <agent-request.json>
 ```
 
-`execute_once` returns an operation ID. Use the existing core Registry tools and current live
+`execute_once` returns an operation ID. Use the existing core Trident tools and current live
 schema for the approved registration. Then read the agent back. Normalize only these fields:
 `{id, kind:"agent", workspace_id, name, description, instructions}`. Save this receipt:
 

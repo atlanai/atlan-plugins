@@ -113,6 +113,13 @@ DRIFT = [
     (re.compile(r'"client":\s*"claude-code"'),
      "name the client as a placeholder; the recipe runs in other tools too"),
 ]
+# Analytics' own words for what it builds and where it saves it (analytics-build's
+# references/conventions.md, "Words the person reads"). The vendored engine keeps its own
+# vocabulary; a word quoted in code, as the conventions' banned list does, is exempt.
+TERMS_ROOT = PLUGINS / "atlanai-analytics"
+TERMS = [
+    (re.compile(r"\bsaved[ -]SQL\b", re.IGNORECASE), "say saved queries (conventions.md, Words the person reads)"),
+]
 # What the voice check reads: the Markdown people and models read, and the manifest strings.
 VOICE_SUFFIXES = {".md", ".toml"}
 VOICE_SKIPPED = ("evals/", ".github/", "assets/")
@@ -245,6 +252,38 @@ CURSOR_COMMAND = '[ -n "$CURSOR_PLUGIN_ROOT" ] && python3 "$CURSOR_PLUGIN_ROOT/c
 CORTEX_MANIFEST = ".cortex-plugin/plugin.json"
 CORTEX_MCP = "./.mcp.json"
 CORTEX_SERVER = "atlan"
+
+
+# The Claude plugin directory holds a version for review, and can refuse an unverified publisher's,
+# when a plugin folder has a file it cannot read in full: one over 256 KiB that is not an image or
+# font, a binary file, or more than 512 files (claude.com/docs/plugins/pre-submission-checklist).
+DIRECTORY_MAX_BYTES = 256 * 1024
+DIRECTORY_MAX_FILES = 512
+DIRECTORY_EXEMPT_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".woff", ".woff2", ".ttf", ".otf")
+# Each file allowed over the size limit for now, and why. An entry leaves when its file is split.
+DIRECTORY_OVERSIZE_ALLOWED: dict[str, str] = {}
+
+
+def lint_directory_limits(root: Path, files: list[Path] | None = None) -> list[str]:
+    """A plugin folder the directory reads in full: no file over 256 KiB but images and fonts, no
+    binary file, and at most 512 files."""
+    files = files if files is not None else [f for f in tracked_files() if f.is_relative_to(root)]
+    errors = []
+    for path in files:
+        if path.suffix.lower() in DIRECTORY_EXEMPT_SUFFIXES or not path.is_file():
+            continue
+        name = path.relative_to(ROOT).as_posix() if path.is_relative_to(ROOT) else str(path)
+        data = path.read_bytes()
+        if len(data) > DIRECTORY_MAX_BYTES and name not in DIRECTORY_OVERSIZE_ALLOWED:
+            errors.append(f"{name}: {len(data)} bytes; the plugin directory holds a file over 256 KiB for review. "
+                          "Split it, or ship it in parts the plugin joins when it runs.")
+        if b"\x00" in data:
+            errors.append(f"{name}: binary; the plugin directory holds any file but text, images and fonts for "
+                          "review. Ship it as text, and build the binary when the plugin runs.")
+    if len(files) > DIRECTORY_MAX_FILES:
+        errors.append(f"{root.relative_to(ROOT) if root.is_relative_to(ROOT) else root}: {len(files)} files; the plugin directory holds a plugin of more "
+                      f"than {DIRECTORY_MAX_FILES} for review.")
+    return errors
 
 
 def lint_cortex_manifest(root: Path, is_core: bool = False) -> list[str]:
@@ -434,6 +473,67 @@ def lint_drift(path: Path, text: str) -> list[str]:
     ]
 
 
+def lint_terms(path: Path, text: str) -> list[str]:
+    """Analytics' banned synonyms, outside code and outside the vendored engine."""
+    if not path.is_relative_to(TERMS_ROOT) or "modules" in path.relative_to(TERMS_ROOT).parts:
+        return []
+    relative = path.relative_to(ROOT)
+    return [
+        f"{relative}:{number}: {match.group(0)!r}: {why}"
+        for number, line in enumerate(text.splitlines(), 1)
+        for pattern, why in TERMS
+        for match in pattern.finditer(INLINE_CODE.sub("", line))
+    ]
+
+
+def lint_contents(path: Path, text: str) -> list[str]:
+    """An add-on reference over 250 lines with three or more sections opens them with a
+    `## Contents` list, so a partial read still shows what the file covers. Anthropic's skill
+    authoring guidance says 100 lines; below 250 the agent reads the whole file anyway, so a
+    list there only repeats the headings. SKILL.md, the README and the vendored engine are exempt."""
+    if not path.is_relative_to(TERMS_ROOT) or path.name in {"SKILL.md", "README.md"}:
+        return []
+    if "modules" in path.relative_to(TERMS_ROOT).parts:
+        return []
+    lines = text.splitlines()
+    in_fence, sections = False, []
+    for line in lines:
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+        elif not in_fence and line.startswith("## "):
+            sections.append(line[3:].strip())
+    listed = [s for s in sections if s != "Contents"]
+    if len(lines) <= 250 or len(listed) < 3:
+        return []
+    relative = path.relative_to(ROOT)
+    if "Contents" not in sections:
+        return [f"{relative}: {len(lines)} lines and {len(listed)} sections without a `## Contents` list"]
+    missing = [s for s in listed if f"- {s}" not in lines]
+    return [f"{relative}: `## Contents` does not list {s!r}" for s in missing]
+
+
+MARKDOWN_LINK = re.compile(r"\]\(<?([^)\s>]+)>?\)")
+
+
+def lint_links(path: Path, text: str) -> list[str]:
+    """Relative Markdown links that point at a file or folder that is not there, outside code."""
+    relative = path.relative_to(ROOT)
+    errors = []
+    in_fence = False
+    for number, line in enumerate(text.splitlines(), 1):
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        for target in MARKDOWN_LINK.findall(INLINE_CODE.sub("", line)):
+            if target.startswith(("http://", "https://", "mailto:", "#")):
+                continue
+            if not (path.parent / target.split("#", 1)[0]).exists():
+                errors.append(f"{relative}:{number}: links to missing {target}")
+    return errors
+
+
 def lint_repository(files: list[Path]) -> list[str]:
     errors = [
         f"{name}: plugin content lives in plugins/<plugin>/; the root is the marketplace"
@@ -474,6 +574,10 @@ def lint_repository(files: list[Path]) -> list[str]:
             errors += lint_voice(path, text)
         if path.suffix == ".md" and path.is_relative_to(PLUGINS):
             errors += lint_drift(path, text)
+            errors += lint_terms(path, text)
+            errors += lint_contents(path, text)
+        if path.suffix == ".md":
+            errors += lint_links(path, text)
     return errors
 
 
@@ -507,6 +611,8 @@ def main() -> int:
     for root in roots:
         errors += lint_claude_manifest(root, root == roots[0])
         errors += lint_cortex_manifest(root, root == roots[0])
+    for root in roots:
+        errors += lint_directory_limits(root)
     errors += lint_core_hooks(roots[0])
     for root in roots:
         errors += lint_command_hooks(root)

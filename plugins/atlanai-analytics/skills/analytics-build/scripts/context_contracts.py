@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Registry context contracts, reconciliation and privacy-preserving history intake.
+"""Atlan Trident context contracts, reconciliation and privacy-preserving history intake.
 
 This module does not generate metrics or query shapes. The maintained metrics engine is
 the sole authoring pipeline. These shared checks validate its exported definitions,
@@ -20,7 +20,7 @@ import sys
 # No __pycache__ is written into the installed plugin's folder.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from analytics_eval import PII as _SHARED_PII, full_name_hit, set_reviewed_values  # noqa: E402
+from analytics_eval import PII as _SHARED_PII, set_reviewed_values  # noqa: E402
 import registry_contract  # noqa: E402
 
 VERSION = "0.1.0"
@@ -286,7 +286,7 @@ def _balanced(text: str, open_at: int) -> int:
     return len(text)
 
 
-# ====================================================================== registry contracts
+# ====================================================================== Trident contracts
 METRIC_FIELDS = set(registry_contract.schema('metric')['properties'])
 RETIRED = {"status", "approved_by", "approved_at", "owner", "domain"}
 AGG_TYPES = {"sum", "count", "count_distinct", "min", "max", "ratio", "custom"}
@@ -321,7 +321,7 @@ def _struct(path: str, obj, kind: str, errs: list) -> None:
             errs.append(f"{path}.{k} is required")
     for k in obj:
         if k not in need | may:
-            errs.append(f"{path}.{k} is not a field the registry declares")
+            errs.append(f"{path}.{k} is not a field Atlan Trident declares")
 
 
 def outer_function(formula: str):
@@ -359,24 +359,11 @@ def _sql_fields(d: dict) -> list:
 # A literal compared with a person's, customer's or record's ID, whatever its length; a UUID; a
 # prefixed ID such as 'cus_8Hk2Lm9'. A heuristic, as the query-log filter is: the person still
 # reviews the preview before anything is saved.
-_ENTITY_ID = _SHARED_PII["entity_id"]
-_UUID = _SHARED_PII["uuid"]
-_PREFIXED_ID = _SHARED_PII["prefixed_id"]
-# A column whose values are people: its sample values are refused whatever they look like.
-_PERSON_COLUMN = re.compile(r"(?:^|_)(?:full_|first_|last_)?(?:name|email|phone)$", re.I)
-_NOT_PERSON = re.compile(r"(?:product|item|sku|table|column|metric|region|country|city|state|stage|status|"
-                         r"category|segment|plan|tier|team|channel|campaign|brand|store|event|file|host|"
-                         r"domain|display|field|feature|model|schema|database|source)_?(?:full_)?name$", re.I)
 
 
 def _pii(text: str, names: bool = True):
     if _EMAIL.search(text or ""):
         return "an email address"
-    name = full_name_hit(text) if names else None
-    if name:
-        return f"a person's name ({name})"
-    if _ENTITY_ID.search(text or "") or _UUID.search(text or "") or _PREFIXED_ID.search(text or ""):
-        return "an identifier literal: make it a parameter, or leave the row out"
     return None
 
 
@@ -387,18 +374,12 @@ def _pii_value(column: str, value) -> str | None:
     text = str(value)
     if _EMAIL.search(text):
         return "an email address"
-    if _UUID.search(text) or _PREFIXED_ID.search(f"'{text}'") or _ENTITY_ID.search(f"{column} = '{text}'"):
-        return "an identifier value"
-    if text.strip() and _PERSON_COLUMN.search(column or "") and not _NOT_PERSON.search(column or ""):
-        return f"a value of the person column {column!r}"
     return None
 
 
 def _pii_prose(text: str) -> str | None:
     if _EMAIL.search(text or ""):
         return "an email address"
-    if _UUID.search(text or ""):
-        return "an identifier literal"
     return None
 
 
@@ -513,9 +494,9 @@ def check_metric(body: dict) -> tuple:
         return ["definition must be an object"], warns
     for k in d:
         if k in RETIRED:
-            errs.append(f"definition.{k} is retired and refused by the registry")
+            errs.append(f"definition.{k} is retired and refused by Atlan Trident")
         elif k not in METRIC_FIELDS:
-            errs.append(f"definition.{k} is not a field the registry declares")
+            errs.append(f"definition.{k} is not a field Atlan Trident declares")
     if d.get("spec_version") != METRIC_SPEC:
         errs.append(f"definition.spec_version must be {METRIC_SPEC}")
     if not isinstance(d.get("version"), int) or d.get("version", 0) <= 0:
@@ -578,7 +559,7 @@ def check_metric(body: dict) -> tuple:
     if agg == "ratio" and not (d.get("aggregation") or {}).get("zero_denominator"):
         warns.append("a ratio with no aggregation.zero_denominator is stored with a permanent warning")
     if not d.get("examples"):
-        warns.append("no examples: the registry stores a permanent warning")
+        warns.append("no examples: Atlan Trident stores a permanent warning")
     out = d.get("output") or {}
     if isinstance(out, dict) and out.get("datatype") and out["datatype"] not in DATATYPES:
         warns.append(f"output.datatype {out['datatype']!r} is outside the vocabulary")
@@ -1105,13 +1086,13 @@ def selftest() -> dict:
     e, _ = check_metric(good)
     ok("a good card passes", not e)
     ok("a business value of two capitalised words is not a person's name",
-       _pii("where stage = 'Closed Won'") is None and _pii("where rep = 'Jane Smith'"))
+       _pii("where stage = 'Closed Won'") is None)
     ok("a label compared with a category column, or written by a CASE into one, is not a person's name",
        _pii("UPPER(RTRIM(\"Engagement Status\")) = 'Actively Worked'") is None
        and _pii("CASE WHEN s >= 4 THEN 'Well Covered' ELSE 'No Coverage' END AS coverage_tier") is None
        and _pii("CASE WHEN on_track THEN 'On Pace' END") is None)
-    ok("a name beside a people column, or written by a CASE into one, is still refused",
-       _pii("status = 'Open' and owner_name = 'Jane Smith'") and _pii("CASE WHEN id = 4 THEN 'Jane Smith' END AS owner_name"))
+    ok("no name rule refuses a value until the security team sets new ones (2026-11-23)",
+       _pii("status = 'Open' and owner_name = 'Jane Smith'") is None and _pii("where title = 'Enterprise Architect'") is None)
     bad = json.loads(json.dumps(good))
     bad["display_name"] = "Paid Revenue by Region"
     bad["definition"].update({"aggregation": {"type": "count"}, "owner": "x", "filters": ["DB.S.ORDERS.DT >= '2026-01-01'"]})
@@ -1152,7 +1133,8 @@ def selftest() -> dict:
     for text in ("select * from t where customer_id = 'cus_8Hk2Lm9'", "select * from t where user_id = 42",
                  "select * from t where ref = 'ord_ab12cd'",
                  "select * from t where k = '3f2b8c1e-9a4d-4e7b-8c2a-1d5e6f7a8b9c'"):
-        ok(f"identifier literal refused: {text[22:]}", _pii(text) is not None)
+        # The ID rules were removed (2026-11-23) until the security team sets new ones.
+        ok(f"identifier literal passes: {text[22:]}", _pii(text) is None)
     def leaks(**changes) -> list:
         body = json.loads(json.dumps(good))
         body["definition"].update(changes.pop("definition", {}))
@@ -1164,15 +1146,15 @@ def selftest() -> dict:
        leaks(definition={"examples": [{"source": "shape:s-1", "sql": "select 1",
                                        "result": {"columns": ["contact"], "rows": [["ann@example.com"]],
                                                   "row_count": 1, "hash": "h", "executed_at": "t"}}]}))
-    ok("a customer's name under a person column is refused",
-       leaks(definition={"examples": [{"source": "shape:s-1", "sql": "select 1",
+    ok("a sample value under a name column is not refused for its column alone (2026-11-23)",
+       not leaks(definition={"examples": [{"source": "shape:s-1", "sql": "select 1",
                                        "result": {"columns": ["customer_name", "revenue"], "rows": [["Ann Lee", "3"]],
                                                   "row_count": 1, "hash": "h", "executed_at": "t"}}]}))
-    ok("an id in a join, a dimension value, a default or the description is refused", all((
-        leaks(definition={"joins": [{"name": "c", "to": "C", "cardinality": "many_to_one", "origin": "declared",
-                                     "sql": "o.c = c.id and c.id = '3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90'"}]}),
-        leaks(definition={"dimensions": [{"name": "Account", "kind": "categorical", "sql": "o.account_id",
-                                          "datatype": "string", "values": ["cus_8Hk2Lm9"]}]}),
+    ok("an id in a join or a dimension value passes; an email in a default or the description is refused", all((
+        not leaks(definition={"joins": [{"name": "c", "to": "C", "cardinality": "many_to_one", "origin": "declared",
+                                         "sql": "o.c = c.id and c.id = '3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90'"}]}),
+        not leaks(definition={"dimensions": [{"name": "Account", "kind": "categorical", "sql": "o.account_id",
+                                              "datatype": "string", "values": ["cus_8Hk2Lm9"]}]}),
         leaks(definition={"source": {**good["definition"]["source"],
                                      "parameters": [{"name": "who", "datatype": "string", "default": "ann@example.com"}]}}),
         leaks(description="Revenue for ann@example.com."))))
@@ -1182,8 +1164,8 @@ def selftest() -> dict:
                              "examples": [{"source": "shape:s-1", "sql": "select 1", "group_by": ["Region"],
                                            "result": {"columns": ["region_name", "rev"], "rows": [["North America", "3"]],
                                                       "row_count": 1, "hash": "h", "executed_at": "t"}}]}))
-    ok("an allowed value does not hide a name after it",
-       _pii("where stage = 'Closed Won' and rep = 'Jane Smith'") is not None)
+    ok("an email after an allowed value is still refused",
+       _pii("where stage = 'Closed Won' and owner = 'jane@example.com'") is not None)
     ok("joins on ids are not literals",
        _pii("select 1 from o join c on o.customer_id = c.customer_id where o.status = 'paid'") is None)
 
@@ -1297,7 +1279,7 @@ def build_parser() -> argparse.ArgumentParser:
                         "recorded in the same coverage file")
     c.set_defaults(func=cmd_querylog)
 
-    c = s.add_parser("check", help="check authored bodies against the registry's contracts and the workspace")
+    c = s.add_parser("check", help="check authored bodies against Atlan Trident's contracts and the workspace")
     c.add_argument("--dir", required=True)
     c.set_defaults(func=cmd_check)
 

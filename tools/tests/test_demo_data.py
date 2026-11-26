@@ -44,17 +44,45 @@ class BundledDemos(unittest.TestCase):
         self.assertEqual(demo_data.demos(), ['box-office', 'yard'])
         for demo in demo_data.demos():
             facts = demo_data.manifest(demo)
-            self.assertTrue((SKILL / 'assets' / demo / facts['bi']).is_file(), demo)
+            self.assertIn(facts['bi'], demo_data.files(demo), demo)
             self.assertIn(f'DEMO open {demo}', (SKILL / 'references' / (demo + '.md')).read_text())
             self.assertEqual(Path(facts['database']).stem, facts['schema'], demo)
             self.assertFalse((SKILL / 'assets' / demo / facts['database']).exists(), demo)
+
+    def test_shipped_files_stay_inside_the_directorys_limits(self):
+        # The plugin directory holds a version for review over these: 256 KiB, or a binary file.
+        for path in (SKILL / 'assets').rglob('*'):
+            if path.is_file():
+                data = path.read_bytes()
+                self.assertLessEqual(len(data), 256 * 1024, path)
+                self.assertNotIn(b'\x00', data, path)
+
+    def test_pieces_are_whole_in_the_working_folder(self):
+        placed = Path(demo_data.open_demo('box-office', self.folder)['working_folder'])
+        tickets = (placed / 'data/tickets.csv').read_text().splitlines()
+        self.assertTrue(tickets[0].startswith('ticket_id,'))
+        self.assertEqual(sum(line.startswith('ticket_id,') for line in tickets), 1)
+        self.assertFalse(list(placed.rglob('*.part*')))
+        yard = Path(demo_data.open_demo('yard', self.folder)['working_folder'])
+        with zipfile.ZipFile(yard / demo_data.manifest('yard')['bi']) as template:
+            self.assertEqual(template.namelist()[0], '[Content_Types].xml')
+            self.assertEqual(template.read('Version').decode('utf-16-le'), '1.28')
+        self.assertFalse(list(yard.rglob('*.parts')))
+
+    def test_a_missing_part_is_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            parts = {n: Path(tmp) / f'x.csv.part{n}' for n in (1, 3)}
+            for path in parts.values():
+                path.write_text('a\n')
+            with self.assertRaisesRegex(demo_data.DemoError, 'a part is missing'):
+                demo_data.content('data/x.csv', parts)
 
     def test_each_demo_loads_and_configures_its_engine(self):
         for demo in demo_data.demos():
             with self.subTest(demo=demo):
                 placed, run_dir, run = self.surveyed(demo)
                 source = Path(placed['working_folder'])
-                self.assertEqual(source, self.folder / 'atlan-analytics-demo' / demo)
+                self.assertEqual(source, self.folder / '.atlan-analytics' / 'demo' / demo)
                 self.assertFalse(run_dir.is_relative_to(source))
                 sources = run.current()['sources']
                 dashboards = [s for s in sources if s['kind'] in ('powerbi', 'tableau')]

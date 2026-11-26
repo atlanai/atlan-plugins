@@ -1,6 +1,7 @@
 # Automatic skill checks
 
-Open this when the user's instructions carry an **Atlan registry skills** section, or they asked
+Open this when the user's instructions carry an **Atlan Trident skills** section (or the earlier
+**Atlan registry skills**), or they asked
 in this conversation for Atlan to be checked at the start of each task.
 
 That section, or the same request in this conversation, is the user's instruction, so it lifts

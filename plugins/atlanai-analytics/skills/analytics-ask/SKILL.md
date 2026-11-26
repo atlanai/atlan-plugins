@@ -1,29 +1,30 @@
 ---
 name: analytics-ask
-description: "Atlan Analytics Ask: answer data questions from published Atlan metrics and saved SQL, or explicitly explore a prepared local dataset. Use for totals, rates, trends, breakdowns and follow-ups. Not for setup or metric authoring (metrics-generation)."
+description: "Atlan Analytics: answer data questions from metrics and saved queries in Atlan Trident, or a setup kept on this machine. Use for totals, rates, trends, breakdowns and follow-ups. Not for setup or writing metrics (analytics-build, metrics-generation)."
 ---
 
 # Answer a data question from managed context
 
 Read [shared conventions](../analytics-build/references/conventions.md) first; its **Source of
-truth**, read-only SQL and safety rules apply. Answer here without creating a project,
-eval, agent or registry write. No subagents are needed.
+truth**, read-only SQL and safety rules apply. Answer here without a new project,
+eval, agent or Atlan Trident write. It needs no subagent.
 
 If a setup run was selected, or this folder holds one kept local, follow
-[setup retrieval](references/retrieval.md) and return. Resolve ambiguity only among relevant runs in this project. Otherwise continue
-below using existing Atlan context. Ordinary questions require no local run, publication
-receipt or DuckDB. Do not search the whole machine or substitute drafts for released context.
+[setup retrieval](references/retrieval.md) and return. Otherwise continue
+below using existing Atlan context. Ordinary questions need no local run, publication
+receipt or DuckDB. Never search the whole machine or substitute drafts for released context.
 
 ## 1. Frame the question
 
 From the question, write down the measure, the time window, the population and the grain, and
 whether it asks for **one value** (a lookup) or **an explanation** (a trend, a comparison, a
 driver of a change). Ask only when a missing piece would change the answer, and then once;
-otherwise take the narrowest reasonable reading and say so in the answer.
+otherwise take the narrowest reasonable reading and say "I read this as <reading>. Tell me if
+you meant something else."
 
 ## 2. Find the definitions
 
-1. Open a registry session as **Registry calls** in the conventions describes, with the question
+1. Open a session as **Atlan Trident calls** in the conventions describes, with the question
    as the `objective`. Its first call is step 2's search; send nothing else until it returns the
    session id.
 2. Search released metrics in every workspace at once: call
@@ -33,16 +34,16 @@ otherwise take the narrowest reasonable reading and say so in the answer.
    `workspace_id`. Each item names its workspace and carries its release receipt; the first
    carries its definition, which compact cuts to the calculation. If the call refuses
    `definition_view` or `semantic` by name, send it again without that argument for the rest of
-   the session. Semantic search can drop a released metric whose name the query lacks, so an
+   the session. Semantic search can drop a released metric whose name the query lacks: an
    empty result proves nothing.
 
-   **A hit is a candidate, not an answer.** The right metric can rank low: "on-time
-   departure rate" put `otp_d15` eighth. Read every hit's name and display name, and keep the
+   **A hit is a candidate, not an answer.** The right metric can rank low. Read each hit's
+   name and display name and keep the
    one whose name or formula measures what the question asks (revenue is a sum of money; a
    count of crew is not revenue), allowing the synonyms its description lists. Sharing a
    dimension word such as "region" is not a match. Only when no hit of either search below
-   measures it is there "no published metric": go to **Nothing found**, naming the near
-   misses in one line.
+   measures it is the answer "No metric in Atlan Trident covers <measure>": go to **Nothing found**, naming
+   near misses: "Close, but measuring something else: <names>."
 3. Send these together after the search, as one `mcp__call_read_tools` call when listed:
    - **The keyword search, when no semantic hit measures it**: the same search with
      `semantic: false`. Keep `include_definition`: without it, unreleased heads return.
@@ -67,13 +68,13 @@ otherwise take the narrowest reasonable reading and say so in the answer.
    `registry__get_artifact` and `channel: "latest"`; a missing or withdrawn release never falls
    back to a head. Keep each returned id, `version_id`, `release_id` and `channel`.
 
-**Nothing found** is an answer too: say the workspace has no published definition for the measure,
-then continue with your own SQL and its assumptions spelled out (step 5 labels it).
+**Nothing found** is an answer too: write your own SQL, and step 5's **Based on** says so.
 
 ## 3. Reach the data
 
-For a selected project run with `execution.kind: duckdb`, use its recorded Python runtime
-and `project.py execute` as [project setup](../analytics-build/references/project.md) describes.
+For a project run on this machine (SQLite or DuckDB), run each query with
+`PROJECT execute` as [project setup](../analytics-build/references/project.md) describes,
+never by opening its database file.
 This is an available data connection; do not ask for Snowflake or a new MCP server. Keep
 the binding across turns and use fresh released definitions and fresh query results.
 
@@ -83,21 +84,20 @@ or a project holds, then a SQL tool behind Atlan (`mcp__search_tools`), then the
 connectors. Hold what you find, or that there is none, for the rest of the conversation.
 
 With no warehouse tool, do not stop and do not run the rest of discovery for a one-off
-question. Open the answer by saying no warehouse is reachable through Atlan, and that an Atlan
-admin can add it from the Store. Then offer the smallest thing that answers the question:
-- **Run the SQL yourself**: write the statement from the definition, in the dialect it names
-  (that dialect's section of [warehouses](../source-survey/references/warehouses.md)), for the
-  person to run, and answer from what they paste back;
-- **Paste or attach the result** of a query, or a CSV export.
+question. Open with "I can't reach your warehouse through Atlan. An Atlan admin can add it
+from the Atlan Store." Then offer the smallest thing that answers the question:
+- **Run the SQL yourself**: "I'll write it from the definition for you to run." Use its
+  dialect ([warehouses](../source-survey/references/warehouses.md));
+- **Paste a result**: "Paste a query result here, or attach a CSV export."
 
-End with the missing input, not a status token. The published definition still decides the formula and
-filters, whatever the data source.
+End with "Next: paste the result, and I'll answer from it." The published definition still
+decides the formula and filters, whatever the data source.
 
 A released dashboard metric may carry
-`extensions.atlan_analytics.dashboard_validation.parity: unmeasured`. Snapshot mismatch
-or missing report references do not prevent a fresh warehouse answer. Preserve the metric
-scope and state this limitation once; never call the result dashboard-validated or reuse
-the report cutoff as the current warehouse cutoff. A recorded failed check needs correction.
+`extensions.atlan_analytics.dashboard_validation.parity: unmeasured`: answer fresh from the
+warehouse anyway, keep the metric's scope and give its **Good to know** line once. Never call
+the result dashboard-validated or reuse the report's cutoff as the warehouse's. A recorded
+failed check needs correction.
 
 ## 4. Query and check
 
@@ -106,7 +106,10 @@ Apply [explanation checks](references/answer-checks.md) to numerical claims.
 1. Write one SELECT or WITH statement that keeps the definition's formula, population, mandatory
    filters and grain, adding only the filters the question needs. Check column names against
    the definition or the table's columns; never guess one.
-2. Run it with the warehouse query tool, with a LIMIT on anything returning rows.
+2. Run it with the warehouse query tool, with a LIMIT on anything returning rows. In a setup or
+   demo run, add `"answer": {"question": "<question>", "metrics": ["<each used>"]}` to the
+   answering `PROJECT execute` request and show its card first (on a warehouse,
+   `PROJECT visual answer --input -`: [visuals](../analytics-build/references/setup/visuals.md#data-files)).
 3. Before answering, check the result:
    - the window is complete, or the answer says it is partial (this week so far);
    - a rate has a non-zero denominator, and segment shares add up to the total;
@@ -120,19 +123,15 @@ Apply [explanation checks](references/answer-checks.md) to numerical claims.
 ## 5. Answer
 
 Lead with the answer in one or two sentences: the number, its definition and window ("CSAT,
-good ÷ answered ratings, Q2 2026: 94.1%"). Then, briefly:
-- **Proof**: always, each metric or query used, by name, as a link to its page in Atlan
-  Trident ([definition links](references/definition-links.md)), never
-  a bare id anywhere in prose or caveats. Resolve the organization automatically through
-  the authenticated self-profile; never ask for its slug or URL. Or **Not managed: no published metric covers this**, followed by the
-  formula and filters you assumed;
-- **Caveats**: an unreviewed query, a partial window, an assumption about the question;
+good ÷ answered ratings, Q2 2026: 94.1%"). Then, in the layout of
+[definition links](references/definition-links.md):
+- **Based on**: always, one line per metric or saved query used, linked to its page in Atlan Trident,
+  never a bare id in prose or caveats. Resolve the organization automatically through the
+  authenticated self-profile; never ask for its slug or URL. With no metric: "My own SQL. No
+  metric in Atlan covers <measure>. I assumed <formula and filters>.";
+- **Good to know**: an unreviewed query, a partial window, an assumption about the question, or
+  which source answered when two conflicted, and why (the conventions' **Source of truth**);
 - the SQL, only when the person asks to see it.
-
-In a setup or demo run, record its `answer` moment and show what it prints ([visuals](../analytics-build/references/setup/visuals.md)).
-
-When a conflict between sources shaped the answer, say which one answered and why, as the
-conventions' **Source of truth** says.
 
 ## 6. Close the gap
 
@@ -140,4 +139,5 @@ For missing definitions, corrections or a request to save/share the answer, foll
 [answer follow-ups](references/ask-followups.md). For a dashboard from the answers, a
 question no published metric covers, or a wrong rule, follow [next steps](references/next-steps.md).
 
-End naturally with the result or next action, as the conventions describe.
+End with one `Next:` line: one a step above names, else "Next: ask a follow-up, or ask to
+see the SQL." A setup run ends as [retrieval](references/retrieval.md) says.

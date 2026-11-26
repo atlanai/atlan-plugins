@@ -12,7 +12,7 @@ input, picks the set (the focus metric first, then breadth) and writes it. Stand
     python3 scope.py emit --gen <gen-dir> --name <set name>
     python3 scope.py ready --set <set.jsonl>
 
-`emit` writes <project>/.atlan-evals/sets/<name>.jsonl, one question per line: {"id", "question",
+`emit` writes <project>/.atlan-analytics/evals/sets/<name>.jsonl, one question per line: {"id", "question",
 "sql", "tests", "from", "generated"}, the same shape as a set a person brings, so whatever runs a set runs
 this one. Every command prints one JSON object. Exit 2 means something the person must supply.
 """
@@ -26,8 +26,12 @@ import shutil
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "analytics-build" / "scripts"))
+import python_version  # noqa: E402
 
-from eval_runs import Blocked, engine_dir, execution, find_run, use_case  # noqa: E402
+python_version.require()
+
+from eval_runs import Blocked, built_runs, engine_dir, execution, find_run, use_case  # noqa: E402
+import layout  # noqa: E402
 
 # Words that say nothing about which metric a use case needs.
 _STOP = {"a", "an", "and", "the", "of", "to", "in", "on", "for", "by", "or", "is", "it", "its", "with",
@@ -46,7 +50,7 @@ def dump(path: pathlib.Path, obj) -> None:
 
 def gen_dir(project: pathlib.Path, run: pathlib.Path) -> pathlib.Path:
     """Where a set is drafted, outside the run: answering agents read the run."""
-    return project / ".atlan-evals" / "gen" / run.name
+    return layout.evals(project) / "gen" / run.name
 
 
 def cmd_inputs(a) -> dict:
@@ -56,17 +60,17 @@ def cmd_inputs(a) -> dict:
     interaction = load(run / "interaction.json", {}) or {}
     intent = use_case(run, a.use_case or "")
     if not (intent.get("domain") or intent.get("purpose")):
-        raise Blocked("The run records no use case. Pass it with --use-case: which agent, answering what. "
-                      "Ask the person once when the conversation does not say.")
+        raise Blocked("The run records no use case. When the conversation does not say, ask once: \"What should "
+                      "your agent answer, and for whom? One line is enough.\" Pass the reply with --use-case.")
     metrics = load(run / "context" / "metrics.json", []) or []
     queries = load(run / "context" / "queries.json", []) or []
     engine = engine_dir(run)
     cards = load(engine / "metric_cards.json", {}) if engine else {}
     if not metrics or not queries:
-        raise Blocked("The run has no built metrics or queries yet. Build the context first.")
+        raise Blocked("Your agent has no metrics or saved queries yet. Once I build them, I can write questions to test it.")
     if not (cards or {}).get("metrics"):
-        raise Blocked("The run has no metric cards from the metrics engine, so no question can be tied to a "
-                      "metric. Bring a set instead: one {id, question, sql} per line in .atlan-evals/sets/.")
+        raise Blocked("I can't tie questions to your agent's metrics here. Bring your own questions instead: one "
+                      "question and its SQL per line, in .atlan-analytics/evals/sets/.")
     if ev.exists():
         shutil.rmtree(ev)
     refs_by_vq = cards.get("metric_refs_by_vq") or {}
@@ -151,7 +155,7 @@ def unfit(sql: str):
         return None  # nothing to read: the engine's own gate decides
     bare = _SQL_NOISE.sub(" ", sql or "")
     if _PROBE.search(bare):
-        return "a probe that returns no rows"
+        return "a test query that returns nothing"
     if _DATA_TEST.search(bare):
         return "a data test, not a business question"
     if _FRESHNESS.search(bare):
@@ -228,7 +232,7 @@ def cmd_pick(a) -> dict:
             p.unlink()
     selection = [{"id": c["id"], "metric": names.get(m, m) or "", "focus": bool(m) and m == focus,
                   "from": "dashboard tile" if (pool.get(c["query_id"]) or {}).get("source") == "tile" else
-                  f"past query, run {(pool.get(c['query_id']) or {}).get('runs') or 1} times"}
+                  f"past query, used {(n := (pool.get(c['query_id']) or {}).get('runs') or 1)} time{'' if n == 1 else 's'}"}
                  for m, c in chosen]
     dump(work / "selection.json", selection)
     dump(work / "pick.json", {"limit": a.limit})
@@ -250,7 +254,7 @@ def cmd_emit(a) -> dict:
             for r in spec.get("records") or []
             if r.get("review_status") != "rejected" and r.get("question") and r.get("golden_sql")]
     if not rows:
-        raise Blocked("The draft kept no question with its SQL.")
+        raise Blocked("No question could be kept with SQL that answers it.")
     # In the order they were picked, and no more than asked for: the spares fill in for a draft
     # that found a question unanswerable.
     order = {i: n for n, i in enumerate(selection)}
@@ -268,7 +272,29 @@ def cmd_emit(a) -> dict:
     except Exception:  # noqa: BLE001
         pass
     return {"status": "ok", "set": str(out), "questions": len(rows), "spares_unused": spare,
-            "metrics": sorted({r["tests"] for r in rows if r["tests"]})}
+            "metrics": sorted({r["tests"] for r in rows if r["tests"]}), **_questions_chip(gen)}
+
+
+def _questions_chip(gen: pathlib.Path) -> dict:
+    """Written questions are an output: their chip comes with the result, drawn whole and marked shown, and the side
+    page lists them. Chips a guide only asked for went undrawn in the dry run (2026-11-25)."""
+    import subprocess
+    # Drafts are <project>/.atlan-analytics/evals/gen/<run name>.
+    run = next((r for r in built_runs(gen.parents[3]) if r.name == gen.name), None)
+    if run is None:
+        return {}
+    runner = pathlib.Path(__file__).resolve().parents[2] / "analytics-build" / "scripts" / "project.py"
+    try:
+        done = subprocess.run([sys.executable, str(runner), "--run-dir", str(run), "visual", "questions"],
+                              capture_output=True, text=True, timeout=90)
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    text = (done.stdout or "").strip()
+    if done.returncode or not text:
+        return {}
+    return {"show_first": text,
+            "visual": "Show `show_first` now, before any other words or call: pass each widget in it to `show_widget`, "
+                      "or print its lines as they are, and do what each of its `side view` lines says."}
 
 
 def cmd_ready(a) -> dict:
@@ -276,7 +302,7 @@ def cmd_ready(a) -> dict:
     src = pathlib.Path(a.set)
     rows = [json.loads(l) for l in src.read_text().splitlines() if l.strip()]
     if not rows or not all(r.get("question") and r.get("sql") for r in rows):
-        raise Blocked(f"{src.name} needs a question and its sql on every line.")
+        raise Blocked(f"{src.name} needs a question and its SQL on every line.")
     out = src.parents[1] / "saved" / src.stem
     if out.exists():
         shutil.rmtree(out)
@@ -291,7 +317,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     s = p.add_subparsers(dest="cmd", required=True)
     c = s.add_parser("inputs", help="eval-builder input and scope.json from the analytics run")
-    c.add_argument("--project", required=True, help="the folder holding .atlan-metrics/")
+    c.add_argument("--project", required=True, help="the folder holding .atlan-analytics/")
     c.add_argument("--run", help="the run folder to use, when the project holds several")
     c.add_argument("--use-case", help="which agent, answering what, when the run recorded none")
     c.set_defaults(func=cmd_inputs)
@@ -301,7 +327,7 @@ def main(argv=None) -> int:
     c.add_argument("--spare", type=int, default=4, help="extra questions drafted in case a draft drops some")
     c.add_argument("--focus-count", type=int, default=2)
     c.set_defaults(func=cmd_pick)
-    c = s.add_parser("emit", help="write the drafted set to .atlan-evals/sets/<name>.jsonl")
+    c = s.add_parser("emit", help="write the drafted set to .atlan-analytics/evals/sets/<name>.jsonl")
     c.add_argument("--gen", required=True)
     c.add_argument("--name", required=True)
     c.set_defaults(func=cmd_emit)

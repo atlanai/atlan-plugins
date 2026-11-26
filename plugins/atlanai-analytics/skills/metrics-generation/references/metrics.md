@@ -1,7 +1,7 @@
 # Metrics: build the metric layer
 
 Goal: `metric` and `sql_query` artifacts in a workspace, made from definitions people already
-trust, each one checked against the registry's contracts and previewed before it is written.
+trust, each one checked against Atlan Trident's contracts and previewed before it is written.
 Two entries use this file:
 - **metrics mode** (`metrics-generation`, or the `metrics` argument of `analytics-build`, which
   Metrics Studio sends) starts at section 0 and stops at section 6;
@@ -13,7 +13,7 @@ module; the standard-library helpers retain validation and publication only. Bel
 - `CONTEXT` means `python3 "<build-dir>/scripts/context_contracts.py"`. `<build-dir>` is the
   `analytics-build` skill's directory (`${CLAUDE_PLUGIN_ROOT}/skills/analytics-build` in Claude
   Code), which holds the shared helpers; `<metrics-dir>` is this skill's directory beside it.
-- `<context-dir>` is `.atlan-metrics/<slug>/context`.
+- `<context-dir>` is `.atlan-analytics/<slug>/context`.
 
 `CONTEXT` prints one JSON object. It exits 2 when BLOCKED, and 1 with `"status": "REFUSED"` when
 a check refuses an item.
@@ -27,16 +27,17 @@ Explicit metrics mode retains its entry contract below.
 ## 0. Metrics-mode entry
 
 1. Reuse the requested destination and publication intent. Local draft requests need no
-   publication workspace. For Atlan saves, open the Registry session and verify the selected
+   publication workspace. For Atlan saves, open the Trident session and verify the selected
    workspace. If the destination is unresolved, list accessible workspaces and ask once with
-   Keep local and those existing workspaces as the choices. Resolve an explicit personal-workspace
-   selection directly. Never choose the first accessible workspace silently or attempt workspace
-   creation through API/CLI. With no accessible workspace, keep drafts and explain the access
+   **Keep it on this machine** and one choice per existing workspace, named for it. Resolve an
+   explicit personal-workspace selection directly. Never choose the first accessible workspace
+   silently or attempt workspace creation through API/CLI. With no accessible workspace, keep drafts and explain the access
    needed. An explicit new-workspace request gets the UI/admin route, followed by a list refresh.
-2. Keep state in `.atlan-metrics/<slug>/state.json`, with `mode: "metrics"`,
+2. Keep state in `.atlan-analytics/<slug>/state.json`, with `mode: "metrics"`,
    `ids.workspace_id` and `session_id` when connected, and set `phase` to `context`. Resume only a metrics
-   state for this workspace and scope; when several match, ask which. Never read or resume
-   `.atlan-analytics/*/state.json`, and do not call `EVAL init`. Keep source files and authored
+   state for this workspace and scope; when several match, ask which. Never read or resume a
+   `state.json` of another mode, and do not call `EVAL init`; a folder already holding one belongs to
+   that run, so choose another slug. Keep source files and authored
    answers under the run directory and out of commits.
 3. Reuse the supplied business area and scope. Derive a bounded table set from the selected
    BI lineage or declared model and write `tables.txt`. Ask only when ambiguity affects the
@@ -47,7 +48,8 @@ Explicit metrics mode retains its entry contract below.
 
 Local drafts need no publication workspace. When a workspace is already known, read its existing `metric` and `sql_query` artifacts first
 (`registry__list_artifacts`). When they already cover the request, say so and stop rather than
-create duplicates. In project setup, reconcile every scoped source first, then carry reused
+create duplicates: "<workspace> already has metrics for this, so I didn't build copies:
+<names>." In project setup, reconcile every scoped source first, then carry reused
 released artifacts through receipts and suggestions; existing context is not a reason to end
 the user's setup before the question handoff.
 
@@ -65,13 +67,15 @@ as declared, and query history adds what the models miss.
 
 Ask only if the source choice is unresolved, with the options actually in reach. A supplied
 BI file, asset URL or query-history export already settles this decision:
-- `<slug> · context · where the definitions come from`
-- **Declared models plus query history (Recommended when both are in reach)**: the models give
-  the definitions, and history shows what is used and what the models miss.
-- **Query history (Recommended when no model is in reach)**: what analysts actually ran against
-  the scoped tables.
-- **Only the declared model**: no warehouse history needed.
-- **Resume a current engine run**: its pinned runtime and source configuration.
+- `Where should the metrics come from?`
+- **Your models and past queries**: Your models define the metrics. Past queries show what's
+  used and what the models miss.
+- **Past queries**: I build from what your team asked of these tables before.
+- **Only your models**: I build from your models alone, with no past queries.
+- **Continue an earlier build**: I pick up where it stopped, with the same sources.
+
+List the recommended option first, with ` (Recommended)` at the end of its label: **Your
+models and past queries** when both are in reach, **Past queries** when no model is.
 
 Skip this choice when the request already selected a source, including `query-history`, or
 project setup has surveyed the repository. That survey selects both model and history when usable.
@@ -95,7 +99,7 @@ collection and its checks. Do not add a mid-build customer decision between card
 
 Complete every engine gate, then `ENGINE export` into a fresh context destination. Preserve
 all five exported files and their source/eligibility receipts. See [contracts](metrics/contracts.md)
-for the Registry wire format; it is not a separate generation procedure. Unsupported sources
+for the Trident wire format; it is not a separate generation procedure. Unsupported sources
 remain held until a faithful input reader is available. Existing legacy drafts can be read
 and reconciled, but generation or changes require a new engine run from their source evidence.
 
@@ -104,7 +108,7 @@ and reconciled, but generation or changes require a new engine run from their so
 1. Write the workspace's live artifacts to `<context-dir>/existing.json`, one
    `{id, kind, name, display_name, source_id, definition}` per artifact. Read definitions with
    `registry__get_artifact` for the metrics whose tables overlap this run's.
-2. Run `CONTEXT check --dir <context-dir>`. It checks every body against the registry's contract
+2. Run `CONTEXT check --dir <context-dir>`. It checks every body against Trident's contract
    and the card rules. It refuses duplicates, and matches each metric to a live one that
    measures the same thing: the same source, formula and mandatory filters, literals included,
    so `STATUS = 'paid'` never matches `STATUS = 'refunded'`. It then writes `plan.json`, which
@@ -113,9 +117,12 @@ and reconciled, but generation or changes require a new engine run from their so
    matches one live metric takes that metric's `source_id`, `name` and `display_name`, since a
    name is frozen at create. It changes nothing else there. A
    warning that a revision "changes what live … measures" means its population changes: show
-   the person both definitions in the preview before it is sent.
+   the person both definitions in the preview before it is sent: "Saving this changes what
+   <metric> counts in <workspace>." then "Now: <old rule>" and "After the save: <new rule>".
 3. On REFUSED, fix exactly the named fields of the refused items and run it again. Never touch
-   items that passed. After three rounds, hold what is still refused and report it.
+   items that passed. After three rounds, hold what is still refused and report it: "<N>
+   metrics still failed Atlan's format check after three tries, so I held them back: <names>.
+   To fix one, tell me here and I'll rebuild it."
 4. **Test against the warehouse** when a query tool is recorded. For each metric, run one read
    with the parameters at their defaults:
    `SELECT <formula> AS value FROM <source.table or source.sql> WHERE <mandatory filters>`.
@@ -126,19 +133,24 @@ and reconciled, but generation or changes require a new engine run from their so
 ## 5. Publish
 
 Read [publish](metrics/publish.md): show the checked plan, carry forward existing scoped
-authorization, then make the writes through the registry's MCP tools only.
+authorization, then make the writes through Trident's MCP tools only.
 
 ## 6. STOP gate
 
 Report:
-- the counts of new, revised and reused metrics, saved queries and links, and the workspace;
-- the published query revisions, and any left unreleased by workspace policy or a draft choice;
-- how many metrics were tested against the warehouse and how many are only parsed;
-- what was held, and why.
+- "Saved to <workspace>: <N> new, <N> updated and <N> reused metrics, and <N> saved queries."
+- "<N> were tested on your data. <N> weren't tested."
+- "Held back: <N>, each with its reason. To fix one, tell me here and I'll rebuild it."
 
-If publication was declined, say the drafts remain in `<context-dir>`. Record the counts and the
+If workspace policy or a draft choice left a saved query revision unreleased, add one line that
+names it and says why.
+
+Fill every count as it reads: "1 saved query", "1 was tested", "1 wasn't tested".
+
+If publication was declined, say "Nothing was saved to Atlan Trident. Your metrics stay on this
+machine, in `<context-dir>`." Record the counts and the
 sources used in state as `context_run`.
 
 - **Metrics mode:** set `phase` to `complete`, return the Metric Studio link if one was
-  supplied, and stop. 
+  supplied, and stop.
 

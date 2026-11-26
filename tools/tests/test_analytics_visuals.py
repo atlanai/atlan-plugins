@@ -82,16 +82,16 @@ class Moments(unittest.TestCase):
         self.assertEqual(self.show('sources', run), '▤ **129 rows** of your data · 2 tables, Power BI dashboard')
 
     def test_checks_show_what_ran_and_what_needs_a_look(self):
-        self.assertEqual(self.show('context'), '✓ **Every metric and query ran** · on your data · Gross margin £118,681')
-        demo = make_run(self.root / 'd', demo=True)
-        self.assertEqual(self.show('context', demo, data=[facts()]), "✓ **Every metric and query ran** · on Fixit's data · Gross margin £118,681")
-        self.assertEqual(self.show('context', data=[facts()]), '✓ **Every metric and query ran** · on your data · Gross margin £118,681',
+        self.assertEqual(self.show('context'), '✓ **Every metric works** · on your data · Gross margin £118,681')
+        self.assertEqual(self.show('context', data=[facts()]), '✓ **Every metric works** · on your data · Gross margin £118,681',
                          "a demo's facts never name the person's own data")
         failing = make_run(self.root / 'f', failing=1)
-        self.assertEqual(self.show('context', failing), '△ **3 ran cleanly** · 1 need a look · on your data',
+        self.assertEqual(self.show('context', failing), '△ **3 passed** · 1 needs your review · on your data',
                          "the save question's own count: what did not pass")
         warehouse = make_run(self.root / 'w', warehouse='snowflake')
         self.assertIn('on your Snowflake data', self.show('context', warehouse))
+        demo = make_run(self.root / 'd', demo=True)
+        self.assertEqual(self.show('context', demo, data=[facts()]), "✓ **Every metric works** · on Fixit's data · Gross margin £118,681")
 
     def test_the_data_chip_follows_what_the_person_chose(self):
         dashboard_only = make_run(self.root / 'd', chosen={'bi': True, 'history': False})
@@ -124,13 +124,14 @@ class Moments(unittest.TestCase):
         meta['sources'].append({'kind': 'sqlite', 'path': 'data/site.sqlite', 'status': 'needs_binding'})
         (run / 'run.json').write_text(json.dumps(meta), encoding='utf-8')
         (run / 'survey-cache.json').write_text(json.dumps({'sources': meta['sources']}), encoding='utf-8')
-        self.assertEqual(self.show('found', run), '◇ **5 sources** · Power BI dashboard, 2 data files, 1 database, query history')
+        self.assertEqual(self.show('found', run), '◇ **5 sources** · Power BI dashboard, 2 data files, 1 database, past queries')
 
     def test_found_names_every_kind_the_survey_records_as_a_person_would(self):
-        cases = (([('powerbi_project', 'model/a.tmdl')] * 6, '◇ **6 sources** · Power BI project (6 files)'),
+        # One report kept as six files is one source (walk 3, 2026-11-23: "32 sources" for one report).
+        cases = (([('powerbi_project', 'model/a.tmdl')] * 6, '◇ **1 source** · Power BI project (6 files)'),
                  ([('tableau', 'a.twb'), ('powerbi', 'b.pbix')], '◇ **2 sources** · Power BI dashboard, Tableau dashboard'),
                  ([('saved_sql', 'q.sql'), ('model_candidate', 'm.yml'), ('data_file', 'd.csv')],
-                  '◇ **3 sources** · 1 model file, 1 data file, 1 saved SQL file'))
+                  '◇ **3 sources** · 1 model file, 1 data file, 1 SQL file'))
         for i, (sources, expected) in enumerate(cases):
             run = make_run(self.root / str(i), dashboard=False, history=False)
             meta = json.loads((run / 'run.json').read_text(encoding='utf-8'))
@@ -147,12 +148,11 @@ class Moments(unittest.TestCase):
     def test_a_card_at_each_big_moment(self):
         cards = {kind: self.show(kind) for kind in visuals.CARDS}
         heads = {kind: card.split('\n', 1)[0] for kind, card in cards.items()}
-        self.assertEqual(heads, {'build': '**2 metrics** · Built from your sources', 'saved': '**2 metrics, 2 queries** · Saved to Atlan Trident',
-                                 'answer': '**\u2212£6,360** · Answer', 'edit': '**Late jobs 2 → 3** · Rule changed'},
+        self.assertEqual(heads, {'build': '**2 metrics and 2 saved queries** · Your agent is built',
+                                 'saved': '**2 metrics, 2 saved queries** · Saved to Atlan Trident',
+                                 'answer': '**\u2212£6,360** · Answer', 'edit': '**Late jobs 2 → 3** · Definition changed'},
                          'the number leads, bold, outside the block')
-        self.assertIn('4 queries: 2 from the dashboard, 2 from past queries', cards['build'], 'counts that add up on their face')
-        self.assertNotIn('question', cards['build'])
-        self.assertIn('Live in Test workspace, where agents can find them', cards['saved'])
+        self.assertIn('In Test workspace, where chats with Atlan Analytics look for metrics', ' '.join(cards['saved'].split()))
         self.assertNotIn('!', cards['saved'], 'one need-a-look number, said once, at the checks')
         self.assertIn('▶ Turbine base', cards['answer'], 'the row that answers is marked')
         for kind, card in cards.items():
@@ -162,6 +162,8 @@ class Moments(unittest.TestCase):
                             kind + ': indented under the headline, narrow enough for a split pane')
         for kind in ('build', 'saved'):
             self.assertLessEqual(len(cards[kind].splitlines()), 6, kind + ': a terminal shows six lines before a question whole')
+        self.assertIn('From 2 dashboard tiles and 2 past queries', cards['build'], 'counts that add up on their face')
+        self.assertNotIn('question', cards['build'])
 
     def test_cards_carry_no_step_label(self):
         for kind in visuals.CARDS:
@@ -176,7 +178,7 @@ class Moments(unittest.TestCase):
         for kind in visuals.KINDS:
             self.assertEqual(visuals.render(kind, visuals.build_spec(kind, empty)), '', kind)
         self.assertEqual(self.show('connect'), '', 'the first moment opens the side view and does nothing else')
-        self.assertEqual(self.show('found'), '◇ **4 sources** · Power BI dashboard, 2 data files, query history')
+        self.assertEqual(self.show('found'), '◇ **4 sources** · Power BI dashboard, 2 data files, past queries')
 
     def test_a_widget_card_is_small_and_self_contained(self):
         for kind in visuals.CARDS:
@@ -233,7 +235,7 @@ class Moments(unittest.TestCase):
         spec = visuals.build_spec('answer', self.run)
         spec['proof'] = [{'name': n} for n in ('Gross margin', 'Rework cost', 'Labour cost', 'Materials cost', 'Waste')]
         card = visuals.render('answer', spec)
-        self.assertIn('Gross margin, from 1 dashboard tile and 1 past query', card, 'each rule named says where it came from')
+        self.assertIn('Gross margin, from 1 tile and 1 past query', card, 'each rule named says where it came from')
         self.assertIn('Rework cost, from 1 past query', card)
         self.assertIn('+3 more behind this answer', card)
 
@@ -327,7 +329,7 @@ class Moments(unittest.TestCase):
         entries['metric:Gross Margin'] = 'broken'
         checks.write_text(json.dumps(entries), encoding='utf-8')
         at(self.run, 'preview')
-        self.assertTrue(self.show('context').startswith('△ **3 ran cleanly** · 1 need a look'))
+        self.assertTrue(self.show('context').startswith('△ **3 passed** · 1 needs your review'))
 
     def test_a_card_shows_the_data_as_written(self):
         spec = visuals.build_spec('answer', self.run)
@@ -372,6 +374,21 @@ class Helper(unittest.TestCase):
         line = [l for l in out.splitlines() if l.startswith('side view: ')]
         return json.loads(line[0][len('side view: '):]) if line else None
 
+    def test_a_list_of_more_moments_carries_no_choices_for_older_pythons(self):
+        # Python 3.10 and 3.11 check a list argument's empty default against its choices, so `visual <kind>` alone was
+        # refused ("invalid choice: []"): no chip, card or side page. The build's Python is 3.11 or 3.12; CI runs 3.13.
+        import ast
+        for call in ast.walk(ast.parse(PROJECT.read_text())):
+            if (isinstance(call, ast.Call) and getattr(call.func, 'attr', '') == 'add_argument' and call.args
+                    and isinstance(call.args[0], ast.Constant) and not str(call.args[0].value).startswith('-')):
+                given = {k.arg: k.value for k in call.keywords}
+                if isinstance(given.get('nargs'), ast.Constant) and given['nargs'].value == '*':
+                    self.assertNotIn('choices', given, call.args[0].value)
+        done = subprocess.run([sys.executable, str(PROJECT), '--run-dir', str(self.run), 'visual', 'found', 'bogus'],
+                              capture_output=True, text=True, env=self.env())
+        self.assertEqual(done.returncode, 2, 'a moment that does not exist is still refused')
+        self.assertIn("invalid choice: 'bogus'", done.stderr)
+
     def test_each_metric_step_s_chip_hands_the_host_s_task_list_its_current_steps(self):
         # h7 built the task list once at the start and never again: the three steps never showed under way, and no
         # estimate ever reached the list. Each step's chip is the moment the agent acts, so it carries the list.
@@ -398,23 +415,14 @@ class Helper(unittest.TestCase):
         self.host = ''
         self.assertFalse(self.project('visual', 'sources').startswith('<style>'), 'a terminal keeps its text chips')
 
-    def test_once_the_side_page_is_open_a_widget_host_ticks_the_task_list_instead_of_a_metric_chip(self):
-        # The team, 2026-11-19: what the side page shows stays out of the chat, and the task list carries the build.
+    def test_once_the_side_page_is_open_a_widget_host_still_draws_each_step_chip(self):
+        # The person follows the build by its one-line chips, side page open or not (2026-11-23); the build's card
+        # still closes it.
         import side_view
         self.project('visual', 'connect', '--widget')
         out = self.project('visual', 'drafted', '--widget')
-        self.assertTrue(out.startswith('side view: '), 'no chip in the chat')
-        side = self.side(out)
-        # Runs wrote their own line at each step's end ("the build continues"): it gets the step's line, in plain words.
-        self.assertIn('word for word', side['next'])
-        # d7 read each result through a filter that kept its last 700 to 1,500 characters: the task list, never the
-        # instruction before it. What to do comes last.
-        self.assertEqual(list(side)[-2:], ['say', 'next'])
-        self.assertIn('possible metric', side['say'])
-        self.assertFalse(set('*◆❝▦»·') & set(side['say'][:2]), side['say'])
-        self.assertIn('drafts --wait', side['next'])
-        self.assertTrue(any(r['status'] == 'completed' and r['content'].startswith('Find metrics: ') for r in side['task_list']),
-                        side['task_list'])
+        self.assertTrue(out.startswith('<style>'), 'the chip as a widget')
+        self.assertIn('metrics found', out)
         self.assertIn('drafted', side_view.seen(self.run), 'settled, so it is not named as due again')
         self.assertTrue(self.project('visual', 'build', '--widget').startswith('<style>'), "the build's card still closes the build")
 
@@ -431,7 +439,7 @@ class Helper(unittest.TestCase):
         self.project('visual', 'connect')
         out = self.project('visual', 'drafted')
         self.assertTrue(out.startswith('side view: '), 'no chip')
-        self.assertTrue(any(r['content'].startswith('Find metrics: ') for r in self.side(out)['task_list']))
+        self.assertTrue(any(r['content'].startswith('Build your context: ') for r in self.side(out)['task_list']))
 
     def test_a_rule_changed_leads_its_block_wherever_the_block_goes(self):
         self.project('visual', 'connect')
@@ -496,9 +504,10 @@ class Helper(unittest.TestCase):
                 break
             time.sleep(0.1)
         self.assertIsNone(side_page.running(self.run))
-        self.assertNotIn('side_page', json.loads(self.project('checklist')))
-        self.assertIsNone(side_page.running(self.run), 'any other helper call leaves it stopped: no wait, no restart')
-        self.project('visual', 'sources')
+        self.assertNotIn('side_page', json.loads(self.project('experience', '--format', 'json')))
+        self.assertIsNone(side_page.running(self.run), 'a call that only reads leaves it stopped: no wait, no restart')
+        handed = json.loads(self.project('checklist'))
+        self.assertIn('show_first', handed, 'a moment due comes with the next result that can show it')
         self.assertEqual(side_page.running(self.run), url, 'the next moment brings it back at its address: an open tab reconnects')
 
     def test_a_page_that_stopped_comes_back_even_when_nothing_new_is_due(self):
@@ -533,7 +542,7 @@ class Helper(unittest.TestCase):
         self.assertTrue(checked.startswith('side view: '), 'the lines are part of the save question, printed there once')
         self.assertIn('PROJECT question save', self.side(checked)['next'])
         asked = json.loads(self.project('question', 'save'))['question']
-        self.assertEqual(asked.count('Every metric and query ran'), 1)
+        self.assertEqual(asked.count('Validated on your data: all passed.'), 1)
         self.assertIn('context', [m['kind'] for m in json.loads((self.run / 'view' / 'state.json').read_text(encoding='utf-8'))['moments']])
         saved = self.project('visual', 'saved', '--input', '-', stdin=json.dumps({'workspace': 'Personal'}))
         self.assertTrue(saved.startswith('side view: '))
@@ -546,7 +555,7 @@ class Helper(unittest.TestCase):
         self.assertEqual(json.loads(self.project('view', '--stop')), {'stopped': True})
         self.assertIsNone(side_page.running(self.run))
 
-    def test_in_a_terminal_the_build_card_and_checks_chip_lead_the_save_question(self):
+    def test_in_a_terminal_the_save_question_says_the_build_and_checks_in_sentences(self):
         for kind in ('connect', 'sources'):
             self.project('visual', kind)
         built = self.project('visual', 'build')
@@ -560,12 +569,17 @@ class Helper(unittest.TestCase):
         self.assertIn('context', side_view.due(self.run), 'not shown until the question is composed: a skipped question is named again')
         asked = json.loads(self.project('question', 'save'))
         shown = asked['question']
-        self.assertIn('2 metrics · Built from your sources\n  4 queries: 2 from the dashboard', shown, 'the card leads')
-        self.assertIn('\n\n✓ Every metric and query ran · on your data · Gross margin £118,681', shown, 'then the chip')
-        self.assertNotIn('**', shown, "a question's text shows no Markdown")
+        # 0.9.75: the card and chip drawn in the question's proportional font broke their bars. The text says it in
+        # sentences, with no banner before it (the copy budget, 2026-11-19 and 2026-11-22).
+        self.assertTrue(shown.startswith('Your agent for Job margin is built.\nIt answers from 2 metrics and 2 saved queries, '
+                                         'built from your Power BI dashboard and 3 past queries.\nValidated on your data: all passed.\n'),
+                        shown[:200])
+        url = json.loads((self.run / 'view' / 'server.json').read_text(encoding='utf-8'))['url']
+        self.assertIn("\n\nEvery metric and how it's calculated: " + url, shown)
+        for gone in ('█', '░', '▓', '✓', '**'):
+            self.assertNotIn(gone, shown, "a question's text shows no bars, marks or Markdown")
         self.assertIn('never reword or shorten it', asked['next'],
-                      'a live run added "7 need a look" from another step to a chip that said every check passed')
-        self.assertTrue(shown.startswith('2 metrics · Built from your sources'), 'the card leads, with no banner before it (the copy budget, 2026-11-19)')
+                      'a live run added "7 need a look" from another step to a line that said every check passed')
         widget = self.project('visual', 'build', '--widget')
         self.assertTrue(widget.startswith('<style>'), 'a widget host draws the card as it happens')
 
@@ -575,14 +589,14 @@ class Helper(unittest.TestCase):
         out = self.project('visual', 'saved', '--input', '-', stdin=json.dumps({'workspace': 'Personal'}))
         self.assertIn('PROJECT question ready', self.side(out)['next'])
         asked = json.loads(self.project('question', 'ready'))['question']
-        self.assertTrue(asked.startswith('2 metrics, 2 queries · Saved to Atlan Trident\n  Live in Personal'))
+        self.assertTrue(asked.startswith('2 metrics, 2 saved queries · Saved to Atlan Trident\n  In Personal'))
         self.assertLessEqual(len(asked.split('\n\n')[0].splitlines()), 6, 'the card keeps to six lines in a question')
 
     def test_a_chip_right_before_a_question_goes_in_it(self):
         self.assertEqual(visuals.render('found', visuals.build_spec('found', self.run), plain=True),
-                         '◇ 4 sources · Power BI dashboard, 2 data files, query history')
-        self.assertEqual(visuals.asked('found', False), "the \"Build it?\" question's text, first",
-                         'one place, the one the skill names: a live run also put it in the use-case question before it')
+                         '◇ 4 sources · Power BI dashboard, 2 data files, past queries')
+        self.assertEqual(visuals.asked('found', False), "the next native question's text, first",
+                         'one place: the next question, never two')
         self.assertEqual(visuals.asked('sources', True), "the next native question's text, first", "a demo's sources come right before its choice")
         self.assertIsNone(visuals.asked('sources', False), 'own data reads its data mid-build')
         self.assertIsNone(visuals.asked('answer', False), 'an answer ends its turn, which a terminal never folds')
@@ -654,11 +668,12 @@ class Helper(unittest.TestCase):
         verdicts = checks.read_text(encoding='utf-8')
         checks.unlink()
         at(self.run, 'check', 'running')
-        self.assertNotIn('build', side_view.due(self.run), 'no card before the checks')
-        checks.write_text(verdicts, encoding='utf-8')
-        self.assertIn('build', side_view.due(self.run))
+        # The card closes the build once it is saved into the run, before the question about testing it (the person's
+        # call): it counts what the run keeps, never the merged list.
+        self.assertIn('build', side_view.due(self.run), 'the card before the tests')
         card = visuals.render('build', visuals.build_spec('build', self.run), plain=True)
-        self.assertTrue(card.startswith('%d metrics ·' % kept), card.split('\n', 1)[0])
+        self.assertTrue(card.startswith('%d metrics ' % kept), card.split('\n', 1)[0])
+        checks.write_text(verdicts, encoding='utf-8')
 
     def test_the_checks_chip_waits_for_every_verdict(self):
         # A desktop chip drawn mid-checks read "24/81 checked, 57 need a look" and the final one was never drawn.
@@ -703,7 +718,7 @@ class Helper(unittest.TestCase):
         self.assertNotIn('context', side_view.due(self.run))
         self.assertNotIn('<style>', self.project('visual', 'context', '--widget'))
         self.assertIn('every check has run', self.project('question', 'save'))
-        self.assertNotIn('Where should this context live', json.dumps(side_page.snapshot(self.run)))
+        self.assertNotIn("Where should your agent's metrics and saved queries be kept", json.dumps(side_page.snapshot(self.run)))
         at(self.run, 'preview')
         self.assertIn('context', side_view.due(self.run), 'once the flow moves on, what never ran needs a look')
 
@@ -728,7 +743,7 @@ class Helper(unittest.TestCase):
         self.assertNotIn('⌂', self.project('visual', 'saved'))
         asked = json.loads(self.project('question', 'ready'))['question']
         self.assertNotIn('⌂', asked)
-        self.assertEqual(asked.count('on this machine'), 1, asked)
+        self.assertEqual(asked.count('this machine'), 1, asked)
 
     def test_a_data_file_over_1_mb_says_so(self):
         out = json.loads(self.project('visual', 'answer', '--input', '-', stdin=json.dumps({'question': 'Q' * 1_000_100, 'headline': 'H: 1'})))

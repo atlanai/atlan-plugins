@@ -6,17 +6,27 @@ Omit helper command blocks unless commands were requested. Do not turn the expla
 another approval request.
 
 For an explanation of an explicit pre-dispatch helper refusal, explain the result and next action.
-Do not enumerate argument names or commands unless asked. For example: "Nothing was created.
-I will use the same connection with native arguments, dropping local fields instead of retrying
-the rejected descriptor. The checked definitions, workspace and receipt checks stay in place.
-Automatic recording is unavailable on this route; no alias setting or account change is needed."
+Do not enumerate argument names or commands unless asked. For example: "Nothing was saved
+yet. I'll send the same save another way, through the same Atlan connection. Your checked
+metrics and workspace stay as they are. You don't need to change any settings."
 
-Every write goes through the registry's MCP tools with the person's own sign-in. Nothing here
-calls the registry's REST API, holds a token or runs a push script. Publish only what
+Every write goes through Atlan Trident's MCP tools with the person's own sign-in. Nothing here
+calls Trident's REST API, holds a token or runs a push script. Publish only what
 `plan.json` marks `ok`. The checker enforces `publication-holds.json` for engine exports.
 Preserve the hold manifest and source receipt; never reintroduce held bodies or links, infer
 status from prose, or delete evidence to make a plan pass. Repair through the engine gates
 and export a new context. A held-only export stops with its reasons and sends no write.
+
+## Contents
+
+- Contract preflight
+- One connection, from inventory to readback
+- 1. Preview
+- 2. Metrics
+- 3. Saved queries
+- 4. Links
+- 5. Verify
+- 6. Move to another workspace
 
 ## Contract preflight
 
@@ -53,14 +63,17 @@ is required for read-only reuse. Show changed definitions again after reconcilia
 
 Review the plan from `plan.json`. Keep the detailed bodies and link list in the private
 preview file; show a short progress summary with:
-- the counts to create, revise and reuse, for metrics and for saved queries, and the number of
-  links;
-- the target workspace;
-- one representative metric name and definition summary;
-- the tested count against the parsed-only count;
-- every held item, with its reason;
-- every revision of a live metric, by name, with the fields that change;
-- link counts and relationship types. Keep both ends and full attributes in the private preview.
+- "Ready to save to <workspace>: <N> new metrics, <N> updated and <N> already there, plus <N>
+  saved queries."
+- "Moving metrics and saved queries later means copying them and archiving the originals, so
+  check <workspace> is the right place now."
+- "For example, <metric>: <definition in plain words>."
+- "<N> were tested on your data. <N> weren't tested."
+- for every held item: "Held back: <name>, because <reason>." After the last one: "To fix one,
+  tell me here and I'll rebuild it."
+- for every revision of a live metric: "Updates <metric>: changes <fields>."
+
+Fill every count as it reads: "1 new metric", "1 saved query", "1 was tested".
 
 Use the project conventions' authorization record. Check it with the shared
 `scripts/analytics_flow.py --authorization <project>/authorization.json --context <context-dir>
@@ -69,11 +82,13 @@ multiple selected assets. It reads the checked plan and all three body files, co
 from checked actions and returns a plan ID bound to those exact bodies, source identities and
 target. Record that ID only when the user approves this concrete plan. The helper returns:
 
-- `continue`: the user approved this exact plan. State the counts and target, then write.
+- `continue`: the user approved this exact plan. State the counts and target ("Saving <N>
+  metrics and <N> saved queries to <workspace>."), then write.
 - `deferred`: the person requested drafts or a preview. Save the preview and stop.
 - `needs_context`: resolve the named missing target, changed scope or unauthorized revision
   once, then record the decision.
-- `needs_confirmation`: show the counts, target and every revision, ask once, and record the
+- `needs_confirmation`: show the counts, target and every revision, ask once ("Save these to
+  <workspace>?"), and record the
   plan ID in `approved_plans` only on a yes. A request to publish is not approval of a plan
   the user has not seen.
 
@@ -82,12 +97,12 @@ conversation record. If the person drops items, rerun `CONTEXT check` and keep t
 that scope. Existing producer logic, batching, ETags, idempotency, retries and release readbacks
 below are unchanged. Never ask again for file reads, or because the publication phase started.
 
-**Show me 5 sample cards first** has an immediate action: run
+**Show me 5 first** has an immediate action: run
 `python3 "<build-dir>/scripts/project.py" --run-dir "<run-dir>" preview --limit 5 --format markdown`
 and display its returned text in this response. Use `--kind sql_query` for saved queries.
 If fewer than five exist, show all; if zero, show the reason. Do not publish, restart extraction
 or ask for a workspace to show samples. Optional rich cards must fall back to this text.
-**Show all** uses `--all`. **Not yet / Keep local** preserves the run with an unshared status.
+**Show all** uses `--all`. **Keep it on this machine** preserves the run with an unshared status.
 
 
 ## 2. Metrics
@@ -136,7 +151,9 @@ Its counts are the "before" side of the count check in **5. Verify**.
 
 **When the host refuses a rewritten call.** Some hosts review a tool call before a hook
 expands it and refuse what they cannot review (Claude Code's auto mode refuses a call a hook
-rewrote). That refusal sends nothing. Do not resend the descriptor. Either ask the person to
+rewrote). That refusal sends nothing. Do not resend the descriptor. Say "Auto mode blocked
+this save, so nothing was sent. Approve these saves yourself, or I'll send them in smaller
+parts." Either ask the person to
 approve these calls themselves (leave the auto mode) and send the same descriptors, or prepare
 again with `--max-bytes 60000` and send each smaller batch inline, as the native procedure
 below says.
@@ -148,8 +165,9 @@ totals still count every slot. Save each result, then run
 "<workspace-id>" --batches <saved batch descriptors> --result <saved result>…` (one
 `--result` per call, in order). It settles every item as created, failed or unreported, and
 prints the name lookups that resolve the rest, the approved links whose two ends both exist,
-and the failed items worth a retry. A `conflict` is never resent: report it, hold the item
-and the links that touch it, and name the existing artifact when a read finds it. Never resend a complete partially successful batch. If the reply
+and the failed items worth a retry. A `conflict` is never resent: report it ("<name> wasn't
+saved, because <workspace> already has one with that name. I held it back rather than rename
+it."), hold the item and the links that touch it, and name the existing artifact when a read finds it. Never resend a complete partially successful batch. If the reply
 is lost, reconcile each source identity and exact definition/version before retrying anything;
 a repeated create can append a version. A confirmed failed subset needs its own checked,
 authorized plan and batch, excluding successful and uncertain items. Stop on an unexpected
@@ -188,13 +206,13 @@ readback. A failed, missing, changed or conflicting receipt stays pending.
 
 Once the status is `ready`, repeat that command with `--finalize`. It assembles the native
 readbacks and invokes the existing publication validator and compact durable run receipts.
-Re-running it is safe and makes no Registry writes. The normal final counts/search checks
+Re-running it is safe and makes no Trident writes. The normal final counts/search checks
 remain. If local recording fails after a tool runs, preserve the result and reconcile live
 state; never repeat a write to repair a receipt. Missing readbacks can be read again safely.
 
 For an interrupted run, resume with the same receipt directory and run the helper first;
 complete only its missing reads and normal checked link work. Conflicting revisions require
-reconciliation and a fresh receipt set. A new run still reads live Registry inventory and
+reconciliation and a fresh receipt set. A new run still reads live Trident inventory and
 runs the existing create/revise/reuse checker. Local receipts never replace that discovery
 or the fresh released-context retrieval required to answer questions. Each receipt set is
 bounded to 128 immutable files, with at most 256 KiB per native response file.
@@ -210,10 +228,11 @@ bounded to 128 immutable files, with at most 256 KiB per native response file.
   The checked body already carries `definition.version` one above the reviewed live version.
   Do not change it after plan approval.
 - **Reuse:** nothing to write. Record the live id.
-- A `409` on create means the name is taken. Report it and hold the item. Never rename to get
-  around it.
+- A `409` on create means the name is taken. Report it and hold the item: "<name> wasn't
+  saved, because <workspace> already has one with that name. I held it back rather than rename
+  it." Never rename to get around it.
 
-Never archive, and never rename.
+Never rename. Archive only to finish a requested move ([6. Move](#6-move-to-another-workspace)).
 
 ### Appending a revision
 
@@ -250,9 +269,9 @@ releases. Record the actual release id, channel and version id of each published
 never assume a create published.
 
 For a write that stays unreleased, publication happens in Metric Studio, or through an
-authenticated registry release client when publication is authorized. Discover that capability
-and never invent an MCP release tool. If none exists, leave publication pending and say that
-agents can't read those drafts yet.
+authenticated Atlan Trident release client when publication is authorized. Discover that capability
+and never invent an MCP release tool. If none exists, leave publication pending and say "They're
+saved in Atlan Trident but not yet released, so your agent can't answer from them yet."
 
 ## 4. Links
 
@@ -291,3 +310,37 @@ and read `page.total`). Each kind's count must equal the preflight count plus th
 report; a difference is an item to find by name before anything is resent. Then `registry__search_artifacts` for one sample
 question with kind `sql_query`. It should come back near the top. Report the counts at the
 workflow's STOP gate.
+
+## 6. Move to another workspace
+
+`registry__move_artifact` refuses metrics and saved queries: their links must stay in one
+workspace. When the person asks to move saved ones, copy them and archive each original in the
+same run once its copy is in place. Never leave an original live for a later cleanup when its
+copy is ready.
+
+1. Before any write, read `registry__list_workspaces` on this connection. When the old
+   workspace shows `can_manage: false`, archiving will be refused: name who can and stop.
+2. Read each original's head with `registry__get_artifact` and its links with
+   `registry__get_related_artifacts`. Hold an original whose head no longer matches its checked
+   body, that any artifact outside the moved set links to or loads, or that links to a metric
+   or saved query outside it. A held original stays in the old workspace, so repeat these
+   checks until none more is held: also hold every original a held one links to or loads, and
+   every original that links to a held one. Name each held original with the reason.
+3. Run this flow again from **1. Preview** for the target workspace, through the same
+   connection, for the originals not held. The preview adds every original to archive, by id:
+   "Once each copy is in place, I'll archive its original in <old workspace>: <name> (<id>)."
+   Leave out the line about choosing the workspace now: the archive list takes its place. One
+   approval covers the copies and that list.
+4. Create, link and verify in the target as above.
+5. Archive saved queries first, then metrics, each metric before any metric it depends on, so
+   stopping at any point leaves no live original linked to an archived one. Just before each
+   archive, read the original again as in step 2 and hold it if its head changed or it gained a
+   link from outside the set. Archive an original with `registry__archive_artifact` (run with
+   `mcp__call_tool`) only when it is on the approved list, its copy was created or reused, the
+   copy's release reads back, and every approved link of the copy exists. Under the `manual`
+   release policy the copy has no release yet: keep the original live and say "<name> stays in
+   <old workspace> until its copy is released in <workspace>." If an archive is refused or its
+   confirmation declined, stop archiving and keep the rest live. When the person later says the
+   copies are released, read their releases back and run this step again against the same
+   approved list.
+6. Report the new ids, the archived originals, and every original still live with its reason.

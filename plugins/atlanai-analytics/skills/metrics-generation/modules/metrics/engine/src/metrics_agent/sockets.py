@@ -474,7 +474,7 @@ class Bundle:
     never by a plug.
 
     THE CORE'S FORMATS, NOT A DESTINATION'S. An output plug converts these into what its
-    destination takes (Registry envelopes, glossary terms, files...) in its own stages; the core
+    destination takes (Atlan Trident envelopes, glossary terms, files...) in its own stages; the core
     never builds a payload for a particular destination."""
     run_dir: pathlib.Path
     verified_queries: pathlib.Path         # data/schemas/verified_queries.schema.json

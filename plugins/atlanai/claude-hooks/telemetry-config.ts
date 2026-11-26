@@ -5,7 +5,7 @@ export const TELEMETRY = {
   "endpoint": "https://api.segment.io/v1/batch",
   "write_key": "",
   "plugin": "atlanai",
-  "version": "0.5.64",
+  "version": "0.5.66",
   "mcp_url": "https://api.atlan.com/mcp",
   "skills": [
     "atlanai:atlan-author-agents",

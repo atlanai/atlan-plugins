@@ -281,7 +281,7 @@ class GenericSetup(unittest.TestCase):
 
     def test_run_location_prefers_explicit_and_does_not_probe_home(self):
         self.assertEqual(resolve_run(self.estate, self.run.root), self.run.root)
-        self.assertEqual(resolve_run(self.estate).parent, self.estate / '.atlan-metrics')
+        self.assertEqual(resolve_run(self.estate).parent, self.estate / '.atlan-analytics')
         self.assertEqual(resolve_run(self.estate, cache=self.root / 'permitted').parent, self.root / 'permitted')
         self.assertFalse((self.root / 'permitted').exists())
         self.assertEqual(resolve_run(self.estate, home_permitted=True).parent, Path.home() / '.atlan/analytics/runs')
@@ -304,6 +304,24 @@ class GenericSetup(unittest.TestCase):
         path = Path(json.loads(result.stdout)['result_file'])
         self.assertEqual(len(json.loads(path.read_text())['sources']), 40)
         self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+
+    def test_each_large_result_keeps_a_file_of_its_own(self):
+        # The accuracy check runs its answers at once: one fixed file per command let a large result overwrite another,
+        # and an answer read the rows of another question.
+        cards = self.seed_candidates()
+        paths = []
+        for size in (150, 151):
+            for card in cards:
+                card['description'] = 'A long source description. ' * size
+            self.run.write(self.run.context / 'metrics.json', cards)
+            result = subprocess.run([sys.executable, '-I', str(SCRIPTS / 'project.py'), '--run-dir', str(self.run.root),
+                                     'preview', '--format', 'html'], text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            paths.append(Path(json.loads(result.stdout)['result_file']))
+        self.assertNotEqual(paths[0], paths[1])
+        said = [p.read_text().count('A long source description.') for p in paths]
+        self.assertTrue(said[0] and said[0] % 150 == 0 and said[1] % 151 == 0, 'the first result is still its own: %s' % said)
+        self.assertEqual(paths[1].stat().st_mode & 0o777, 0o600)
 
     def test_interrupted_inspection_resumes_completed_decode(self):
         (self.estate / 'model.bim').write_text(json.dumps(model()))
@@ -334,6 +352,9 @@ class GenericSetup(unittest.TestCase):
         for report in reports:
             self.run.scope({'source_id': report['source_id'], 'pages': ['overview'], 'history_tables': ['site.work']})
         self.assertEqual(len(self.run.current()['scopes']), 2)
+        # A page reads by its title in the chat, never its internal id (0.9.74's pause read "pages: page1").
+        import experience
+        self.assertEqual(experience.snapshot(self.run)['selected_pages'], ['Overview', 'Overview'])
         result = self.run.history()
         self.assertEqual(result['tables'], ['site.work'])
         self.assertEqual(len(Path(result['history']).read_text().splitlines()), 2)
@@ -428,6 +449,24 @@ class SQLiteCheckProgress(unittest.TestCase):
         self.assert_progress('running', 1)
         self.run.check_metric({'name': 'total-1'})
         self.assert_progress('complete', 2)
+
+    def test_one_call_runs_every_check_and_names_each_that_failed(self):
+        # The joint run of 2026-11-25: one command per metric and saved query, 27 in all, so the session wrote a script
+        # around them, and the checks chip their results hand over never reached the chat.
+        self.seed_checks('SELECT SUM(missing_column) FROM site.work')
+        self.run.check()
+        out = self.run.check_all()
+        self.assertEqual((out['ran'], out['passed']), (2, 1))
+        self.assertEqual([(f['kind'], f['name']) for f in out['failed']], [('saved query', 'work-total')])
+        self.assert_progress('complete-with-held-items', 2)
+
+    def test_one_call_check_is_refused_where_each_statement_runs_on_a_warehouse(self):
+        from unittest import mock
+        self.seed_checks()
+        warehouse = {'kind': 'warehouse', 'dialect': 'snowflake', 'tool': 'snow__sql_exec_tool'}
+        with mock.patch.object(self.run, 'execution_binding', return_value=warehouse), \
+                self.assertRaisesRegex(ValueError, 'check-query and check-metric'):
+            self.run.check_all()
 
     def test_failed_check_keeps_held_status_after_another_candidate_succeeds(self):
         import local_data

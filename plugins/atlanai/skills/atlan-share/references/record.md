@@ -79,11 +79,11 @@ wrote nothing.
 
 ### Refused with no field
 
-Some gateways' registry copy of `publish_output` refuses without naming what is wrong. Neither
+Some gateways' Atlan Trident copy of `publish_output` refuses without naming what is wrong. Neither
 refusal writes anything.
 
 - "The request is not valid." on a call that carries `idempotency_key`: the gateway derives a key
-  per step that its registry does not accept, so every keyed call is refused. Leave
+  per step that Trident does not accept, so every keyed call is refused. Leave
   `idempotency_key` out of `publish_output`.
 - A bare `409` ("The request conflicts with the current state of the resource.") when the same
   source key should publish a new version: gateway 2.21.0 refuses every new version through
@@ -150,7 +150,7 @@ it. Collapsing the two would make the common case unrepresentable.
 ## Saying which skill it drew on
 
 `used_skill` → `skill` is the **only** edge `output` declares. Put one `edges` entry per
-registry skill the run loaded; anything else is a 422 that names what is allowed, and it is
+Trident skill the run loaded; anything else is a 422 that names what is allowed, and it is
 refused before the output is written.
 
 ## Publishing a new version
@@ -174,7 +174,7 @@ so there is no second copy to drift.
 ## When `publish_output` is not served
 
 The tool is the agent app's. A gateway that predates the move serves the same tool, with the
-same arguments, under the registry's prefix: when `mcp__search_tools` for `publish_output`
+same arguments, under Trident's `registry__` prefix: when `mcp__search_tools` for `publish_output`
 returns that name and not the agent app's, call the one it returns. When neither is served (a
 gateway older than the tool, or an organization without the agent app), and when a refusal with
 no field ([above](#refused-with-no-field)) sends you here, record in separate calls, giving

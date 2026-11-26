@@ -3,7 +3,7 @@
 A metric card says what a number *is*, in fields a consumer can build SQL from. This is why
 each field holds what it holds, and what the agent refuses.
 
-The authority is the Agent Registry's definition of the metric kind. The Registry follows the
+The authority is Atlan Trident's definition of the metric kind. Trident follows the
 open [ai-registry specification](https://github.com/atlanai/ai-registry): each artifact's `spec`
 belongs to its kind and is checked against that kind's definition when it is published
 ([`spec/file-spec.md`, section 3.4](https://github.com/atlanai/ai-registry/blob/main/spec/file-spec.md#34-versionartifactjson)).
@@ -30,7 +30,7 @@ prose is exactly right there.
 
 ### `source.sql` is the FROM clause
 
-The registry's `Source` is *"a table or SQL source"* and takes exactly one of `table` and
+Trident's `Source` is *"a table or SQL source"* and takes exactly one of `table` and
 `sql`. So `sql` is not a statement; it is what goes after `FROM`:
 
 ```
@@ -69,7 +69,7 @@ written and narrower every day after.
 
 ## What the agent refuses, and why
 
-`x3_emit` is a gate. A card that fails any of these does not reach the registry, and the
+`x3_emit` is a gate. A card that fails any of these does not reach Trident, and the
 message names the card and the field.
 
 | refusal | because |
@@ -98,7 +98,7 @@ hint. That is a prompt, not a traceback, so the loop closes without anybody carr
 message:
 
 ```bash
-python scripts/x3_loop.py --run <run> --from 'answers/*.json' --author "<command>"
+metrics-agent stage x3_loop --run <run> --from 'answers/*.json' --author "<command>"
 ```
 
 `--author` is the operator's command; the stage holds no model key. Four guards, because the
@@ -113,7 +113,7 @@ than a half-written layer.
 **A metric's `source_id` is derived from what it measures, never from its name.**
 
 If the name were part of the identity, renaming a set of metrics would publish every one of
-them as a new artifact, and the old ones would linger beside them. Worse, the Registry keeps
+them as a new artifact, and the old ones would linger beside them. Worse, Trident keeps
 an archived name reserved and hides it from every listing, so the next push would collide with
 names nobody can see.
 
@@ -139,7 +139,7 @@ Two cards that agree on all four are refused at authoring time. They are not two
 whatever their names say, and publishing them mints one artifact that the second silently
 overwrites.
 
-But a minted identity is still a *guess* about which artifact this is, and the registry is
+But a minted identity is still a *guess* about which artifact this is, and Trident is
 what knows. So before a push decides anything, `resolve_against_live` points each item at
 the artifact that already measures the same thing:
 

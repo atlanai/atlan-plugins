@@ -11,7 +11,7 @@ tool result instead saves that result as one JSON list in `<dir>/hillclimb/<vari
 with the Write tool and passes it with `--responses`.
 Repeat until `publish` prints `"step": "done"`.
 
-- A failed item comes back under `failed` with the registry's message; the next `publish`
+- A failed item comes back under `failed` with Atlan Trident's message; the next `publish`
   resends only those. Fix a named field first; after three failures of one item, stop and report it.
 - A `conflict` on the scorer or dataset means one by that name already lives in the workspace:
   list that kind with `registry__list_artifacts`, save the listing, and run

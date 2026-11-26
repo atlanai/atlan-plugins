@@ -15,7 +15,7 @@ import traceback
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from driver import ordinary, snapshot, write
-from terminal_io import Transcript, at_terminal, run as run_with_terminal
+from terminal_io import Transcript, relaying, run as run_with_terminal
 
 
 def load(path):
@@ -31,7 +31,7 @@ def stage_input(source, destination, source_id=None):
     """Read the selected asset once, then keep all further processing in the project."""
     source, destination = ordinary(source), ordinary(destination)
     if not source.exists():
-        raise ValueError('The selected source does not exist.')
+        raise ValueError('I can\'t find that file or folder.')
     if source == destination or (source.is_dir() and destination.is_relative_to(source)):
         raise ValueError('Keep the private capture directory outside the selected source.')
     if source_id is not None and (not isinstance(source_id, str) or not source_id.strip()
@@ -51,15 +51,15 @@ def stage_input(source, destination, source_id=None):
         if path.name == 'staged-input.json':
             raise ValueError('The selected source uses the reserved capture manifest name.')
         if any(part in ('.git', '.aws', '.ssh') for part in path.relative_to(source.parent if source.is_file() else source).parts):
-            raise ValueError('Select the BI definitions folder, excluding credential or repository metadata.')
+            raise ValueError('That folder holds repository or credential files. Pick the folder that holds only the dashboard files.')
         if path.name == '.env' or path.name.startswith('.env.') or path.suffix.lower() in ('.pem', '.key', '.p12', '.pfx', '.keychain'):
-            raise ValueError('The selected folder contains credential material; select only BI definitions.')
+            raise ValueError('That folder holds credential files, so I won\'t read it. Pick a folder with only the dashboard files.')
     sidecar = source.with_name(source.name + '.manifest.json')
     if source.is_file() and sidecar.is_file():
         ordinary(sidecar)
         files.append(sidecar)
     if not files:
-        raise ValueError('The selected source folder is empty.')
+        raise ValueError('That folder is empty.')
     marker = destination / 'staged-input.json'
     if destination.exists() and any(destination.iterdir()):
         if (not marker.is_file() or load(marker).get('source_id') != source_id
@@ -71,14 +71,14 @@ def stage_input(source, destination, source_id=None):
         captured = {path.relative_to(destination).as_posix() for path in destination.rglob('*')
                     if path.is_file() and path != marker}
         if selected != recorded or captured != set(recorded):
-            raise ValueError('The selected input changed; use a new source capture directory.')
+            raise ValueError('The file changed since I first read it. I\'ll read it again as a new source.')
     destination.mkdir(parents=True, exist_ok=True, mode=0o700)
     records = []
     for path in files:
         rel = relative(path)
         target = ordinary(destination / rel)
         if target.exists() and digest(target) != digest(path):
-            raise ValueError('The selected input changed; use a new source capture directory.')
+            raise ValueError('The file changed since I first read it. I\'ll read it again as a new source.')
         if not target.exists():
             target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
             shutil.copyfile(path, target)
@@ -97,7 +97,7 @@ def engine_identity():
         if name.startswith('src/metrics_agent/'):
             installed = package / name.removeprefix('src/metrics_agent/')
             if not installed.is_file() or digest(installed) != item['sha256']:
-                raise ValueError('Installed engine differs from the pinned source; recreate this runtime.')
+                raise ValueError('The metric tools on this machine were changed. I\'ll set up a fresh copy.')
     return data['commit'], sha
 
 
@@ -140,12 +140,11 @@ def optional_readers_missing(doc):
         from metrics_agent import readers
         path = Path(str(bi)).expanduser()
         if readers.model_gap(path) is None and importlib.util.find_spec('pbixray') is None:
-            out.append(f'settings.{plug}.bi is a .pbix ({path.name}); reading it needs the '
-                       '`pbix` feature, which this runtime was set up without.')
+            out.append(f'Reading {path.name} needs an add-on that isn\'t installed.')
     return '\n'.join(out)
 
 
-def prepare(run, config, runtime, approval_mode='auto'):
+def prepare(run, config, runtime, approval_mode='auto', carry_from=None):
     from metrics_agent import setup
     run, config = ordinary(run), ordinary(config)
     doc = local_config(config)
@@ -153,23 +152,24 @@ def prepare(run, config, runtime, approval_mode='auto'):
         state(run, runtime)
         receipt = load(run / 'module.json')
         if receipt['config_sha256'] != digest(config) or receipt['approval_mode'] != approval_mode:
-            raise ValueError('Configuration changed; review it and start a new metrics run.')
+            raise ValueError('Your build settings changed after this build started. Review them and I\'ll start a new one.')
         return {'status': 'prepared', 'run': str(run), 'reused': True}
-    if run.exists() and any(run.iterdir()):
+    # The pages a person chose can be recorded before the build is prepared (`pages`).
+    if run.exists() and any(p.name != 'page_scope.json' for p in run.iterdir()):
         raise ValueError('Use a new module run directory; existing engine runs require an explicit migration.')
     missing = optional_readers_missing(doc)
     if missing:
         return {'status': 'NEEDS_CONTEXT', 'requirements': missing,
-                'fix': 'Set up a new runtime with the named feature and prepare this run with it.'}
+                'fix': 'I\'ll set up the metric tools again with what this source needs, then start the build.'}
     # check_file performs the original plug/session checks, but never asks the setup interview.
     messages = io.StringIO()
-    stream = Transcript(messages, sys.stderr) if at_terminal() else messages
+    stream = Transcript(messages, sys.stderr) if relaying() else messages
     with contextlib.redirect_stdout(stream), contextlib.redirect_stderr(stream):
         code = setup.check_file(config, out=messages)
     if code:
         # Access/credential checks may name environment variables, not their values.
         return {'status': 'NEEDS_CONTEXT', 'requirements': messages.getvalue(),
-                'fix': 'Resolve only these missing settings or explicitly choose parse-only verification.'}
+                'fix': 'Fix these settings, or build without testing on your data. Untested metrics can still be saved.'}
     run.mkdir(parents=True, mode=0o700, exist_ok=True)
     # JSON is valid YAML. Keep resolved absolute input paths from the approved configuration.
     write(run / 'run.yml', doc)
@@ -177,7 +177,39 @@ def prepare(run, config, runtime, approval_mode='auto'):
     write(run / 'module.json', {'module': 'metrics', 'commit': commit, 'source_sha256': sha,
                                'config_sha256': digest(config), 'run_config_sha256': digest(run / 'run.yml'),
                                'runtime': str(runtime), 'status': 'prepared', 'approval_mode': approval_mode})
-    return {'status': 'prepared', 'run': str(run), 'commit': commit, 'config': str(run / 'run.yml')}
+    out = {'status': 'prepared', 'run': str(run), 'commit': commit, 'config': str(run / 'run.yml')}
+    if carry_from:
+        out['carried'] = carry(ordinary(carry_from), run, commit)
+    return out
+
+
+# The gates whose answers a later run over the same sources can reuse as they are, and the two
+# that answer per statement, whose answers go to `carried-*.json` so the run asks only about the
+# statements they do not cover. The merge, the cards and the links are never carried: a run that
+# adds sources must merge everything again, or a duplicate across the sources survives.
+WHOLE = ('a3b', 'c3')
+PER_STATEMENT = {'m2': 'queries', 'x1': 'statements'}
+
+
+def carry(source, run, commit):
+    """Copy an earlier run's gate answers into this new run: the dashboard's statements keep their ids."""
+    receipt = load(source / 'module.json') if (source / 'module.json').is_file() else None
+    if not receipt or receipt.get('commit') != commit:
+        raise ValueError('Carry answers only from a run on this same runtime; prepare without --carry-from.')
+    counts = {}
+    for gate in WHOLE:
+        for f in sorted((source / 'answers' / gate).glob('*.json')):
+            write(run / 'answers' / gate / f.name, load(f))
+            counts[gate] = counts.get(gate, 0) + 1
+    for gate, key in PER_STATEMENT.items():
+        rows = []
+        for f in sorted((source / 'answers' / gate).glob('*.json')):
+            doc = load(f)
+            rows += [r for r in (doc.get(key) or []) if isinstance(r, dict)] if isinstance(doc, dict) else []
+        if rows:
+            write(run / 'answers' / gate / f'carried-{source.name}.json', {key: rows})
+            counts[gate] = len(rows)
+    return counts
 
 
 def state(run, runtime):
@@ -185,9 +217,9 @@ def state(run, runtime):
     receipt = load(run / 'module.json')
     commit, sha = engine_identity()
     if receipt['commit'] != commit or receipt['source_sha256'] != sha or receipt['runtime'] != str(runtime):
-        raise ValueError('Resume with the runtime that prepared this project.')
+        raise ValueError('This project has to continue with the tools it was built with.')
     if receipt['run_config_sha256'] != digest(run / 'run.yml'):
-        raise ValueError('Run configuration changed; prepare a new run after reviewing the change.')
+        raise ValueError('Your build settings changed after this build started. Review them and I\'ll start a new one.')
     local_config(run / 'run.yml')
     return run, receipt
 
@@ -231,12 +263,12 @@ def answer_contract(run, gate):
 
 BATCHED_GATES = ('m2', 'x1', 'x2', 'x3')
 # Each step for what it does: the app shows a subagent's name to the person, so it is never a gate's.
-STEP_NAMES = {'m2': 'Describe each query', 'x1': 'Find metrics',
-              'x2': 'Combine duplicates, one per number', 'x3': 'Define each metric'}
+STEP_NAMES = {'m2': 'Write each question', 'x1': 'Find metrics and saved queries',
+              'x2': 'Merge duplicate metrics', 'x3': 'Add detailed information to each metric and saved query'}
 
 
 # The other authored gates, as the person would name them: short enough to write in the session that talks to them.
-OTHER_STEP_NAMES = {'a3b': "Check each tile's query", 'c3': "Write each tile's question", 'x4': 'Link related metrics'}
+OTHER_STEP_NAMES = {'a3b': "Check each tile's SQL", 'c3': "Write each tile's question", 'x4': 'Link related metrics'}
 
 
 def authored_step(gate):
@@ -264,7 +296,8 @@ def batch_progress(run, gate):
     # them, in the desktop app and in Claude Code's terminal alike, while a turn that keeps going is not.
     return {'wait': wait, 'name': STEP_NAMES[gate], **shares,
             'say': (f'A fresh subagent named `{STEP_NAMES[gate]}`, started in the background (never one this session '
-                    'waits on), writes this gate in numbered batch files and runs no drafts command'
+                    'waits on), writes this gate in numbered batch files, runs no drafts command and never advances '
+                    'the engine'
                     + ('; first run `split`, which shares the metrics among up to five subagents and gives each its '
                        'brief. ' if shares else '. ') +
                     'The session that talks to the person stays in one turn while the build runs: it runs `wait` in '
@@ -272,13 +305,15 @@ def batch_progress(run, gate):
                     'prints says, and runs it again in the same message. On a batch, set the task list to `task_list`. '
                     'When a step ends, run `visual next` first (it is quick) and show what it gives in the same '
                     'message that starts the next step\'s subagent. When something is ready to show, run `visual '
-                    'next`. When every share is back, advance once. On a quiet spell, check the subagents. It never '
+                    'next`. When every answer is saved or every share is back, advance once: this session is the only '
+                    'one that advances. On a quiet spell, check the subagents. It never '
                     'ends the turn between waits (a turn that ends without words '
-                    'is sent back for them) and writes nothing of its own between chips: a step\'s own chip names the '
+                    'is sent back for them) and writes nothing of its own between chips, apart from the line a quiet '
+                    'spell hands over where there is no task list, a problem, or an answer when asked: a step\'s own chip names the '
                     'step that starts, so no line of yours names it again; never that the step is still running; never '
                     'the engine\'s results or counts (accepted, cards, pairs, a check\'s own name), nor your own '
                     'tooling (scripts, retries, setup). The app shows each command\'s description to the person: '
-                    'describe each as what it does for them ("Showing what\'s new", "Continuing the build"), never a '
+                    'describe each as what it does for them ("Showing what\'s new", "Building your agent"), never a '
                     'chip, the engine, a gate, a folder or a record. The side page shows each batch as it lands, so no '
                     'batch goes in the chat. With no background subagent, write the gate in that session and run '
                     '`visual next` once the gate is accepted.')}
@@ -347,7 +382,7 @@ def advance(run, runtime, model):
         result['feedback'] = last_stage_output(proc.stderr)
     else:
         result['reason'] = (blocked_reason(run)
-                            or 'The engine refused or failed. Read the private log and repair the cause.')
+                            or 'The build stopped partway. I\'ll read the log on this machine and fix the cause.')
         result['feedback'] = last_stage_output(proc.stderr)
     receipt['last_result'] = result
     write(run / 'module.json', receipt)
@@ -370,7 +405,7 @@ def own_message(exc):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('command', choices=('discover', 'stage-input', 'prepare', 'advance', 'status', 'parity-plan', 'export'))
-    for name in ('runtime', 'run', 'config', 'model', 'context', 'parity', 'source', 'destination', 'source-id'):
+    for name in ('runtime', 'run', 'config', 'model', 'context', 'parity', 'source', 'destination', 'source-id', 'carry-from'):
         parser.add_argument('--' + name)
     parser.add_argument('--approval-mode', choices=('ask', 'auto'), default='auto')
     args = parser.parse_args()
@@ -383,7 +418,7 @@ def main():
         elif args.command == 'stage-input':
             result = stage_input(args.source, args.destination, args.source_id)
         elif args.command == 'prepare':
-            result = prepare(args.run, args.config, runtime, args.approval_mode)
+            result = prepare(args.run, args.config, runtime, args.approval_mode, args.carry_from)
             code = 2 if result['status'] == 'NEEDS_CONTEXT' else 0
         elif args.command == 'advance':
             result, code = advance(args.run, runtime, args.model)
@@ -393,9 +428,9 @@ def main():
                 result = receipt.get('last_result') or {'status': receipt['status'], 'run': str(run)}
             else:
                 if receipt['status'] != 'complete' or not receipt.get('outputs'):
-                    raise ValueError('Finish the original engine gates before exporting context.')
+                    raise ValueError('The build isn\'t finished yet, so there\'s nothing to save.')
                 if any(digest(run / name) != sha for name, sha in receipt['outputs'].items()):
-                    raise ValueError('Engine output changed after completion; advance and revalidate it.')
+                    raise ValueError('The results changed after the build finished. I\'ll check them again before saving.')
                 if args.command == 'parity-plan':
                     from validation import plans
                     result = {'format': 1, 'outputs': receipt['outputs'],
@@ -415,8 +450,8 @@ def main():
             {'file': Path(frame.filename).name, 'line': frame.lineno, 'function': frame.name}
             for frame in traceback.extract_tb(exc.__traceback__)]})
         print(json.dumps({'status': 'BLOCKED', 'reason': reason or
-                          f'Metrics runtime operation failed ({type(exc).__name__}).',
-                          'diagnostic': str(diagnostic), 'fix': 'Resolve the requirement; keep all gates enabled.'}))
+                          f'Building metrics stopped with an error ({type(exc).__name__}).',
+                          'diagnostic': str(diagnostic), 'fix': 'I\'ll fix the cause. No check is skipped.'}))
         return 2
 
 

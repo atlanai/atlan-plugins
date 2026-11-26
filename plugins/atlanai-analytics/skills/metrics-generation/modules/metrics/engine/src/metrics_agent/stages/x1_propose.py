@@ -48,6 +48,8 @@ from metrics_agent.lib import bi_tags as _bi_tags  # noqa: E402
 from metrics_agent.lib import card_sql as _card_sql  # noqa: E402
 from metrics_agent.lib.metric_validation import sum_over_output
 from metrics_agent.lib import stage  # noqa: E402
+from metrics_agent.lib import describe_timing as _timing  # noqa: E402
+from metrics_agent.lib import carried as _carried  # noqa: E402
 
 STAGE = "x1_propose"
 IN_LAYER = "verified_queries.json"
@@ -71,6 +73,9 @@ def _extra(p) -> None:
     p.add_argument("--vq-id", dest="vq_ids", nargs="*", default=None,
                    help="bundle only these statement(s) — for reviewing a few before "
                         "committing to the whole layer")
+    p.add_argument("--carried", default=None,
+                   help="glob of answers carried from an earlier run (`prepare --carry-from`): "
+                        "their statements are not asked about again")
 
 
 def _emit(ctx: stage.Ctx) -> None:
@@ -89,11 +94,14 @@ def _emit(ctx: stage.Ctx) -> None:
         if missing:
             raise SystemExit(f"x1: the layer holds no statement(s) {', '.join(sorted(missing))}.")
         objs = [o for o in objs if o["vq_id"] in want]
+    objs = _carried.apply(ctx, "x1", "statements", ctx.args.carried,
+                          {o["vq_id"] for o in layer["objects"]}, objs)
 
     by_domain: dict[str, list] = {}
     for o in objs:
         by_domain.setdefault(o.get("domain") or "unknown", []).append(o)
 
+    dialect = layer.get("dialect") or ""
     tasks = []
     for dom, group in sorted(by_domain.items()):
         rows = []
@@ -103,9 +111,10 @@ def _emit(ctx: stage.Ctx) -> None:
                 "vq_id": o["vq_id"],
                 # THE PROSE LEADS. An aggregate tells you what is computed; the question tells
                 # you what it is FOR, and that is the difference between a metric and a label.
-                "name": o.get("name"),
-                "question": o.get("question"),
-                "description": o.get("description"),
+                **(_timing.prose(o) if _timing.describe_at_end()
+                   else {"name": o.get("name"), "question": o.get("question"),
+                         "description": o.get("description")}),
+                **({"facts": _timing.facts(o, dialect)} if _timing.describe_at_end() else {}),
                 "sql": o["sql"],
                 "tables": o.get("tables") or [],
                 "group_by": o.get("group_by") or [],
@@ -149,7 +158,8 @@ def _emit(ctx: stage.Ctx) -> None:
 
     artifacts.dump(ctx.run / PROMPT, {
         "contract_version": "1.0", "stage": STAGE,
-        "instruction": "See gates/propose-metrics/GATE.md. For EVERY statement "
+        "instruction": (_timing.NOTE + " " if _timing.describe_at_end() else "") +
+                       "See gates/propose-metrics/GATE.md. For EVERY statement "
                        "return one object keyed by its vq_id, with `verdict` of 'metrics' or "
                        "'none'. A statement may yield zero, one or several metrics — judge "
                        "each one, and say why it is a metric. `aggregates_found` is evidence, "
@@ -206,6 +216,7 @@ def _ingest(ctx: stage.Ctx) -> None:
             f"`propose-metrics` skill and re-run.")
 
     verdicts: dict[str, str] = {}
+    why_by: dict[str, list] = {}
     proposals: list[dict] = []
     problems: list[str] = []
     seen_names: dict[str, str] = {}
@@ -245,6 +256,8 @@ def _ingest(ctx: stage.Ctx) -> None:
                     f"metric, quoting the statement's own expression.")
                 continue
             verdicts[vq] = verdict
+            if verdict == "none":
+                why_by.setdefault(" ".join(str(row.get("why") or "").lower().split()), []).append(vq)
             for i, m in enumerate(ms):
                 for f in PROPOSAL_REQUIRED:
                     if not str(m.get(f) or "").strip():
@@ -347,6 +360,15 @@ def _ingest(ctx: stage.Ctx) -> None:
                 seen_names.setdefault(nm.lower(), vq)
 
     missing = [v for v in known if v not in verdicts]
+    # EXPERIMENT (options B and C): with no prose, a statement is judged only if it is read.
+    # One sentence given to many statements is a family dismissed by its shape.
+    if _timing.describe_at_end():
+        for why, vqs in why_by.items():
+            if why and len(vqs) > 5:   # a `none` needs no reason; only a shared one is a sweep
+                problems.append(
+                    f"{len(vqs)} statements share the same `why` ({why[:80]!r}): "
+                    f"{', '.join(vqs[:8])}{' …' if len(vqs) > 8 else ''}. Read each one on its "
+                    f"own `facts.columns` and say what THAT statement does.")
     if problems:
         raise SystemExit("x1: the authored answer failed validation:\n  "
                          + "\n  ".join(problems[:40]))

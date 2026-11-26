@@ -5,12 +5,12 @@ Its X3 gate owns card authoring and whole-card review; X4 owns relationships. Th
 explains publication boundaries, not an alternative authoring workflow.
 
 The [publication schemas](../../modules/metrics/contracts/README.md) are the source of
-truth for Registry wire formats. `ENGINE export` projects accepted core outputs to these
+truth for Atlan Trident wire formats. `ENGINE export` projects accepted core outputs to these
 schemas. `PROJECT check` and `CONTEXT check` validate the exact bodies. Read the live
 `registry__get_kind_schema` if a destination rejects a property. Repair semantic problems
 in the engine and export again; do not hand-edit output to bypass its checks.
 
-- `metrics.json` contains Registry metric bodies with stable engine identities, display
+- `metrics.json` contains Trident metric bodies with stable engine identities, display
   names, descriptions, search text and `definition` at `1.0-draft.4`. The definition carries
   formula, source, population, grain, aggregation, units, mandatory and optional filters,
   parameters, dimensions, joins, examples and provenance. Preserve all supported fields.

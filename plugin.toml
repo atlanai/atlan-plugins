@@ -14,7 +14,7 @@
 name = "atlanai"
 display_name = "Atlan Trident"
 # Bump on every release: Claude Code holds users on the version they installed.
-version = "0.5.64"
+version = "0.5.66"
 description = "Your organization's skills, agents, knowledge and MCP servers, from Atlan Trident. One sign-in, no API key."
 short_description = "Skills, agents and tools"
 long_description = "Connect your coding agent to Atlan Trident with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install an Atlan Trident skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with Atlan Trident's own authoring recipes."
@@ -105,21 +105,21 @@ default_prompts = [
 # behind the workload pins this repository. Bump an add-on's version on every release of it.
 [[addons]]
 name = "atlanai-analytics"
-display_name = "Analytics"
-version = "0.9.90"
+display_name = "Atlan Analytics"
+version = "0.9.99"
 # Where the add-on's helpers raise usage events of their own (usage_events.py there). The build
 # writes the core's sender, the events list and this add-on's telemetry config beside them, so
 # the same `[telemetry]` key, list and switches hold. Plugin-relative.
 telemetry_dir = "skills/analytics-build/scripts"
-description = "Try Atlan Analytics on a demo or set it up on your own data, step by step: survey dashboards and query history, generate and check metrics, save them locally or to Atlan, ask questions and build a dashboard."
-short_description = "Publish analytics context and ask your data with Atlan"
-long_description = "The analytics workload on Atlan Trident, as seven skills. analytics-demo walks through a made-up firm end to end. analytics-build does the same on your own data, starting from nothing, a dashboard or a subject: it surveys what you already have, asks what you want to answer, and builds from reports first, then query history, then table definitions. source-survey says what a setup, a subject or a source holds, what can be built from it, and which metric names it offers. metrics-generation generates, checks, edits, proposes and publishes metrics and saved queries with the metrics engine. analytics-ask answers a data question from published metrics, with the definition it used, and turns answers into a dashboard. eval-generation turns the questions a team already asks into an eval set with trusted SQL, kept locally or saved to Atlan. accuracy-check runs a set against the context and scores it, saying why each miss failed. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection."
+description = "Build an agent that answers your data questions, on a demo or your own data: I extract the context in your dashboards and past queries, add detailed information to it and validate it, then you store it here or save it to Atlan Trident, ask it questions and build a dashboard."
+short_description = "Build an agent that answers your data questions"
+long_description = "The analytics workload on Atlan Trident, as seven skills. analytics-demo walks through a made-up firm end to end. analytics-build does the same on your own data, starting from nothing, a dashboard or a subject: it surveys what you already have, asks what you want to answer, and builds from dashboards first, then past queries, then table definitions. source-survey says what a setup, a subject or a source holds, what can be built from it, and which metric names it offers. metrics-generation builds, tests, edits, proposes and saves metrics and saved queries. analytics-ask answers a data question from saved metrics, names what each answer is based on, and turns answers into a dashboard. eval-generation turns the questions a team already asks into test questions with known answers, kept here or saved to Atlan Trident. accuracy-check tests your agent on those questions and scores it, saying why each miss failed. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection."
 keywords = ["atlan", "analytics", "metrics", "text-to-sql", "talk-to-data", "snowflake", "databricks", "dashboards"]
 category = "Data & Analytics"
 claude_category = "data"
 install_note = """
-In Claude Code's terminal, a build's progress shows in Claude Code's own task list. Some models have the task list on
-by default; for the others, such as Opus 5.5, add this to the `env` in your Claude Code settings
+**Build progress in Claude Code.** In the terminal, a build's progress shows in Claude Code's own task list. Some models have the task list on
+by default. If yours shows no task list, add this to the `env` in your Claude Code settings
 (`~/.claude/settings.json`) once, then start a new session:
 
 ```json
@@ -131,7 +131,78 @@ Without it, each finished build step shows as one line in the chat.
 default_prompts = [
   "Show me an Atlan Analytics demo",
   "Help me use this dashboard, folder or BI export to ask questions about my data",
-  "Build metrics and saved queries for our support tables from the warehouse's query history",
+  "Build metrics and saved queries for our support tables from the warehouse's past queries",
+]
+
+# The add-on README's own sections. The skills table comes from each skill's [skills.<name>] card,
+# in the order `skills` names them, and the build fails when a skill folder is missing from it.
+[addons.readme]
+intro = """
+This plugin builds your agent: it answers your data questions in plain English from your
+context, the metrics and saved queries the plugin builds and tests. Each answer names the metric
+or saved query it used, or says when it had to write new SQL for the question.
+
+It builds that context from what your team already relies on: dashboards first, then past
+queries, then table definitions. It tests each metric and saved query on your data, when it can reach
+your data, before you keep them on this machine or save them to share with your team.
+"""
+needs = [
+  "**To try a sample:** Python 3.11 or 3.12. Put `python3.12` or `python3.11` on your `PATH`, or use `py -3.12` on Windows. Samples bring their own data and need no account.",
+  "**For your own data:** the same Python, and a dashboard file, a warehouse your coding agent can reach (such as Snowflake or Databricks), or both. For a warehouse, read access to its tables, and to past queries if you build from them.",
+  "**To save for your team (optional):** an Atlan account, signed in through the `atlanai` plugin. The plugin installs either way, and without a sign-in everything stays on this machine.",
+]
+how = """
+- A **metric** is a named number with its rule, such as revenue by month.
+- A **saved query** is a tested SQL question your agent can rerun, such as margin by job.
+- Together they are **your context**. **Your agent** answers from it, and finds the right
+  metric or saved query for each question. It runs in the coding agent you use, such as Claude
+  Code or Codex.
+- A **workspace** is where your team keeps that context when you save it, so others can ask
+  from it too.
+"""
+starts = [
+  ["Learn how it works on a sample", "analytics-demo", "Show me how this works on a sample use case"],
+  ["Build your agent from your own data or a dashboard", "analytics-build", "Help me use this dashboard to ask questions about my data"],
+  ["Ask your agent a question", "analytics-ask", "What was revenue last quarter, by region?"],
+]
+quick_start = "The skill shows its steps as it goes, and asks before it saves anything to Atlan."
+samples_intro = "Two fictional companies, with made-up data, ship with the plugin. Each sample builds your agent for the company: its context, the metrics and saved queries, from its dashboard, tests them on the sample data, asks where to keep them, then answers your first question."
+samples = [
+  ["Fixit & Co., a builder's yard", "Which jobs lost money, and why. Built from a Power BI dashboard in about 15 minutes.", "https://atlanai.github.io/analytics-agent-accelerator/yard-tour/"],
+  ["Ticketfuddle, a ticketing firm", "How much of what fans paid went on fees. Built from a Tableau dashboard in about 15 to 20 minutes.", "https://atlanai.github.io/analytics-agent-accelerator/box-office-tour/"],
+]
+skills = ["analytics-demo", "analytics-build", "source-survey", "metrics-generation", "analytics-ask", "eval-generation", "accuracy-check"]
+privacy = """
+This plugin has no hooks and ships no executable binaries.
+
+- **Runs:** the Python helpers bundled with its skills, and a metrics runtime in its own virtual
+  environment, with pinned packages pip installs from your package index (PyPI unless pip is set
+  otherwise).
+- **Reads:** the sources you pick, your warehouse through read-only statements (SELECT, WITH, SHOW
+  or DESCRIBE, with a LIMIT on anything that returns rows), and a Power BI workspace or Tableau
+  site through its API when you point the plugin at one.
+- **Credentials:** the ones you set for your own systems: `PBI_*` for Power BI, `TABLEAU_*` for
+  Tableau, and `METRICS_AGENT_WAREHOUSE_DSN` for a local DuckDB or SQLite file. Each goes only to
+  the system it names (Microsoft's sign-in and Power BI or Fabric APIs, your Tableau server), never
+  anywhere else.
+- **Writes:** working files in one folder in your project, `.atlan-analytics/`: each run, the
+  metrics runtime, test questions (`evals/`) and a demo's data (`demo/`). Add it to `.gitignore`.
+  Reading a Power BI workspace caches its sign-in token under `~/.cache/pbi_definition_extract/`.
+- **Sends:** to Atlan, only what you approve saving, through the `atlanai` plugin's connection,
+  signed in as you.
+- **Starts:** a progress page served on `127.0.0.1` for this machine only, opened in your browser;
+  and, when you check accuracy, your own Claude Code or Codex CLI to answer each test question
+  fresh, signed in as you.
+"""
+source = """
+The skills and scripts in this folder are the only source.
+"""
+troubleshooting = [
+  ["The skills say the `atlanai` tools are missing", "Outside Claude Code, install `atlanai` first. In Claude Code, run `/reload-plugins`."],
+  ["Sign-in is needed or has expired", "In Claude Code: `/mcp`, pick `plugin:atlanai:atlan`, **Authenticate**. In Codex: `codex mcp login atlan`."],
+  ["No warehouse is found", "The plugin asks to connect one: your coding agent's own connector, a vendor CLI where there is a shell, or the `atlanai` connection."],
+  ["Python 3.11 or 3.12 is not found", "Install one so `python3.12` or `python3.11` is on your `PATH`, then ask the plugin to continue."],
+  ["There is nowhere to save for your team", "Keep the work on this machine, or ask for access to an existing Atlan workspace. An admin makes new ones."],
 ]
 
 # Mods: Claude Code plugins whose hooks module changes how Claude Code handles the core's tools,
@@ -232,36 +303,36 @@ prompt = "Use $atlan-author-agents to register the agent in this repository in A
 
 [skills.analytics-demo]
 display_name = "Analytics Demo"
-short_description = "Try Atlan Analytics on made-up data, step by step"
-prompt = "Use $analytics-demo to show me how Atlan Analytics works on a demo."
+short_description = "Build your agent on made-up data, step by step"
+prompt = "Use $analytics-demo to show me how this works on a sample use case."
 
 [skills.analytics-build]
 display_name = "Atlan Analytics"
-short_description = "Set up analytics on your own data, step by step"
+short_description = "Build your agent on your own data, step by step"
 prompt = "Use $analytics-build to set up this project so I can ask questions about its data."
 
 [skills.source-survey]
-display_name = "Source Survey"
-short_description = "See what data, dashboards and query history you can build from"
-prompt = "Use $source-survey to tell me what this folder's dashboards and queries cover."
+display_name = "Survey Your Data"
+short_description = "See what data, dashboards and past queries you can build from"
+prompt = "Use $source-survey to tell me what this folder's dashboards and past queries cover."
 
 [skills.metrics-generation]
 display_name = "Metrics Generation"
-short_description = "Turn dashboards and query history into checked metrics"
-prompt = "Use $metrics-generation to build metrics from our warehouse's query history."
+short_description = "Turn dashboards and past queries into metrics your agent answers from"
+prompt = "Use $metrics-generation to build metrics from our warehouse's past queries."
 
 [skills.eval-generation]
 display_name = "Eval Generation"
-short_description = "Build an eval set from the questions analysts already ask"
-prompt = "Use $eval-generation to build an eval set from the questions our analysts ask."
+short_description = "Write test questions, with known answers, from what your team asks"
+prompt = "Use $eval-generation to write test questions for our agent from what our team already asks."
 
 [skills.accuracy-check]
 display_name = "Accuracy Check"
-short_description = "Run an eval set against the context and score it"
-prompt = "Use $accuracy-check to score our analytics context on the eval set in this project."
+short_description = "Test your agent on questions with known answers"
+prompt = "Use $accuracy-check to test our agent on the test questions in this project."
 
 [skills.analytics-ask]
 display_name = "Ask Your Data"
-short_description = "Answer a data question from published metrics"
+short_description = "Answer data questions from your metrics and saved queries"
 prompt = "Use $analytics-ask to answer: what was revenue last quarter, by region?"
 

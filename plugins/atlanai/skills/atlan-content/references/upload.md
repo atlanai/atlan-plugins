@@ -9,7 +9,7 @@ One session and its id on every call,
 a first-person `rationale` on every call, a `workspace_id` on every create, and
 `registry__get_kind_schema` only after a write to a kind is refused.
 
-Uploads use the authenticated API host. Storage placement remains registry-owned. Do not copy
+Uploads use the authenticated API host. Storage placement remains owned by Atlan Trident. Do not copy
 connector credentials into tool arguments.
 
 ## Without a shell or a bearer

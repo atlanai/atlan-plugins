@@ -1,6 +1,6 @@
 """Prepare local bulk-create payloads from an authorized, checked publication plan.
 
-Standard library only. No Registry calls, credentials, revision writes or link writes.
+Standard library only. No Atlan Trident calls, credentials, revision writes or link writes.
 """
 import argparse
 import hashlib

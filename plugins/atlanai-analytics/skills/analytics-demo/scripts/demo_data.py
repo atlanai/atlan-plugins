@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Open a demo that lives in this skill: set up its working folder, then a setup run's requests.
 
-    python3 demo_data.py open <demo> <folder>   # sets up <folder>/atlan-analytics-demo/<demo>/
+    python3 demo_data.py open <demo> <folder>   # sets up <folder>/.atlan-analytics/demo/<demo>/
     python3 demo_data.py requests <demo> --run-dir <run>   # after the survey: prepare and scope requests
 
 Each demo lives in a folder under this skill's assets/: its dashboard, CSVs and query history laid
@@ -10,21 +10,34 @@ A new demo is that folder, its facts file in references/ and a row in the skill'
 A run works in a folder of the person's, because preparation writes the database inside the folder
 it surveyed and the plugin's own folder is not the person's to write in. The run's state is read
 and written through the setup helper's Project. Standard library only; nothing is downloaded.
+
+The plugin directory holds a plugin for review when a file is over 256 KiB or is binary, so the
+skill ships some files in pieces and the working folder gets them whole: a big file as `<file>.part1`,
+`<file>.part2`, … joined in order, and a Power BI template as its entries in `<name>.pbit.parts/`,
+zipped back into `<name>.pbit`. To change one, edit the whole file, then split it again at line ends.
 """
 import argparse
+import io
 import json
 from pathlib import Path
-import shutil
+import re
 import sys
+import zipfile
 
 sys.dont_write_bytecode = True
 SKILLS = Path(__file__).resolve().parents[2]
 ASSETS = SKILLS / 'analytics-demo' / 'assets'
 sys.path.insert(0, str(SKILLS / 'analytics-build' / 'scripts'))
 from project import Project, ProjectError  # noqa: E402
+import layout  # noqa: E402
 
 MANIFEST = 'demo.json'
 FIELDS = ('bi', 'database', 'schema')
+PART = re.compile(r'(?P<name>.+)\.part(?P<n>[1-9][0-9]*)')
+TEMPLATE_PARTS = '.pbit.parts'
+# Power BI writes a template's entries in this order, each but [Content_Types].xml as UTF-16-LE.
+TEMPLATE_ORDER = ('[Content_Types].xml', 'Version', 'DataModelSchema', 'Report/Layout', 'Settings', 'Metadata')
+UTF8_ENTRIES = ('[Content_Types].xml',)
 
 
 class DemoError(ValueError):
@@ -46,8 +59,43 @@ def manifest(demo):
 
 
 def files(demo):
+    """The demo's files as its working folder holds them: {path: what the skill ships for it}."""
     source = ASSETS / demo
-    return sorted(p.relative_to(source) for p in source.rglob('*') if p.is_file() and p != source / MANIFEST)
+    shipped = {}
+    for path in source.rglob('*'):
+        if not path.is_file() or path == source / MANIFEST:
+            continue
+        relative = path.relative_to(source)
+        template = next((p for p in relative.parents if p.name.endswith(TEMPLATE_PARTS)), None)
+        part = PART.fullmatch(relative.name)
+        if template is not None:
+            whole = template.with_name(template.name[:-len('.parts')]).as_posix()
+            shipped.setdefault(whole, {})[relative.relative_to(template).as_posix()] = path
+        elif part:
+            shipped.setdefault(relative.with_name(part['name']).as_posix(), {})[int(part['n'])] = path
+        else:
+            shipped[relative.as_posix()] = path
+    return dict(sorted(shipped.items()))
+
+
+def content(relative, shipped):
+    """The bytes the working folder gets for one file."""
+    if isinstance(shipped, Path):
+        return shipped.read_bytes()
+    if relative.endswith('.pbit'):
+        names = [n for n in TEMPLATE_ORDER if n in shipped] + sorted(set(shipped) - set(TEMPLATE_ORDER))
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as template:
+            for name in names:
+                text = shipped[name].read_text(encoding='utf-8')
+                entry = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+                entry.compress_type = zipfile.ZIP_DEFLATED
+                template.writestr(entry, text.encode('utf-8' if name in UTF8_ENTRIES else 'utf-16-le'))
+        return buffer.getvalue()
+    numbers = sorted(shipped)
+    if numbers != list(range(1, len(numbers) + 1)):
+        raise DemoError(f'{relative} ships parts {numbers}; a part is missing.')
+    return b''.join(shipped[n].read_bytes() for n in numbers)
 
 
 def open_demo(demo, folder):
@@ -58,11 +106,13 @@ def open_demo(demo, folder):
     folder = Path(folder).expanduser().resolve()
     if not folder.is_dir():
         raise DemoError(f'{folder} is not a folder. Choose an existing working folder.')
-    source, target = ASSETS / demo, folder / 'atlan-analytics-demo' / demo
+    layout.adopt(folder)
+    target = layout.root(folder) / layout.DEMO / demo
     # The files placed last time, kept beside the working folder so its survey never reads them.
     ledger = target.parent / f'.{demo}-files.json'
     existed = target.is_dir()
-    wanted = [r.as_posix() for r in files(demo)]
+    shipped = files(demo)
+    wanted = list(shipped)
     try:
         placed = set(json.loads(ledger.read_text(encoding='utf-8'))) if ledger.is_file() else set()
     except ValueError:
@@ -75,13 +125,13 @@ def open_demo(demo, folder):
             removed.append(relative)
     changed, total = [], 0
     for relative in wanted:
-        data = (source / relative).read_bytes()
+        data = content(relative, shipped[relative])
         total += len(data)
         destination = target / relative
         if destination.is_file() and destination.read_bytes() == data:
             continue
         destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(source / relative, destination)
+        destination.write_bytes(data)
         changed.append(relative)
     ledger.write_text(json.dumps(wanted), encoding='utf-8')
     database = target / facts['database']
@@ -97,7 +147,7 @@ def requests(demo, run_dir):
     demo's fixed choices (its own CSVs as `schema.<file>`, the whole dashboard) are never worked out
     again. With the database already prepared, there is no prepare request: bind it."""
     facts = manifest(demo)
-    run = Path(run_dir).expanduser().resolve()
+    run = layout.follow(Path(run_dir).expanduser()).resolve()
     try:
         if not (run / 'run.json').is_file():
             raise ValueError
@@ -106,10 +156,10 @@ def requests(demo, run_dir):
     except ValueError:
         raise DemoError("Survey the demo's working folder into this run first.") from None
     root = Path(state['source_root'])
-    if root.parts[-2:] != ('atlan-analytics-demo', demo):
+    if root.parts[-3:] != (layout.ROOT, layout.DEMO, demo):
         raise DemoError(f'This run surveyed {root}, not the {demo} working folder. Open the demo and survey it.')
     surveyed = {s['path']: s for s in state['sources']}
-    csvs = [r for r in map(Path.as_posix, files(demo)) if r.startswith('data/') and r.endswith('.csv')]
+    csvs = [r for r in files(demo) if r.startswith('data/') and r.endswith('.csv')]
     missing = [p for p in csvs + [facts['bi']]
                if p not in surveyed or (p in csvs and surveyed[p]['status'] != 'available')]
     if missing:

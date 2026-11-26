@@ -6,7 +6,7 @@ THE RULE THIS FILE EXISTS TO ENFORCE: **never drop a dimension.** Every dimensio
 evidences is declared. A sub-field we cannot resolve is ADMITTED IN PLACE (`unknown`), never
 turned into a reason to omit the dimension — the same principle `the card gate._derive_output`
 already applies to the metric's own output type, where `custom` beats a guessed `decimal`.
-The registry does not force the alternative either: its metric validation's list of required
+Atlan Trident does not force the alternative either: its metric validation's list of required
 fields does not include `dimensions[].datatype`, and its datatype vocabulary check targets
 `definition.output.datatype` only. `unknown` is accepted, unwarned.
 
@@ -39,7 +39,7 @@ from . import sqlshape as S
 
 UNKNOWN = "unknown"
 
-# Observed operators -> the registry's `filter_form`. Free text at the gateway; kept to a
+# Observed operators -> Trident's `filter_form`. Free text at the gateway; kept to a
 # small closed set here so a consumer can switch on it.
 FILTER_FORM = {
     "eq": "equality", "=": "equality", "neq": "equality", "<>": "equality",
@@ -345,7 +345,7 @@ def build(fam_members: list[dict], parents_by_vq: dict[str, dict], *, entity: st
             "value_map": None,
             "required_join": required_join,
             "description": description,
-            # Not part of the registry's Dimension (it is `deny_unknown_fields`); carried out
+            # Not part of Trident's Dimension (it is `deny_unknown_fields`); carried out
             # to `extensions` by r1 so the evidence for each dimension stays visible.
             "_roles": d["roles"],
             # The parent's own spelling. D1b records a slice's GROUP BY before the entity —

@@ -8,19 +8,25 @@ exactly one run (`PROJECT location --workspace "<working-directory>"`), `PROJECT
 status` shows it was kept on this machine, and one of its metrics or queries measures the
 question. Check this before writing any SQL of your own: the same question must not get one
 number from the run and another from a fresh guess. With several runs, or none that measures
-the question, continue with released context and say that no local definition applied.
+the question, continue with released context and say "None of the metrics kept on this machine
+measures this, so I looked in Atlan Trident."
+
+An answer from a selected run, given to the person, ends on the run's next question instead of a
+`Next:` line, as the setup's [ready step 3](../../analytics-build/references/setup/ready.md)
+says: `PROJECT question next`, asked as it is given, so the accuracy check and the dashboard stay
+one pick away. A helper answering for an accuracy check ends with its JSON instead.
 
 ## Explicit local exploration
 
 When the person selected Keep local and asks about that prepared local dataset, answer as
 local exploration. Read the selected run's saved definitions, source evidence and execution
 binding. Use its read-only `PROJECT execute` with a JSON request containing `sql`, separate
-`parameters` and `limit`. Preserve the local definition's formula and filters, run fresh SQL,
+`parameters` and `limit`, and `answer` on the query that answers, as the Ask skill's step 4 says. Preserve the local definition's formula and filters, run fresh SQL,
 and apply [explanation checks](answer-checks.md). When the run has no local database and its
 checks ran on a warehouse, run the definition through the recorded warehouse query tool
-instead. Label the answer "Local sample data" for a local database, or "Local definition, not
-yet saved to Atlan Trident" for a warehouse, and cite the local definition and check limitations. No sign-in or publication is needed.
-Do not record a Registry receipt, claim team availability or call a local draft a released
+instead. Label the answer "Sample data on this machine" for a local database, or "Local definition,
+not yet saved to Atlan Trident" for a warehouse, and cite the local definition and check limitations. No sign-in or publication is needed.
+Do not record an Atlan Trident receipt, claim team availability or call a local draft a released
 definition. This explicit local route is never a fallback for a missing, withdrawn, rejected
 or changed release. Requests for managed/team answers still follow the release path below.
 
@@ -31,7 +37,7 @@ released definitions; local drafts, search snippets and remembered setup answers
 the definition source. No new agent or eval is required.
 
 For a selected setup run, read `PROJECT status` for its workspace, release IDs and executor.
-Search relevant metrics and saved queries in Atlan, fetch complete `registry__get_artifact`
+Search relevant metrics and saved queries in Atlan Trident, fetch complete `registry__get_artifact`
 responses at a release, and retain the full definition and release metadata. Prioritize the
 selected estate. Use saved queries for detail questions or when they already answer the request.
 
@@ -45,20 +51,21 @@ For a saved-query answer, run `PROJECT answer "<request.json>"`:
 Replace the illustrative array with actual complete objects. The helper checks the released
 revision against the setup receipt, uses its SQL, checks parameter names and selects execution:
 
-- **SQLite or DuckDB:** converts Registry placeholders outside literals/comments into native
+- **SQLite or DuckDB:** converts Trident placeholders outside literals/comments into native
   bindings (`:name` or `$name`), executes read-only against the recorded database and returns
   fresh results.
 - **Warehouse:** returns `status: execute_in_host`, the SQL, separate parameters, limit,
   selected connection and release. This is a query plan, not an answer. Dispatch it through the
   existing recorded read-only MCP/CLI tool. Convert placeholder syntax to that tool's native
   bindings outside SQL literals/comments, never interpolate parameter values. If the tool
-  cannot safely bind the required parameters, hold execution and name that capability gap.
+  cannot safely bind the required parameters, hold execution and say "Your warehouse tool can't
+  pass this saved query's inputs safely, so I haven't sent it."
 
 Do not rewrite the released formula or change its dialect to fit a different connection.
 A changed release requires source/check review and refreshed MCP receipts. Withdrawn,
 rejected, incomplete or mismatched releases stop this path, with no head or local-draft fallback.
 
-For a metric without suitable saved SQL, use `PROJECT retrieved "<readbacks.json>"`, construct
+For a metric without a suitable saved query, use `PROJECT retrieved "<readbacks.json>"`, construct
 SQL preserving the retrieved formula, joins, population, grain and mandatory filters, then
 use the recorded local or warehouse executor. Check denominators, join multiplication,
 truncation and date basis before answering. Say what could not be measured.
@@ -72,8 +79,9 @@ The pure `retrieval.validate(payload)` and `retrieval.query_plan(request, execut
 also support this case without a receipt; callers must supply actual fresh MCP responses.
 They do not contact or authenticate to Atlan themselves.
 
-Lead with the result and cite each metric or query by name, as a link to its page
-([definition links](definition-links.md)), never a bare artifact or release id. Retain executed SQL and bounded results; show SQL when asked.
+Lead with the result and cite each metric or saved query under **Based on**, as a link to its
+page ([definition links](definition-links.md)), never a bare artifact or release id. Retain executed SQL and bounded results; show SQL when asked.
 Never claim success from a query plan or failed execution. If no relevant release exists,
-explain the missing definition and offer to extend context. Setup follow-ups do not silently
-fall back to an unmanaged answer.
+say "Nothing saved for your setup measures this." and end with "Next: I can add a metric for it
+to your setup. Say yes to start." Setup follow-ups do not silently fall back to an unmanaged
+answer.

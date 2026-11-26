@@ -67,7 +67,7 @@ def _run(cmd: list[str], timeout: int = 20) -> tuple[int, str, str]:
 # --------------------------------------------------------------------------
 
 def check_harness() -> Result:
-    """A local coding agent must exist; Registry triggers the skill into it."""
+    """A local coding agent must exist; Atlan Trident triggers the skill into it."""
     found = [c for c in ("claude", "codex") if shutil.which(c)]
     if not found:
         return Result(
@@ -80,14 +80,14 @@ def check_harness() -> Result:
 
 
 # --------------------------------------------------------------------------
-# Registry — where datasets, experiments and results live
+# Trident — where datasets, experiments and results live
 # --------------------------------------------------------------------------
 
 def check_registry_cli() -> Result:
     if not shutil.which("atlanai"):
         return Result(
             "registry.cli", Status.FAIL, "atlanai not on PATH",
-            "install the Atlan agent registry CLI", gates=["build", "run"],
+            "install the Atlan Trident CLI", gates=["build", "run"],
         )
     code, out, _ = _run(["atlanai", "version"])
     if code != 0:
@@ -304,7 +304,7 @@ def check_query_history() -> Result:
                 try:
                     cur.execute(
                         "select count(*) from table(information_schema.query_history("
-                        "end_time_range_start => dateadd('day', -7, current_timestamp())))"
+                        "end_time_range_start => dateadd('hour', -167, current_timestamp())))"
                     )
                     n = cur.fetchone()[0]
                     return Result(

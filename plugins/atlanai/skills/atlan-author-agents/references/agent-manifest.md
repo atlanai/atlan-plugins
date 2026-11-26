@@ -2,7 +2,7 @@
 
 ## Repository identity gate for skills
 
-Choose the publishing authority before the first Registry write:
+Choose the publishing authority before the first Atlan Trident write:
 
 - **Git-backed:** `atlan-connect-repo` prepares repository tracking and CI performs
   the first publish from committed content, for skills and for agents with their
@@ -141,7 +141,7 @@ Do not implicitly clear remote values or prune omitted associations.
 ## Field mapping
 
 Derive the declaration from repository evidence rather than asking the user to
-translate their code into Registry fields. Keep `name`, `display_name` and
+translate their code into Trident fields. Keep `name`, `display_name` and
 `description` concise and repository-specific. For the optional fields:
 
 | Field | Set when | Omit when |
@@ -149,9 +149,9 @@ translate their code into Registry fields. Keep `name`, `display_name` and
 | `instructions` | A real prompt or instruction source exists; preserve it rather than synthesizing one. | Only a product description or README summary can be found. |
 | `agent_framework_id` | A live `agent_framework` artifact exactly matches the implementation. | The runtime is custom or unclear. |
 | `agent_provider_id` | The repo explicitly uses a registered `agent_provider`. | Location is only inferred from deployment files. |
-| `model_id` | A pinned model resolves to a live Registry model. | The model is inherited, environment-selected, or ambiguous. Never send `inherit`. |
+| `model_id` | A pinned model resolves to a live Trident model. | The model is inherited, environment-selected, or ambiguous. Never send `inherit`. |
 | `tools` | Each value matches the live `agent` schema's tool reference shape. | They are ordinary application function names. |
-| `max_step_count` | The runtime enforces a real limit. | The number would be invented for the Registry. |
+| `max_step_count` | The runtime enforces a real limit. | The number would be invented for Trident. |
 | `public_url` | The deployed agent has a maintained `http` or `https` address. | The URL is local, temporary, or only a deployment guess. |
 
 Blank strings are not placeholders: a present-but-blank `instructions` or

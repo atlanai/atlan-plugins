@@ -47,6 +47,8 @@ assets/hero.png                   the README's banner and the repository's socia
 assets/logo.svg                   the listing icon: the Atlan desktop app's icon (frontend, apps/dashboard/src-tauri/icons/source/atlan-app-icon.svg)
 tools/                            build, lint and the skill index, standard library Python 3.11+
 tools/tests/                      unit tests for the tools
+docs/metrics-engine/              the metrics engine's contributor docs and example plugs: kept in the
+                                  repository, not shipped in the plugin (docs/metrics-module.md)
 evals/atlan/                      the core plugin's behaviour evals and the gateway emulator they run against
 ```
 
@@ -158,7 +160,8 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   pinned commit, and its sync workflow opens the bump on each release. An add-on depends on `atlanai` and declares no MCP server, hooks or
   `bin/`: two plugins registering the `atlan` server would show every Atlan tool twice, and
   `make check` refuses it. Only Claude Code installs the dependency; in other hosts the add-on's
-  skills check for the Atlan tools and say what to install.
+  skills check for the Atlan tools and say what to install. Rules every Analytics skill follows live in
+  `analytics-build/references/conventions.md`.
 - **Cortex Code reads its own manifest.** CoCo reads `.cortex-plugin/plugin.json` before
   `.claude-plugin/`, so the build writes one for the core and each add-on (none for a mod) with no
   hooks: CoCo runs neither the hooks module nor the command hooks, whose `items_from` expansion

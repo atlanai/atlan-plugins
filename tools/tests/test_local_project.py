@@ -48,7 +48,7 @@ class LocalProject(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         self.root = Path(tmp.name).resolve()
         self.estate = self.root / 'estate'; self.estate.mkdir()
-        self.run = Project(self.estate / '.atlan-metrics' / 'example')
+        self.run = Project(self.estate / '.atlan-analytics' / 'example')
 
     def seed(self):
         (self.estate / 'model.bim').write_text(json.dumps(model()))
@@ -74,7 +74,7 @@ class LocalProject(unittest.TestCase):
         other = self.root / 'other'; other.mkdir()
         with self.assertRaises(ProjectError):
             self.run.survey(other)
-        late = Project(self.estate / '.atlan-metrics' / 'late')
+        late = Project(self.estate / '.atlan-analytics' / 'late')
         with patch('trident.powerbi_file.RUNTIME', self.root / 'missing-runtime'):
             late.survey(self.estate / 'report.pbit')
         (late.root / 'engine-config.json').write_text('{}')
@@ -312,7 +312,7 @@ class DuckDBFlow(unittest.TestCase):
         self.assertTrue(answer['columns'][0]['type'].startswith('DECIMAL'))
 
     def test_publish_readback_restart_retrieve_fresh_answer(self):
-        # The Registry transport is a test double; DuckDB execution is real.
+        # The Atlan Trident transport is a test double; DuckDB execution is real.
         remote = readbacks()
         self.assertEqual(self.run.execute({'sql': remote['artifacts'][0]['metadata']['definition']['sql']})['rows'], [['34.75']])
         self.run.publication(copy.deepcopy(remote))
@@ -419,8 +419,10 @@ class SQLiteFlow(unittest.TestCase):
     def setUp(self):
         LocalProject.setUp(self)
         import sqlite3
+        from contextlib import closing
         self.database = self.estate / 'site.sqlite'
-        with sqlite3.connect(self.database) as con:
+        # A connection's own `with` commits but never closes: each test left one open (a ResourceWarning apiece).
+        with closing(sqlite3.connect(self.database)) as con, con:
             con.execute('CREATE TABLE work (kind TEXT, cost REAL, day TEXT)')
             con.executemany('INSERT INTO work VALUES (?, ?, ?)', [
                 ('rework', 12.5, '2026-01-01'), ('build', 20, '2026-01-02'), ('rework', 2.25, '2026-01-03')])

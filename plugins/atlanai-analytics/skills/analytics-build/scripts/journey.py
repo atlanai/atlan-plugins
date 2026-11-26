@@ -1,9 +1,14 @@
 """Durable conversation choices. Never performs engine, auth, publication or SQL work."""
 ACTIONS = ('status', 'select', 'domain', 'purpose', 'pause', 'keep-local', 'resume', 'details', 'demo', 'asked', 'dashboard',
-           'agentic', 'report', 'readiness', 'checks', 'tasks')
+           'agentic', 'report', 'readiness', 'checks', 'history', 'tasks', 'question')
 # Actions that record the person's own words, or a helper's one-line result.
-ANSWERED = ('domain', 'purpose', 'report', 'readiness', 'dashboard', 'checks', 'tasks')
+ANSWERED = ('domain', 'purpose', 'report', 'readiness', 'dashboard', 'checks', 'history', 'tasks', 'asked', 'question')
+# Steps recorded right after the person saw them happen: an answer, the tests, the past queries, the dashboard.
+SEEN = ('asked', 'checks', 'history', 'dashboard')
 FLOWS = ('build', 'demo', 'dashboard')
+# Past queries on a dashboard's tables, offered once the dashboard's metrics are built and checked: the person adds them
+# (`add`, then `added` once that build ends), declines (`skip`), or they cannot be read for those tables (`unavailable`).
+HISTORY = ('add', 'added', 'skip', 'unavailable')
 MODES = ('active', 'paused', 'local')
 
 
@@ -26,6 +31,8 @@ def validate(value):
         raise JourneyError('The saved intent selection needs repair before continuing.')
     if value.get('flow', 'build') not in FLOWS:
         raise JourneyError('The saved guided flow needs repair before continuing.')
+    if 'question' in value and (not isinstance(value['question'], str) or not 0 < len(value['question']) <= 1000):
+        raise JourneyError('The saved question this build answers needs repair before continuing.')
     if 'report' in value and (not isinstance(value['report'], str) or not 0 < len(value['report']) <= 1000):
         raise JourneyError('The saved report and pages need repair before continuing.')
     readiness = value.get('readiness', {})
@@ -34,10 +41,14 @@ def validate(value):
         raise JourneyError('The saved readiness check needs repair before continuing.')
     if value.get('checks', 'run') not in ('run', 'skip'):
         raise JourneyError('The saved choice about the warehouse checks needs repair before continuing.')
+    if value.get('asked_result', 'answered') not in ('answered', 'declined'):
+        raise JourneyError('The saved question step needs repair before continuing.')
+    if value.get('history', 'skip') not in HISTORY:
+        raise JourneyError('The saved choice about past queries needs repair before continuing.')
     if value.get('dashboard_result', 'built') not in ('built', 'declined'):
         raise JourneyError('The saved dashboard choice needs repair before continuing.')
     if any(k in value and type(value[k]) is not bool for k in ('asked', 'dashboard', 'tasks')):
-        raise JourneyError('The saved question and dashboard steps need repair before continuing.')
+        raise JourneyError('The saved query and dashboard steps need repair before continuing.')
     return value
 
 
@@ -49,7 +60,8 @@ def apply(model, saved, explicit_focus=False):
                             'selection_pending': pending, 'flow': (saved or {}).get('flow', 'build'),
                             'asked': (saved or {}).get('asked', False),
                             'dashboard': (saved or {}).get('dashboard', False),
-                            **{k: (saved or {})[k] for k in ('report', 'readiness', 'dashboard_result', 'checks') if k in (saved or {})}}
+                            **{k: (saved or {})[k] for k in ('report', 'readiness', 'dashboard_result', 'checks', 'history',
+                                                             'asked_result', 'question') if k in (saved or {})}}
     if pending:
         # Intent is a selection checkpoint. Never silently show the first alphabetic
         # metric or carry an earlier domain's focus into a new business question.
@@ -57,7 +69,8 @@ def apply(model, saved, explicit_focus=False):
         model['focus'] = None
     if mode == 'paused':
         model['phase'] = {**model['phase'], 'status': 'paused', 'label': 'Your work is saved'}
-        model['next_step'] = 'Resume here when ready; completed work will be reused.'
+        # The snapshot replaces this with where the work is and what to say to pick it up.
+        model['next_step'] = 'Your work is saved on this machine.'
         model['next_prompt'] = 'Resume this saved analytics run from its current checkpoint.'
     model['continuation'] = continuation(model)
     if model['continuation']['action'] in ('choose-domain', 'choose-purpose'):
@@ -75,6 +88,16 @@ def apply(model, saved, explicit_focus=False):
     return model
 
 
+def _dashboard_now(model):
+    """The dashboard list's item under way, or None once every item is done."""
+    import checklist
+    try:
+        rows = checklist.build(model, 'dashboard', compact=True)['steps']
+    except (KeyError, TypeError, ValueError):
+        return None
+    return next((r for r in rows if r['status'] == 'in_progress'), None)
+
+
 def continuation(model):
     """One next action for the host, not a fabricated control or an execution result."""
     phase, counts = model['phase'], model['counts']
@@ -82,9 +105,11 @@ def continuation(model):
     intent = model['interaction']['intent']
     # Ask after inspection, before authoring. Later-stage legacy runs retain their
     # checkpoint; an explicitly changed domain reopens the purpose question. A demo's focus is
-    # preset, so it never asks either question.
+    # preset, and the dashboard branch's is the report the person picked, so neither asks either
+    # question (0.9.76's live run was told to ask "What business area…?" after every journey step).
     intent_due = ((bool(intent) or model.get('intent_checkpoint', False))
-                  and model['interaction'].get('flow') != 'demo')
+                  and model['interaction'].get('flow') not in ('demo', 'dashboard'))
+    dashboard = model['interaction'].get('flow') == 'dashboard'
     if mode == 'paused':
         code, label, needs_input = 'resume', 'Resume', True
     elif model['warnings']:
@@ -95,6 +120,11 @@ def continuation(model):
         code, label, needs_input = 'choose-domain', 'What business area would you like to focus on?', True
     elif intent_due and not intent.get('purpose'):
         code, label, needs_input = 'choose-purpose', 'What would you like to accomplish in that area?', True
+    elif dashboard and _dashboard_now(model):
+        # The dashboard branch's next step is its own list's current item: never the shared flow's "confirm what to
+        # include", a business area, or "review saved evidence" for the tiles it already kept back (walks 3 and 4).
+        now = _dashboard_now(model)
+        code, label, needs_input = 'dashboard-' + now['id'], now['active'], bool(now['needs_you'])
     elif model['interaction'].get('selection_pending') and (model['items'] or counts['provisional']):
         code, label, needs_input = 'select-focus', 'Selecting a metric for ' + intent.get('domain', 'your business focus'), False
     elif mode != 'local' and model['auth_status'] and model['auth_status'] != 'connected' and not model.get('local_work_available'):
@@ -144,7 +174,8 @@ def advance(run, action='status', focus=None, host=None, server=None, answer=Non
     if focus is not None and action != 'select':
         raise JourneyError('Use select to change the focused definition.')
     if answer is not None and action not in ANSWERED:
-        raise JourneyError('Use domain, purpose, report, readiness, dashboard, checks or tasks to record an answer.')
+        raise JourneyError('Use domain, purpose, report, readiness, dashboard, checks, history, asked, tasks or question to '
+                           'record an answer.')
     if waits and action != 'readiness':
         raise JourneyError('Only the readiness check can wait for the person.')
     if action == 'select':
@@ -172,8 +203,14 @@ def advance(run, action='status', focus=None, host=None, server=None, answer=Non
             saved['intent_focus_required'] = True
         intent[action] = answer
         saved['intent'] = intent
+    elif action == 'question':
+        # The person's own question, when it is what started the build: the build card names it and the first
+        # question offered afterwards is that one.
+        if not isinstance(answer, str) or not answer.strip() or len(answer) > 1000:
+            raise JourneyError("Record the person's question with --answer, in their words, in 1 to 1000 characters.")
+        saved['question'] = answer.strip()
     elif action == 'agentic':
-        # The person chose "Make my dashboard agentic": the run shows the dashboard branch's nine items from now on.
+        # The person chose "Make my dashboard agentic": the run shows the dashboard branch's ten items from now on.
         saved['flow'] = 'dashboard'
     elif action in ('report', 'readiness'):
         if not isinstance(answer, str) or not answer.strip() or len(answer) > 1000:
@@ -190,6 +227,13 @@ def advance(run, action='status', focus=None, host=None, server=None, answer=Non
         if answer not in ('run', 'skip'):
             raise JourneyError('Record the person\'s choice with --answer run or --answer skip.')
         saved['checks'] = answer
+    elif action == 'history':
+        # Asked once in the dashboard branch, after the checks: add the past queries on the dashboard's tables before
+        # saving, or save the dashboard's metrics alone. `add` and `skip` are the person's; `added` and `unavailable`
+        # are the build's result and what item 2 found.
+        if answer not in HISTORY:
+            raise JourneyError('Record the past-queries step with --answer add, added, skip or unavailable.')
+        saved['history'] = answer
     elif action == 'tasks':
         # Whether the host keeps a task list the agent can update (the team, 2026-11-19): where it does, the list carries
         # the metric steps; where it does not, each finished step shows its chip. Recorded once, by the agent.
@@ -207,6 +251,11 @@ def advance(run, action='status', focus=None, host=None, server=None, answer=Non
             if answer not in ('built', 'declined'):
                 raise JourneyError('Record the dashboard step with --answer built or --answer declined.')
             saved['dashboard_result'] = answer
+        if action == 'asked' and answer is not None:
+            # The person may end the run without a question (walk 4: "Ask a question" stayed open after "conclude here").
+            if answer not in ('answered', 'declined'):
+                raise JourneyError('Record the question step with --answer answered or --answer declined.')
+            saved['asked_result'] = answer
         saved[action] = True
     elif action in ('pause', 'keep-local', 'resume'):
         saved['mode'] = {'pause': 'paused', 'keep-local': 'local', 'resume': 'active'}[action]
@@ -231,7 +280,10 @@ def advance(run, action='status', focus=None, host=None, server=None, answer=Non
         except Exception:  # noqa: BLE001
             pass
     model = experience.snapshot(run, host=host, server=server)
-    return {'status': 'ok', 'chat': experience.render_chat(model, detail=action == 'details'),
+    # A step the person just saw happen gets no summary back: the joint run of 2026-11-25 passed the whole run on after
+    # an answer, as three sections nobody asked for.
+    chat = {} if action in SEEN else {'chat': experience.render_chat(model, detail=action == 'details')}
+    return {'status': 'ok', **chat,
             'interaction': model['interaction'], 'continuation': model['continuation'],
             'checklist': model['checklist'],
             'remote_writes': False, 'executed': False}

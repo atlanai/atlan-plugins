@@ -56,12 +56,12 @@ class Chips(unittest.TestCase):
         # the step produced in their terms, and its tail says why that matters.
         first = lambda kind: self.show(kind).split('\n')[0]  # a metric step's second line places it in the three steps
         self.assertEqual(first('group'), '» **2 questions your team asks** · found in 2 of your 3 past queries')
-        self.assertEqual(first('tiles'), '▦ **2 dashboard tiles read** · each turned into a query')
+        self.assertEqual(first('tiles'), '▦ **2 tiles read** · each written as a question with SQL')
         # Each count says where it came from, so 110, 95, 24, 30, 25 and 8 read as one story.
-        self.assertEqual(first('described'), '❝ **4 queries in plain words** · your 2 questions and 2 dashboard tiles')
-        self.assertEqual(first('metrics'), '◆ **2 metrics found** · from 3 possible metrics, one per number')
-        self.assertEqual(first('rules'), '= **2 metrics defined** · what each number counts and leaves out')
-        self.assertEqual(self.show('links'), '⋈ **1 link between metrics** · Gross margin uses Rework cost')
+        self.assertEqual(first('described'), '❝ **4 saved queries written** · from your 2 questions and 2 dashboard tiles')
+        self.assertEqual(first('metrics'), '◆ **2 metrics** · 1 duplicate merged')
+        self.assertEqual(first('rules'), '= **Detailed information added to 2 metrics** · what each counts and leaves out')
+        self.assertEqual(self.show('links'), '⋈ **1 link between metrics** · e.g. Gross margin uses Rework cost')
 
     def drafted(self):
         manifest = self.run / 'engine' / 'manifest.json'
@@ -78,8 +78,8 @@ class Chips(unittest.TestCase):
         # Live (h2), the chat went 3.4 minutes from the queries described to the merge with nothing new: the draft step
         # had no chip of its own.
         self.drafted()
-        self.assertEqual(self.show('drafted').split('\n')[0], '◆ **5 possible metrics** · found in 3 of those 4 queries')
-        self.assertIn('<b style="font-weight:400">Gross margin</b><span>in 3 queries</span>', self.show('drafted', widget=True))
+        self.assertEqual(self.show('drafted').split('\n')[0], '◆ **5 metrics found** · in 3 of those 4 questions')
+        self.assertIn('<b style="font-weight:400">Gross margin</b><span>in 3 questions</span>', self.show('drafted', widget=True))
         import side_view
         due = side_view.due(self.run)
         self.assertLess(due.index('drafted'), due.index('metrics'))
@@ -89,8 +89,9 @@ class Chips(unittest.TestCase):
         # Team review: the chips show how the steps connect (draft, merge, write), with no progress bar.
         self.drafted()
         # A first-time reader: "the seven-step list never matched the Step 1 of 3 chips". The chips name the list's steps.
-        for kind, start in (('described', 'Finding metrics, under way: next,'), ('drafted', 'Done: Find metrics. Next: Combine duplicates'),
-                            ('metrics', 'Done: Combine duplicates. Next: Define and test'), ('rules', 'Definitions written. Next: test each one')):
+        # The descriptions are written beside the metric steps and land after the metrics (walk 3, 2026-11-23).
+        for kind, start in (('described', 'Written beside the metric steps,'), ('drafted', 'Metrics found. Next: merging duplicates'),
+                            ('metrics', 'Duplicates merged. Next: adding detailed information'), ('rules', 'Information added. Next: validating each')):
             lines = self.show(kind).split('\n')
             self.assertTrue(len(lines) > 1 and lines[1].strip().startswith(start), (kind, lines))
             self.assertIn(start, self.show(kind, widget=True))
@@ -115,7 +116,11 @@ class Chips(unittest.TestCase):
             'h-%d' % i: {'question': 'How much did job %d make?' % i} for i in range(12)}})
         html = self.show('described', widget=True)
         self.assertEqual(html.count('How much did job'), 8)
-        self.assertIn('4 more on the side page', html)
+        # 0.9.74: the first build chip pointed at the side page before it had opened.
+        self.assertIn('<div class="more">4 more</div>', html)
+        self.assertNotIn('side page', html.split('</summary>', 1)[1])
+        write(self.run / 'view' / 'server.json', {'url': 'http://127.0.0.1:8123/k/', 'pid': 0})
+        self.assertIn('4 more on the side page', self.show('described', widget=True))
 
     def test_no_list_shows_the_engines_own_names_or_notes(self):
         # A link's own label read "a component this metric sums, see `differs`": the engine's note to itself.
@@ -133,10 +138,10 @@ class Chips(unittest.TestCase):
             {'from': 'Rework Cost', 'to': 'Labour Cost', 'relation': 'restriction'},
             {'from': 'Waste Rate', 'to': 'Waste', 'relation': 'derivation', 'role': 'numerator'},
             {'from': 'Waste Rate', 'to': 'Delivered Cost', 'relation': 'derivation', 'role': 'denominator'}]})
-        self.assertEqual(self.show('links'), '⋈ **3 links between metrics** · Waste rate = Waste ÷ Delivered cost')
+        self.assertEqual(self.show('links'), '⋈ **3 links between metrics** · e.g. Waste rate = Waste ÷ Delivered cost')
         write(self.run / 'engine' / 'metric_relationships.json', {'edges': [
             {'from': 'Rework Cost', 'to': 'Labour Cost', 'relation': 'restriction'}]})
-        self.assertEqual(self.show('links'), '⋈ **1 link between metrics** · Rework cost is part of Labour cost')
+        self.assertEqual(self.show('links'), '⋈ **1 link between metrics** · e.g. Rework cost is part of Labour cost')
 
     def test_the_rules_chip_reads_the_rules_as_soon_as_they_are_written(self):
         # The engine writes its cards file with the links; right after the rules it holds them in the next gate's prompt.
@@ -169,11 +174,11 @@ class Chips(unittest.TestCase):
 
     def test_the_chips_that_were_already_there_say_their_outcome(self):
         self.assertEqual(self.show('sources'), '▤ **129 rows** of your data · 2 tables, 3 past queries, Power BI dashboard')
-        self.assertEqual(self.show('context'), '✓ **Every metric and query ran** · on your data · Gross margin £118,681')
+        self.assertEqual(self.show('context'), '✓ **Every metric works** · on your data · Gross margin £118,681')
         failing = make_run(self.root / 'f', failing=1)
-        self.assertEqual(self.show('context', failing), '△ **3 ran cleanly** · 1 need a look · on your data')
+        self.assertEqual(self.show('context', failing), '△ **3 passed** · 1 needs your review · on your data')
         demo = make_run(self.root / 'demo', demo=True)
-        self.assertEqual(self.show('context', demo, data=[facts()]), "✓ **Every metric and query ran** · on Fixit's data · Gross margin £118,681")
+        self.assertEqual(self.show('context', demo, data=[facts()]), "✓ **Every metric works** · on Fixit's data · Gross margin £118,681")
 
     def test_a_demo_s_chips_name_the_firm_never_the_person(self):
         # The demo's welcome says "Made-up data; nothing of yours is touched"; a fresh reader of h8 then met "your 110 past
@@ -185,7 +190,8 @@ class Chips(unittest.TestCase):
                 said = self.show(kind, demo, widget=widget, data=[facts()])
                 if said:
                     shown += 1
-                    self.assertNotRegex(said, r'\b[Yy]our\b', (kind, widget))
+                    # "your agent" is the one the person is building, as the demo's own questions say ("Your job profit agent").
+                    self.assertNotRegex(said, r'\b[Yy]our\b(?! agent\b)', (kind, widget))
         self.assertGreaterEqual(shown, 8)
         self.assertIn('your', self.show('described', widget=True), 'own data is the person\'s')
 
@@ -202,22 +208,27 @@ class Chips(unittest.TestCase):
         # A first-time reader of a live run never saw the dashboard's own figure beside the agent's: nothing showed why
         # to trust either. Across 40 earlier runs, 151 of 159 such pairs matched and 8 did not.
         self.tiled(self.run, '118681.0')
-        self.assertEqual(self.show('context'), '✓ **Every metric and query ran** · on your data · Gross margin £118,681\n'
-                                               '  The dashboard\u2019s own formula for its Gross margin tile gives the same.')
+        self.assertEqual(self.show('context'), '✓ **Every metric works** · on your data · Gross margin £118,681\n'
+                                               "  Gross margin matches its Gross margin tile's formula.")
         detail = self.show('context', widget=True).split('</summary>', 1)[1]
-        self.assertIn("Each metric\u2019s definition ran on your data and returned a number.", detail)
+        self.assertIn("Each metric was tested on your data and returned a number.", detail)
         # The dashboard file holds each tile's formula, not the number it shows (a Power BI template has no data): the
         # comparison says so, so a reader does not take it for the figure on the screen.
-        self.assertIn('not the number it shows', detail)
-        self.assertIn('<b style="font-weight:400">Gross margin</b><span>£118,681</span><em>Same as the dashboard\u2019s '
-                      'formula for its Gross margin tile</em>', detail)
+        self.assertIn('without the number it shows', detail)
+        self.assertIn('<b style="font-weight:400">Gross margin</b><span>£118,681</span><em>Same as the Gross margin '
+                      'tile&#x27;s formula</em>', detail)
         self.assertIn('<b style="font-weight:400">Rework cost</b><span>£33,800</span>', detail)
 
     def test_a_number_that_differs_from_its_tile_says_so(self):
         self.tiled(self.run, '117000.0')
+        # 0.9.74, Ticketfuddle: "Every test passed" headed a chip whose own line said Sell-through differed from its tile.
+        self.assertEqual(self.show('context').split('\n')[0], '△ **0 of 1 match the dashboard; Gross margin differs** · on your data')
         self.assertEqual(self.show('context').split('\n')[1],
-                         '  Gross margin differs from its dashboard tile\u2019s formula: £117,000.')
-        self.assertIn('<em>The dashboard\u2019s formula for its Gross margin tile gives £117,000</em>', self.show('context', widget=True))
+                         "  Gross margin differs from its tile's formula, which gives £117,000.")
+        import questions
+        asked = questions.save(self.run, widget=True)['question']
+        self.assertIn('all passed. 0 of 1 match the dashboard; Gross margin differs.', asked)
+        self.assertIn('<em>The Gross margin tile&#x27;s formula gives £117,000</em>', self.show('context', widget=True))
 
     def test_no_chip_repeats_what_the_person_already_sees(self):
         # A live desktop run drew "Kept on this machine" right after the person chose it, the layout its question then
@@ -272,9 +283,9 @@ class Chips(unittest.TestCase):
     def test_the_tiles_chip_names_the_dashboard_page_never_the_side_page(self):
         # Every run with its side page open wrote the page's own address where the dashboard page belonged.
         write(self.run / 'view' / 'server.json', {'url': 'http://127.0.0.1:8123/k/', 'pid': 0})
-        self.assertEqual(self.show('tiles'), '▦ **2 dashboard tiles read** · each turned into a query')
+        self.assertEqual(self.show('tiles'), '▦ **2 tiles read** · each written as a question with SQL')
         html = self.show('tiles', widget=True)
-        self.assertIn('Each tile on the Site dashboard', html)
+        self.assertIn('Each tile on your Site dashboard', html)
         self.assertNotIn('127.0.0.1', html, 'the side page is never linked from a widget')
 
     def test_a_widget_names_the_side_page_in_words_and_links_nowhere(self):
@@ -291,7 +302,7 @@ class Chips(unittest.TestCase):
         # Link blue and an outward arrow on a line that opens nothing read as a broken link.
         write(self.run / 'view' / 'server.json', {'url': 'http://127.0.0.1:8123/k/', 'pid': 0})
         html = self.show('build', widget=True)
-        self.assertIn('on the side page beside the chat', html)
+        self.assertIn('on the side page', html)
         self.assertNotIn('M9 6.65032C9 6.65032 15.9383', html, 'no outward arrow')
         self.assertNotIn('.mo{display:flex;gap:6px;align-items:center;font-size:12px;line-height:16px;color:var(--bt)', html)
 
@@ -383,11 +394,13 @@ class Chips(unittest.TestCase):
 
     def test_a_fitted_line_breaks_at_a_word(self):
         # A live run's rule chip ended "... at each crew member's or machine's hourly rate" cut as "at ea…".
+        self.assertEqual(visuals._fit_words("Waste per job at each crew member's or machine's hourly rate", 40),
+                         "Waste per job at each crew member's or…")
+        # A formula is never cut at all: a links chip shows its example whole or leaves it out.
         write(self.run / 'engine' / 'metric_relationships.json', {'edges': [
             {'from': 'Delivered Material Waste Rate', 'to': 'Delivered Material Waste', 'relation': 'derivation', 'role': 'numerator'},
             {'from': 'Delivered Material Waste Rate', 'to': 'Delivered Materials Cost', 'relation': 'derivation', 'role': 'denominator'}]})
-        line = self.show('links')
-        self.assertTrue(line.endswith('rate = Delivered…'), line)
+        self.assertEqual(self.show('links').split('\n')[0], '⋈ **2 links between metrics**')
 
     def test_a_later_answer_with_one_row_has_no_ring(self):
         spec = {'question': 'How much?', 'headline': 'Barn: £1', 'rows': [['Barn', 1]]}
@@ -432,7 +445,7 @@ class Due(unittest.TestCase):
         self.assertTrue(first.startswith('» **2 questions your team asks**'), first)
         self.assertIn('`visual next` again', first, 'more is due')
         second = self.project('visual', 'next')
-        self.assertTrue(second.startswith('▦ **2 dashboard tiles read**'), second)
+        self.assertTrue(second.startswith('▦ **2 tiles read**'), second)
         for _ in range(5):  # described, drafted, metrics, rules, links
             self.project('visual', 'next')
         self.assertNotIn('group', side_view.due(self.run))
@@ -523,7 +536,7 @@ class StepChips(unittest.TestCase):
                                '--widget'], capture_output=True, text=True, encoding='utf-8', timeout=60,
                               env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': ''})
         side = json.loads(done.stdout.split('side view: ', 1)[1])
-        self.assertIn('with the title `1_possible_metric`', side['next'])
+        self.assertIn('with the title `1_metric_found`', side['next'])
         # d7, 2026-11-19: the widget tool was deferred; the session never loaded it and stripped each chip's HTML instead.
         self.assertIn('if it is deferred', side['next'])
         self.assertIn('go back to waiting for the build (`PROJECT drafts --wait`) in this same turn', side['next'])
@@ -546,10 +559,13 @@ class Engine(unittest.TestCase):
         self.assertEqual(code, 3)
         return json.loads(out.getvalue())
 
-    def test_each_gate_reminds_the_agent_to_show_what_the_step_produced(self):
+    def test_each_gate_sends_the_session_back_to_the_wait_that_hands_over_the_chip(self):
+        # The dry run, 2026-11-25: told here to run the chip command, the session never did. The wait hands the chip over.
         run = make_run(self.root)
-        self.assertIn('visual next', self.advance(run / 'engine')['visual'])
-        self.assertIn('no words of your own', self.advance(run / 'engine')['visual'], 'the chip is the update')
+        said = self.advance(run / 'engine')['visual']
+        self.assertIn('`PROJECT drafts --wait`', said)
+        self.assertIn('a helper ignores this', said)
+        self.assertIn('no words of your own', said, 'the chip is the update')
 
     def test_an_engine_run_outside_a_setup_run_carries_no_reminder(self):
         self.assertNotIn('visual', self.advance(self.root / 'standalone' / 'engine'))

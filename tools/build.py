@@ -298,49 +298,100 @@ def addon_readme(source: dict, addon: dict) -> str:
         "reached, which choices were made, and counts. Never a metric's or source's name, a question, an answer or SQL.\n"
         f"`ATLAN_PLUGIN_TELEMETRY=0` or `DO_NOT_TRACK=1` turns it off, and the [`{plugin['name']}` README](../{plugin['name']}/README.md#usage-telemetry) lists every event.\n"
     ) if addon.get("telemetry_dir") else ""
+    readme = addon["readme"]
+    folders = sorted(p.name for p in (ROOT / addon_dir(addon) / "skills").iterdir() if (p / "SKILL.md").is_file())
+    if sorted(readme["skills"]) != folders:
+        raise SystemExit(f"[addons.readme] skills must name every skill in {addon_dir(addon)}/skills once: {folders}")
+
+    def example(name: str) -> str:
+        ask = re.sub(rf"^Use \${re.escape(name)} to (answer: )?", "", source["skills"][name]["prompt"])
+        return ask[:1].upper() + ask[1:]
+
+    needs = "\n".join(f"- {need}" for need in readme["needs"])
+    starts = "\n".join(f"| {want} | `/{addon['name']}:{skill}` | `${skill}` | *\"{say}\"* |"
+                       for want, skill, say in readme["starts"])
+    first = readme["starts"][0][1]
+    samples = "\n".join(f"| {name} | {answers} | [Tour]({url}) |" for name, answers, url in readme["samples"])
+    skills = "\n".join(f"| `{name}` | {source['skills'][name]['short_description']} | *\"{example(name)}\"* |"
+                       for name in readme["skills"])
+    troubles = "\n".join(f"| {symptom} | {fix} |" for symptom, fix in readme["troubleshooting"])
     return f"""# {addon['display_name']}
 
-{addon['long_description']}
+{readme['intro'].strip()}
+
+## You need
+
+{needs}
+
+## Quick start
+
+1. Install it, as below.
+2. Start the skill for what you want to do:
+
+   | You want to | Claude Code | Codex | Or say |
+   |---|---|---|---|
+{chr(10).join("   " + row for row in starts.splitlines())}
+
+   In other hosts, name the skill: *"Use the {first} skill"*. Your own words work too, but
+   whether they reach the right skill depends on your model, your host and what else is loaded.
+
+3. {readme['quick_start']}
+
+## Samples
+
+{readme['samples_intro']}
+
+| Sample | What you can ask it | See it |
+|---|---|---|
+{samples}
+
+## How it works
+
+{readme['how'].strip()}
+
+## Skills
+
+| Skill | Use it to | Try |
+|---|---|---|
+{skills}
 
 ## Install
 
-In Claude Code, one command installs Analytics{installs} automatically:
+| Host | Install |
+|---|---|
+| Claude Code | `claude plugin install {addon['name']} --marketplace {slug}` installs Analytics{installs} |
+| Codex | `codex plugin marketplace add {slug}`, then `codex plugin add {plugin['name']}@{market}`, then `codex plugin add {addon['name']}@{market}` |
+| Cursor | On a Teams or Enterprise plan, an admin adds `https://github.com/{slug}` under **Dashboard**, **Plugins & MCPs**, **Add Marketplace**, **Import from Repo**. Each developer then installs `{plugin['name']}` and `{addon['name']}` from **Customize**. |
+| Cortex Code | Send `/github-plugin-installer https://github.com/{slug}/tree/main/{core_dir(source)}`, then `/github-plugin-installer https://github.com/{slug}/tree/main/{addon_dir(addon)}`, as two messages |
 
-```
-claude plugin install {addon['name']} --marketplace {slug}
-```
+Only Claude Code installs a plugin's dependencies. Elsewhere, install `{plugin['name']}` first. Without
+it, the setup skills show how to install it.
+
+To update, run `claude plugin update {addon['name']}` and restart Claude Code, or in Codex run
+`codex plugin marketplace upgrade {market}`.
 
 {view_note}
+## When it goes wrong
 
-Other hosts install plugins one at a time, so add `{plugin['name']}` first. In Codex:
+| What you see | What to do |
+|---|---|
+{troubles}
 
-```
-codex plugin marketplace add {slug}
-codex plugin add {plugin['name']}@{market}
-codex plugin add {addon['name']}@{market}
-```
+## Help
 
-In Cortex Code, install each from its folder, one chat message each:
-
-```
-/github-plugin-installer https://github.com/{slug}/tree/main/{core_dir(source)}
-/github-plugin-installer https://github.com/{slug}/tree/main/{addon_dir(addon)}
-```
+Report a problem in [Issues](https://github.com/{slug}/issues). For a vulnerability, see
+[SECURITY.md](../../SECURITY.md). Licensed under [Apache-2.0](LICENSE).
 
 ## Privacy
 
-Analytics itself has no hooks or shipped executable binaries. Its skills run bundled Python helpers and may
-set up an isolated metrics-agent environment with pinned dependencies after authorization.
-{view_privacy}{usage_privacy}\
-Working files stay in your project. Input plugs use the source connections you select; Atlan Trident
-writes use the `{plugin['name']}` plugin's connection, signed in as you. See Atlan's
-[privacy notice]({plugin['privacy_policy_url']}).
+{readme['privacy'].strip()}
+
+{view_privacy}{usage_privacy}See Atlan's [privacy notice]({plugin['privacy_policy_url']}).
 
 ## Source
 
 `tools/build.py` generates this README and the manifests from `[[addons]]` in `plugin.toml`.
-The skills, commands, agents and scripts in this folder are the only source: nothing else serves
-or copies them.
+{readme['source'].strip()}
 """
 
 

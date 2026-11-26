@@ -147,23 +147,23 @@ class SavedRunFixtureTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             subprocess.run([sys.executable, str(FIXTURE), str(PLUGIN), variant], cwd=tmp, check=True)
             out = subprocess.run([sys.executable, str(PLUGIN / "skills" / "analytics-build" / "scripts" / "project.py"),
-                                  "--run-dir", str(Path(tmp) / ".atlan-metrics" / "shipping-run"), "journey", "status"],
+                                  "--run-dir", str(Path(tmp) / ".atlan-analytics" / "shipping-run"), "journey", "status"],
                                  cwd=tmp, check=True, capture_output=True, text=True).stdout
         return json.loads(out)
 
     def test_each_variant_reads_back_as_its_cases_say(self) -> None:
         local = self.journey("local")
-        self.assertIn("3 metrics, 1 query; 0 saved in Atlan Trident.", local["chat"])
-        self.assertIn("SQL example checked.", local["chat"])
+        self.assertIn("3 metrics and 1 saved query. None saved to Atlan Trident yet.", local["chat"])
+        self.assertIn("Example tested.", local["chat"])
         self.assertEqual(local["interaction"]["focus"], "metric:shipped-units")
         preview = self.journey("preview")
-        self.assertIn("Schema checked; SQL untested.", preview["chat"])
+        self.assertIn("Structure checked, not yet tested.", preview["chat"])
         self.assertEqual(preview["continuation"]["action"], "destination")
         published = self.journey("published")
-        self.assertIn("8 metrics, 4 queries; 11 saved in Atlan Trident.", published["chat"])
-        self.assertIn("Needs repair before publication: On-time rate (The denominator is undefined", published["chat"])
+        self.assertIn("8 metrics and 4 saved queries. 11 saved to Atlan Trident.", published["chat"])
+        self.assertIn("1 item is held back from Atlan Trident: On-time rate (The denominator is undefined", published["chat"])
         # A release keeps the check it passed, so the hand-off's sample can say how it was checked.
-        self.assertIn("Saved in Atlan; SQL example checked.", published["chat"])
+        self.assertIn("Saved to Atlan Trident, example tested.", published["chat"])
 
     def test_the_ready_question_is_composed_where_the_run_folder_cannot_be_written(self) -> None:
         # The eval sandbox's shell, like a read-only checkout, refuses writes: the note that spares a repeat is lost, the
@@ -173,14 +173,14 @@ class SavedRunFixtureTest(unittest.TestCase):
         import side_view
         with tempfile.TemporaryDirectory() as tmp:
             subprocess.run([sys.executable, str(FIXTURE), str(PLUGIN), "published"], cwd=tmp, check=True)
-            run = str(Path(tmp) / ".atlan-metrics" / "shipping-run")
+            run = str(Path(tmp) / ".atlan-analytics" / "shipping-run")
             out = io.StringIO()
             with mock.patch.object(side_view, "note", side_effect=OSError(30, "Read-only file system")), \
                     mock.patch("sys.argv", ["project.py", "--run-dir", run, "question", "ready"]), \
                     contextlib.redirect_stdout(out):
                 self.assertEqual(project.main(), 0)
         asked = json.loads(out.getvalue())
-        self.assertIn("7 metrics and 4 queries in Shipping in Atlan Trident; 1 metric on this machine",
+        self.assertIn("7 metrics and 4 saved queries saved to Atlan Trident, in Shipping; 1 metric stored on this machine",
                       " ".join(asked["question"].split()))
         labels = [option["label"] for option in asked["options"]]
         self.assertEqual(labels[:2], ["How many units shipped by region?", "What was the shipping cost by region?"])
@@ -197,7 +197,7 @@ class DemoRunFixtureTest(unittest.TestCase):
         helper = [sys.executable, str(PLUGIN / "skills" / "analytics-build" / "scripts" / "project.py"), "--run-dir"]
         with tempfile.TemporaryDirectory() as tmp:
             subprocess.run([sys.executable, str(FIXTURE.parent / "demo_run.py"), str(PLUGIN)], cwd=tmp, check=True)
-            run = str(Path(tmp) / ".atlan-metrics" / "fixit-demo")
+            run = str(Path(tmp) / ".atlan-analytics" / "fixit-demo")
             status = json.loads(subprocess.run(helper + [run, "journey", "status"], cwd=tmp, check=True,
                                                capture_output=True, text=True).stdout)
             ready = json.loads(subprocess.run(
@@ -205,10 +205,10 @@ class DemoRunFixtureTest(unittest.TestCase):
                           str(PLUGIN / "skills" / "analytics-demo" / "references" / "yard.json")],
                 cwd=tmp, check=True, capture_output=True, text=True).stdout)
         steps = status["checklist"]["steps"]
-        self.assertEqual(len(steps), 7)
+        self.assertEqual(len(steps), 8)
         self.assertEqual([s["id"] for s in steps if s["status"] != "completed"], ["ask"])
         self.assertNotIn("visual", status)
-        self.assertIn("4 metrics and 4 queries", ready["question"])
+        self.assertIn("Stored on this machine", ready["question"])
         self.assertIn("on this machine", ready["question"])
         # The judge holds the questions the helper offers, since it never sees the prompt or the run.
         for option in ready["options"][:2]:

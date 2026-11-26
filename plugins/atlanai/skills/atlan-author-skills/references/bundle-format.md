@@ -36,7 +36,7 @@ Plus a non-empty Markdown body after the closing fence, max 500,000 characters.
 | `license` | Max 1024 chars |
 | `allowed-tools` | Max 256 entries, each max 256 chars. A YAML list **or** a space/comma-separated string. Tokenised at paren depth 0, so `Bash(git add *)` stays one token |
 | `metadata` | A map, max 64 keys / 16 KiB. `metadata.lifecycle` must be `draft`, `active`, or `deprecated` |
-| `version` | Max 64 chars. Free-form; the registry's own version rail is separate and ordinal |
+| `version` | Max 64 chars. Free-form; Atlan Trident's own version rail is separate and ordinal |
 | `when_to_use` | Max 1024 chars |
 | `compatibility` | Max 500 chars |
 | `disable-model-invocation` | Boolean |
@@ -73,7 +73,7 @@ second half.
 | `SKILL.md` | 4 MiB, body 500,000 characters |
 | Inline `files`, one call | 128 files, 256 KiB |
 
-The registry stores a long `SKILL.md` whole, but its analysis (summary, use cases, triggers) reads
+Trident stores a long `SKILL.md` whole, but its analysis (summary, use cases, triggers) reads
 only the first 6,000 characters. Put what the skill does and when to use it first, and move
 detail into `references/`.
 

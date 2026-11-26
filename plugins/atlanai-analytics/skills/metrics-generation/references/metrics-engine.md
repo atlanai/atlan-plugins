@@ -1,14 +1,14 @@
 # Run the metrics module
 
 Use this procedure for metrics-only work, guided setup on own data, and new Power BI
-or Tableau dashboard projects, including demos and local-only repository/folder setup. The plugin drives the conversation and Registry publication.
+or Tableau dashboard projects, including demos and local-only repository/folder setup. The plugin drives the conversation and Atlan Trident publication.
 The owned metrics-agent module drives source processing, compilation, verification and metric gates.
 
 `ENGINE` means `python3 "<metrics-dir>/scripts/analytics_agent.py" metrics --runtime <runtime>`.
 On Windows, start it with `py -3.12` (or `py -3.11`) instead of `python3`. The runtime runs
 natively there; never ask to install WSL.
 Keep the runtime outside the installed plugin and any generated agent package. For local
-setup, use durable `.atlan-metrics/runtime/` inside the authorized project, or an already
+setup, use durable `.atlan-analytics/runtime/` inside the authorized project, or an already
 permitted cache. Never choose an OS/session scratch directory: the saved executor must remain
 usable after this chat ends. Reuse a compatible pinned runtime rather than reinstalling it.
 A runtime built by another plugin version, or with other features, is refused, and the refusal's
@@ -19,6 +19,14 @@ The module source lives under `modules/metrics/engine/`. This plugin owns its so
 This procedure requires the complete Analytics plugin, including its `modules/` folder. A
 standalone skill download without those resources cannot initialize the engine; refresh the
 plugin package when the dispatcher reports missing module files.
+
+## Contents
+
+- 1. Select sources and reuse decisions
+- 2. Prepare one engine run
+- 3. Let the assistant answer the original gates
+- 4. Export, then use the unchanged publisher
+- 5. Compatibility and limits
 
 ## 1. Select sources and reuse decisions
 
@@ -37,10 +45,16 @@ optional binary reader. A new source is a registered plug/reader, never a core e
 A source the person named needs its feature: for a Power BI link that is `powerbi`, set up as
 part of this procedure rather than skipped in favour of a browser capture.
 
-If the runtime is absent, announce its isolated, constrained initialization and run
+If the runtime is absent, announce its isolated, constrained initialization ("First I'll set
+up the tools that build metrics. They stay on this machine and are reused next time.") and run
 `ENGINE setup` as part of the requested workflow through the host permission controls, with one
-`--feature <name>` per required feature. It installs no Registry writer, glossary writer,
+`--feature <name>` per required feature. It installs no Trident writer, glossary writer,
 observer or model SDK. Do not install everything to answer a local-file request.
+What it installs, for a person or a policy that asks before any install: a private Python
+environment in the runtime folder, holding the build tools and their dependencies, every
+version pinned by the plugin's constraints file, binary wheels only, from this machine's own
+package index; nothing outside that folder changes. Say that; never read the plugin's own files
+to find it out.
 
 An MCP tool visible in chat is not an installed input plug. Capture evidence through that
 authorized tool into the core's common file formats and use `local-files`, preserving custody
@@ -57,23 +71,57 @@ a failed semantic check cannot be converted into parse-only success.
 ### Power BI from a report link
 
 The `powerbi-fabric` plug fetches the report and its semantic model in one step, the richest
-input a run can have. It signs in as the person on its own: in their browser (authorization
-code with PKCE: single sign-on, nothing to copy) where one can open on this machine, else by
-device code (an SSH or cloud session, a host with no display, or a sign-in app of the
-customer's own in `PBI_PUBLIC_CLIENT_ID`). `sign_in: device` or `sign_in: browser` overrides
-it. A token or service principal already in the environment is used without either. Both interactive sign-ins need the terminal procedure under **Native sign-in**.
+input a run can have. One command does all of it: sets up the runtime with the `powerbi`
+feature when it lacks it (reusing one that has it), writes the run settings to
+`<run-dir>/private/engine-config.json` (the report in `targets`, `with_model: true`, no SQL
+check, `witness_mode: parse`, `publish: [files]`), prepares, signs in, fetches and advances to
+the first step that needs an answer:
 
-```yaml
-inputs:
-  bi: [powerbi-fabric]
-settings:
-  powerbi-fabric:
-    targets: [https://app.powerbi.com/groups/<workspace-id>/reports/<report-id>]
-    with_model: true
+```bash
+ENGINE powerbi-report --link "<the link as pasted>" --run <run-dir>/engine \
+  --dialect <warehouse dialect> --model <actual-model-id> [--feature <warehouse feature>]
 ```
 
+**Run it as an ordinary background command**: in Claude Code, Bash with `run_in_background`; in
+another host, its equivalent. Never a terminal tab. It needs a shell, not a terminal: the
+browser opens on its own and the command listens on localhost for the answer, so nothing is
+typed. **Then wait for it in the same turn**, so the turn, and the host's task list with it, does
+not end while the person signs in: run `python3 "<analytics-build>/scripts/project.py" wait-task
+--output <its output file>` in the foreground with a ten-minute timeout. It returns `done` with
+the command's last line (even when "Signed in." came just before it: the report is read by
+then), `signed_in` the moment the person finishes signing in (write its `say` line, word for
+word), `sign_in` with a device-code `line`, or with the browser sign-in's `address` (give that
+address only if the person says no browser opened), or `waiting`; after any but `done`, run it
+again with the `--after` it gives.
+
+It signs in as the person: in their browser (authorization code with PKCE: single sign-on,
+nothing to copy) where one can open on this machine, else by device code (an SSH or cloud
+session, a host with no display, or a sign-in app of the customer's own in
+`PBI_PUBLIC_CLIENT_ID`). `--sign-in device` or `--sign-in browser` overrides it. A token or
+service principal already in the environment is used without either. A device code is the one
+thing the person needs while it runs: `wait-task` returns it as `sign_in`; give them the
+address and the code once, then wait again.
+
+**The pages the person picked** reach the build with `ENGINE pages --run <run-dir>/engine
+--page "<page>" [--page ...] --model <model-id>`, or `--all`. Before the report is read it only
+saves the pick; after, a changed pick advances once (seconds) so the first step covers only
+those pages' tiles, and its result is that advance result plus `scope`.
+
+Its last line is the advance result (section 3), plus `sign_in`, `source_id`, `engine_run`,
+`runtime` and `config`. Save `source_id` as the source revision, with the runtime and
+`engine_run`, as section 2 says. A pause at a `gate` (exit 0 for this command, so the app does not
+show its normal end as failed; its `status` says `paused`) continues at section 3; exit 2 names a
+`reason` and a `fix`. **Say the person is signed in only when `sign_in` is `signed_in`**: the
+connector printed "Signed in." Never when the command starts, and never from a browser tab
+opening. `saved` means an earlier sign-in was reused. The sign-in itself is said the moment it
+happens, from `wait-task`'s `signed_in` result; when the command exits, say in one line before
+any other call that the report is read ("Your report is read."). Running the same command again resumes
+the same build; other settings for the same run are refused.
+
 Fall back to [browser capture](dashboard/powerbi-capture.md) only when the plug cannot run
-or is refused, and say which.
+or is refused, and say which: "I can't reach Power BI directly from here, so I'll take the
+report from your browser instead." or "Power BI refused the direct fetch, so I'll take the
+report from your browser instead."
 
 ### Direct Snowflake query history
 
@@ -81,7 +129,8 @@ With the `snowflake` feature and the person's configured connection, use `snowfl
 for history with `history_source: account_usage`, omitting `shape_table`. This reads native
 `SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY` through the existing read-only socket; no preparation
 view is required. Reuse the selected tables and time range. When no range was requested, state
-the default 90 day range and write its absolute start/end dates into `run.yml` before preparing,
+the default 90 day range ("I'll read the last 90 days of past queries, from <start> to <end>.")
+and write its absolute start/end dates into `run.yml` before preparing,
 so resuming keeps the same bounds. The end date is exclusive at midnight UTC. Do not ask for
 an existing shape table unless the person selected that route or native read access is missing.
 
@@ -128,8 +177,8 @@ configuration issue from an unproven permission denial. Follow the package READM
 
 ## 2. Prepare one engine run
 
-Metrics-only uses `.atlan-metrics/<slug>/engine/`; dashboards use
-`.atlan-analytics/<slug>/engine/`. Keep context files in the corresponding `context/` directory.
+Both metrics-only and dashboard runs use `.atlan-analytics/<slug>/engine/`. Keep context files in
+the corresponding `context/` directory.
 
 Keep downloaded inputs under the task's authorized project directory. If a browser downloaded
 elsewhere, use `ENGINE stage-input --source <selected-file-or-folder> --destination <project>/sources/<asset> --source-id <stable-asset-key>`
@@ -144,10 +193,11 @@ asset or generated instructions/answers/receipts. A host file permission dialog 
 the person's answer; do not edit sandbox settings or repeat the same access request per stage.
 Use this plugin's isolated runtime and packaged gate instructions for every run.
 
-For a setup run on a local database, `PROJECT engine-config` writes this configuration; see
+For a Power BI report link, `ENGINE powerbi-report` does this section and the first advance
+(see **Power BI from a report link**). For a setup run on a local database, `PROJECT engine-config` writes this configuration; see
 [build and check](../../analytics-build/references/setup/build-check.md). Otherwise, write the agreed configuration to a private file, with absolute staged input paths. It is the normal
 metrics-agent `run.yml` contract, with `publish: [files]` and `observers: []`. This destination
-means local handoff to the plugin, not authorization to publish to Registry. All input plug
+means local handoff to the plugin, not authorization to publish to Trident. All input plug
 settings and entry-point discovery remain unchanged.
 When `PROJECT history` returns scoped `tables`, preserve them in the run configuration;
 the main engine applies this bound while grouping and admitting captured history.
@@ -177,14 +227,23 @@ names; set `bi` to one `.pbip`.
 
 Run `ENGINE prepare --run <engine-dir> --config <private-config> --approval-mode auto`.
 It runs the maintained configuration and plug checks, without the terminal interview.
-Resolve only returned missing requirements. Save `module: metrics`, runtime path, run path
+Resolve only returned missing requirements. A `.pbix` that needs an add-on needs the `pbix`
+feature. Save `module: metrics`, runtime path, run path
 and source revision in project state. The engine manifest owns stage progress; do not mirror it.
-For a setup project, save its within-run engine directory as `engine_run` in `run.json`.
+For a setup project, record its within-run engine directory with `PROJECT use-engine <dir>`.
 The native journey then retains the provisional sample on resume without another path prompt.
+
+A run that adds sources to an earlier run over the same dashboard (its past queries, offered
+after the dashboard's build) is prepared with `--carry-from <earlier engine-dir>` in a new
+directory. The earlier run's answers about the dashboard's statements are reused, and its gates
+ask only about statements no answer covers. The merge, the cards and the links are never
+carried: they run again over every source. Both runs must use the same runtime. Record the
+new directory with `PROJECT use-engine`.
 
 ### Native sign-in
 
-For a live connector that needs the person's browser, a device code or an MFA prompt, run
+Power BI does not use this procedure: its one command runs in the background, as **Power BI
+from a report link** says. For another live connector that needs the person's browser, a device code or an MFA prompt, run
 both `ENGINE prepare` and `ENGINE advance` using the host terminal tool with a real TTY
 (for example, `tty: true` in Codex). Keep that command session running while the person
 completes sign-in. Relay the connector's sign-in instructions immediately, then poll the same
@@ -195,10 +254,10 @@ that the connector obtained API access.
 The wrapper preserves stdin and streams connector prompts through stderr while keeping its
 stdout JSON separate. Setup checks also retain terminal detection. Interactive preparation
 and each interactive advance have a 15 minute deadline; a timeout blocks the operation.
-Power BI device-code and browser PKCE routes and Databricks browser OAuth use this path, as does Snowflake's
+Databricks browser OAuth uses this path, as does Snowflake's
 `authenticator=externalbrowser` and any native terminal MFA prompt. Environment-based routes
-remain available for unattended execution. Power BI still refuses interactive fallback when
-no terminal is attached. Do not fabricate a terminal in an unattended job to bypass that check.
+remain available for unattended execution. Power BI refuses a person's sign-in when neither a
+terminal nor its one command is running it. Do not fabricate a terminal, or run that command, in an unattended job to bypass that check.
 
 Power BI also supports explicit certificate and managed-identity routes and renews acquired
 tokens during a fetch. See the installed plug README for the required environment variables.
@@ -226,7 +285,7 @@ packaged runtime initialization and generated-file reads are ordinary task steps
 Atlan destination authorizes in-scope creates; an explicit draft-only request defers writes.
 Ask only for missing facts, a changed target/source scope or unauthorized definition revisions.
 The host's auto/bypass settings remain host-owned. No engine flag grants filesystem access,
-authorizes an unrelated write, changes Registry release policy or skips a validator.
+authorizes an unrelated write, changes Trident release policy or skips a validator.
 
 ## 3. Let the assistant answer the original gates
 
@@ -290,7 +349,7 @@ procedure before installing its new bundle.
 It revalidates the core artifacts, checks the completion hashes and output privacy boundary,
 then projects `metrics.json`, `queries.json` and `links.json`. It preserves source identities,
 formulas, source SQL, filters, joins, dimensions, parameters and evidence. It neither rewrites
-definitions to satisfy Registry nor writes Registry data. Refused fields return to authoring.
+definitions to satisfy Trident nor writes Trident data. Refused fields return to authoring.
 
 Effective C4 compiler-review failures become structured publication holds. The exporter writes
 `publication-holds.json`, excludes held queries, metrics derived from them, dependent metrics
@@ -299,13 +358,11 @@ report. Never search descriptions for words such as "held" to decide eligibility
 warehouse access and parse-only evidence remain limitations rather than failed semantics.
 A stale review on replaced SQL is resolved by C4, not by editing export metadata.
 
-A query or metric held because a literal reads as a person's name (`a person's name ('…')`,
-hold reason `privacy_review`) is cleared only by the person. Show them the quoted value. When
-they confirm it is a business value, such as a line of business, add the exact text to
-`privacy.reviewed_values` in a new run's configuration (`{"privacy": {"reviewed_values":
-["Variable Spend"]}}`; a setup run records it with `PROJECT reviewed-values`), then run again.
-The value is admitted in the history, the cards and the export, and nothing else is. Never
-rewrite the SQL or its case to pass the check.
+A query or metric held for privacy (hold reason `privacy_review`: an email address in its SQL
+or samples) is not saved. Say which item and why in one line; the fix is to make the value a
+parameter or leave the row out, never to rewrite the SQL to pass the check. No value is held for
+being a name, a company name or an ID: those rules were removed until the security team sets
+new ones.
 
 The publication checker enforces the manifest and rejects reintroduced held bodies or links.
 The resumable publisher checks it before returning a call. Keep the manifest and source
@@ -315,7 +372,7 @@ the structured hold reasons instead of asking to bypass them.
 
 
 Continue at metrics workflow section 4: read live scoped inventory, run `CONTEXT check`, preview,
-and use the existing publication procedure. Generation never uses a legacy Registry-payload importer.
+and use the existing publication procedure. Generation never uses a legacy Trident-payload importer.
 
 When asked only for the next step, answer in one short paragraph. Name the action, what
 blocks it and the existing authorization; expand the full procedure only when requested.

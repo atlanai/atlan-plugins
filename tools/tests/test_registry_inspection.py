@@ -1,4 +1,4 @@
-"""Current Registry wire contract and bounded schema parsing, without network."""
+"""Current Atlan Trident wire contract and bounded schema parsing, without network."""
 import json
 from pathlib import Path
 import sys

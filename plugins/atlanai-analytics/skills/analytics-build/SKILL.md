@@ -1,20 +1,20 @@
 ---
 name: analytics-build
-description: "Atlan Analytics: set up, resume or hand off metrics on your data. Use for metrics in .atlan-metrics/: a metric's details, SQL or checks, what's ready, saving, a new workspace, or questions on a folder's dashboards. Not for a demo (analytics-demo)."
+description: "Atlan Analytics: set up, resume or hand off metrics on your data. Use for metrics in .atlan-analytics/: a metric's details, SQL or checks, what's ready, saving, a new workspace, or questions on a folder's dashboards. Not for a demo (analytics-demo)."
 ---
 
 # Atlan Analytics on your own data: a guided build
 
 An orchestrator: it owns the conversation, intent, the tracker and approvals, and turns a
-person's dashboards, folders, BI exports and query history into checked metrics to question. It calls the capability skills without letting them ask the person anything:
+person's dashboards, folders, BI exports and past queries into checked metrics to question. It calls the capability skills without letting them ask the person anything:
 `source-survey`, `metrics-generation` and `analytics-ask`. Before the first helper call, and
 on every resume, read [shared setup](references/setup.md): it defines `PROJECT`, the stage
 files and the review rule. This file sets their order and what the person sees.
-Read plugin files with Read, one per call. In a shell, never print a separator such as
-`echo =====`: zsh reads a word that starts with `=` as a command, fails and skips the rest of the line.
+Read plugin files one per call. Run one helper per command and use what it prints as it is: no separators (zsh
+fails on `echo =====`), no scripts that cut it.
 
 For workspace access or creation questions, follow [workspace help](references/setup/workspace-access.md)
-and return. This includes explanation-only requests; do not start source inspection or publication.
+and return. Even for an explanation, start no source inspection or publication.
 
 Then read [shared conventions](references/conventions.md): audit sessions, task
 authorization, privacy and status reporting. Reads of the selected source, runtime
@@ -32,30 +32,32 @@ concrete plan. Respect explicit draft or review requests.
 
    | They chose | Then |
    | --- | --- |
-   | Let discovery decide | `source-survey` `discover`, then "Which should I build?" over up to three use cases with their tables plus "I have a dashboard", then at most two clarifying questions if something is unsettled. After the build, one offer to add a dashboard |
-   | Make my dashboard agentic | One card for the dashboard: files in the folder as options, a link or path as free text. Then [the dashboard branch](references/setup/dashboard-flow.md), which replaces the steps below and the confirmation |
-   | I have a use case and know my tables | One card asking for the use case and tables as free text, with a skip to discovery, then `source-survey` `access` on them |
+   | Suggest from your warehouse | `source-survey` `discover`, then "What should your agent answer?" over up to three use cases with their tables plus "Add a dashboard". After the build, one offer to add a dashboard |
+   | Start from a dashboard | One card for the dashboard: files in the folder as options, a link or path as free text. Then [the dashboard branch](references/setup/dashboard-flow.md), which replaces the steps below |
+   | Start from tables | One card asking for the use case and tables as free text, with a skip to discovery, then `source-survey` `access` on them |
 
-3. **Confirm and trigger**, in the other two branches: one line of what will be built and
-   from what, then "Build it?". Nothing is built before the yes.
+3. **The go-ahead.** Picking a use case, or naming tables that all read, starts the build, with
+   one line of what it builds and any choices made. A table that can't be read is asked about first.
 
 A question the request already answers is not asked. Before card 1, look silently at what is
 already connected (`source-survey` `connections`) and at BI file names in the working folder
 (`PROJECT discover`). Say nothing about that look or where the options came from (at most
-"Getting set up."), and read no data before the answers. The person's first sight is the card, whose own text is the
+"Getting set up.", once), and read no data before the answers. The person's first sight is the card, whose own text is the
 opening:
 
-"Atlan Analytics turns your dashboards and the queries your team already runs into context:
-what your numbers mean and how they are worked out. With that context, you can ask your data
-questions in plain English and see what each answer is based on.
+"Let's build an agent that answers your data questions in plain English and shows what each
+answer is based on.
 
-First, let me understand your tools and your domain."
+I'll extract all the context I can from your dashboards and tables, add detailed information
+to it and validate it on your data.
+
+First, where does your data live, and what do you want your agent to do?"
 
 The interview is this skill's own: `source-survey` never asks the person anything. Honor
 existing choices. Survey-only requests stop after the survey; detail-only ones get only that
 evidence.
 
-From the demo's "Continue building on real data", ask
+From the demo's "Build one on your own data", ask
 [its one question](references/setup/intent.md#arriving-from-the-demo), not card 1.
 **On resume**, rebuild the task list first ([the checklist](references/setup/checklist.md#on-resume)),
 then name the saved result and the next step. What's ready, or what to ask, is
@@ -63,49 +65,48 @@ then name the saved result and the next step. What's ready, or what to ask, is
 
 ## The steps
 
-The task list shows step 4 as three items. Take the list as the checklist gives it; never say
-how many steps there are.
-Show [the checklist](references/setup/checklist.md) in the host's task list from the first
-action, and in chat with each step's result line, never inside a question's text. Follow
+Take the task list as the checklist gives it; never say how many steps there are.
+Show [the checklist](references/setup/checklist.md) in the host's task list once card 1 is answered,
+since its answer sets the steps (a list set before it changed under the person), never inside a
+question's text. Follow
 [one presentation flow](references/setup/presentation.md): read each moment's file when
 reached and never replace a moment with a status line. Show each moment's chip or card, from
-the first survey on, as [visuals](references/setup/visuals.md) says.
+the first survey on, as [visuals](references/setup/visuals.md) says. A helper result with
+`show_first` carries one: show it before any other words or call. Run each helper command on its own and read all it returns: a script or filter of yours drops its chip.
 
-1. **Clarify your use case.** [The interview](references/setup/intent.md)'s card 1, and the
+1. **Choose what your agent answers.** [The interview](references/setup/intent.md)'s card 1, and the
    branch's own ask. Skip what the request already said.
-2. **Survey your sources.** By branch: `source-survey` `discover` through
+2. **Find your sources.** By branch: `source-survey` `discover` through
    [discovery](../source-survey/references/discovery.md), or `access` on the dashboard and
-   tables the person named. The side page opens once the queries are in plain words,
+   tables the person named. The side page opens as the first saved queries are drafted,
    when `PROJECT visual next` names `connect`.
-3. **Select tables and dashboards.** In the discovery branch,
-   [the use cases](references/setup/names.md) and any clarification. In every branch, the
-   interview's confirmation, "Build it?", whose text opens with the `found` visual's line in a
-   terminal. A report is built whole.
-4. **Generate and check metrics.** `metrics-generation` `generate` and `check` with the selection
+3. **Pick tables and dashboards.** In the discovery branch,
+   [the use cases](references/setup/names.md), whose pick starts the build. From tables, a clean
+   access check starts it. A report is built whole.
+4. **Build your context: metrics and saved queries.** `metrics-generation` `generate` and `check` with the selection
    and the whole survey, through [build and check](references/setup/build-check.md). A fresh
-   subagent writes each metric gate while the side page shows each saved batch and this session
-   draws each step's chip ([drafts as they land](references/setup/progress.md#drafts-as-they-land)). The
+   subagent writes each metric gate; chips show as [drafts as they land](references/setup/progress.md#drafts-as-they-land)
+   says. The
    review of the completed collection is the save question's own text (step 5).
-5. **Keep local or save to Atlan Trident.** Read
+5. **Choose where to store your context.** Read
    [context built and where to keep it](references/setup/save.md) and
    [preview and publish](references/setup/preview-publish.md); `metrics-generation` `save`.
    After a save to Atlan Trident with `show_widget`, draw the `saved` visual; in a terminal the
    ready question holds it.
-6. **Ask a question.** First offer the accuracy check through
-   [check accuracy](references/setup/accuracy.md): `eval-generation` and `accuracy-check`, run
-   only on a yes. Then read [ready for questions](references/setup/ready.md). Answer only the
-   question the person picks, through `analytics-ask`, then `PROJECT journey asked`.
+6. **Ask your agent a question.** Read [check accuracy](references/setup/accuracy.md), then
+   [ready for questions](references/setup/ready.md): the ready question offers the check when it
+   is available (`eval-generation` and `accuracy-check`, run only when picked). Answer only the
+   question the person picks or types, through `analytics-ask`, then `PROJECT journey asked`.
 7. **Build a dashboard.** Read [the dashboard](../analytics-ask/references/dashboard.md).
 
 Keep execution, source review, holds and releases separate, with factual check labels and
-the tracker's step headings. Total definitions = metrics + queries. Attribute saved checks
+the tracker's step headings. Total = metrics + saved queries. Attribute saved checks
 to the earlier run. After publication, answers retrieve definitions before SQL runs. Cloning
-a repository the person asks to set up is an ordinary step; repository names or layouts never
-select a special workflow.
+a repository the person names is an ordinary step; its name or layout never selects a special workflow.
 
 Use this host and its Atlan MCP connection. This chat is the talk-to-data agent; this add-on
 deploys or evaluates no separate agent, and says so in one line when asked.
-If Registry tools are missing or sign-in is required, follow
+If Atlan Trident tools are missing or need sign-in, follow
 [connection recovery](references/auth-recovery.md) inside this task and resume the saved
 stage. Never infer a missing coding-host plugin from a generic app-directory search.
 
@@ -122,14 +123,14 @@ These routes are reached only by name; the guided flow never offers them.
   folder holds a run, pass its directory, so the answer uses the run's own rules.
 
 In Claude Code, load a sibling skill with the Skill tool as `atlanai-analytics:<name>`. The
-Registry marketplace bundles these skills in `atlanai`; use its installed namespace instead,
+Trident marketplace bundles these skills in `atlanai`; use its installed namespace instead,
 and do not install this add-on beside that bundle.
 
 ## Hand-offs
 
 | From | To | Carries |
 | --- | --- | --- |
-| `analytics-demo` ("Continue building on real data") | here | Nothing but the connection. A demo run never becomes a build |
+| `analytics-demo` ("Build one on your own data") | here | Nothing but the connection. A demo run never becomes a build |
 | here | `analytics-ask` | The run, so answers read its context |
 | `analytics-ask` (no metric covers a question) | here | The question, as the subject for the discovery branch |
 | here, when the survey finds no readable source | `analytics-demo` | Nothing |
@@ -138,7 +139,6 @@ and do not install this add-on beside that bundle.
 
 Installed paths resolve under `${CLAUDE_PLUGIN_ROOT}/skills/analytics-build/`; the sibling
 skills sit beside it. With MCP only, read `atlan://defaults/skills/analytics-build/SKILL.md`
-and cited references at that base, and fetch scripts locally in their layout before running
-them; MCP does not expand plugin-local includes.
+and its references there, and fetch scripts locally in their layout before running them.
 
 Never expose credentials or identifying query literals.

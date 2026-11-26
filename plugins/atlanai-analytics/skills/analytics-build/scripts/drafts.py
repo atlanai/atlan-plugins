@@ -72,7 +72,9 @@ def _source_ids(row):
 
 
 def _propose(engine, files):
-    statements = [r for p in files for r in engine.rows(p, 'statements')]
+    # Counted against the prompt: answers carried from an earlier run are not this step's work.
+    asked = _prompt_ids(engine, 'x1')
+    statements = [r for p in files for r in engine.rows(p, 'statements') if not asked or r.get('vq_id') in asked]
     read = len({r.get('vq_id') for r in statements if isinstance(r.get('vq_id'), str)})
     total = sum(len(t['queries']) for t in engine.json(engine.dir / 'x1_prompt.json').get('tasks', [])
                 if isinstance(t, dict) and isinstance(t.get('queries'), list))
@@ -95,7 +97,9 @@ def _define(engine, files):
 
 
 def _describe(engine, files):
-    described = len({q.get('vq_id') for p in files for q in engine.rows(p, 'queries') if isinstance(q.get('vq_id'), str)})
+    asked = _prompt_ids(engine, 'm2')
+    described = len({q.get('vq_id') for p in files for q in engine.rows(p, 'queries') if isinstance(q.get('vq_id'), str)
+                     and (not asked or q.get('vq_id') in asked)})
     total = sum(len(t['queries']) for t in engine.json(engine.dir / 'm2_prompt.json').get('tasks', [])
                 if isinstance(t, dict) and isinstance(t.get('queries'), list))
     return {'described': described, 'total': total}
@@ -116,20 +120,83 @@ def _under_way(engine):
     before any batch and once that step has ended."""
     stages = engine.json(engine.dir / 'manifest.json').get('stages') or []
     accepted = {s.get('stage') for s in stages if isinstance(s, dict) and s.get('verdict') == 'ok'}
+    order = [s.get('stage') for s in stages if isinstance(s, dict)]
+    # The descriptions written beside the metric steps are not the step under way: "Find metrics · 5 of 19 queries in
+    # plain words" read as the old order (walk 4, 2026-11-23).
+    late = 'x1_emit' in order and 'm2_emit' in order[:order.index('x1_emit')]
     for gate, step, describe in GATES:
+        if late and gate == 'm2':
+            continue
         files = _saved(engine, gate)
-        if files:
-            return None if gate + '_ingest' in accepted else (gate, step, describe, files)
+        if gate + '_ingest' in accepted:
+            if files:
+                return None
+            continue
+        # A step whose prompt is written is under way before its first batch lands: its row counts from 0, so the list
+        # never sits on a bare step name while its helper writes (a live run showed no count for two minutes).
+        if files or (engine.dir / ('%s_prompt.json' % gate)).is_file():
+            return (gate, step, describe, files)
     return None
 
 
 REPORTED = 'drafts-reported.json'
 
 
+def _prompt_ids(engine, gate):
+    """The statements a per-statement gate asks about: its prompt's, not the carried ones."""
+    return {q.get('vq_id') for t in engine.json(engine.dir / f'{gate}_prompt.json').get('tasks', [])
+            if isinstance(t, dict) and isinstance(t.get('queries'), list)
+            for q in t['queries'] if isinstance(q, dict) and isinstance(q.get('vq_id'), str)}
+
+
+def _answered(engine):
+    """The gate whose prompt is out, whose answers now cover all of it, and whose ingest has not run: the build waits
+    only for `ENGINE advance`. A walkthrough waited seven minutes for a wait to time out after the describe step's
+    answers were all saved (2026-11-23). The definitions have their own wake (`ready`); the links one file."""
+    stages = engine.json(engine.dir / 'manifest.json').get('stages') or []
+    ran = {s.get('stage'): s.get('verdict') for s in stages if isinstance(s, dict)}
+    for gate, key in (('m2', 'queries'), ('x1', 'statements'), ('x2', None), ('x4', None)):
+        if ran.get(gate + '_emit') is None or ran.get(gate + '_ingest') == 'ok':
+            continue
+        # The descriptions are written beside the metric steps and taken in after the links: done early, they wait.
+        if gate == 'm2' and 'x1_emit' in ran and ran.get('x4_ingest') != 'ok':
+            continue
+        files = _saved(engine, gate)
+        if not files or all(f.name.startswith('carried-') for f in files):
+            continue
+        if key:
+            asked = _prompt_ids(engine, gate)
+            said = {r.get('vq_id') for f in files for r in engine.rows(f, key)}
+            if asked and asked <= said:
+                return gate
+        elif gate == 'x2':
+            asked = engine.json(engine.dir / 'x2_prompt.json').get('n_proposals')
+            claimed = {pid for f in files for r in engine.rows(f, 'metrics') for pid in _source_ids(r)}
+            if type(asked) is int and asked and len(claimed) >= asked:
+                return gate
+        else:
+            return gate
+    return None
+
+
+def _load_record(engine):
+    """What this build's waits already reported. One record per engine folder: a second build in the same run (its past
+    queries added) runs every step again, and a run-wide record hid its step ends and its wakes (2026-11-23)."""
+    whole = engine.json(engine.root / REPORTED)
+    if 'steps' in whole or 'told' in whole or 'answered' in whole:   # a record from before builds were kept apart
+        whole = {'engine': whole}
+    mine = whole.get(engine.dir.name)
+    return mine if isinstance(mine, dict) else {}
+
+
 def _save_record(engine, record):
     try:
         path = engine.root / REPORTED
-        path.write_text(json.dumps(record))
+        whole = engine.json(path)
+        if 'steps' in whole or 'told' in whole or 'answered' in whole:
+            whole = {'engine': whole}
+        whole[engine.dir.name] = record
+        path.write_text(json.dumps(whole))
         path.chmod(0o600)
     except OSError:
         pass  # without the record the next wait repeats an event; it never skips one
@@ -137,49 +204,100 @@ def _save_record(engine, record):
 
 # The steps whose end wakes the session: the tile review and the tile questions (a helper may write them), queries
 # described, drafts found, drafts merged, metrics defined.
-WAKES = ('a3b_ingest', 'c3_ingest', 'm2_ingest', 'x1_ingest', 'x2_ingest', 'x3_ingest')
-# The task list moves at most this often: an update for every batch woke the session 24 times in eight minutes.
-BATCH_SECONDS = 60
+WAKES = ('c3_ingest', 'm2_ingest', 'x1_ingest', 'x2_ingest', 'x3_ingest')
+# The tile review is written by this session, which advances it itself: its end has nothing to show (walk 4: `step`
+# with nothing to show after every advance). The tile questions wake only where a helper still writes them.
+# The task list moves at most this often: an update for every batch woke the session 24 times in eight minutes, and
+# once a minute left it at "3 of 7" while the side page, which reads the same files live, said 6 of 7 (2026-11-23).
+BATCH_SECONDS = 20
 
 
 # Where the session keeps a task list, it carries the build: the step under way counts its batches, from the same files
 # the side page counts, with time left from the step's own pace.
 ROW_OF = {'m2': 'draft', 'x1': 'draft', 'x2': 'merge', 'x3': 'write'}
-SHORT = {'draft': 'Find metrics', 'merge': 'Combine duplicates'}
+SHORT = {'draft': 'Build your context: metrics and saved queries', 'merge': 'Merge duplicate metrics'}
 
 
-def _left(files, done, total):
-    """Time left from the step's own pace: how long its batches have taken per item so far, for the items still to come.
-    None until two batches have landed, when the pace means something."""
-    if not total or len(files) < 2:
-        return None
-    if done >= total:
-        return 'nearly done'
-    stamps = [f.stat().st_mtime for f in files]
-    per_batch, per_items = (stamps[-1] - stamps[0]) / (len(files) - 1), done / len(files)
-    seconds = per_batch * (total - done) / per_items if per_items else 0
-    return 'nearly done' if seconds < 45 else 'about %d min left' % max(1, round(seconds / 60))
-
-
-def _live(engine, under):
+def _live(engine, under, with_left=True):
     """The step under way as its task-list row says it: what has landed so far, and time left when the pace is known."""
     gate, _, describe, files = under
     c = describe(engine, files)
+    # Each part of a step says which part it is, so a new count reads as the next part, never as the count going back
+    # ("32 of 50 questions written (nearly done)", then "6 metrics found so far, 8 of 50 questions read"). The time left
+    # follows the step's own pace since it started, so it moves as the work does (the person's call, 2026-11-23).
     if gate == 'm2':
         done, total = c.get('described') or 0, c.get('total')
-        said = '%d of %d queries in plain words' % (done, total) if total else '%d queries in plain words' % done
+        said = 'writing questions: %d of %d' % (done, total) if total else 'writing questions: %d' % done
     elif gate == 'x1':
         done, total = c.get('queries_read') or 0, c.get('queries_total')
-        said = '%s so far, %s' % (_plural(c.get('drafts') or 0, 'possible metric'),
-                                  '%d of %d queries read' % (done, total) if total else '%d queries read' % done)
+        said = 'finding metrics: %s in %s' % (_plural(c.get('drafts') or 0, 'metric'),
+                                              '%d of %d questions' % (done, total) if total else _plural(done, 'question'))
     elif gate == 'x2':
-        # How many metrics the drafts make is only known once they are all combined.
-        done, total, said = 0, None, '%s so far' % _plural(c.get('metrics') or 0, 'metric')
+        # How many metrics the drafts make is only known once they are all combined: no count until then.
+        return 'combining duplicates'
     else:
         done, total = c.get('defined') or 0, c.get('total')
-        said = '%d of %d defined' % (done, total) if total else '%d defined' % done
-    left = _left(files, done, total)
+        said = '%d of %d written' % (done, total) if total else '%d written' % done
+    left = _left(engine, gate, done, total) if with_left else None
     return said + (' (%s)' % left if left else '')
+
+
+def _left(engine, gate, done, total):
+    """Time left at the step's pace so far: the time since its first batch landed, per item done since, for the items
+    still to come. Measured from the batches, not the step's prompt: a run resumed hours later read "about 480 min left".
+    None until a second batch, when there is a pace."""
+    import time
+    if not total or not done:
+        return None
+    if done >= total:
+        return 'nearly done'
+    files = _saved(engine, gate)
+    if len(files) < 2:
+        return None
+    first = files[0]
+    head = {'m2': 'queries', 'x1': 'statements'}.get(gate, 'metrics')
+    since = done - len(engine.rows(first, head))
+    if since <= 0:
+        return None
+    seconds = (time.time() - first.stat().st_mtime) / since * (total - done)
+    return 'nearly done' if seconds < 45 else 'about %d min left' % max(1, round(seconds / 60))
+
+
+def _to_start(engine):
+    """The step whose prompt is written and that nothing has answered yet, as {gate, prompt}: the session starts its helper.
+    Told only "a step ended", sessions went back to waiting without starting the next step's helper, twice in one run."""
+    under = _under_way(engine)
+    if not under or under[3]:
+        return None
+    out = {'gate': under[0], 'prompt': str(engine.dir / ('%s_prompt.json' % under[0]))}
+    if under[0] == 'x3':
+        # The definitions are shared out first: one brief per helper, started all at once.
+        out['first'] = 'PROJECT split --engine-dir %s' % engine.dir.name
+    return out
+
+
+# The step under way, as the line after a quiet spell names it.
+DOING = {'draft': 'Building your context', 'merge': 'Merging duplicate metrics', 'write': 'Adding detailed information'}
+
+
+def quiet_line(engine):
+    """The one line a quiet spell may add, composed here from the same count the task list shows, so the session never
+    writes its own ("Run split now." was a session's own note): the step under way and how far it has got. None between
+    steps, when there is nothing under way to name."""
+    under = _under_way(engine)
+    if not under:
+        return None
+    doing = DOING.get(ROW_OF.get(under[0]))
+    if not doing:
+        return None
+    if under[0] == 'x2':
+        return doing + '.'
+    # The count only: a time left grows while nothing lands, so the same count would come back with a worse estimate.
+    # Nothing done yet is nothing to report ("finding metrics: 0 metrics in 0 of 2 questions").
+    if not under[3]:
+        return None
+    live = _live(engine, under, with_left=False)
+    return '%s%s %s.' % (doing, ',' if ':' in live else ':', live) if live else doing + '.'
 
 
 def task_list(root, engine_dir=None):
@@ -193,7 +311,13 @@ def task_list(root, engine_dir=None):
     for r in rows:
         content = r['content']
         if under and r['status'] == 'in_progress' and r.get('id') == ROW_OF[under[0]]:
-            content = '%s · %s' % (SHORT.get(r['id'], content.split(' (about')[0]), _live(engine, under))
+            live = _live(engine, under)
+            content = '%s · %s' % (SHORT.get(r['id'], content.split(' (about')[0]), live) if live else content
+        elif under and r['status'] == 'in_progress' and r.get('id') == 'history':
+            # The past queries' build runs every step again under one item: it counts as it goes (a walkthrough's
+            # list sat on "Add past queries" for 14 minutes with no count, 2026-11-23).
+            live = _live(engine, under)
+            content = 'Add past queries · ' + live if live else content
         out.append({'content': content, 'status': r['status']})
     return out
 
@@ -203,17 +327,44 @@ WAITED = {
              "batch. Set your task list to `task_list`, each step's "
              "text and status as given (load the task-list tool first if it is deferred), in the same message as your "
              "next `PROJECT drafts --wait`, so the turn goes on.",
-    'step': "Add no words of your own, not even the next step's start: run `visual next` with the flags of every `visual` "
+    'step': "Add no words of your own beyond what `visual next` gives: run it with the flags of every `visual` "
             "call now (it is quick) and show what it gives in the same message that starts the next step's subagent, "
-            "if its gate result asks for one, in this same turn.",
+            "if its gate result asks for one, in this same turn. When `start` names a step, its prompt is written and "
+            "nothing answers it yet: start that step's subagent on `start.prompt` in that same message unless one is "
+            "working on it (when `start.first` is given, run it first "
+            "and start one subagent per share it gives), never just wait. "
+            "Only a step that no chip names gets a start line, the one its flow's file gives. Then run `PROJECT drafts "
+            "--wait` again in that same message, whether or not a step started: never end the turn while the build runs.",
     'due': "Add no words of your own: something is ready to show, and no step has ended. Run `visual next` with the "
            "flags of every `visual` call now and do what it says, then run `PROJECT drafts --wait` again.",
     'ready': "Add no words of your own: every share of the definitions is back. Run `ENGINE advance` once, send each "
              "refused card to the subagent whose share holds its task number, then run `PROJECT drafts --wait` again.",
-    'quiet': "Add no words of your own: nothing new for a while. Check that each subagent is working, then run "
+    'answered': "Add no words of your own: every answer this step asked for is saved, and the build waits on nobody "
+                "but you. Run `ENGINE advance` once now, without waiting for the step's subagent to report, then run "
+                "`PROJECT drafts --wait` again.",
+    'quiet': "Nothing new has reached the screen for about 3 minutes. Check that each subagent is working; when `start` "
+             "names a step, nothing has saved an answer to it: start its subagent on `start.prompt` now unless one is "
+             "working on it. When `say` "
+             "is given, write it word for word as your only words; when it is null, write nothing. Then run "
              "`PROJECT drafts --wait` again.",
-    'done': "Add no words of your own until the build's card: export the build into the run and run `PROJECT check` for "
-            "the structural pass, as build and check says, then draw the build's card before any question.",
+    'done': "Add no words of your own: export the build into the run and run `PROJECT check` for the structural pass, "
+            "as build and check says, then draw the build's card, `PROJECT visual build --widget` where you have "
+            "`show_widget`, before any question: it closes the build.",
+    'closed': "Add no words of your own and do not wait again: the build is done and already closed out (its check has "
+              "run). Carry on with what the person asked last.",
+    'again': "Add no words of your own: the wait timed out while new things were showing. Run `PROJECT drafts --wait` again.",
+}
+
+
+# A step's end and a moment due, when the event carries what the run reached in `show_first`.
+SHOWN = {
+    'step': "Show `show_first` first, before any words or call, as its `side view` lines say: the chip names the step "
+            "that starts, so add no words of your own. When `start` names a step, its prompt is written and nothing "
+            "answers it yet: start that step's subagent on `start.prompt` in that same message unless one is working on "
+            "it (when `start.first` is given, run it first and start one subagent per share it gives). Then run `PROJECT "
+            "drafts --wait` again in that same message: never end the turn while the build runs.",
+    'due': "Show `show_first` first, before any words or call, as its `side view` lines say, then run `PROJECT drafts "
+           "--wait` again in that same message.",
 }
 
 
@@ -226,37 +377,111 @@ def _all_back(engine):
     c = _define(engine, under[3])
     if not c['total'] or c['defined'] < c['total']:
         return None
+    # A refusal sends cards back for repair: until the files that hold them are written again, the shares are not back.
+    # A live run was told "every share is back" for the files it had just advanced on, and ended its turn mid-build.
+    repair = engine.dir / 'x3_repair.json'
+    if repair.is_file():
+        since = repair.stat().st_mtime_ns
+        names = {str(t.get('name', '')).strip().lower() for t in engine.json(repair).get('tasks') or [] if isinstance(t, dict)}
+        refused = [f for f in under[3] if names & {str(card.get('name', '')).strip().lower()
+                                                   for card in engine.rows(f, 'metrics') if isinstance(card, dict)}]
+        if any(f.stat().st_mtime_ns <= since for f in refused) or all(f.stat().st_mtime_ns <= since for f in under[3]):
+            return None
     return [len(under[3]), max(f.stat().st_mtime_ns for f in under[3])]
 
 
-def wait(root, engine_dir=None, timeout=540, quiet=240, interval=2.0, out=None, batch_every=BATCH_SECONDS):
+def _closed_out(root):
+    """Whether the build's close-out has run: `PROJECT check` has passed it on to the check stage or beyond."""
+    import progress
+    try:
+        state = json.loads((Path(root) / 'progress.json').read_text())
+    except (OSError, ValueError):
+        return False
+    stage = state.get('stage') if isinstance(state, dict) else None
+    if stage not in progress.STAGES:
+        return False
+    after = progress.STAGES.index(stage) > progress.STAGES.index('check')
+    return after or (stage == 'check' and str(state.get('status', '')).startswith('complete'))
+
+
+def wait(root, engine_dir=None, timeout=540, quiet=180, interval=2.0, out=None, batch_every=BATCH_SECONDS):
     """Wait in the foreground until the build has something to act on, print it as one JSON line and return, so the
     session acts on it and waits again in the same turn: a turn that ends without words is sent back for them, while a
     turn that keeps going is not. It reports a step's end once, every share of the definitions back once per set of
-    files, the task list at most every `batch_every` seconds where the session keeps one, and a quiet spell after `quiet`
-    seconds with nothing new or at `timeout`, which a host keeps under its own limit for a foreground command."""
+    files, the task list at most every `batch_every` seconds where the session keeps one, a quiet spell after `quiet`
+    seconds with nothing new, counted across calls, and `again` at `timeout`, which a host keeps under its own limit for
+    a foreground command."""
     import sys
     import time
     out = out or sys.stdout
     engine = _Engine(root, engine_dir)
-    start = last = time.monotonic()
-    seen_now = None
+    start = time.monotonic()
 
     def say(event, **extra):
-        print(json.dumps({'event': event, **extra, 'next': WAITED[event]}, ensure_ascii=False), file=out, flush=True)
+        # Anything shown starts the quiet spell afresh; a timeout shows nothing, so the spell runs on into the next call.
+        if event != 'again':
+            _save_record(engine, dict(_load_record(engine), quiet_from=time.time()))
+        # Every result carries the list as the run's files now have it, where the session keeps one: the side page reads
+        # those files live, and a list moved only by some events sat at "3 of 4" beside a page showing all 4 defined.
+        nxt = WAITED[event]
+        if event in SHOWN:
+            # The moment comes whole with the event: told to run `visual next`, the dry run's session never did.
+            import side_view
+            try:
+                shown = side_view.show_due(root, engine_dir)
+            except Exception:  # noqa: BLE001 - the event still goes out; the moment stays due for the next one
+                shown = ''
+            if shown:
+                extra['show_first'], nxt = shown, SHOWN[event]
+        if 'task_list' not in extra:
+            import visuals
+            if visuals.keeps_tasks(root):
+                try:
+                    extra['task_list'] = task_list(root, engine_dir)
+                    nxt += ' Set your task list to `task_list` in the same message.'
+                except Exception:  # noqa: BLE001 - the event still goes out; the list catches up at the next one
+                    pass
+        print(json.dumps({'event': event, **extra, 'next': nxt}, ensure_ascii=False), file=out, flush=True)
 
     while True:
-        record = engine.json(engine.root / REPORTED)
+        import side_view
+        try:
+            side_view.mark_waiting(root)
+        except OSError:  # the wait goes on; the engine may then hand a chip over itself
+            pass
+        record = _load_record(engine)
         done = set(record.get('steps') if isinstance(record.get('steps'), list) else [])
         stages = engine.json(engine.dir / 'manifest.json').get('stages') or []
         accepted = {s.get('stage') for s in stages if isinstance(s, dict) and s.get('verdict') == 'ok'}
-        for stage in WAKES:
-            if stage in accepted and stage not in done:
-                _save_record(engine, dict(record, steps=sorted(done | {stage})))
-                return say('step')
+        named_order = [s.get('stage') for s in stages if isinstance(s, dict)]
+        # With the descriptions written last, their step ends just before the build does: `done` says it.
+        late = 'm2_emit' in named_order[:named_order.index('x1_emit')] if 'x1_emit' in named_order else False
         # The links step comes after the definitions: the build is done once it has a verdict, kept or skipped.
-        if 'x3_ingest' in accepted and any(isinstance(s, dict) and s.get('stage') == 'x4_ingest' and s.get('verdict') for s in stages):
-            return say('done')
+        # With the descriptions written last (the engine's default), the build ends after they are taken in and the
+        # cards refreshed from them: a walkthrough was told "done" while the descriptions were still refused (2026-11-23).
+        named = {s.get('stage'): s.get('verdict') for s in stages if isinstance(s, dict)}
+        prose_in = 'm2_emit' not in named or 'm2_ingest' in accepted
+        refreshed = 'x3_refresh' not in named or bool(named.get('x4_refresh'))
+        if ('x3_ingest' in accepted and named.get('x4_ingest') and prose_in and refreshed):
+            # Checked before the step ends: a session that waits only once the build has ended was handed each old
+            # step end, one per call, and `visual next` had nothing to show for any of them (e2e box-office, 2026-11-25).
+            # Done once its close-out has run is a different answer: told `done` again, a session that had already
+            # checked the build, saved it and taken a question would draw the build card and check it again.
+            return say('closed' if _closed_out(root) else 'done')
+        for stage in WAKES:
+            if late and stage == 'm2_ingest':
+                continue
+            if stage in accepted and stage not in done:
+                # A step named to start is named once: three step ends between waits each named the same next step, so
+                # a session started three helpers for it. A quiet spell names it again, with its guard.
+                begin = _to_start(engine)
+                started = set(record.get('started') if isinstance(record.get('started'), list) else [])
+                if begin and begin['gate'] in started:
+                    begin = None
+                # A step's end starts the quiet line's memory afresh: a step run again may say its count again.
+                _save_record(engine, dict(record, steps=sorted(done | {stage}), said=None,
+                                          started=sorted(started | ({begin['gate']} if begin else set()))))
+                return say('step', start=begin)
         # A chip that comes due without a step end this session sees (the dashboard flow's helpers advance every step),
         # and the side page once there is something on it: each named once.
         import side_view
@@ -267,19 +492,39 @@ def wait(root, engine_dir=None, timeout=540, quiet=240, interval=2.0, out=None, 
         if due:
             _save_record(engine, dict(record, told=sorted(set(record.get('told') or []) | set(due))))
             return say('due')
+        whole = _answered(engine)
+        if whole and whole not in (record.get('answered') or []):
+            _save_record(engine, dict(record, answered=sorted(set(record.get('answered') or []) | {whole})))
+            return say('answered', gate=whole)
         back = _all_back(engine)
         if back and back != record.get('ready'):
             _save_record(engine, dict(record, ready=back))
             return say('ready')
+        # Quiet is measured across calls: a host whose foreground limit is shorter than the spell timed out on every
+        # call, so a stalled helper was never noticed and the next step's helper never named.
         now = sum(len(_saved(engine, gate)) for gate, _, _ in GATES)
-        if now != seen_now:
-            seen_now, last = now, time.monotonic()
+        if now != record.get('seen') or not isinstance(record.get('quiet_from'), (int, float)):
+            record = dict(record, seen=now, quiet_from=time.time())
+            _save_record(engine, record)
         import visuals
         moved = record.get('waited_at') if isinstance(record.get('waited_at'), (int, float)) else 0
-        if (now != record.get('waited') and time.time() - moved >= batch_every and _under_way(engine)
+        # A new batch moves the list; a step that has only started (its prompt written, nothing saved) does not.
+        under = _under_way(engine)
+        if (now != record.get('waited') and time.time() - moved >= batch_every and under and under[3]
                 and visuals.keeps_tasks(root)):
             _save_record(engine, dict(record, waited=now, waited_at=time.time()))
             return say('batch', task_list=task_list(root, engine_dir))
-        if time.monotonic() - start >= timeout or time.monotonic() - last >= quiet:
-            return say('quiet')
+        if time.time() - record['quiet_from'] >= quiet:
+            # Where a live task list and side page show the count, a printed line only repeats them and then goes stale
+            # in the chat as they move on: the line is for a host with no task list, whose chat is the only progress.
+            import visuals
+            line = None if visuals.keeps_tasks(root) else quiet_line(engine)
+            if line and line == record.get('said'):
+                line = None
+            if line:
+                _save_record(engine, dict(record, said=line))
+            return say('quiet', say=line, start=_to_start(engine))
+        if time.monotonic() - start >= timeout:
+            # A timeout while things still move is not a quiet spell: no line for the person.
+            return say('again')
         time.sleep(interval)

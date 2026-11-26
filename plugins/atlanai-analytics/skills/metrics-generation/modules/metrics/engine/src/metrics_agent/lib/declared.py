@@ -2,7 +2,7 @@
 # Copyright 2026 Atlan Pte. Ltd.
 """What a declared BI model says about each of its metrics, in the shape a metric card uses.
 
-PROVENANCE. Written for this repo; not ported. Design: `docs/design/declared-models-contract.md`.
+PROVENANCE. Written for this repo; not ported. Design: `docs/metrics-engine/design/declared-models-contract.md`.
 
 A governed model (a Snowflake semantic view is the first) declares, for every metric, its
 formula, the dimensions it can be cut by, the relationships that reach them, the key of every

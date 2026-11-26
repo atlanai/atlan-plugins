@@ -5,6 +5,8 @@ description: "X2 : merge metric proposals into one metric per thing the business
 
 # Merge metrics (X2)
 
+When a statement's `question` and `description` are null (its prose is written later in this run), read [reading a statement without a description](../references/reading-without-prose.md) first and work out what each statement answers from its `facts`, one statement at a time.
+
 Before this task, read and apply the shared [metric consistency guidance](../references/metric-consistency.md).
 
 Input: `$RUN/x2_prompt.json`. Output: JSON handed to `x2_merge.py --from <file>`.
@@ -116,7 +118,12 @@ They are TWO metrics when the difference is:
 * **what the number is FOR** : read `why_a_metric`. A base used as a denominator and a book
   size used to balance workload are different metrics that happen to count the same rows;
 * **a restriction that is part of the identity** : "customer accounts" and "accounts" are two
-  metrics, not one with an optional filter, when the name and the meaning turn on it.
+  metrics, not one with an optional filter, when the name and the meaning turn on it;
+* **how records are linked** : two statements that count the same event but tie it to an
+  account or a person differently (a different join, an extra match path such as email OR
+  website domain, a different exclusion) count different populations. Keep them apart, or,
+  when one link contains the other, keep the wider one whole. Never drop a match path to make
+  two statements fit one card.
 
 ## A declared metric is its own metric
 
@@ -217,8 +224,26 @@ then these are two metrics rather than one.
 **Optional** : a knob. Carry `from` so a reader can see which statement wanted it, and so
 somebody re-running that statement's number knows what to set.
 
-**Neither** : hygiene. Soft-delete guards, loader soft-delete flags (such as `_deleted`), and joins-as-filters that every
-query in the estate carries. Leave them out entirely; they are noise in a knob list.
+**Soft-delete guards are mandatory.** `IS_DELETED = FALSE`, a loader `_deleted` flag: a deleted record
+belongs to no business population. When any source applies the guard, it is mandatory on the merged
+metric, and a source that omits it is the same metric that forgot it, not a second metric: merge it,
+keep the guard mandatory, and name that source in `merge_reasoning`. Never make it optional.
+The same holds for any clean-up guard a source applies: a date no later than today, a key that
+is not null, test or internal records left out. It removes rows that should not exist, so it is
+mandatory, never a knob.
+
+**Neither** : hygiene. Joins-as-filters that every query in the estate carries. Leave them out
+entirely; they are noise in a knob list.
+
+## A filter that cannot change the number makes no new metric
+
+Before keeping two proposals apart because one carries an extra filter, ask whether that
+filter can change the result at all. It cannot when it only keeps rows the aggregate already
+ignores: `AVG(score)` or `COUNT(score)` with `score IS NOT NULL`, or with a completeness flag
+that is set exactly when the measured column is filled in (scored when there is a score). Then
+the two proposals are the same metric: merge them, drop the filter, and say why in
+`merge_reasoning`. When you cannot tell from the SQL whether the flag and the column move
+together, keep them apart and say so.
 
 ## When mandatory filters genuinely disagree
 

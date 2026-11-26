@@ -1,4 +1,4 @@
-"""Publication eligibility from structured engine checks, without Registry I/O.
+"""Publication eligibility from structured engine checks, without Atlan Trident I/O.
 
 The common engine owns review matching, including stale SQL findings. The adapter consumes
 its effective C4 verdicts; prose, labels and missing warehouse access cannot create a hold.
@@ -27,10 +27,10 @@ def review_holds(queries, report):
     by_id = {q['vq_id']: q for q in queries['objects']}
     if report is None:
         if any((q.get('provenance') or {}).get('lane') in ('bi', 'merged') for q in by_id.values()):
-            raise ValueError('BI publication requires the completed compiler-review gate report.')
+            raise ValueError('Dashboard metrics can\'t be saved until each tile\'s SQL is checked.')
         return {}
     if report.get('stage') != 'c4_gates' or report.get('clean') is not True:
-        raise ValueError('Publication requires a clean C4 gate report.')
+        raise ValueError('These metrics can\'t be saved until every check finishes cleanly.')
     held = {}
     for check in report['checks']:
         if check['gate'] != 'compiler_review' or check['status'] == 'pass':
@@ -45,10 +45,10 @@ def review_holds(queries, report):
 def validate(document):
     """Standard-library validation of the publication-holds schema for host preflights."""
     if not isinstance(document, dict) or set(document) != {'format', 'checks', 'outputs', 'metrics', 'queries'} or type(document['format']) is not int or document['format'] != 2:
-        raise ValueError('Re-export with the current plugin: publication eligibility evidence is outdated or invalid.')
+        raise ValueError('These metrics were built with an older plugin version. Rebuild them to save.')
     if (document.get('checks') != CHECKS
             or any(type(v) is not int for v in (document.get('checks') or {}).values())):
-        raise ValueError('Re-export with the current plugin to apply all required eligibility checks.')
+        raise ValueError('These metrics were built before some checks existed. Rebuild them to save.')
     outputs = document['outputs']
     if not isinstance(outputs, dict) or not outputs or any(not isinstance(k, str) or not isinstance(v, str)
                                                           or not _HASH.fullmatch(v) for k, v in outputs.items()):
@@ -97,10 +97,10 @@ def enforce_context(context, metrics=None, queries=None, links=None):
     if source.get('module') != 'metrics' and not path.exists():
         return None
     if source.get('module') != 'metrics' or not path.is_file() or not source.get('publication_holds_sha256'):
-        raise ValueError('Re-export the completed metrics run with structured publication holds.')
+        raise ValueError('These metrics were built with an older plugin version. Rebuild them to save.')
     document = validate(_read(path))
     if identity(document) != source['publication_holds_sha256'] or document['outputs'] != source.get('outputs'):
-        raise ValueError('Publication hold evidence changed; re-export into a new context.')
+        raise ValueError('The list of held-back items changed after the build. Rebuild before saving.')
     metrics = _read(root / 'metrics.json') if metrics is None else metrics
     queries = _read(root / 'queries.json') if queries is None else queries
     links = _read(root / 'links.json') if links is None else links
@@ -125,15 +125,16 @@ def enforce_context(context, metrics=None, queries=None, links=None):
             original_id = (evidence.get('card') or {}).get('source_id')
             if kind == 'metrics' and any(isinstance(target, str) and target in metric_targets
                                          for target in definition.get('depends_on') or []):
-                raise ValueError('A publication metric depends on a held artifact.')
+                raise ValueError('A metric in this save uses a held-back metric, so the save stopped.')
             if (body.get('source_id') in ids or original_id in ids or body.get('name') in names
                     or evidence.get('vq_id') in qids
                     or (kind == 'queries' and sql_identity(definition.get('sql') or '') in sqls)):
-                raise ValueError('A held artifact was reintroduced into the publication context.')
+                raise ValueError('A held-back item was added back into this save, so the save stopped. '
+                                 'To fix it, tell me here and I\'ll rebuild it.')
     held_ends = {('metric', r['name']) for r in document['metrics']} | {('sql_query', r['name']) for r in document['queries']}
     if any(not isinstance(link.get(end, {}), dict) for link in links for end in ('from', 'to')):
         raise ValueError('Publication link endpoints must be objects.')
     if any((link.get(end, {}).get('kind'), link.get(end, {}).get('name')) in held_ends
            for link in links for end in ('from', 'to')):
-        raise ValueError('A publication link points to a held artifact.')
+        raise ValueError('A link in this save points to a held-back item, so the save stopped.')
     return document

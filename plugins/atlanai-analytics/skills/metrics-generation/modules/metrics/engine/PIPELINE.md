@@ -25,6 +25,19 @@ metric judgments are authored.
 - X3: author complete metric cards and validate their execution fields.
 - X4: relate metrics, recording what each component contributes and where populations differ.
 
+By default the prose comes last, so metrics appear sooner. C3 writes a structural draft
+instead of pausing, and M2's prompt goes out before X1 and is answered beside the metric gates;
+its answers are ingested after X4, and the cards then take their example questions from the
+described layer. X1 to X3 read facts computed from the SQL instead of prose: what each output
+column computes (through subqueries and CTEs), which columns are forced empty, every restriction,
+and the dashboard's own words. X1 refuses one reason given to more than five statements.
+
+Two operator switches restore the earlier order, with M2 before X1 as listed above:
+
+- `METRICS_AGENT_DESCRIBE_AT=start` runs M2 before X1, and X1 to X3 read its prose.
+- `METRICS_AGENT_BI_DRAFT=model` keeps the prose last but has C3 pause for authored dashboard
+  questions.
+
 The runner writes a prompt bundle and pauses with exit 3. The operator's assistant reads the
 corresponding skill, authors an answer, then resumes the runner. No engine stage calls a model
 API. Refused answers return through the same validators. Compiler and card repair loops are
@@ -34,7 +47,7 @@ bounded, refuse regressions and retain accepted outputs.
 
 The plugin selects publish: [files] and no observers. The validated bundle contains verified
 queries, metric cards and metric relationships. It stays on disk. The Analytics adapter
-projects that common bundle into the existing publication contract. Registry authentication,
+projects that common bundle into the existing publication contract. Atlan Trident authentication,
 publication, reconciliation and releases remain outside this engine.
 
 ## Quality and access
@@ -51,5 +64,5 @@ flowchart LR
     C --> D["Authored gates"]
     D --> E["Validated metric layer"]
     E --> F["Analytics export"]
-    F --> G["Existing Registry publisher"]
+    F --> G["Existing Trident publisher"]
 ```

@@ -456,6 +456,13 @@
                 "string",
                 "null"
               ]
+            },
+            "scope_match": {
+              "enum": [
+                "any",
+                "all"
+              ],
+              "description": "How H0 binds a query to the bounded tables: run.yml `history_scope` when set, else the policy's querylog.scope.match."
             }
           }
         },

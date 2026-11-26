@@ -9,16 +9,18 @@ native chat. No additional MCP server is installed.
    source URL, title and identity.
    - **Power BI link: the `powerbi-fabric` plug first.** It is the only route that brings
      the report and its semantic model together, so metrics stay tied to the visuals.
-     Set the report URL in `targets` with `with_model: true`, and sign in as the person.
+     One command, `ENGINE powerbi-report`, sets up the runtime's `powerbi` feature when
+     missing, writes the settings (the report URL in `targets`, `with_model: true`), prepares,
+     signs in as the person and fetches. Run it as a background command, then wait for it in the
+     same turn, never in a terminal tab: see [the metrics module](metrics-engine.md#power-bi-from-a-report-link).
      The plug signs in through their own browser (authorization code with PKCE: single
      sign-on, nothing to copy) where one can open on this machine, and by device code where
-     none can, such as an SSH or cloud session; `sign_in` overrides it. A token or service principal already set in the environment is
+     none can, such as an SSH or cloud session; `--sign-in` overrides it. A token or service principal already set in the environment is
      used without either.
-     Setting up the runtime's `powerbi` feature for this is part of the procedure, not an
-     extra install. See [the metrics module](metrics-engine.md) for the run.
-   - **Browser capture: the fallback** when the plug cannot run (no terminal for the
-     sign-in, both sign-ins refused by the tenant) or is refused (a Viewer role, which only
-     downloads). Follow [Power BI capture](dashboard/powerbi-capture.md). A browser route
+   - **Browser capture: the fallback** when the plug cannot run (a session with no shell to
+     run the command in, or both sign-ins refused by the tenant) or is refused (a Viewer role,
+     which only downloads). No browser on this machine is not a reason: the plug uses a device
+     code. Follow [Power BI capture](dashboard/powerbi-capture.md). A browser route
      brings the report or the model, rarely both; name what is missing.
    - **Tableau link: the browser first.** The person needs no token. Through their signed-in
      browser, download the workbook (**Download > Tableau Workbook**) and every published data
@@ -44,14 +46,15 @@ native chat. No additional MCP server is installed.
    selected history inputs, keeping original filters, security scope and source refresh
    evidence. The original reader/compiler produces SQL, and the assistant answers the
    original reviewed gates. Unsupported constructs remain named gaps. The module exports
-   the existing context files; it makes no Registry calls.
+   the existing context files; it makes no Atlan Trident calls.
 4. **Check dashboard parity independently.** When exact source values are reachable, compare
    them against the generated SQL for the same filter, security and snapshot scope. Use
    `ENGINE parity-plan` and the private evidence contract in the metrics-module reference,
    then `ENGINE export --parity` to apply the existing result comparator. Store the query,
    both results and scope under the private engine run's `parity/`, separate from context.
    Missing references or different snapshots are unmeasured, not failed accuracy. Show
-   passed/compared and unmeasured counts. The engine's SQL witness is a separate check.
+   "<passed> of <compared> match your dashboard's numbers. <N> couldn't be compared with it
+   yet." The engine's SQL witness is a separate check.
    A genuine mismatch must be corrected or the metric held before saving; never relabel
    it as a snapshot gap. Do not feed reference result values into authored definitions.
 5. **Publish.** Continue at metrics workflow section 4 and its existing publication contract.

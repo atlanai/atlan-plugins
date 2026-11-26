@@ -114,7 +114,7 @@ class ModelOnlyScope(unittest.TestCase):
             (estate / 'definition/tables').mkdir(parents=True)
             (estate / 'definition/tables/orders.tmdl').write_text(
                 'table orders\n\tmeasure Total = SUM ( orders[amount] )\n')
-            run = Project(estate / '.atlan-metrics' / 'example')
+            run = Project(estate / '.atlan-analytics' / 'example')
             survey = run.survey(estate)
             source = next(s for s in survey['sources'] if s['path'].endswith('.tmdl'))
             self.assertNotEqual(source['kind'], 'powerbi')
@@ -228,7 +228,7 @@ class ProofLinkOrganizations(unittest.TestCase):
             return subprocess.CompletedProcess(argv, 1, stdout='private body',
                                                stderr='atlanai: hidden (HTTP 404, not_found)')
         with patch.object(links.subprocess, 'run', side_effect=run):
-            with self.assertRaisesRegex(ValueError, "organization 'first'.*second") as caught:
+            with self.assertRaisesRegex(ValueError, "signed in to 'first'.*second") as caught:
                 links.resolve_link('https://api.atlan.com', 'https://app.atlan.com', 'metric',
                                    'metric_x', 'workspace_y')
         self.assertNotIn('private', str(caught.exception))

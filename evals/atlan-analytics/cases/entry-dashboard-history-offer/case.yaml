@@ -1,0 +1,42 @@
+schema_version: "1.1"
+name: entry-dashboard-history-offer
+tags: [analytics, build, entry, dashboard]
+execution:
+  prompt: |
+    Use Atlan Analytics to continue making my dashboard agentic.
+    Read plugin instructions only in this test; do not execute commands or contact services. The host exposes no native question tool in this test, so use ordinary chat.
+    The person picked "Make my dashboard agentic", the Power BI report "Account Research" and all
+    of its pages. The readiness check found every tile buildable, the 5 tables readable on
+    Snowflake, and past queries on those tables readable. Treat the build and the checks against
+    the dashboard as just finished, with this result: 19 metrics and 19 queries, all built from
+    the dashboard, all ran on Snowflake. The build's card has been drawn. Nothing has been saved
+    and no question has been asked since the checks.
+    Show the next user-facing step.
+    Don't mention this test's limits in your reply.
+  max_turns: 16
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: loads-build
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?analytics-build"'
+    min: 1
+  - name: reads-dashboard-flow
+    type: tool_used
+    tool: Read
+    input_match: 'references/setup/dashboard-flow\.md'
+    min: 1
+  - name: no-shell
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: offers-past-queries
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the reply says what the dashboard build made (19 metrics and 19 queries), asks
+      whether to add the past queries on the dashboard's tables before saving, with choices that
+      mean adding them or saving the dashboard's metrics only, and stops. FAIL if it says how
+      long adding them takes, goes straight to the save question, says past queries were already
+      used or added, asks more than this one question, or claims anything was saved.

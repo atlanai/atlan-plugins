@@ -11,7 +11,7 @@ answer; broader team preparation follows only within the requested scope. Existi
 retrieval and execution requirements still apply.
 
 After intent, check connection readiness once when the requested outcome includes team reuse
-or saving in Atlan. Use a current-host `registry__list_workspaces` read and record success with
+or saving in Atlan Trident. Use a current-host `registry__list_workspaces` read and record success with
 `PROJECT auth` `record_read` as [connection recovery](../auth-recovery.md) describes. A failed
 read starts that host's recovery while independent local work continues. Do not mark the
 workspace-listing task done until a read succeeds, and do not retry it at every authoring gate.
@@ -60,7 +60,7 @@ shows the progress. Review the collection after its checks, using
 
 Run `PROJECT check` for local structural validation. It requires no workspace and reports
 `schema_checked`, not certification or execution. Use `PROJECT check-query "<request.json>"`
-with a candidate `name` and separate `parameters` to execute exact saved SQL on the bound SQLite or DuckDB file. Checks
+with a candidate `name` and separate `parameters` to execute a saved query's exact SQL on the bound SQLite or DuckDB file. Checks
 for metrics use `PROJECT check-metric` with `name`, `example_index` (zero-based) and parameters.
 It executes that exact authored SQL example and the calculation composed from the card's
 formula, source and mandatory filters, including an empty-population probe. Its `rows` are the
@@ -70,7 +70,8 @@ read-only validation, table scope, parameter bindings, schema check and separate
 The evidence records example and composition separately. Neither establishes source equivalence or dashboard parity; compare
 the source calculation and relevant edge cases separately.
 Run `check-query` on every saved query and `check-metric` on every metric: a query left at
-`schema_checked` has not run. Their request files are `{"name": "<query>", "parameters": {}}`
+`schema_checked` has not run. On local data, `PROJECT check-all` runs them all in one call and names each that failed; run
+it, never a script of your own around the single checks. Their request files are `{"name": "<query>", "parameters": {}}`
 and `{"name": "<metric>", "example_index": 0, "parameters": {}}`.
 For a metric with no dimensions, the check looks for a second row and holds the metric if it
 finds one. For a trusted reference for the same filters and period, include `expected_value`
@@ -92,8 +93,8 @@ candidate files and clear publication receipts; re-author/reconcile before conti
 **Compare with the source, for every metric that has one.** A metric that came from a report
 tile is compared with that tile's own statement, run on the same warehouse and the same
 filters, not only the representative one. Record each as matching, or as a difference with
-its size and the reason, and show the count in the review ("9 of 10 match the report, 1
-needs a look"). A difference is news for the person, never something to smooth over. When a
+its size and the reason, and show the count in the review ("9 of 10 match your report; 1
+needs your review"). A difference is news for the person, never something to smooth over. When a
 chat SQL tool is the executor, send the comparisons together where the host allows it.
 
 **Say how much of the population the numbers cover.** When a metric counts only rows that
@@ -101,11 +102,10 @@ carry some value (a score, an owner, a pod), run one statement for how many rows
 put that in the review as a check result: "212 of 292 accounts have no score yet, so the
 tiers cover 80." A gap first seen in a dashboard footer was found too late.
 
-**The whole report is the selection.** Every page the engine reads is in scope, so every
+**The pages picked are the selection.** Every page the engine keeps is in scope, so every
 statement it compiles is part of the collection and is answered at each gate in full. Never
-edit, trim or copy the report file to shrink a run. In [the dashboard branch](dashboard-flow.md)
-the person picks one report and its pages: the build reads that report whole, and the pages set
-what the readiness check inspects and which metrics the review leads with.
+edit, trim or copy the report file to shrink a run: the pages are recorded with `ENGINE pages`,
+as [the dashboard branch](dashboard-flow.md) says, and the engine leaves the rest out.
 
 The engine's X3 whole-card review and later consistency checks own semantic review for the
 full collection. Repair source bindings, descriptions, grain or dimensions in that same run;

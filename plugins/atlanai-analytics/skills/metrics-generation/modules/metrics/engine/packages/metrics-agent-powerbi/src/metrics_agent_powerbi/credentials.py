@@ -57,10 +57,10 @@ class TokenProvider:
                         {'grant_type': 'refresh_token', 'client_id': self.args.client_id,
                          'refresh_token': self.refresh_token, 'scope': self.args.scope})
                     if status != 200 or 'access_token' not in payload:
-                        raise self.x.AuthError('Power BI token renewal was refused; repeat sign-in')
+                        raise self.x.AuthError('Power BI refused to renew your sign-in. Sign in again.')
                     self._remember(payload)
                 elif force:
-                    raise self.x.AuthError('The cached Power BI sign-in cannot renew; repeat sign-in')
+                    raise self.x.AuthError('Your saved Power BI sign-in can\'t be renewed. Sign in again.')
                 else:
                     self.token = self.x.acquire_token(self.args, on_token=self._remember)
                     if not self.expires_at:

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>Atlan Analytics build</title>
+<title>Your agent · Atlan Analytics</title>
 <style>
 /* Design tokens from atlanai/design-system cba0d58 packages/tokens/generated/tokens.json (kit/tokens.css), only those this page uses. */
 :root { --bg-ai-subtle: #f6f5fe; --bg-brand-fill: #0968f6; --bg-brand-fill-hover: #0049b8; --bg-brand-hover: rgb(9 104 246 / 0.08); --bg-brand-muted: #d4e5fe; --bg-brand-subtle: #f5f9ff; --bg-canvas: #f7f7f7; --bg-muted: rgb(0 0 0 / 0.08); --bg-neutral-subtle: rgb(0 0 0 / 0.06); --bg-subtle: rgb(0 0 0 / 0.02); --bg-success-fill: #288034; --bg-success-muted: #e0fae0; --bg-success-subtle: #f6fef6; --bg-surface: #ffffff; --bg-surface-hover: rgb(0 0 0 / 0.06); --bg-surface-selected: rgb(0 0 0 / 0.08); --bg-warning-fill: #ffbd14; --bg-warning-subtle: #fffff5; --border-ai: #ad9efa; --border-card: rgb(0 0 0 / 0.09); --border-control: #e5e5e5; --border-default: #e5e5e5; --border-focus: #0968f6; --border-hover: #cccccc; --border-strong: #8f8f8f; --border-subtle: rgb(0 0 0 / 0.06); --border-warning: #ffe58a; --chart-muted: #adadad; --elevation-1: 0px 1px 2px 0px rgb(0 0 0 / 0.05), inset 0px -1px 0px 0px rgb(0 0 0 / 0.1); --icon-brand: #0968f6; --icon-default: #707070; --icon-disabled: #adadad; --icon-placeholder: #cccccc; --icon-success: #288034; --icon-warning: #855f00; --motion-ease-emphasized: cubic-bezier(0.22, 1, 0.36, 1); --motion-ease-move: cubic-bezier(0.4, 0, 0.2, 1); --ring-brand: rgb(9 104 246 / 0.3); --text-ai: #3b1fc6; --text-brand: #0049b8; --text-brand-hover: #002a69; --text-default: #191919; --text-on-fill: #ffffff; --text-placeholder: #8f8f8f; --text-subtle: #636363; --text-success: #1f6c2a; --text-warning: #855f00; color-scheme: light; }
@@ -162,6 +162,7 @@ button.sech { cursor: pointer; }
 /* Two lines on a phone, where a row's value and state leave its description little room (as Studio's lists). */
 @media (max-width: 520px) { .row .pw.ell { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; } }
 .row .v { font-size: 13px; color: var(--text-default); white-space: nowrap; }
+.row .tn { min-width: 18px; font-size: 12px; color: var(--text-subtle); align-self: flex-start; padding-top: 1px; }
 .row.nw, .row.fl { animation: land 1.8s ease-out; }
 @keyframes land { 0%, 40% { box-shadow: inset 0 0 0 2px var(--ring-brand), inset 0 0 0 100vmax var(--bg-brand-subtle); } to { box-shadow: inset 0 0 0 2px transparent, inset 0 0 0 100vmax transparent; } }
 .cant { display: flex; gap: 10px; padding: 8px; align-items: flex-start; }
@@ -224,6 +225,7 @@ button.sech { cursor: pointer; }
 @media (max-width: 420px) { .pstrip { grid-template-columns: minmax(0, 1fr); } }
 .pcell { display: grid; gap: 2px; align-content: start; background: var(--bg-surface); padding: 12px 14px; min-width: 0; }
 .pcell .pcl, .pcell .pcs { font-size: 12px; line-height: 16px; color: var(--text-subtle); overflow-wrap: anywhere; }
+.pcell .pcs .lnk { display: block; margin-top: 4px; }
 .pcell .pcv { font-size: 14px; line-height: 20px; font-weight: 500; overflow-wrap: anywhere; }
 .pcell .pcv .rel { font-weight: 500; }
 .pdsc { font-size: 14px; line-height: 22px; margin: 16px 0 6px; overflow-wrap: anywhere; color: var(--text-default); }
@@ -332,24 +334,28 @@ const findDraft = (S, id) => draftsOf(S).find(d => txt(d.id) === txt(id)) || nul
 /* What a screen reader hears as the page changes: the output, never the step. */
 function outputLabel(S) {
   const ms = metricsOf(S), done = ms.filter(m => stateOf(m) === 'checked').length;
-  return ms.length ? pl(ms.length, 'metric') + (done ? ', ' + grp(done) + ' tested' : '') : '';
+  const ts = testsOf(S), right = ts.filter(r => tstateOf(r) === 'right').length;
+  const tests = ts.length ? pl(ts.length, 'test question') + (right ? ', ' + grp(right) + ' right' : '') : '';
+  return [ms.length ? pl(ms.length, 'metric') + (done ? ', ' + grp(done) + ' tested' : '') : '', tests].filter(Boolean).join('; ');
 }
-const STOPPED = {paused: 'The build is paused', blocked: 'The build needs a decision: see the chat', access_needed: 'The build is waiting for access: see the chat'};
+const STOPPED = {paused: 'Paused', blocked: 'Waiting for your answer in the chat', access_needed: 'Waiting for access: see the chat'};
 
-/* A metric's state, in the person's words (2026-11-18): found, defined, tested on the data, or needs a look. Combining
+/* A metric's state, in the person's words (2026-11-18): found, defined, tested on the data, or needs your review. Combining
    duplicates happens to found metrics, so a merged one is still found until it is defined. When the person skips the
-   checks nothing ran, so nothing failed: not tested is a state of its own (the team, 2026-11-19). */
-const STATE = {draft: ['Found', ''], written: ['Defined', ''], untested: ['Not tested', 'idle'], checked: ['Tested', 'ok'], failed: ['Needs a look', 'warn']};
+   checks nothing ran, so nothing failed: not tested is a state of its own (the team, 2026-11-19). One the save held
+   back is left out of the agent, whatever its test said: held back is a state of its own too. */
+const STATE = {draft: ['Found', ''], written: ['Defined', ''], untested: ['Not tested', 'idle'], checked: ['Tested', 'ok'], failed: ['Needs your review', 'warn'], kept: ['Held back', 'warn']};
 const stageOf = m => m.stage === 'draft' || m.stage === 'merged' || m.stage === 'kept' ? m.stage : m.status === 'draft' ? 'draft' : 'final';
 function stateOf(m) {
   const s = stageOf(m);
   if (s === 'draft' || s === 'merged') return 'draft';
-  if (s === 'kept' || m.status === 'look') return 'failed';
+  if (s === 'kept') return 'kept';
+  if (m.status === 'look') return 'failed';
   return m.status === 'checked' ? 'checked' : m.status === 'untested' ? 'untested' : 'written';
 }
 /* A state as Metric Studio marks a release: a hollow ring until it is defined, a quiet dot once
-   defined, a green one once tested, a warning one when it needs a look. */
-const MARK = {draft: 'ring', written: '', untested: 'idle', checked: 'ok', failed: 'warn'};
+   defined, a green one once tested, a warning one when it needs your review or was held back. */
+const MARK = {draft: 'ring', written: '', untested: 'idle', checked: 'ok', failed: 'warn', kept: 'warn'};
 const marker = (label, tone) => `<span class="rel${tone ? ' ' + tone : ''}"><i class="dt"></i>${esc(label)}</span>`;
 const stateMark = m => marker(STATE[stateOf(m)][0], MARK[stateOf(m)]);
 /* In the lists, the design system's StatusBadge: a status leads with its tone's glyph (a tick, a triangle); a state that
@@ -368,11 +374,15 @@ function toolbar(S, UI) {
 }
 function offNote(S) {
   const t = clock(S.updated);
-  return `<div class="card empty">${ic('alert', 's')}<span><b>This page is no longer live.</b> It shows the last update${t ? ', from ' + esc(t) : ''}, and picks up again when the build answers.</span></div>`;
+  return `<div class="card empty">${ic('alert', 's')}<span><b>This page has stopped updating.</b> It shows the last update${t ? ', from ' + esc(t) : ''}, and refreshes on its own when it reconnects.</span></div>`;
 }
 function topBlock(S) {
   const eb = 'Atlan Analytics · ' + (S.flow === 'demo' ? 'demo on made-up data' : 'your data') + (txt(S.firm) ? ' · ' + txt(S.firm) : '');
-  return `<div class="tp"><div class="eb">${esc(eb)}</div><h1 class="tt">${esc(txt(S.title) || 'Analytics setup')}</h1>${txt(S.subtitle) ? `<div class="ts">${esc(S.subtitle)}</div>` : ''}</div>`;
+  // A demo names its agent ("Your job profit agent"); own data names its use case. With nothing to say under it, the
+  // line says what the page holds.
+  const head = txt(S.agent) ? 'Your ' + txt(S.agent) : txt(S.title) || 'Your agent';
+  const sub = txt(S.subtitle) || 'Everything found for your agent so far. Ask it in the chat.';
+  return `<div class="tp"><div class="eb">${esc(eb)}</div><h1 class="tt">${esc(head)}</h1><div class="ts">${esc(sub)}</div></div>`;
 }
 /* The lists */
 function section(key, title, n, open, body, foldable) {
@@ -383,8 +393,8 @@ function section(key, title, n, open, body, foldable) {
 }
 const openOf = (UI, key, def) => UI.tog.has(key) ? !def : def;
 /* What the step under way is working on: its rows say so before they change, so a change is expected, not sudden.
-   By stage: a combined metric is Found, but combining is over for it. */
-const PENDING = {merge: [['draft'], 'being combined'], rules: [['draft', 'merged'], 'being defined']};
+   By stage: a merged metric is Found, but merging is over for it. */
+const PENDING = {merge: [['draft'], 'being merged'], rules: [['draft', 'merged'], 'being defined']};
 function pendingOf(S, s) {
   const p = PENDING[(arr(S.build).find(b => obj(b) && b.state === 'now') || {}).id];
   return p && p[0].includes(s) ? p[1] : '';
@@ -403,7 +413,7 @@ function metricRow(S, UI, m) {
   const s = stateOf(m), sel = lc(UI.metric) === lc(m.name), pend = pendingOf(S, stageOf(m) === 'merged' ? 'merged' : s);
   return `<button type="button" class="row${sel ? ' sel' : ''}${pend ? ' pend' : ''}" data-act="m" data-m="${esc(m.name)}" data-k="m:${esc(m.name)}" data-f="m:${esc(m.name)}" data-s="${s}">`
     + named(m.name, pend, rowSub(m, s)) + (kindTag(m) ? `<span class="ty">${esc(kindTag(m))}</span>` : '')
-    + (s === 'checked' && txt(m.value) ? `<span class="v num" title="Ran on the data">${esc(fixMinus(m.value))}</span>` : '') + stateBadge(m) + '</button>';
+    + (s === 'checked' && txt(m.value) ? `<span class="v num" title="Tested on the data">${esc(fixMinus(m.value))}</span>` : '') + stateBadge(m) + '</button>';
 }
 /* A draft no merge has taken yet is a metric in its first state; a merged one lives inside the metric it became. */
 function draftRow(S, UI, d) {
@@ -415,16 +425,17 @@ function metricsList(S, UI) {
   const ms = metricsOf(S), named = new Set(ms.map(m => lc(m.name)));
   const ds = draftsOf(S).filter(d => !txt(d.into) && !named.has(lc(d.name)));
   const n = ms.length + ds.length;
-  if (!n) return [0, `<div class="card empty">${ic('metric', 's')}<span>Metrics show here as they are found in your dashboard and past queries.</span></div>`];
+  if (!n) return [0, `<div class="card empty">${ic('metric', 's')}<span>Your agent’s metrics appear here as they’re found.</span></div>`];
   const counts = {};
   ms.forEach(m => { const s = stateOf(m); counts[s] = (counts[s] || 0) + 1; });
   if (ds.length) counts.draft = (counts.draft || 0) + ds.length;
   const f = UI.filter && counts[UI.filter] ? UI.filter : 'all';
   // Every state keeps its tab, with its count, so no tab moves as the build fills them; an empty one cannot be picked.
-  const chips = pills('flt', 'Show', [['all', 'All', n], ...Object.keys(STATE).filter(s => s !== 'untested' || counts[s]).map(s => [s, STATE[s][0], counts[s] || 0])], f);
+  // Not tested and held back come only from a choice or a save, so each shows once it has an item.
+  const chips = pills('flt', 'Show', [['all', 'All', n], ...Object.keys(STATE).filter(s => (s !== 'untested' && s !== 'kept') || counts[s]).map(s => [s, STATE[s][0], counts[s] || 0])], f);
   const rows = ms.filter(m => f === 'all' || stateOf(m) === f).map(m => metricRow(S, UI, m))
     .concat(f === 'all' || f === 'draft' ? ds.map(d => draftRow(S, UI, d)) : []);
-  const order = `<div class="lgd">Each metric is found in your sources, then defined: exactly how it’s worked out, then tested on ${esc(dataOf(S))}.</div>`;
+  const order = `<div class="lgd">Each metric is found in your sources, then defined to say exactly how it’s worked out, then tested on ${esc(dataOf(S))}.</div>`;
   return [n, chips + order + `<div class="lst">${rows.join('')}</div>`];
 }
 function cantBlock(S, UI) {
@@ -432,13 +443,13 @@ function cantBlock(S, UI) {
   if (!cs.length) return '';
   const open = openOf(UI, 'cant', false);
   const body = `<div class="card lst">${cs.map(c => `<div class="cant">${ic('alert', 's')}<span class="mm"><span class="nm">${esc(c.tile)}</span><span class="ty">${esc(c.why)}${txt(c.page) ? ' · ' + esc(c.page) : ''}</span></span></div>`).join('')}</div>`;
-  return section('cant', "Tiles that couldn't be built", cs.length, open, body, true);
+  return section('cant', 'Tiles left out', cs.length, open, body, true);
 }
 /* Queries in one order every time, whichever list they come from (the engine's before the checks, the checked
    context's after): dashboard tiles first, then past queries most run first. Each shows its state, like a metric. */
-const qstateOf = q => q.status === 'checked' ? 'checked' : q.status === 'look' || q.status === 'kept' ? 'failed' : q.status === 'untested' ? 'untested' : 'written';
-const QTABS = ['written', 'untested', 'checked', 'failed'];
-const QLABEL = {written: 'Found', untested: 'Not tested', checked: 'Tested', failed: 'Needs a look'};
+const qstateOf = q => q.status === 'checked' ? 'checked' : q.status === 'kept' ? 'kept' : q.status === 'look' ? 'failed' : q.status === 'untested' ? 'untested' : 'written';
+const QTABS = ['written', 'untested', 'checked', 'failed', 'kept'];
+const QLABEL = {written: 'Found', untested: 'Not tested', checked: 'Tested', failed: 'Needs your review', kept: 'Held back'};
 const qsaid = q => txt(q.question) || txt(q.name);
 function queriesList(S, UI) {
   const qs = queriesOf(S).slice().sort((a, b) => (a.kind === 'tile' ? 0 : 1) - (b.kind === 'tile' ? 0 : 1)
@@ -447,23 +458,57 @@ function queriesList(S, UI) {
   const counts = {};
   qs.forEach(q => { const s = qstateOf(q); counts[s] = (counts[s] || 0) + 1; });
   const f = UI.qfilter && counts[UI.qfilter] ? UI.qfilter : 'all';
-  const tabs = pills('qflt', 'Show', [['all', 'All', qs.length], ...QTABS.filter(s => s !== 'untested' || counts[s]).map(s => [s, QLABEL[s], counts[s] || 0])], f);
+  const tabs = pills('qflt', 'Show', [['all', 'All', qs.length], ...QTABS.filter(s => (s !== 'untested' && s !== 'kept') || counts[s]).map(s => [s, QLABEL[s], counts[s] || 0])], f);
   const rows = qs.filter(q => f === 'all' || qstateOf(q) === f).map(q => {
     const s = qstateOf(q), pend = pendingOf(S, s);
-    return `<button type="button" class="row qr${pend ? ' pend' : ''}" data-act="q" data-q="${esc(q.id)}" data-k="q:${esc(q.id)}" data-f="q:${esc(q.id)}" data-s="${s}">${named(qsaid(q), pend, sourceSaid(q) + (q.review === 'read' ? ' · worth a read' : ''), 'cl2')}${s === 'checked' && txt(q.value) ? `<span class="v num">${esc(fixMinus(q.value))}</span>` : ''}${badgeOf(QLABEL[s], STATE[s][1])}</button>`;
+    return `<button type="button" class="row qr${pend ? ' pend' : ''}" data-act="q" data-q="${esc(q.id)}" data-k="q:${esc(q.id)}" data-f="q:${esc(q.id)}" data-s="${s}">${named(qsaid(q), pend, sourceSaid(q) + (q.review === 'read' ? ' · good to know' : ''), 'cl2')}${s === 'checked' && txt(q.value) ? `<span class="v num">${esc(fixMinus(q.value))}</span>` : ''}${badgeOf(QLABEL[s], STATE[s][1])}</button>`;
   });
   return [qs.length, tabs + `<div class="lst">${rows.join('')}</div>`];
 }
-/* Before any metric the page opens on the queries in plain words, until a metric lands or the person picks a list. */
+/* The accuracy check's questions, numbered as the accuracy card in the chat numbers them: each with its known answer,
+   then your agent's answer as it comes back, and its mark once scored. */
+const testsOf = S => obj(S.tests) ? arr(S.tests.rows).filter(r => obj(r) && txt(r.question)) : [];
+const findTest = (S, n) => testsOf(S).find(r => String(r.n) === String(n)) || null;
+const tstateOf = r => !obj(r.agent) ? 'wait' : r.agent.right === true ? 'right' : r.agent.right === false ? 'missed' : 'answered';
+const onlyAgent = r => obj(r.agent) && r.agent.right === true && obj(r.names) && r.names.right === false;
+const TLABEL = {right: ['Right', 'ok'], missed: ['Missed', 'warn'], answered: ['Answered', ''], wait: ['Waiting', 'idle']};
+const tbadge = (S, r) => { const s = tstateOf(r); return badgeOf(s === 'wait' && txt(S.tests.state) === 'ready' ? 'Not tested yet' : TLABEL[s][0], TLABEL[s][1]); };
+const answerOf = p => obj(p) ? txt(p.value) || (txt(p.answer) ? 'Answered without a result' : '') : '';
+function testsList(S, UI) {
+  const ts = testsOf(S);
+  if (!ts.length) return [0, ''];
+  const counts = {right: 0, missed: 0, only: 0};
+  ts.forEach(r => { const s = tstateOf(r); if (s in counts) counts[s] += 1; if (onlyAgent(r)) counts.only += 1; });
+  const keep = r => !UI.tfilter || (UI.tfilter === 'only' ? onlyAgent(r) : tstateOf(r) === UI.tfilter);
+  // Right and missed show once anything is scored; "right only with your agent" once the column-names pass is too.
+  const tabs = counts.right || counts.missed ? pills('tflt', 'Show', [['all', 'All', ts.length], ['right', 'Right', counts.right],
+    ['missed', 'Missed', counts.missed], ...(ts.some(r => obj(r.names) && r.names.right != null) ? [['only', 'Right only with your agent', counts.only]] : [])], UI.tfilter || 'all') : '';
+  const rows = ts.filter(keep).map(r => `<button type="button" class="row tr${String(UI.test) === String(r.n) ? ' sel' : ''}" data-act="t" data-t="${esc(r.n)}" data-k="t:${esc(r.n)}" data-f="t:${esc(r.n)}" data-s="${tstateOf(r)}">`
+    + `<span class="tn num">${esc(r.n)}</span>${named(r.question, '', (txt(r.known) ? 'Known: ' + txt(r.known) : 'Known answer worked out when tested') + (answerOf(r.agent) ? ' · Your agent: ' + answerOf(r.agent) : ''), 'cl2')}${tbadge(S, r)}</button>`);
+  const order = '<div class="lgd">Each known answer comes from your dashboard or a past query. Your agent answers every question from a clean start, and so does one with column names only.</div>';
+  return [ts.length, tabs + order + `<div class="lst">${rows.join('')}</div>`];
+}
+/* Before any metric the page opens on the queries in plain words, until a metric lands or the person picks a list. Once
+   an accuracy check has written its questions, it opens on those: they are the newest output. */
 function listOf(S, UI) {
-  const qn = queriesList(S, UI)[0], mn = metricsList(S, UI)[0];
+  const qn = queriesList(S, UI)[0], mn = metricsList(S, UI)[0], tn = testsOf(S).length;
+  if (tn && (UI.list === 'tests' || !UI.list)) return 'tests';
   return qn && (UI.list === 'queries' || !UI.list && !mn) ? 'queries' : 'metrics';
 }
 /* One switch between the lists, metrics first (the person's pick, 2026-11-18), as Studio keeps metrics and saved
    queries on separate pages: a long query list never pushes the metrics down, and one list moves at a time. */
 function lists(S, UI) {
-  const [mn, mb] = metricsList(S, UI), [qn, qb] = queriesList(S, UI), cur = listOf(S, UI);
-  return `<div class="sec">${pills('list', 'Show list', [['metrics', 'Metrics', mn], ['queries', 'Queries', qn]], cur).replace('class="flt"', 'class="flt top"')}${cur === 'queries' ? qb : mb}</div>` + cantBlock(S, UI);
+  const [mn, mb] = metricsList(S, UI), [qn, qb] = queriesList(S, UI), [tn, tb] = testsList(S, UI), cur = listOf(S, UI);
+  const shown = [['metrics', 'Metrics', mn], ['queries', 'Saved queries', qn], ...(tn ? [['tests', 'Test questions', tn]] : [])];
+  return `<div class="sec">${pills('list', 'Show list', shown, cur).replace('class="flt"', 'class="flt top"')}${cur === 'tests' ? tb : cur === 'queries' ? qb : mb}</div>` + cantBlock(S, UI) + folderBlock(S, UI);
+}
+/* The page is the folder's: a dashboard built from this agent's answers, and the other agents built here, each once it
+   exists. */
+function folderBlock(S, UI) {
+  const os = arr(S.others).filter(o => obj(o) && txt(o.name));
+  const dash = obj(S.dashboard) && S.dashboard.built ? `<div class="card lst"><div class="cant">${ic('grid', 's')}<span class="mm"><span class="nm">A dashboard built from your agent’s answers</span><span class="ty">In this folder</span></span></div></div>` : '';
+  const body = os.length ? `<div class="card lst">${os.map(o => `<div class="cant">${ic('metric', 's')}<span class="mm"><span class="nm">${esc(o.name)}</span><span class="ty">${esc(pl(o.metrics, 'metric') + ' and ' + pl(o.queries, 'saved query', 'saved queries') + (txt(o.built) ? ' · built ' + txt(o.built) : ''))}</span></span></div>`).join('')}</div>` : '';
+  return (dash ? section('dash', 'Dashboard', null, true, dash, false) : '') + (body ? section('others', 'Also in this folder', os.length, openOf(UI, 'others', true), body, true) : '');
 }
 
 /* A metric's own view, under the checklist */
@@ -478,8 +523,8 @@ const code = (t, key, UI, label) => {
 };
 function back(label) { return `<button type="button" class="back" data-act="back" data-k="back">${ic('back', 's')}${esc(label)}</button>`; }
 /* A metric's profile, in Metric Studio's own order and words: what it is, then what it measures, how, and from what. */
-const STATE_SAYS = {draft: 'Found in your sources; exactly how it’s worked out is defined next',
-  written: 'How it’s worked out is written down; it is tested on the data next', untested: 'Not run on the data: you chose to skip the checks', kept: 'Kept back, not saved', checked: 'Tested on {data}: it returned a number, and its definition matches its SQL', failed: 'Tested on the data and needs a look'};
+const STATE_SAYS = {draft: 'Defined next',
+  written: 'Tested next', untested: 'You skipped the tests', kept: 'Left out of your agent', checked: 'Returned a number on {data}, and its SQL matches its definition', failed: 'Hasn’t passed its test'};
 /* Metric Studio's profile in one scroll for a narrow pane (the person's pick of two drawn from Studio rendered on its
    mock, 2026-11-18): the way back, a title and its meta line, three facts in a soft well, then panel cards that open
    and close in place. */
@@ -529,11 +574,13 @@ function madeFrom(m) {
   const s = arr(m.sources).filter(obj), t = s.filter(x => x.kind === 'tile').length, q = s.length - t;
   return [t ? pl(t, 'dashboard tile') : '', q ? pl(q, 'past query', 'past queries') : ''].filter(Boolean).join(' and ');
 }
-const sourceSaid = s => s.kind === 'tile' ? `Dashboard tile${txt(s.visual) ? ' “' + txt(s.visual) + '”' : ''}${txt(s.page) ? ' on ' + txt(s.page) : ''}`
-  : `Past query${isNum(s.runs) ? ', run ' + pl(s.runs, 'time') : ''}`;
+/* A tile's own title, or nothing when all the file holds is its id: a person never reads an id. */
+const visName = v => { const t = txt(v); return t && !/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(t) ? t : ''; };
+const sourceSaid = s => s.kind === 'tile' ? `${visName(s.visual) ? 'Tile “' + visName(s.visual) + '”' : 'A tile'}${txt(s.page) ? ' on ' + txt(s.page) : ''}`
+  : `Past query${isNum(s.runs) ? ', used ' + pl(s.runs, 'time') : ''}`;
 function source(S, s, key) {
   const label = sourceSaid(s);
-  const open = findQuery(S, s.id) ? `<button type="button" class="lnk" data-act="q" data-q="${esc(s.id)}" data-k="sq:${esc(key)}">Open this query</button>` : '';
+  const open = findQuery(S, s.id) ? `<button type="button" class="lnk" data-act="q" data-q="${esc(s.id)}" data-k="sq:${esc(key)}">Open this saved query</button>` : '';
   return `<div class="src">${ic(s.kind === 'tile' ? 'tile' : 'query', 's')}<span>${txt(s.question) ? `<span>${esc(s.question)}</span><br>` : ''}<span class="sub xs">${esc(label)}</span> ${open}</span></div>`;
 }
 // The number the metric's dashboard tile shows, beside its own: proof a first-time reader can check for themselves.
@@ -544,15 +591,16 @@ function besideTile(m) {
 }
 function metricView(S, UI, name) {
   const m = findMetric(S, name);
-  if (!m) return `<div class="card empty">${ic('metric', 's')}<span>This metric is not in the build any more.</span></div>`;
+  if (!m) return `<div class="card empty">${ic('metric', 's')}<span>Your agent no longer uses this metric.</span></div>`;
   const s = stateOf(m), srcs = arr(m.sources).filter(obj), from = arr(m.from).map(txt).filter(Boolean), saved = obj(S.saved);
-  // A kept-back metric whose check passed still shows what it returned: it ran, and was kept back for another reason.
-  const value = (s === 'checked' || m.status === 'checked') && txt(m.value) ? `<b class="num">${esc(fixMinus(m.value))}</b>` : `<span class="sub">${s === 'failed' ? 'Did not pass' : s === 'untested' ? 'Not run' : 'Not run yet'}</span>`;
+  // A held-back metric whose check passed still shows what it returned: it ran, and was held back for another reason.
+  const value = (s === 'checked' || m.status === 'checked') && txt(m.value) ? `<b class="num">${esc(fixMinus(m.value))}</b>` : `<span class="sub">${s === 'failed' || m.status === 'look' ? 'Failed' : s === 'untested' || s === 'kept' ? 'Not tested' : 'Not tested yet'}</span>`;
   const strip = pstrip([
-    pcell('State', stateMark(m), esc(STATE_SAYS[stageOf(m) === 'kept' ? 'kept' : s].replace('{data}', dataOf(S)) + (s === 'failed' && txt(m.why || m.kept_reason) ? ': ' + txt(m.why || m.kept_reason) : ''))),
-    pcell('Tested value', value, esc(besideTile(m))),
+    pcell('State', stateMark(m), esc(STATE_SAYS[s].replace('{data}', dataOf(S)) + (s === 'kept' && txt(m.kept_reason || m.why) ? ': ' + txt(m.kept_reason || m.why)
+      : s === 'failed' && txt(m.why) ? ': ' + txt(m.why) : ''))),
+    pcell('Tested number', value, esc(besideTile(m))),
     pcell('Made from', madeFrom(m) ? `<button type="button" class="lnk" data-act="reveal" data-v="p:from" data-k="reveal:from">${esc(madeFrom(m))}</button>` : 'Shows once found',
-      from.length > 1 ? esc('Combined from ' + pl(from.length, 'possible metric')) : '')]);
+      from.length > 1 ? esc('Merged from ' + pl(from.length, 'metric')) : '')]);
   const measures = pkv('inc', 'Includes', plainly(m.population) ? esc(m.population) : '') + pkv('grid', 'Granularity', esc(grainWords(m.grain)))
     + pkv('exc', 'Excludes', pchips(m.leaves_out, 'pchip')) + pkv('unit', 'Unit', esc(unitWords(m)));
   // The formula card shows its outline, or the SQL behind it, as Studio's does.
@@ -567,16 +615,16 @@ function metricView(S, UI, name) {
     + foldOf('rule:' + m.name, UI, 'the definition as written', blk('Includes', plainly(m.population) ? '' : para(m.population))
       + blk('Unit', para(m.unit)) + blk('Formula', code(m.formula)) + blk('Filters', arr(m.filters).length ? code(m.filters.join('\nAND ')) : ''));
   const wk = 'why:' + m.name, wopen = UI.tog.has(wk);
-  const why = txt(m.reasoning) && from.length > 1 ? `<button type="button" class="fold" data-tog="${esc(wk)}" data-k="t:${esc(wk)}" aria-expanded="${wopen}">${ic('chev', 'xs')}${wopen ? 'Hide why they became one' : 'Why these became one metric'}</button>${wopen ? `<div class="sub">${esc(m.reasoning)}</div>` : ''}` : '';
+  const why = txt(m.reasoning) && from.length > 1 ? `<button type="button" class="fold" data-tog="${esc(wk)}" data-k="t:${esc(wk)}" aria-expanded="${wopen}">${ic('chev', 'xs')}${wopen ? 'Hide why' : 'Why these became one metric'}</button>${wopen ? `<div class="sub">${esc(m.reasoning)}</div>` : ''}` : '';
   const details = pkv('table', 'Name', `<code class="psc">${esc(snake(m.name))}</code> <button type="button" class="lnk" data-act="copy" data-v="${esc(snake(m.name))}" data-k="copy:${esc(m.name)}">Copy</button>`)
-    + pkv('unit', 'Kept', esc(saved ? 'Saved to Atlan' + (txt(saved.workspace) ? ' · ' + txt(saved.workspace) : '') : 'On this machine'))
+    + pkv('unit', 'Kept', esc(saved ? 'Saved to Atlan Trident' + (txt(saved.workspace) ? ' · ' + txt(saved.workspace) : '') : 'On this machine'))
     + pkv('grid', 'Data', esc(whereData(S)));
   const rel = arr(m.related).filter(r => Array.isArray(r) && r.length > 1);
   return `<div class="prof">${crumb('Metrics', m.name)}<h1 class="ptitle">${esc(m.name)}</h1>${pmeta(S, ['Metric', kindWords(m)])}${strip}`
-    + (txt(m.description) ? `<p class="pdsc">${esc(m.description)}</p>` : (s === 'draft' ? '<p class="pdsc sub">How it’s worked out is defined next.</p>' : ''))
+    + (txt(m.description) ? `<p class="pdsc">${esc(m.description)}</p>` : (s === 'draft' ? '<p class="pdsc sub">Defined next.</p>' : ''))
     + '<div class="xpl">A metric is one agreed number, with the definition every answer uses to work it out, so the same question always gets the same answer.</div>'
     // Only the first card opens by default (the person, 2026-11-18); the rest open when wanted.
-    + `<div class="ppanel">${prow(UI, 'measures', 'What it measures', null, measures)}${prow(UI, 'calc', "How it's calculated", null, calc, false)}`
+    + `<div class="ppanel">${prow(UI, 'measures', 'What it measures', null, measures)}${prow(UI, 'calc', 'How it’s calculated', null, calc, false)}`
     + prow(UI, 'split', 'How it can be split', arr(m.dimensions).length, pchips(m.dimensions, 'pdim'), false)
     + prow(UI, 'from', 'Where it came from', srcs.length || null, srcs.map((x, j) => source(S, x, lc(m.name) + ':' + j)).join('') + why, false)
     + prow(UI, 'related', 'Related metrics', rel.length, rel.map(r => `<div>${esc(r[0])} <button type="button" class="lnk" data-act="m" data-m="${esc(r[1])}" data-k="rel:${esc(r[1])}">${esc(r[1])}</button></div>`).join(''), false)
@@ -585,53 +633,77 @@ function metricView(S, UI, name) {
 }
 function draftView(S, UI, id) {
   const d = findDraft(S, id);
-  if (!d) return `<div class="card empty">${ic('metric', 's')}<span>This possible metric is not in the build any more.</span></div>`;
+  if (!d) return `<div class="card empty">${ic('metric', 's')}<span>This metric was merged or dropped.</span></div>`;
   const became = d.into ? `<button type="button" class="lnk" data-act="m" data-m="${esc(d.into)}" data-k="into">${esc(d.into)}</button>` : '<span class="sub">Not yet</span>';
-  return `<div class="prof">${crumb('Metrics', d.name)}<h1 class="ptitle">${esc(d.name)}</h1>${pmeta(S, ['A possible metric'])}`
-    + pstrip([pcell('State', marker(d.into ? 'Combined' : 'Found', 'ring'), d.into ? '' : 'Waiting to be combined with others that measure the same number'),
-              pcell(d.kind === 'tile' ? 'Found in a dashboard tile' : 'Found in a past query', esc(d.question || ''), esc(txt(d.page))),
+  return `<div class="prof">${crumb('Metrics', d.name)}<h1 class="ptitle">${esc(d.name)}</h1>${pmeta(S, ['A metric found'])}`
+    + pstrip([pcell('State', marker(d.into ? 'Merged' : 'Found', 'ring'), d.into ? '' : 'Waiting to be merged with any duplicates'),
+              pcell(d.kind === 'tile' ? 'Found in a tile' : 'Found in a past query', esc(d.question || ''), esc(txt(d.page))),
               pcell('Became', became, '')])
     + (txt(d.meaning) ? `<p class="pdsc">${esc(d.meaning)}</p>` : '') + '</div>';
 }
 /* A saved query's profile, as Studio draws one: no tabs; the SQL, the metrics made from it, its use and its columns. */
-const QSTATE = {checked: ['Tested', 'ok', 'Ran on the data as written'], look: ['Needs a look', 'warn', 'Ran on the data and needs a look'],
-  untested: ['Not tested', 'idle', 'Not run on the data: you chose to skip the checks'], kept: ['Needs a look', 'warn', 'Kept back, not saved']};
+const QSTATE = {checked: ['Tested', 'ok', 'Worked on the data as written'], look: ['Needs your review', 'warn', 'Hasn’t passed its test'],
+  untested: ['Not tested', 'idle', 'You skipped the tests'], kept: ['Held back', 'warn', 'Left out of your agent']};
 function queryView(S, UI, id) {
   const q = findQuery(S, id);
-  if (!q) return `<div class="card empty">${ic('query', 's')}<span>This query is not in the build any more.</span></div>`;
-  const s = qstateOf(q), st = QSTATE[q.status] || ['Found', '', 'It is tested on the data once the metrics are defined'];
+  if (!q) return `<div class="card empty">${ic('query', 's')}<span>Your agent no longer uses this saved query.</span></div>`;
+  const s = qstateOf(q), st = QSTATE[q.status] || ['Found', '', 'Tested once metrics are defined'];
   const ms = arr(q.metrics).map(txt).filter(Boolean), tile = q.kind === 'tile';
-  const comes = tile ? ['Dashboard tile' + (txt(q.visual) ? ' “' + txt(q.visual) + '”' : ''), txt(q.page) ? 'On ' + txt(q.page) : ''] : ['A past query', 'From your team’s query history'];
+  const comes = tile ? [visName(q.visual) ? 'Tile “' + visName(q.visual) + '”' : 'A tile', txt(q.page) ? 'On ' + txt(q.page) : ''] : ['A past query', 'From your team’s past queries'];
   const link = n => `<button type="button" class="lnk" data-act="m" data-m="${esc(n)}" data-k="qm:${esc(n)}">${esc(n)}</button>`;
   const strip = pstrip([pcell('State', marker(st[0], MARK[s]), esc(st[2] + (q.status === 'look' && txt(q.why) ? ': ' + txt(q.why) : q.status === 'kept' && txt(q.kept_reason) ? ': ' + txt(q.kept_reason) : ''))),
                         pcell('Comes from', esc(comes[0]), esc(comes[1])),
-                        pcell('Linked metrics', esc(ms.length ? pl(ms.length, 'metric') + ' made from it' : 'None yet'), ms.map(link).join(', '))]);
-  const tree = `<div class="ptree"><div class="pnode"><span class="pbox">${ic('query', 's')}</span><span>This query</span></div>`
-    + ms.map(n => `<div class="pnode kid"><span class="pbox">${ic('metric', 's')}</span><span class="mm">${link(n)}<span class="sub xs">Made from this query</span></span></div>`).join('')
-    + '</div><div class="pnote">This query runs its own SQL, so a change to a metric does not reach it.</div>';
-  const usage = isNum(q.runs) ? `<div>Run ${esc(pl(q.runs, 'time'))}${isNum(q.analysts) ? ' by ' + esc(pl(q.analysts, 'analyst')) : ''}</div>` : '';
+                        pcell('Linked metrics', esc(ms.length ? pl(ms.length, 'metric') + ' made from it' : 'None yet'), ms.map(link).join(''))]);
+  const tree = `<div class="ptree"><div class="pnode"><span class="pbox">${ic('query', 's')}</span><span>This saved query</span></div>`
+    + ms.map(n => `<div class="pnode kid"><span class="pbox">${ic('metric', 's')}</span><span class="mm">${link(n)}<span class="sub xs">Made from this saved query</span></span></div>`).join('')
+    + '</div><div class="pnote">This saved query runs its own SQL, so a change to a metric does not reach it.</div>';
+  const usage = isNum(q.runs) ? `<div>Used ${esc(pl(q.runs, 'time'))}${isNum(q.analysts) ? ' by ' + esc(pl(q.analysts, 'analyst')) : ''}</div>` : '';
   return `<div class="prof">${crumb(txt(UI.from) || 'Saved queries', txt(q.question) || txt(q.name))}<h1 class="ptitle">${esc(txt(q.question) || txt(q.name))}</h1>`
-    + pmeta(S, tile ? ['Dashboard tile', txt(q.page)] : ['Past query', isNum(q.runs) ? 'run ' + pl(q.runs, 'time') : '']) + strip
+    + pmeta(S, tile ? ['Tile', txt(q.page)] : ['Past query', isNum(q.runs) ? 'used ' + pl(q.runs, 'time') : '']) + strip
     + (txt(q.description) ? `<p class="pdsc">${esc(q.description)}</p>` : '')
-    + '<div class="xpl">A query is a question with the SQL that answers it, kept so the same question gets the same SQL next time.</div>'
+    + '<div class="xpl">A saved query is a question with the SQL that answers it, kept so the same question gets the same SQL next time.</div>'
     // What the engine noted about it, and whether it marked it worth a read: the chat counts these, so the page says which.
-    + `<div class="ppanel">${prow(UI, 'notes', 'Worth knowing', null, q.review === 'read' || arr(q.notes).length ? (q.review === 'read' ? '<p>Marked worth a read before you rely on it.</p>' : '') + bullets(q.notes) : '')}${prow(UI, 'sql', 'The SQL', null, txt(q.sql) ? `<div class="pcard"><div class="pcard-h"><span class="pwh">${esc(whereData(S))}</span><span>SQL</span></div>${psql(q.sql)}</div>` : '')}`
+    + `<div class="ppanel">${prow(UI, 'notes', 'Good to know', null, q.review === 'read' || arr(q.notes).length ? (q.review === 'read' ? '<p>Read this before you rely on it.</p>' : '') + bullets(q.notes) : '')}${prow(UI, 'sql', 'The SQL', null, txt(q.sql) ? `<div class="pcard"><div class="pcard-h"><span class="pwh">${esc(whereData(S))}</span><span>SQL</span></div>${psql(q.sql)}</div>` : '')}`
     + prow(UI, 'qmetrics', 'Metrics made from it', ms.length || null, ms.length ? tree : '', false)
     + prow(UI, 'usage', 'Usage', null, usage, false)
     + prow(UI, 'cols', 'Columns, tables and filters', null, pkv('table', 'Tables', pchips(q.tables, 'psc')), false)
     + '</div></div>';
 }
+/* A test question's own view: its known answer beside each pass's, then what each answered, with its SQL and, when a
+   judge decided it, why. */
+const PASS_SAYS = {true: ['Right', 'ok'], false: ['Missed', 'warn']};
+function passCell(S, label, p) {
+  if (!obj(p)) return pcell(label, marker(txt(S.tests.state) === 'ready' ? 'Not tested yet' : 'Waiting', 'idle'), '');
+  const m = PASS_SAYS[String(p.right)];
+  return pcell(label, esc(answerOf(p) || 'No answer'), m ? marker(m[0], m[1]) : esc('Being scored'));
+}
+function passBody(UI, key, p) {
+  if (!obj(p)) return '';
+  return (txt(p.answer) ? `<p class="pdsc">${esc(p.answer)}</p>` : '') + (txt(p.why) ? `<div class="pnote">${esc(p.why)}</div>` : '')
+    + code(p.sql, 'sql:' + key, UI, 'the SQL');
+}
+function testView(S, UI, n) {
+  const r = findTest(S, n);
+  if (!r) return `<div class="card empty">${ic('query', 's')}<span>This question is no longer in the check.</span></div>`;
+  const from = r.from === 'tile' ? 'From a dashboard tile' : r.from === 'query' ? 'From a past query' : r.from === 'set' ? 'From your set' : '';
+  return `<div class="prof">${crumb('Test questions', 'Question ' + r.n)}<h1 class="ptitle">${esc(r.question)}</h1>`
+    + pmeta(S, ['Question ' + r.n, txt(r.metric) ? 'Tests ' + txt(r.metric) : '', from])
+    + pstrip([pcell('Known answer', esc(txt(r.known) || 'Worked out when tested'), ''), passCell(S, 'Your agent', r.agent), passCell(S, 'Column names only', r.names)])
+    + '<div class="xpl">A test question has a known answer. Your agent answers it from a clean start, and its result is compared with the known answer. So does an agent that sees only column names, to show what your agent adds.</div>'
+    + `<div class="ppanel">${prow(UI, 'tagent', 'Your agent’s answer', null, passBody(UI, 'a' + r.n, r.agent))}${prow(UI, 'tnames', 'With column names only', null, passBody(UI, 'n' + r.n, r.names), false)}</div></div>`;
+}
 function detailOf(S, UI) {
   if (UI.metric) return metricView(S, UI, UI.metric);
   if (UI.draft) return draftView(S, UI, UI.draft);
   if (UI.query) return queryView(S, UI, UI.query);
+  if (UI.test) return testView(S, UI, UI.test);
   return '';
 }
 
 /* The whole page: a pure function of the snapshot and the UI state */
 function view(S, UI) {
   if (!obj(S)) {
-    const msg = UI.link === 'off' ? `${ic('alert')}<span>No update has arrived from the build. This page picks up when it answers.</span>` : `${spin()}<span>Connecting to the build</span>`;
+    const msg = UI.link === 'off' ? `${ic('alert')}<span>No update yet. This page refreshes on its own.</span>` : `${spin()}<span>Connecting…</span>`;
     return `<div class="sp2">${toolbar(null, UI)}<div class="card empty">${msg}</div></div>`;
   }
   // The build's progress is told in the chat; the page says only when the build waits on the person.
@@ -639,15 +711,16 @@ function view(S, UI) {
     + (STOPPED[S.state] ? `<div class="card stop">${ic('alert', 's')}<span>${esc(STOPPED[S.state])}</span></div>` : '');
   const detail = detailOf(S, UI);
   if (!UI.wide) return `<div class="sp2">${top}${detail || lists(S, UI)}</div>`;
-  const pick = listOf(S, UI) === 'queries' ? [ic('query', 's'), 'Pick a query to see its question, its SQL and where it came from.']
-    : [ic('metric', 's'), 'Pick a metric to see its definition, its formula and where it was found.'];
+  const pick = listOf(S, UI) === 'tests' ? [ic('query', 's'), 'Pick a question to see each answer and its SQL.']
+    : listOf(S, UI) === 'queries' ? [ic('query', 's'), 'Pick a saved query to see its SQL and where it came from.']
+    : [ic('metric', 's'), 'Pick a metric to see how it’s worked out and where it came from.'];
   return `<div class="wd2"><div>${top}${lists(S, UI)}</div><div class="wr">${detail || `<div class="card empty">${pick[0]}<span>${pick[1]}</span></div>`}</div></div>`;
 }
 
 
 /* State, painting and the live feed */
 const THEME_KEY = 'atlan-analytics-side-page-theme';
-const UI = {metric: null, query: null, draft: null, filter: null, from: null, tog: new Set(), wide: false, link: 'wait', theme: 'system',
+const UI = {metric: null, query: null, draft: null, test: null, filter: null, from: null, tog: new Set(), wide: false, link: 'wait', theme: 'system',
   list: null};
 const app = document.getElementById('app');
 const STA = {};
@@ -659,12 +732,14 @@ function readHash() {
   UI.metric = p.get('m') || null;
   UI.query = p.get('q') || null;
   UI.draft = p.get('d') || null;
+  UI.test = p.get('t') || null;
 }
 function writeHash() {
   const p = new URLSearchParams();
   if (UI.metric) p.set('m', UI.metric);
   if (UI.query) p.set('q', UI.query);
   if (UI.draft) p.set('d', UI.draft);
+  if (UI.test) p.set('t', UI.test);
   const want = p.toString() ? '#' + p.toString() : '';
   if (location.hash === want) return;
   try { history.replaceState(null, '', location.pathname + location.search + want); } catch (e) { /* the address is a convenience */ }
@@ -757,7 +832,7 @@ function reveal(k) {
   if (!wasOpen && MOTION) setTimeout(go, 320); else go();
 }
 function paint(fresh) {
-  const before = fresh && MOTION && seenOnce && !UI.metric && !UI.query && !UI.draft ? placesOf() : null;
+  const before = fresh && MOTION && seenOnce && !UI.metric && !UI.query && !UI.draft && !UI.test ? placesOf() : null;
   const y = window.scrollY, wr = app.querySelector('.wr'), wy = wr ? wr.scrollTop : 0;
   const ae = document.activeElement, fk = ae && app.contains(ae) && ae.dataset ? ae.dataset.k : null;
   app.innerHTML = view(S, UI);
@@ -777,7 +852,7 @@ function paint(fresh) {
   if (fk) { const el = [...app.querySelectorAll('[data-k]')].find(x => x.dataset.k === fk); if (el) el.focus({preventScroll: true}); }
   if (before) settle(before);
   // Studio's motion: a profile slides in when it is opened, never when new data repaints it.
-  const dk = UI.metric ? 'm:' + UI.metric : UI.query ? 'q:' + UI.query : UI.draft ? 'd:' + UI.draft : '';
+  const dk = UI.metric ? 'm:' + UI.metric : UI.query ? 'q:' + UI.query : UI.draft ? 'd:' + UI.draft : UI.test ? 't:' + UI.test : '';
   if (dk && dk !== shownDetail) { const pf = app.querySelector('.prof'); if (pf) pf.classList.add('enter'); }
   shownDetail = dk;
   const line = S ? outputLabel(S) : '';
@@ -855,12 +930,26 @@ document.addEventListener('click', e => {
   } else if (act === 'qflt') {
     UI.qfilter = a.dataset.v === 'all' ? null : a.dataset.v;
     paint();
+  } else if (act === 'tflt') {
+    UI.tfilter = a.dataset.v === 'all' ? null : a.dataset.v;
+    paint();
+  } else if (act === 't') {
+    UI.test = a.dataset.t; UI.metric = null; UI.query = null; UI.draft = null; UI.from = null;
+    paint();
+    if (!UI.wide) window.scrollTo(0, 0);
+    else { const wr = app.querySelector('.wr'); if (wr) wr.scrollTop = 0; }
+  } else if (act === 'back' && UI.test) {
+    const was = UI.test;
+    UI.test = null;
+    paint();
+    const r = [...app.querySelectorAll('.tr')].find(x => x.dataset.t === was);
+    if (r) { r.scrollIntoView({block: 'center'}); r.focus({preventScroll: true}); }
   } else if (act === 'd') {
-    UI.draft = a.dataset.d; UI.metric = null; UI.query = null; UI.from = null;
+    UI.draft = a.dataset.d; UI.metric = null; UI.query = null; UI.test = null; UI.from = null;
     paint();
     window.scrollTo(0, 0);
   } else if (act === 'm' || act === 'q') {
-    UI.draft = null;
+    UI.draft = null; UI.test = null;
     if (act === 'm') { UI.metric = a.dataset.m; UI.query = null; UI.from = null; }
     else { UI.from = UI.query ? UI.from : UI.metric; UI.metric = null; UI.query = a.dataset.q; }
     paint();
@@ -885,7 +974,7 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  if ((UI.metric || UI.query || UI.draft) && !UI.wide) { const b = app.querySelector('.back'); if (b) b.click(); }
+  if ((UI.metric || UI.query || UI.draft || UI.test) && !UI.wide) { const b = app.querySelector('.back'); if (b) b.click(); }
   else if (UI.query) { UI.query = null; UI.metric = UI.from; UI.from = null; paint(); }
 });
 window.addEventListener('hashchange', () => { readHash(); paint(); window.scrollTo(0, 0); });

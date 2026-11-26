@@ -28,10 +28,10 @@ except ImportError:
 from urllib.parse import urlsplit
 import http.client
 
-from run_facts import RunFacts, count, first_question, number, read_json, sentence
+from run_facts import RunFacts, clip, count, first_question, number, read_json, same_figure, sentence
 
 PAGE = Path(__file__).with_name('side_page.html')
-NEVER_RAN = 'Its check never ran.'
+NEVER_RAN = "It wasn't tested."
 IDLE_SECONDS = 20 * 60
 RETRY_SECONDS = 10 * 60
 # A quiet feed says it is still there this often, so a tab that closed is noticed.
@@ -68,8 +68,7 @@ def _plain(text):
 
 
 def _cut(text, n):
-    text = ' '.join(str(text or '').split())
-    return text if len(text) <= n else text[:n - 1].rstrip() + '…'
+    return clip(text, n)
 
 
 def _objects(f, name):
@@ -197,11 +196,24 @@ def _drafts(f):
 
 
 def has_output(f):
-    """Whether the page has something to show: the queries in plain words once the describe step is done, or a metric the
-    build found, merged or defined. Before that it would open empty (a tester, 2026-11-19); opened at the first metric,
-    it stayed shut for minutes while the described queries sat ready to show."""
-    return bool('m2_ingest' in f.stages or f.file('context', 'metrics.json', kind=list)
+    """Whether the page has something to show: the first saved queries as they are drafted (a tile's question, or a past
+    query in plain words), or a metric the build found, merged or defined. Before that it would open empty (a tester,
+    2026-11-19); opened only once every query was described, it stayed shut nine minutes into a dashboard build (the
+    person's words, 2026-11-23: open when the first saved queries are drafted)."""
+    return bool('m2_ingest' in f.stages or _drafted_queries(f) or f.file('context', 'metrics.json', kind=list)
                 or f.engine_file('merged_metrics.json').get('metrics') or _batches(f, 'x2', 'metrics') or _drafts(f))
+
+
+def _drafted_queries(f):
+    """The saved queries as their batches land, before the engine has taken them in: each tile's question (c3), then each
+    query in plain words (m2), by id, the later wording winning."""
+    out = {}
+    for gate, key, id_key in (('c3', 'items', 'candidate_id'), ('m2', 'queries', 'vq_id')):
+        for r in _batches(f, gate, key):
+            vid = r.get(id_key)
+            if isinstance(vid, str) and r.get('question'):
+                out[vid] = dict(out.get(vid) or {}, **{k: r[k] for k in ('name', 'question', 'description') if r.get(k)})
+    return out
 
 
 def _source_of(s, drafts):
@@ -234,25 +246,35 @@ TYPES = {'count': 'Count', 'count_distinct': 'Count', 'sum': 'Sum', 'avg': 'Aver
          'ratio': 'Rate', 'rate': 'Rate', 'min': 'Lowest', 'max': 'Highest', 'median': 'Median'}
 # Why an item was kept back, in the person's words, by the engine's reason code.
 # Why the save kept an item back, for each reason the export writes: in full on the page, and after a count in the chat.
-KEPT = {'compiler_review_wrong': 'The review found the translation of its tile wrong.',
-        'required_filter_missing': 'It leaves out a filter its dashboard tile always applies, so its number could differ.',
-        'source_query_held': 'A tile it comes from was kept back, so its number could differ from the dashboard.',
-        'dashboard_parity_failed': "Its number didn't match the dashboard's own when both ran on the same data.",
-        'required_metric_held': 'It is built on another metric that was kept back.',
-        'source_of_held_metric': 'A metric made from it was kept back, so it was kept back too.',
-        'privacy_review': 'It may show personal details, so it waits for a review before it is saved.',
-        'required_member_scope': 'It only works once something is picked first, such as one account.',
-        'card_aggregation': "Its calculation doesn't match the tile's."}
-KEPT_SHORT = {'compiler_review_wrong': "failed the review of its tile's translation",
+KEPT = {'compiler_review_wrong': "Its SQL doesn't match what its tile calculates.",
+        'required_filter_missing': 'It misses a filter its tile always uses, so its number could differ.',
+        'source_query_held': 'Its tile was held back, so its number could differ.',
+        'dashboard_parity_failed': "On the same data, its number differs from the dashboard's.",
+        'required_metric_held': 'It uses a metric that was held back.',
+        'source_of_held_metric': 'A metric built on it was held back, so this was too.',
+        'privacy_review': 'It may show personal details, so it is held back until you confirm it is fine.',
+        'required_member_scope': 'It only works once you pick something first, like one account.',
+        'card_aggregation': 'It calculates differently from its tile.'}
+KEPT_SHORT = {'compiler_review_wrong': "didn't match its tile's formula",
               'required_filter_missing': 'left out a filter its tile always applies',
-              'source_query_held': 'came from a tile that was kept back',
+              'source_query_held': 'came from a held-back tile',
               'dashboard_parity_failed': "didn't match the dashboard's number",
-              'required_metric_held': 'used a metric that was kept back',
-              'source_of_held_metric': 'fed a metric that was kept back',
-              'privacy_review': 'may show personal details, so wait for a review',
-              'required_member_scope': 'only worked with something picked first',
-              'card_aggregation': "didn't calculate as its tile does"}
-KEPT_ANY = 'It needs a look before it can be saved.'
+              'required_metric_held': 'used a held-back metric',
+              'source_of_held_metric': 'fed a held-back metric',
+              'privacy_review': 'may show personal details',
+              'required_member_scope': 'needed a pick first',
+              'card_aggregation': 'calculated differently from its tile'}
+# The same after a count above 1: "22 didn't match its tile's formula" read wrong (0.9.74, run 2).
+KEPT_SHORT_MANY = {'compiler_review_wrong': "didn't match their tiles' formulas",
+                   'required_filter_missing': 'left out a filter their tiles always apply',
+                   'source_query_held': 'came from held-back tiles',
+                   'card_aggregation': 'calculated differently from their tiles'}
+KEPT_ANY = 'It was held back before saving.'
+
+
+def kept_short(reason, n):
+    """Why `n` items were held back, to follow their count."""
+    return (n != 1 and KEPT_SHORT_MANY.get(reason)) or KEPT_SHORT.get(reason, 'needed your review first')
 
 
 def held(f):
@@ -262,7 +284,7 @@ def held(f):
     reasons = [str(h.get('reason')) for h in rows['metrics'] + rows['queries']]
     ranked = sorted(set(reasons), key=lambda r: (-reasons.count(r), r))
     return {'metrics': len(rows['metrics']), 'queries': len(rows['queries']),
-            'why': ', '.join('%d %s' % (reasons.count(r), KEPT_SHORT.get(r, 'need a look first')) for r in ranked)}
+            'why': ', '.join('%d %s' % (reasons.count(r), kept_short(r, reasons.count(r))) for r in ranked)}
 
 
 def _type_of(d, card, name):
@@ -354,10 +376,10 @@ def drafts_list(f, metrics):
 
 
 # Why a tile could not be turned into a query, in the person's words, by the start of the engine's reason.
-REFUSED = (('compiler emitted unparseable', 'The translation came out malformed'),
-           ('filter column', 'A filter would have been lost, changing the number'),
-           ('filter(s) on', 'A filter would have been lost, changing the number'),
-           ('untranslatable', "It uses something that can't be turned into a query"))
+REFUSED = (('compiler emitted unparseable', "It couldn't be read correctly"),
+           ('filter column', 'A filter would be lost, changing the number'),
+           ('filter(s) on', 'A filter would be lost, changing the number'),
+           ('untranslatable', "It uses something that can't be written as SQL"))
 
 
 def cant_build(f):
@@ -372,7 +394,7 @@ def cant_build(f):
             continue
         uid = str(r.get('unit_id') or '')
         parts = uid.split('::')
-        why = next((w for k, w in REFUSED if str(r.get('reason') or '').startswith(k)), "It couldn't be turned into a query")
+        why = next((w for k, w in REFUSED if str(r.get('reason') or '').startswith(k)), "It couldn't be written as SQL")
         out.append({'tile': _cut(title.get(uid) or (parts[-1] if parts else ''), 120), 'page': parts[2] if len(parts) > 3 else None,
                     'why': why})
     return out
@@ -406,11 +428,11 @@ def tiles_by_page(f, pages=None):
 
 # The build's checkpoints, in the order a build passes them: (group, name while it waits or runs, name once done).
 CHECKPOINTS = (('group', 'Group past queries into questions', 'Grouped past queries'),
-               ('translate', "Turn the report's tiles into queries", 'Turned tiles into queries'),
-               ('describe', 'Describe each query', 'Described each query'),
-               ('read', 'Find metrics', 'Found metrics'),
-               ('merge', 'Combine duplicates, one per number', 'Combined duplicates'),
-               ('rules', 'Define each metric', 'Defined each metric'),
+               ('translate', "Read the dashboard's tiles", 'Read the tiles'),
+               ('describe', 'Write each question', 'Wrote each question'),
+               ('read', 'Find metrics and saved queries', 'Found metrics and saved queries'),
+               ('merge', 'Merge duplicate metrics', 'Merged duplicate metrics'),
+               ('rules', 'Add detailed information to each metric', 'Added detailed information to each metric'),
                ('link', 'Link related metrics', 'Linked related metrics'))
 
 
@@ -480,7 +502,9 @@ def details(f):
         # Beside the dashboard's own figure: the number its tile's query returned, when it returned one.
         derived = (d.get('provenance') or {}).get('derived_from') if isinstance(d.get('provenance'), dict) else []
         tile = next((f.tile_figures[x] for x in derived or [] if x in f.tile_figures), None) if value else None
-        tile = {'name': tile[0], 'value': number(tile[1], unit), 'same': number(tile[1], unit) == value} if tile else None
+        raw = v['rows'][0] if v and v['ok'] and len(v['rows']) == 1 else None
+        raw = raw[0] if isinstance(raw, list) and raw else raw
+        tile = {'name': tile[0], 'value': number(tile[1], unit), 'same': same_figure(raw, tile[1], unit)} if tile else None
         description = ctx.get('description') or card.get('description')
         metrics.append({k: x for k, x in (
             ('name', sentence(ctx.get('display_name') or card.get('display_name') or m['name'])),
@@ -543,6 +567,12 @@ def details(f):
                 ('value', _checked_value(v)),
                 *_query_profile(vid, known, said, built_on, description=q.get('description'), sql=d.get('sql'),
                                 tables=evidence.get('tables'), review=d.get('review_status', 'not_recorded'))) if x})
+    if not queries and not known:
+        # Before the engine has taken the first batches in, the drafts themselves, so the page opens with something on it.
+        for vid, words in _drafted_queries(f).items():
+            question = _cut(first_question(words.get('question')), 200)
+            if question:
+                queries.append({'id': vid, 'name': sentence(question), 'question': question, 'status': 'drafted'})
     if not queries:
         # Before the checks, the engine's own queries as it writes them, named as the checked context names them.
         for vid, (o, words) in known.items():
@@ -592,13 +622,27 @@ def snapshot(run, engine_dir=None):
     demo = flow == 'demo'
     # Only the run's journey record makes a demo, so a demo's facts never reach own data.
     facts = (read_json(run / 'view' / 'facts.json', dict, {}) or _demo_facts(run)) if demo else {}
+    # A demo names its agent ("job profit agent"), so the page's heading reads "Your job profit agent".
+    import run_facts
+    ready = run_facts.demo_facts(run).get('ready') if demo else None
+    agent = ready.get('agent') if isinstance(ready, dict) else None
     state = side_view.stopped(run, engine_dir)
     d = details(f)
+    # The accuracy check's questions are outputs too: listed once written, each row filled as its answers come back.
+    import eval_runs
+    ev = eval_runs.questions_folder(run)
+    tests = eval_runs.questions(ev) if ev else None
+    # The page is the folder's: the other agents built here, and a dashboard built from this one's answers.
+    others = eval_runs.others(run)
     return {
+        **({'tests': tests} if tests and tests['rows'] else {}),
+        **({'others': others} if others else {}),
+        **({'dashboard': {'built': True}} if f.interaction.get('dashboard_result') == 'built' else {}),
         'v': 1, 'flow': flow, 'updated': _now(),
-        'title': facts.get('title') or (f.use_case and f.use_case[:1].upper() + f.use_case[1:]) or 'Analytics setup',
+        'title': facts.get('title') or (f.use_case and f.use_case[:1].upper() + f.use_case[1:]) or 'Your agent',
         'subtitle': facts.get('tagline') or f.purpose or None,
         'firm': facts.get('firm'),
+        **({'agent': agent} if isinstance(agent, str) and agent.strip() else {}),
         **({'state': state} if state else {}),
         # A metric's profile says where its data lives and where it was kept.
         'warehouse': f.warehouse,
@@ -627,6 +671,37 @@ def _fingerprint(run):
                     st = e.stat()
                     h.update(('%s/%s %d %d\n' % (folder.name, e.name, st.st_size, st.st_mtime_ns)).encode())
             except OSError:  # removed while the folder was read, such as a record rewritten
+                continue
+    import eval_runs
+    ev = eval_runs.questions_folder(run)
+    project = run.parent.parent if run.parent.name in eval_runs.ROOTS else run.parent
+    # The folder's other builds, read with a plain listing: a folder removed while it is read is skipped.
+    for root in eval_runs.ROOTS:
+        try:
+            names = sorted(os.listdir(project / root))
+        except OSError:
+            continue
+        for name in names:
+            try:
+                st = (project / root / name / 'context' / 'metrics.json').stat()
+                h.update(('%s %d %d\n' % (name, st.st_size, st.st_mtime_ns)).encode())
+            except OSError:
+                continue
+    try:
+        hill = sorted(ev / 'hillclimb' / n for n in os.listdir(ev / 'hillclimb')) if ev else []
+    except OSError:
+        hill = []
+    for folder in (ev / 'work', ev / 'eval' / 'gold', *hill, *(p / s for p in hill for s in ('answers', 'agent_results'))) if ev else ():
+        try:
+            entries = sorted(os.scandir(folder), key=lambda e: e.name)
+        except OSError:
+            continue
+        for e in entries:
+            try:
+                if e.is_file():
+                    st = e.stat()
+                    h.update(('%s/%s %d %d\n' % (folder, e.name, st.st_size, st.st_mtime_ns)).encode())
+            except OSError:
                 continue
     engine = RunFacts(run).engine
     try:
@@ -1001,13 +1076,33 @@ def open_page(run, host=None, explicit=True):
     return {'url': url, 'started': started, 'opened': opened, 'moved': moved, 'host': host}
 
 
-def instruction(opened, widget=False):
+# The one line the person reads when the side page first opens during a build; every flow says the same
+# (dashboard-flow, visuals).
+OPENED_LINE = ("A page has opened beside this chat. It lists each metric and saved query as it's found, and why anything "
+               "is left out.")
+
+
+def _built(run):
+    import side_view
+    return run is not None and 'build' in side_view.seen(run)
+
+
+def opened_line(run=None):
+    """The page's first line: the build as it goes, or, once the build's card closed it, what the page holds."""
+    if not _built(run):
+        return OPENED_LINE
+    import eval_runs
+    tests = ', and each test question with its known answer' if eval_runs.questions_folder(run) else ''
+    return "A page has opened beside this chat with your agent's metrics and saved queries%s." % tests
+
+
+def instruction(opened, widget=False, run=None):
     """What the agent does with the page it was handed: open it where the host has a pane, or name it once."""
     url = opened.get('url')
     if not url:
         return ('The side page could not start on this machine: carry on. Tell the person once, in your next message, in '
-                "one short line: \"The page beside the chat couldn't start on this machine, so this run shows its "
-                'results in the chat only." The chips and cards still show each moment.')
+                "one short line: \"The side page couldn't open here, so you'll see progress in the chat only.\" "
+                'The chips and cards still show each moment.')
     follows = 'It follows the run by itself from the run\'s own files: never reload, rebuild or push to it.'
     if opened.get('host') == 'claude-desktop' or widget:
         return ('Open the side page now in the app\'s browser pane: your browser tool\'s preview or navigate call with url '
@@ -1016,13 +1111,15 @@ def instruction(opened, widget=False):
                 'a page does not show a hidden pane. Then check with the app\'s layout call that `preview` is among the '
                 'open panes, and show it again if not: the page reports itself visible even in a closed pane, so only the '
                 'layout can tell. If the app cannot show it because its window is not on screen, say nothing, and never '
-                'its address: it is there when the person opens the window. %s Say nothing about it in the chat; the '
-                'cards point to it. From here the page carries each '
-                'metric step and the task list carries the build: follow the build with `PROJECT drafts --wait` in the '
-                'foreground, as progress says.' % (url, follows))
+                'its address: it is there when the person opens the window. %s Once it shows, say once, in one short '
+                'line: "%s" Nothing more about it after that; the cards point to it.%s'
+                % (url, follows, opened_line(run), '' if _built(run) else
+                   ' From here the page carries each metric step and the task list carries the build: follow the build '
+                   'with `PROJECT drafts --wait` in the foreground, as progress says.'))
     if opened.get('opened'):
-        return ('The side page opened in the person\'s browser at %s. Say nothing about it now: the next chip in a '
-                'question names it. %s' % (url, follows))
+        return ('The side page opened in the person\'s browser at %s. Say once, in one short line: "%s" Nothing more '
+                'about it now: the next chip in a question names it. %s'
+                % (url, opened_line(run).replace('beside this chat', 'in your browser'), follows))
     return ('Say nothing about the side page now: the next chip in a question names its address, %s. %s' % (url, follows))
 
 
@@ -1043,9 +1140,9 @@ def reminder(run, start=True):
             return None
     host = os.environ.get('CLAUDE_CODE_ENTRYPOINT') or ''
     if opened.get('moved'):
-        return 'The side page restarted at a new address. ' + instruction(opened)
+        return 'The side page restarted at a new address. ' + instruction(opened, run=run)
     if host == 'claude-desktop' and not (run / 'view' / 'seen.json').is_file():
-        return instruction({**opened, 'host': host})
+        return instruction({**opened, 'host': host}, run=run)
     return None
 
 

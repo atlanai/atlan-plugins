@@ -94,7 +94,7 @@ items list refuses the call before writing. Revisions and release checks remain 
 
 | Host | File publishing and receipts |
 | --- | --- |
-| Claude Code | Gateway discovery recognizes Atlan-named aliases; the module expands files and records native results. |
+| Claude Code | Gateway discovery recognizes Atlan-named aliases, claude.ai connectors among them; the module expands files and records native results. |
 | Codex | Command hooks recognize Atlan aliases and use the shared receipt writer. Codex applies a rewritten input only with `allow`, so a rewritten publish may run without its approval prompt; the publishing skills show the plan and ask first. |
 | Cursor desktop | Command hooks use the server URL when provided and retain the existing MCP guard. A hook's `allow` does not override Cursor's MCP approval. |
 | GitHub Copilot CLI | Plugin hooks normalize native payloads, rewrite inputs without granting permission and record results. |

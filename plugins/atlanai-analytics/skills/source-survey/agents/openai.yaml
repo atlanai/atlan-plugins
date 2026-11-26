@@ -1,7 +1,7 @@
 interface:
-  display_name: "Source Survey"
-  short_description: "See what data, dashboards and query history you can build from"
-  default_prompt: "Use $source-survey to tell me what this folder's dashboards and queries cover."
+  display_name: "Survey Your Data"
+  short_description: "See what data, dashboards and past queries you can build from"
+  default_prompt: "Use $source-survey to tell me what this folder's dashboards and past queries cover."
 dependencies:
   tools:
     - type: "mcp"

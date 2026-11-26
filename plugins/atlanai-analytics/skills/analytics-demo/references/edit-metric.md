@@ -15,26 +15,32 @@ tool, print them last as plain lines, as
 | Option | Description |
 | --- | --- |
 | The proposed change | One line: what the rule would count instead. |
-| My own change | The person types it. |
-| Leave it as it is | End the turn with the `Next:` line from [ready](../../analytics-build/references/setup/ready.md). |
+| Your own change | Type the change you want. |
+| Leave it as it is | Keep the current rule. |
+
+On "Your own change", the person types it. On "Leave it as it is", end the turn with the `Next:`
+line from [ready](../../analytics-build/references/setup/ready.md).
 
 Never propose a change the demo's data cannot show: the tables must hold the column the
 new rule needs.
 
 ## 2. Make the change
 
-Call `metrics-generation` `edit` on that metric with the chosen change. It changes the
-definition through the engine, re-runs the check and returns the old rule, the new rule and
-both check results. The metric keeps its identity; this is a revision, not a new metric.
+Write `{"name": "<metric>", "changes": [...], "before": "<old rule, plain words>", "after": "<new
+rule, plain words>"}` to a file outside the run and run `EDIT <that file>`, with `EDIT` as
+`python3 "<demo-dir>/scripts/edit_metric.py" --run-dir "<run>"` and `<demo-dir>` this skill's
+directory. It changes the definition,
+re-runs the check and keeps the old version beside the run. The metric keeps its identity; this
+is a revision, not a new metric.
 
 If the check on the new rule fails, say so in one line, keep the old rule, and offer one
 other change. Never show a failed check as a result.
 
 ## 3. Show the difference
 
-Record the `edit` moment ([visuals](../../analytics-build/references/setup/visuals.md)) with the
-values from the edit's result. Its card is the difference: before and after, each with its
-rule, and what joined or left the count. In a terminal its lines take the block's place,
+`EDIT`'s result hands over the `edit` card in `show_first`
+([visuals](../../analytics-build/references/setup/visuals.md)): the difference, before and after,
+each with its rule. Add `added` and `removed` to the request for what joined or left the count. In a terminal its lines take the block's place,
 unchanged; with `show_widget`, draw it right before the reply or question. Only when the
 helper prints nothing, fill this block instead. How either reaches the person depends on
 where the context lives (step 4): it is either the last reply text of the turn or the text
@@ -46,7 +52,7 @@ of the save question, never reply text followed by a native question:
 > | --- | --- | --- |
 > | Rule | `<old rule, plain words>` | `<new rule, plain words>` |
 > | `<one worked example from this run's data>` | `<old value>` | `<new value>` |
-> | Check | `<old check status>` | `<new check status>` |
+> | Test | `<old test result>` | `<new test result>` |
 
 Before showing it, re-ask, through `analytics-ask`, one question the person already asked
 that uses this metric. With no earlier question, use the first question offered in this run. Write one
@@ -59,8 +65,8 @@ wherever it goes.
   and the comparison sentence as reply text, say so in one line, close with the plain `Next:` line
   from [ready](../../analytics-build/references/setup/ready.md) and end the turn.
 - Context saved to Atlan Trident: ask one native question whose text is the card (or the
-  block) as plain lines, then the comparison sentence, then "Save this change for everyone who uses the
-  metric?" On yes, call
+  block) as plain lines, then the comparison sentence, then "Save this change to the metric in Atlan Trident too?"
+  On yes, call
   `metrics-generation` `save`, which publishes a revision of the same metric after the
   person approves the plan. On no, the change stays on this machine and the published
   metric is unchanged. Then say in one line which rule answers from now on, close with the

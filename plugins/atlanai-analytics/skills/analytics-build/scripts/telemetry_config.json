@@ -2,7 +2,7 @@
   "endpoint": "https://api.segment.io/v1/batch",
   "write_key": "",
   "plugin": "atlanai-analytics",
-  "version": "0.9.90",
+  "version": "0.9.99",
   "mcp_url": "",
   "skills": [],
   "commands": []

@@ -1,7 +1,7 @@
 # Authoring knowledge bundles in Atlan
 
 A knowledge bundle **is** its `.zip`: a tree of markdown concept documents, each with a YAML
-frontmatter block. Every property the registry shows you - the file manifest, the concept
+frontmatter block. Every property Atlan Trident shows you - the file manifest, the concept
 count, the byte total - is derived from the archive by the create hook. None of it is yours to
 send. Create from inline UTF-8 files, or zip and upload a local tree. Edit existing memory with `apply_changes`.
 
@@ -152,7 +152,7 @@ Each concept is also its own `knowledge_concept` artifact, searchable with
 ## What not to send
 
 - **Derived manifest properties, `concept_count`, `total_bytes`, `upload_sha256`** - do not send
-  these as metadata. Inline `files` is an input tree of path/content pairs, not a registry manifest.
+  these as metadata. Inline `files` is an input tree of path/content pairs, not a Trident manifest.
 - **`trust_tier` or `content_digest` on a concept** - recomputed from the document on every
   write; a value you send is discarded.
 - **The archive as base64 in a tool argument.** Upload it.

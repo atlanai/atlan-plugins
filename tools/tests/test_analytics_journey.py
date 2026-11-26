@@ -43,6 +43,14 @@ class ConversationChoices(unittest.TestCase):
         self.assertEqual(set(after) - set(before), {'interaction.json'})
         self.assertEqual({k: after[k] for k in before}, before)
 
+    def test_a_pause_says_where_the_work_is_and_how_to_pick_it_up(self):
+        # 0.9.74 said "Resume here when ready" without saying how.
+        self.run.journey('domain', answer="EU region targets: what each region's quarterly target is. Table: SALES_OPS.REGION_TARGETS")
+        chat = self.run.journey('pause')['chat']
+        self.assertNotIn('Resume here', chat)
+        self.assertIn('Your work is saved on this machine. To pick up, open a chat in', chat)
+        self.assertIn('say "resume the EU region targets".', chat)
+
     def test_missing_focus_survives_scope_change_without_substitution(self):
         self.run.journey('select', 'metric-source')
         self.fixture.write('context/metrics.json', [{**self.body, 'name': 'replacement', 'source_id': 'new'}])
@@ -139,7 +147,7 @@ class ConversationChoices(unittest.TestCase):
 @unittest.skipUnless(importlib.util.find_spec('duckdb'), 'Requires the existing approved DuckDB runtime.')
 class FirstAnswerRehearsal(unittest.TestCase):
     def test_survey_history_check_preview_restart_release_retrieve_and_fresh_answer(self):
-        # Source data and authored gate outputs are synthetic; Registry transport is a double.
+        # Source data and authored gate outputs are synthetic; Atlan Trident transport is a double.
         # Survey, preparation, schema checks, SQL checks, receipts and answers execute for real.
         sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
         import analytics_ux_prototype as prototype

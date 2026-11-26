@@ -104,7 +104,7 @@ class WindowsPortabilityTests(unittest.TestCase):
             root = Path(temp).resolve()
             with driver.operation_lock(root):
                 self.assertEqual(len(fake.held), 1)
-                with self.assertRaisesRegex(ValueError, 'Another metrics operation'):
+                with self.assertRaisesRegex(ValueError, 'Another metrics build'):
                     with driver.operation_lock(root):
                         self.fail('Concurrent operation acquired the runtime lock.')
             self.assertEqual(fake.held, {})

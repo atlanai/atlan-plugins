@@ -61,8 +61,10 @@ from metrics_agent import observe as _observe
 from metrics_agent import plug_runtime as _runtime
 from metrics_agent.lib import access as _access
 from metrics_agent.lib import artifacts as _artifacts
+from metrics_agent.lib import page_scope as _page_scope
 from metrics_agent.lib import publish_target as _pt
 from metrics_agent.lib import stage as _stage
+from metrics_agent.lib import describe_timing as _timing
 
 PAUSED = 3
 REFUSED = 2
@@ -129,6 +131,8 @@ def _trace_credentials() -> set[str]:
 # The core's tracing switches (`observe.py`). Names only; the tracing itself is the
 # observer's, and what it reads besides is its own.
 ENV_OFF, ENV_REQUIRED = _observe.OFF_ENV, _observe.REQUIRED_ENV
+# Set by the host module's one-command Power BI fetch: a person can answer a sign-in. Name only.
+ATTENDED_ENV = "METRICS_AGENT_ATTENDED"
 
 
 def stage_env(trace_on: bool, extra: dict | None = None) -> dict:
@@ -160,7 +164,10 @@ def gate_steps(name: str, answers: pathlib.Path) -> list:
     script, rel, multi, _skill = GATES[name]
     target = str(answers / rel)
     model = (os.environ.get(ENV_MODEL) or "").strip()
-    return [Step(f"{name}_emit", script, ["--emit-prompt"], gate=name),
+    # The two gates that answer per statement skip what an earlier run already answered.
+    carried = (["--carried", str(answers / name / "carried-*.json")] if name in ("m2", "x1")
+               else [])
+    return [Step(f"{name}_emit", script, ["--emit-prompt", *carried], gate=name),
             Step(f"{name}_ingest", script, ["--from", target, *(["--model", model] if model
                                                                  else [])],
                  gate=name, ingest=True)]
@@ -189,15 +196,31 @@ def plan(profile: str, args) -> list:
         steps += [Step("a4_witness_bi", "a4_witness_bi.py"),
                   Step("c1_normalise", "c1_normalise.py"), Step("c2_merge", "c2_merge.py")]
         steps += ([Step("c3_questions", "c3_questions.py", ["--deterministic-draft"])]
-                  if args.c3_deterministic else gate_steps("c3", answers))
+                  if args.c3_deterministic or _timing.bi_draft_by_code()
+                  else gate_steps("c3", answers))
         steps += [Step("c4_gates", "c4_gates.py"), Step("c5_emit", "c5_emit.py")]
     steps.append(Step("m1_merge_pre", "m1_merge.py", ["--pre-describe"]))
-    steps += gate_steps("m2", answers)
-    steps.append(Step("m1_merge", "m1_merge.py"))
+    m2_emit, m2_ingest = gate_steps("m2", answers)
+    if not _timing.describe_at_end():
+        steps += [m2_emit, m2_ingest]
+        steps.append(Step("m1_merge", "m1_merge.py"))
+    else:
+        # The prose needs nothing the metric gates make, so its prompt goes out now and is
+        # answered beside them; only its ingest waits for the metric layer.
+        steps.append(m2_emit)
     steps.append(Step("d1_candidates", "d1_candidates.py"))
     steps += gate_steps("x1", answers) + gate_steps("x2", answers) + gate_steps("x3", answers)
     steps.append(Step("d4b_consistency", "d4b_consistency.py"))
     steps += gate_steps("x4", answers)
+    if _timing.describe_at_end():
+        # EXPERIMENT (options B and C): the metric layer is complete here. The prose, asked
+        # for before the metric gates, is ingested now, applied, and the cards re-read their
+        # example questions from the described layer.
+        steps.append(m2_ingest)
+        steps.append(Step("m1_merge", "m1_merge.py"))
+        steps.append(Step("x3_refresh", "x3_emit.py", ["--from", str(answers / "x3/*.json")]))
+        steps.append(Step("d4b_refresh", "d4b_consistency.py"))
+        steps.append(Step("x4_refresh", "x4_relate.py", ["--from", str(answers / "x4/*.json")]))
     return steps + after + last
 
 
@@ -290,7 +313,22 @@ def _manifest(run: pathlib.Path) -> dict:
 def _answers_present(step: Step, args) -> bool:
     answers = pathlib.Path(args.answers_dir or (pathlib.Path(args.run) / "answers"))
     _script, rel, multi, _skill = GATES[step.gate]
-    return bool(list(answers.glob(rel))) if multi else (answers / rel).is_file()
+    if not multi:
+        return (answers / rel).is_file()
+    found = list(answers.glob(rel))
+    # Answers carried from an earlier run cover only part of the prompt: the gate waits for the
+    # rest, unless the prompt asks about nothing more.
+    if found and all(f.name.startswith("carried-") for f in found):
+        return _prompt_is_empty(pathlib.Path(args.run) / f"{step.gate}_prompt.json")
+    return bool(found)
+
+
+def _prompt_is_empty(prompt: pathlib.Path) -> bool:
+    try:
+        tasks = json.loads(prompt.read_text()).get("tasks") or []
+    except (OSError, ValueError, AttributeError):
+        return False
+    return not any(t.get("queries") or t.get("statements") for t in tasks if isinstance(t, dict))
 
 
 def _answers_newer(step: Step, args, prior: dict) -> bool:
@@ -315,6 +353,20 @@ def _answers_newer(step: Step, args, prior: dict) -> bool:
     return any(f.is_file() and f.stat().st_mtime > since for f in files)
 
 
+def _scope_changed(step: Step, run: pathlib.Path, prior: dict) -> bool:
+    """True when the pages the person chose (`page_scope.json`, written after the report was
+    fetched) differ from the ones A2 last ran with. A2 is where the other pages' units are left
+    out, so it runs again, and every step after it reads its new output. A record that cannot
+    be read re-runs it too: A2 then refuses it by name."""
+    if step.label != "a2_question_units":
+        return False
+    try:
+        now = _page_scope.digest(_page_scope.read(run))
+    except Exception:  # noqa: BLE001 - a damaged record is A2's to refuse, by name
+        return True
+    return now != str((prior.get("counts") or {}).get("page_scope") or _page_scope.NONE)
+
+
 def run_step(step: Step, args, env: dict, *, runner=subprocess.run) -> None:
     cmd = [*stage_command(step.script), "--run", str(args.run),
            "--as", step.label, *step.args]
@@ -337,6 +389,23 @@ def run_step(step: Step, args, env: dict, *, runner=subprocess.run) -> None:
                      f"command: it resumes from {step.label}.")
     if rc != 0:
         raise StageFailed(f"{step.label} exited {rc}")
+
+
+def _also_open(steps: list, at: Step, args) -> str:
+    """A gate whose prompt is already out and whose answers are not yet in, other than the one
+    the run waits at: it can be answered at the same time."""
+    run = pathlib.Path(args.run)
+    out = []
+    for s in steps:
+        if not s.ingest or s.gate == at.gate or not (run / f"{s.gate}_prompt.json").is_file():
+            continue
+        if _answers_present(s, args):
+            continue
+        _script, rel, _multi, skill = GATES[s.gate]
+        out.append(f" ALSO OPEN, answer it in parallel: the {s.gate} gate, "
+                   f"{run / (s.gate + '_prompt.json')} with the `{skill}` skill into "
+                   f"{pathlib.Path(args.answers_dir or run / 'answers') / rel}.")
+    return "".join(out)
 
 
 def execute(steps: list, args, env: dict, *, runner=subprocess.run) -> None:
@@ -364,6 +433,8 @@ def execute(steps: list, args, env: dict, *, runner=subprocess.run) -> None:
         # with the same message however the answer was fixed.
         if step.ingest and prior and _answers_newer(step, args, prior):
             rerun = True
+        if prior and _scope_changed(step, run, prior):
+            rerun = True
         if not rerun and prior and prior.get("verdict") in ("ok", "stub", "skipped") and \
                 prior.get("notes") != "awaiting_decision":
             continue
@@ -373,7 +444,7 @@ def execute(steps: list, args, env: dict, *, runner=subprocess.run) -> None:
                          f"{pathlib.Path(args.run) / (step.gate + '_prompt.json')} with the "
                          f"`{skill}` skill into "
                          f"{pathlib.Path(args.answers_dir or pathlib.Path(args.run) / 'answers') / rel}, "
-                         "then re-run this same command.")
+                         "then re-run this same command." + _also_open(steps, step, args))
         if prior and prior.get("notes") == "awaiting_decision" and step.gate \
                 and not step.ingest and not rerun:
             continue   # the bundle is already out; the ingest decides
@@ -562,6 +633,9 @@ def main(argv: list | None = None) -> int:
         _say(f"REFUSED — {exc}")
         return REFUSED
     env = stage_env(args.trace_on, added)
+    # A person present for sign-in (the one-command Power BI fetch) is present for the BI fetch only: no later stage
+    # may start a sign-in and wait up to 15 minutes for someone who has moved on, or who was never there.
+    fetch_env, env = env, {k: v for k, v in env.items() if k != ATTENDED_ENV}
 
     def _on_signal(signum, _frame):
         raise KeyboardInterrupt(f"signal {signum}")
@@ -576,7 +650,7 @@ def main(argv: list | None = None) -> int:
                 # reads what is there.
                 try:
                     run_step(Step("s_fetch_bi", "s_fetch_bi.py", ["--config", config]),
-                             args, env)
+                             args, fetch_env)
                 except StageFailed:
                     _say("REFUSED — the BI fetch did not complete (its reason is above)."
                          + _access_summary(run))
@@ -629,7 +703,17 @@ def _unchecked(run: pathlib.Path) -> str:
                    or {}).get("warning")
     except (OSError, ValueError):
         return ""
-    return f"\nrun: {warning}" if warning else ""
+    if not warning:
+        return ""
+    # Said once per run: repeated at every pause it buried each gate's own feedback (walk 4, 2026-11-23).
+    said = run / ".sql_check_warned"
+    if said.exists():
+        return ""
+    try:
+        said.write_text("1")
+    except OSError:
+        pass
+    return f"\nrun: {warning}"
 
 
 def _started_target(run: pathlib.Path) -> str | None:

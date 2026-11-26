@@ -14,7 +14,7 @@ workspace and offers to join it.
   production. The examples below use production.
 - **The organization's slug**, such as `acme`: the first segment of the user's Atlan dashboard
   address (`https://app.atlan.com/acme/…`). Take it from the request, a dashboard address the
-  user pasted, or `org` in `.atlan/share.json`. The registry does not return it, and no
+  user pasted, or `org` in `.atlan/share.json`. Atlan Trident does not return it, and no
   workspace name is it: the `org_default` workspace's `name` is often a generic one such as
   `org-workspace`. The app sends a link with a slug the reader does not belong to back to its
   home page, so a guessed slug gives a link that opens nothing.

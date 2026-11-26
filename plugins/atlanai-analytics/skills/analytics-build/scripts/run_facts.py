@@ -13,6 +13,8 @@ import re
 import context_contracts as contracts
 
 CURRENCY = {'GBP': '£', 'USD': '$', 'EUR': '€'}
+# A card's rule line: a metric's description past this is a paragraph, not a rule.
+RULE_LINE = 90
 # Survey statuses of a source the run can read; a Tableau workbook surveys as needing the model's review.
 USABLE = ('available', 'needs_model_review')
 # The dashboard kinds source_inventory.source_kind reports, and the tool each one is.
@@ -20,11 +22,15 @@ BI_TOOLS = {'powerbi': 'Power BI', 'powerbi_project': 'Power BI', 'tableau': 'Ta
 # Every kind of source the survey records, as a person names it, in the order the found chip lists them.
 FOUND = ((('powerbi',), 'Power BI dashboard'), (('powerbi_project',), 'Power BI project'), (('tableau',), 'Tableau dashboard'),
          (('dashboard_html',), 'HTML dashboard'), (('model_candidate',), 'model file'), (('data_file',), 'data file'),
-         (('sqlite', 'duckdb'), 'database'), (('rowsets',), 'saved row set'), (('saved_sql',), 'saved SQL file'),
+         (('sqlite', 'duckdb'), 'database'), (('rowsets',), 'saved row set'), (('saved_sql',), 'SQL file'),
          (('query_history',), 'query history'))
+# A found label as the person reads it, where it differs: the label itself stays, since visuals.FOUND_MARKS matches it.
+FOUND_SAID = {'query history': ('past queries', 'files of past queries')}
 # Warehouses as a person names them; any other kind reads as its own name.
 WAREHOUSES = {'snowflake': 'Snowflake', 'databricks': 'Databricks', 'bigquery': 'BigQuery', 'redshift': 'Redshift',
-              'postgres': 'Postgres', 'postgresql': 'Postgres', 'duckdb': 'DuckDB'}
+              'postgres': 'Postgres', 'postgresql': 'Postgres', 'duckdb': 'DuckDB', 'mysql': 'MySQL', 'tsql': 'SQL Server',
+              'mssql': 'SQL Server', 'sqlserver': 'SQL Server', 'oracle': 'Oracle', 'trino': 'Trino', 'presto': 'Presto',
+              'athena': 'Athena', 'synapse': 'Synapse', 'teradata': 'Teradata', 'clickhouse': 'ClickHouse'}
 
 
 DEMOS = Path(__file__).resolve().parents[2] / 'analytics-demo' / 'references'
@@ -70,7 +76,14 @@ def number(value, unit=None):
     if value is None or isinstance(value, bool):
         return 'blank'
     if isinstance(value, str):
-        return value
+        # A warehouse can return a number as text: a decimal ("12.277778") reads as a number, rounded like one, and so
+        # do whole digits where the metric has a unit ("1500" in USD). Without one, or with a leading zero, whole digits
+        # stay as they came: they can be an id, a year or a zip code ("00123", "2026").
+        decimal = re.fullmatch(r'\s*-?\d+\.\d+\s*', value)
+        whole = (unit or '').strip() and re.fullmatch(r'\s*-?(0|[1-9]\d*)\s*', value)
+        if not (decimal or whole):
+            return value
+        value = float(value)
     if not isinstance(value, (int, float)) or not math.isfinite(value):
         return 'blank'
     unit = (unit or '').strip()
@@ -94,6 +107,19 @@ def number(value, unit=None):
     if tiny:
         text = text.rstrip('0').rstrip('.')
     return ('-' if rounded < 0 else '') + symbol + text
+
+
+def report_name(report):
+    """A dashboard named as a person would: "the Box Office Pulse dashboard", "the Sales report", never without "the"."""
+    report = ' '.join(str(report or '').split())
+    return report and ('the %s' % report if re.search(r'\b(dashboard|report)$', report, re.I) else 'the %s dashboard' % report)
+
+
+def same_figure(value, figure, unit=None):
+    """Whether a checked value and a tile's figure read as the same number, a warehouse's number sent as text
+    included: each is read as a number before both are written in the metric's unit."""
+    read = lambda v: float(v) if isinstance(v, str) and re.fullmatch(r'\s*-?\d+(\.\d+)?\s*', v) else v  # noqa: E731
+    return number(read(value), unit) == number(read(figure), unit)
 
 
 def first_question(text):
@@ -125,6 +151,27 @@ def sentence(name):
     return ''.join(out)
 
 
+def clip(text, width):
+    """Text on one line, cut to a width at a word with "…", never inside one ("delivery f…" read as broken in 0.9.74)."""
+    text = ' '.join(str(text or '').split())
+    if len(text) <= width:
+        return text
+    cut = text[:width - 1]
+    # A cut that ends where a word ends keeps that word.
+    space = width - 1 if text[width - 1] == ' ' else cut.rfind(' ')
+    return (cut[:space] if space > width // 2 else cut).rstrip(' ,;:·-') + '…'
+
+
+def short_name(text, width=60):
+    """A use case as a name: a long answer's own short name, the text before its first ":" or ".", else the answer cut
+    at a word. "Region targets: what each region's quarterly target is. Table: SALES_OPS…" reads as "Region targets"."""
+    text = ' '.join(str(text or '').split())
+    if len(text) > width:
+        head = re.split(r':|\.(?=\s|$)', text, maxsplit=1)[0].strip()
+        text = head if head else text
+    return clip(text, width)
+
+
 def table_name(name):
     """A table as a person says it: 'site.work_logs' reads as 'work logs'."""
     return str(name).split('.')[-1].replace('_', ' ')
@@ -136,6 +183,19 @@ def count(n, word, many=None):
 
 def their(subject):
     return subject + "'s" if subject else 'your'
+
+
+def agent_name(facts, demo=None):
+    """Your agent's name, for "Your <name> is ready": a demo's own ("job profit agent"), else "agent for" the dashboard
+    or the use case ("agent for Sales pipeline"), never the raw title with "agent" after it, else "agent". `demo` is a
+    demo's ready facts when the caller holds them; otherwise they are read from the demo's own folder."""
+    demo = demo if demo is not None else demo_facts(facts.dir).get('ready') or {}
+    name = ' '.join(str(demo.get('agent') or '').split()) if isinstance(demo, dict) else ''
+    if not name:
+        # A long use case reads as a paragraph, not a name: its own short name stands for it.
+        base = facts.report or short_name(facts.use_case)
+        name = 'agent for ' + base if base and len(base) <= 60 else ''
+    return name or 'agent'
 
 
 # Files ----------------------------------------------------------------------------------------
@@ -239,16 +299,50 @@ class RunFacts:
         intent = self.interaction.get('intent')
         return ' '.join(str(intent.get('domain') or '').split()) if isinstance(intent, dict) else ''
 
+    @property
+    def report(self):
+        """The dashboard the person named for a dashboard run ("Sales pipeline: Overview, Stages" names Sales pipeline),
+        or ''."""
+        return ' '.join(str(self.interaction.get('report') or '').split(':')[0].split())
+
+    @property
+    def folder(self):
+        """The working folder a chat opens in to find this run (`<folder>/.atlan-analytics/<run>`, or an earlier
+        version's `<folder>/.atlan-metrics/run_…` not moved yet), home as ~, or None for a run kept anywhere else. A
+        dashboard run in `.atlan-analytics` read "this folder" in every message (0.9.76's live run)."""
+        if self.dir.parent.name not in ('.atlan-analytics', '.atlan-metrics'):
+            return None
+        folder = self.dir.absolute().parent.parent
+        try:
+            return '~/' + str(folder.relative_to(Path.home())) if folder != Path.home() else '~'
+        except ValueError:
+            return str(folder)
+
+    @cached_property
+    def held(self):
+        """How many metrics and saved queries the save held back, from its record of the holds."""
+        holds = self.file('context', 'publication-holds.json')
+        return {k: sum(1 for h in holds.get(k) or [] if isinstance(h, dict)) if isinstance(holds.get(k), list) else 0
+                for k in ('metrics', 'queries')}
+
     @cached_property
     def warehouse(self):
         """The warehouse the run reads, as the connection recorded it in the run's state, or None for local data."""
         recorded = self.file('state.json').get('warehouse')
         kind = recorded.get('kind') if isinstance(recorded, dict) else None
-        return WAREHOUSES.get(str(kind).lower(), str(kind)) if kind else None
+        if not kind:
+            return None
+        # "other" is how the record says "not one we name": the person reads its dialect instead, which recording an
+        # other warehouse requires ("other warehouse" in the review's run).
+        dialect = str(recorded.get('dialect') or '').lower()
+        if str(kind).lower() == 'other' and dialect and dialect != 'other':
+            return WAREHOUSES.get(dialect, dialect.title())
+        return WAREHOUSES.get(str(kind).lower(), str(kind))
 
     @cached_property
     def config(self):
-        return self.file('engine-config.json')
+        # A warehouse run keeps it in private/ (metrics-engine.md): its tables read "from your data" without this.
+        return self.file('engine-config.json') or self.file('private', 'engine-config.json')
 
     @cached_property
     def inputs(self):
@@ -280,8 +374,24 @@ class RunFacts:
     @cached_property
     def found(self):
         """What the survey and the warehouse connection found, as (how many, the words for them): only what can be named
-        is counted, so the count and the words always agree."""
-        items = [(1, '%s warehouse' % self.warehouse)] if self.warehouse else []
+        is counted, so the count and the words always agree. Then the same labels as the person reads them."""
+        items = [(1, '%s warehouse' % self.warehouse, '%s warehouse' % self.warehouse)] if self.warehouse else []
+        # A report fetched from its link is in the engine's fetch record, not the folder's survey: the live run's chip read
+        # "1 source · Snowflake warehouse" for a Power BI build (2026-11-23). It leads, as the source the build is from.
+        fetched = self.engine_file('bi_fetch.json')
+        plug = str(fetched.get('plug') or '') if fetched else ''
+        # Not a fetch the access check blocked whole, which keeps its record with nothing read: the review's run still
+        # counted that report as a source.
+        per_plug = fetched.get('fetched') if fetched and isinstance(fetched.get('fetched'), dict) else {}
+        blocked = bool(per_plug) and not fetched.get('bi') and all(
+            isinstance(v, dict) and v.get('blocked') and not v.get('bi') for v in per_plug.values())
+        if plug and not blocked and not self.usable(*BI_TOOLS):
+            reports = ((read_json(Path(str(fetched.get('root') or '')) / 'manifest.json', dict, {}).get('reports') or {})
+                       .get('fetched') or 1) if fetched.get('root') else 1
+            word = 'Power BI dashboard' if plug.startswith('powerbi') else 'Tableau dashboard' if plug.startswith('tableau') \
+                else 'dashboard'
+            said = 'Power BI report' if plug.startswith('powerbi') else word
+            items.insert(0, (reports, word, said if reports == 1 else '%d %ss' % (reports, said)))
         for kinds, word in FOUND:
             n = sum(1 for s in self.sources if s.get('kind') in kinds)
             if not n:
@@ -289,8 +399,11 @@ class RunFacts:
             # A Power BI project is one report kept as many files; a dashboard or a history reads alone when it is one.
             label = ('%s (%s)' % (word, count(n, 'file')) if n > 1 else word) if kinds == ('powerbi_project',) else \
                 word if n == 1 and kinds[0] in ('powerbi', 'tableau', 'dashboard_html', 'query_history') else count(n, word)
-            items.append((n, label))
-        return sum(n for n, _ in items), [label for _, label in items]
+            said = FOUND_SAID.get(word)
+            # One report is one source, however many files Power BI keeps it in ("32 sources" for one report).
+            items.append((1 if kinds == ('powerbi_project',) else n, label,
+                          label if not said else said[0] if n == 1 else '%d %s' % (n, said[1])))
+        return sum(n for n, _, _ in items), [label for _, label, _ in items], [said for _, _, said in items]
 
     @cached_property
     def dashboard(self):
@@ -453,7 +566,7 @@ class RunFacts:
             tile = next((self.tile_figures[x] for x in derived or [] if x in self.tile_figures), None)
             if ok and tile and len(values) == 1:
                 shown = number(tile[1], unit)
-                rows[-1]['tile'] = {'name': tile[0], 'value': shown, 'same': shown == rows[-1]['value']}
+                rows[-1]['tile'] = {'name': tile[0], 'value': shown, 'same': same_figure(values[0][0], tile[1], unit)}
         rows.sort(key=lambda r: r['origin'] != 'tile')
         metrics_ran = sum(r['ok'] for r in rows)
         queries_ran = sum(_passed(checks.get('sql_query:' + q['name']) or {}) for q in queries)
@@ -502,13 +615,38 @@ class RunFacts:
 
     def unit_for(self, name):
         """The unit of the context's metric with this name, or None when the context has no such metric."""
+        m = self._metric(name)
+        return (self.unit_of(m) or None) if m else None
+
+    def adds_up(self, name):
+        """Whether the context's metric with this name is a sum or a count, so a breakdown's rows add up to it. A rate,
+        an average or a distinct count never does."""
+        d = (self._metric(name) or {}).get('definition')
+        agg = d.get('aggregation') if isinstance(d, dict) else None
+        return isinstance(agg, dict) and agg.get('type') in ('sum', 'count')
+
+    def _metric(self, name):
         wanted = sentence(name or '').lower()
         if not wanted:
             return None
         for m in self.file('context', 'metrics.json', kind=list):
             if isinstance(m, dict) and wanted in (sentence(m.get('display_name') or '').lower(), sentence(m.get('name') or '').lower()):
-                return self.unit_of(m) or None
+                return m
         return None
+
+    def rule_for(self, name):
+        """A metric's rule in its own words, for a card's one line: its description's first clause, or None when that
+        runs past a line."""
+        m = self._metric(name)
+        lead = re.split(r'(?<=[.:;])\s', str((m or {}).get('description') or '').strip())[0].rstrip('.:;').strip()
+        return lead if 0 < len(lead) <= RULE_LINE else None
+
+    @cached_property
+    def currency(self):
+        """The one currency the context's metrics are in, or None with none or several."""
+        units = {str(self.unit_of(m) or '').upper() for m in self.file('context', 'metrics.json', kind=list) if isinstance(m, dict)}
+        units &= set(CURRENCY)
+        return units.pop() if len(units) == 1 else None
 
     @cached_property
     def publication(self):

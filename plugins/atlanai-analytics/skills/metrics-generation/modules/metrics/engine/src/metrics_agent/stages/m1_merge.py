@@ -22,8 +22,8 @@ Two different things are reconciled here and they are not the same problem:
 
   * **Duplicates** — the same statement in both lanes. One object survives, carrying both
     lanes' evidence.
-  * **Name conflicts** — different statements that happen to share a name. Both survive; the
-    registry requires names unique per (workspace, kind), so the history one is disambiguated
+  * **Name conflicts** — different statements that happen to share a name. Both survive;
+    Atlan Trident requires names unique per (workspace, kind), so the history one is disambiguated
     by its own id. Renaming the BI object instead would move the governed name, which is the
     thing that made BI authoritative in the first place.
 
@@ -112,6 +112,10 @@ def _without_times(value):
     return value
 
 
+def _layer_sha(objects: list) -> str:
+    return hashlib.sha256(json.dumps(_without_times(objects), sort_keys=True).encode()).hexdigest()[:12]
+
+
 def body(ctx: stage.Ctx) -> None:
     ri = ctx.read("run_inputs.json", "run_inputs.schema.json")
 
@@ -147,11 +151,17 @@ def body(ctx: stage.Ctx) -> None:
         obj = dict(o)
         if obj["name"] in used_names:
             # A NAME COLLISION IS NOT A DUPLICATE. Different statements that happen to share
-            # a name both belong in the layer; the registry only requires the NAME be unique.
+            # a name both belong in the layer; Trident only requires the NAME be unique.
             obj["name"] = f"{obj['name']}-{str(obj['vq_id']).rsplit('-', 1)[-1][:8]}"
             renamed += 1
         used_names.add(obj["name"])
         merged.append(obj)
+
+    # THE LAYER BEFORE ITS PROSE. Described at the end (describe_timing), the metric gates
+    # stamped their work with the layer as it stood before these descriptions, and nothing
+    # else about the statements changes here. Recording that version lets a reader tell
+    # "the same statements, now described" from "different statements".
+    undescribed_sha = _layer_sha(sorted(merged, key=lambda o: o["vq_id"]))
 
     # THE DESCRIPTIONS ARE APPLIED LAST, over the merged layer, because that is the only
     # point at which one statement has one object to carry them. Absent, every object keeps
@@ -172,7 +182,7 @@ def body(ctx: stage.Ctx) -> None:
             o["name_provisional"] = False
             described += 1
         # A NAME THAT ARRIVED FROM PROSE CAN COLLIDE LIKE ANY OTHER. Re-checked here rather
-        # than trusted, because the registry refuses the whole batch over one duplicate.
+        # than trusted, because Trident refuses the whole batch over one duplicate.
         for o in merged:
             if o["name"] in used_after:
                 o["name"] = f"{o['name']}-{str(o['vq_id']).rsplit('-', 1)[-1][:8]}"
@@ -180,15 +190,16 @@ def body(ctx: stage.Ctx) -> None:
             used_after.add(o["name"])
 
     merged.sort(key=lambda o: o["vq_id"])
+    layer_sha = _layer_sha(merged)
     layer = {
         "contract_version": "1.0",
         # THE LAYER'S VERSION, OVER ITS CONTENT. Hashed over the ids alone, a re-described
-        # layer kept its version, so the registry could not tell the new prose from the old.
+        # layer kept its version, so Trident could not tell the new prose from the old.
         # Identity is each object's `source_id`, never this.
         # A timestamp (a witness's `executed_at`) is when, not what: left in, every re-run
         # would be a new version.
-        "layer_sha": hashlib.sha256(
-            json.dumps(_without_times(merged), sort_keys=True).encode()).hexdigest()[:12],
+        "layer_sha": layer_sha,
+        **({"described_from": undescribed_sha} if described and undescribed_sha != layer_sha else {}),
         "dialect": (bi_doc or hist_doc)["dialect"],
         "generated_at": (bi_doc or hist_doc).get("generated_at"),
         "scope": ri["scope"],

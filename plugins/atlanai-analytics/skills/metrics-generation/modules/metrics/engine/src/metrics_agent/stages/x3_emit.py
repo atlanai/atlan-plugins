@@ -30,6 +30,8 @@ import sys
 
 from metrics_agent.lib import artifacts  # noqa: E402
 from metrics_agent.lib import shared_sources as _shared  # noqa: E402
+from metrics_agent.lib import describe_timing as _timing  # noqa: E402
+from metrics_agent.lib import filter_carry as _carry  # noqa: E402
 from metrics_agent.lib import declared as _declared  # noqa: E402
 from metrics_agent.lib import dialect as _dialect
 from metrics_agent.lib import dimensions as dims  # noqa: E402
@@ -55,7 +57,7 @@ OUT = "metric_cards.json"
 CHECKS = "metric_checks.json"
 
 # The fields the author writes. Everything else on the card is bookkeeping this stage fills in.
-# These are the Registry's metric vocabulary. Outside them the gateway publishes the
+# These are Atlan Trident's metric vocabulary. Outside them the gateway publishes the
 # artifact and records a `draft_vocabulary` warning against it, which never clears.
 AGGREGATIONS = ("sum", "count", "count_distinct", "min", "max", "ratio", "custom")
 DATATYPES = ("integer", "decimal", "string", "boolean", "date", "timestamp")
@@ -75,7 +77,7 @@ def card_aggregation(value):
 REQUIRED = ("name", "description", "domain", "formula", "population",
             "aggregation", "output", "source")
 # `grain` may be empty: "if nothing in the statement shows what makes a row unique, leave it
-# empty" (the skill), and the registry holds it as optional. Requiring a value forced the
+# empty" (the skill), and Trident holds it as optional. Requiring a value forced the
 # author to invent a key.
 OPTIONAL = ("grain", "exclusions", "filters", "mandatory_filters", "joins", "dimensions",
             "examples", "depends_on", "unit", "notes")
@@ -87,7 +89,7 @@ def _evidence(m: dict, sources: list[dict], stmts: dict, dialect: str,
 
     Advisory, and never blocking: a statement the parser cannot read contributes nothing and
     the author still has its SQL in full. `declare_joins` and `build` are the same functions
-    R1 uses to emit a record's dimensions, so what the author is shown is what the registry
+    R1 uses to emit a record's dimensions, so what the author is shown is what Trident
     would accept.
     """
     entity = str(m.get("entity") or "")
@@ -215,9 +217,13 @@ def _emit(ctx: stage.Ctx) -> None:
                 # THE AUTHORED PROSE IS THE POINT OF CARRYING THE STATEMENT. The question and
                 # description were written by somebody who had read this SQL; they say what the
                 # query is FOR, which the SQL cannot.
-                "statement_name": o.get("name"),
-                "question": o.get("question"),
-                "description": o.get("description"),
+                **({"statement_name": _timing.prose(o)["name"],
+                    "question": _timing.prose(o)["question"],
+                    "description": _timing.prose(o)["description"],
+                    "facts": _timing.facts(o, dialect, light=True)}
+                   if _timing.describe_at_end() else
+                   {"statement_name": o.get("name"), "question": o.get("question"),
+                    "description": o.get("description")}),
                 "sql": o.get("sql"),
                 "tables": o.get("tables") or [],
                 "group_by": o.get("group_by") or [],
@@ -277,6 +283,7 @@ def _emit(ctx: stage.Ctx) -> None:
         "contract_version": "1.0",
         "stage": STAGE,
         "instruction": (
+            (_timing.NOTE + " " if _timing.describe_at_end() else "") +
             "See gates/author-metric-card/GATE.md. Author one card per metric. "
             "READ THE SQL — every field is a reading of what the query does, not a restatement "
             "of the merge. Outside `examples`, every column reference is fully qualified "
@@ -537,8 +544,8 @@ def _ingest(ctx: stage.Ctx) -> None:
                 ctx.say(f"x3: {a.get('name')!r}: aggregation {agg.get('type')!r} is recorded "
                         f"as 'custom'; its formula carries the function.")
                 agg["type"] = card_aggregation(agg.get("type"))
-        # THE SHAPE FIRST, THEN THE READING. `authored_metric_cards.schema.json` mirrors the
-        # registry's own metric contract, which is `deny_unknown_fields` all the way down: an
+        # THE SHAPE FIRST, THEN THE READING. `authored_metric_cards.schema.json` mirrors
+        # Trident's own metric contract, which is `deny_unknown_fields` all the way down: an
         # extra key anywhere fails typed deserialisation before a single gateway rule runs and
         # comes back as a bare 422 naming no field. Checking it here names the field and the
         # card instead, and it happens before the readings below so a malformed file does not
@@ -602,6 +609,9 @@ def _ingest(ctx: stage.Ctx) -> None:
                 if a.get(f) in (None, "", [], {}):
                     problems.append(f"{where}: no `{f}`")
 
+            # EVERY FILTER THE MERGE DECIDED REACHES THE CARD (`filter_carry`).
+            problems.extend(f"{where}: {x}" for x in _carry.lost(a, m, dialect))
+
             # A DESCRIPTION IS A SENTENCE, NOT THE FORMULA AND NOT A LIST OF QUESTIONS.
             # `description` is the third retrieval tier; spending it on SQL or on the questions
             # the source statements happened to ask puts the words somebody would type out of
@@ -618,7 +628,7 @@ def _ingest(ctx: stage.Ctx) -> None:
 
             # A BUSINESS DOMAIN IS NOT A WAREHOUSE SCHEMA.
             dom = str(a.get("domain") or "")
-            # An all-caps word is a schema name (`MARTS`, `GTM_OPS`) unless it is a short
+            # An all-caps word is a schema name (`MARTS`, `SALES_OPS`) unless it is a short
             # acronym the business says as letters (`GTM`, `HR`, `IT`, `CS`, `R&D`).
             acronym = dom.isupper() and " " not in dom and len(dom.replace("&", "")) <= 4
             if "." in dom or "_" in dom or (dom.isupper() and not acronym):
@@ -680,7 +690,7 @@ def _ingest(ctx: stage.Ctx) -> None:
             # query at all. A consumer composing SQL needs a statement it can run and adapt,
             # so `sql` is the one that is declared and `table` stays absent.
             q = str(src.get("sql") or "").strip()
-            # `source.sql` IS THE FROM CLAUSE. The registry's `Source` is "a table or SQL
+            # `source.sql` IS THE FROM CLAUSE. Trident's `Source` is "a table or SQL
             # source" and takes exactly one of `table` and `sql`, so this is the text after
             # FROM — not a worked example of the query. It is OPTIONAL: a metric over one
             # plain table says so in `source.entity` and leaves this empty.
@@ -1067,7 +1077,7 @@ def _ingest(ctx: stage.Ctx) -> None:
 
     # THE MODEL NAMES ITS METRIC. A card built from a declared metric takes the declared
     # name, in words; the author's stays as a synonym. A name another card holds already is
-    # never taken, compared as the registry compares it (`metric_ref`, case-folded).
+    # never taken, compared as Trident compares it (`metric_ref`, case-folded).
     renamed = _name_by_declaration(cards, declared_of)
     if completed or renamed:
         ctx.count(declared_completed={**completed, **({"named": len(renamed)} if renamed
@@ -1077,7 +1087,7 @@ def _ingest(ctx: stage.Ctx) -> None:
                 + (f"; {len(renamed)} card(s) named as declared" if renamed else "") + ".")
 
     doc = {"contract_version": "1.0",
-           # The registry's own contract version, not this stage's — the card layer declares
+           # Trident's own contract version, not this stage's — the card layer declares
            # which metric spec it was written against.
            "spec_version": "1.0-draft.1",
            "dialect": dialect,
@@ -1170,15 +1180,23 @@ def _derived_source(unit_ids: list, units: dict, dialect: str) -> dict | None:
     if not unit_ids or len(natives) != 1 or native is None:
         return None
     try:
-        body = sqlshape.render(sqlshape.strip_comments(sqlshape.parse(native["sql"], dialect)),
-                               dialect)
+        tree = sqlshape.strip_comments(sqlshape.parse(native["sql"], dialect))
+        body = sqlshape.render(tree, dialect)
     except Exception:  # noqa: BLE001 - a query the parser cannot render is not offered
         return None
     alias = re.sub(r"[^a-z0-9_]", "_", str(native.get("logical") or "source").lower()).strip("_") \
         or "source"
     if alias[0].isdigit():
         alias = "t_" + alias
-    entity = next(iter(reads)).upper() if len(reads) == 1 and "" not in reads else None
+    read = next(iter(reads)) if len(reads) == 1 and "" not in reads else ""
+    # A table whose statement IS its source (a Tableau custom SQL relation) is named by its
+    # caption: A2 puts that name first, and it names nothing the query reads. Handed on as the
+    # entity, it is refused by this stage's own check (source.sql must read source.entity), so
+    # every card over it fails however it is written. The entity is then the table the query
+    # starts from, which is what the card contract asks for.
+    if read and read.rsplit(".", 1)[-1].lower() not in body.lower():
+        read = _base_table(tree) or ""
+    entity = read.upper() or None
     return {"sql": f"(\n{body}\n) AS {alias}", "alias": alias,
             **({"entity": entity} if entity else {}),
             "columns": sorted({str(c).lower() for c in (native.get("columns") or {}).values()}),
@@ -1187,6 +1205,31 @@ def _derived_source(unit_ids: list, units: dict, dialect: str) -> dict | None:
                           + (f", set source.entity to {entity}" if entity else "")
                           + f", and refer to its columns "
                           f"as {alias}.<column> in formula, mandatory_filters and dimensions."}
+
+
+def _base_table(tree, ctes: dict | None = None, depth: int = 0) -> str | None:
+    """The table a query starts from: its outermost FROM, followed through a derived table or a
+    CTE, and into the first branch of a UNION. None when that is not one named table (a VALUES
+    list, a function)."""
+    from sqlglot import exp
+    if depth > 8:
+        return None
+    ctes = {**(ctes or {}), **{c.alias_or_name.lower(): c.this for c in tree.find_all(exp.CTE)}}
+    # A breadth-first find would land on a UNION's LAST branch, the shallowest select in its tree.
+    while isinstance(tree, (exp.Subquery, getattr(exp, "SetOperation", exp.Union))):
+        tree = tree.this
+    select = tree if isinstance(tree, exp.Select) else tree.find(exp.Select)
+    if select is None:
+        return None
+    clause = select.args.get("from") or select.args.get("from_")
+    start = clause.this if clause is not None else None
+    if isinstance(start, exp.Subquery):
+        return _base_table(start.this, ctes, depth + 1)
+    if not isinstance(start, exp.Table) or not start.name:
+        return None
+    if not start.db and start.name.lower() in ctes:
+        return _base_table(ctes[start.name.lower()], ctes, depth + 1)
+    return ".".join(p for p in (start.catalog, start.db, start.name) if p)
 
 
 def _declared_sources(m: dict, stmts: dict) -> list[dict]:

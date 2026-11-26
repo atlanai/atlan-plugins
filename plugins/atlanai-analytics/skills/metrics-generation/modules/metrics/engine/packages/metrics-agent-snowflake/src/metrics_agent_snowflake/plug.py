@@ -116,7 +116,7 @@ def access_blocker(exc: BaseException) -> dict[str, Any] | None:
     if errno == 3001 or getattr(exc, "sqlstate", None) == "42501":
         return make("no_select_grant", "table", names[0] if names else None,
                     "the check of every statement over this table (no SELECT privilege)",
-                    "GRANT SELECT on the table to the verifying role")
+                    "Your Snowflake admin needs to grant SELECT on this table to the role I test with.")
     if errno == 2003 and "does not exist or not authorized" in low:
         if _DATABASE.search(msg):
             return make("database_not_visible", "database", names[0] if names else None,

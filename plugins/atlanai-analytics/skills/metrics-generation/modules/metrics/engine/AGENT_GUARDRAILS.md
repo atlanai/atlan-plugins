@@ -1,7 +1,7 @@
 # metrics-agent: guardrails
 
-BI (Power BI / Tableau) + SQL query history → **verified queries** (registry `sql_query`) and
-**metrics** (registry `metric`). The full stage design lives in
+BI (Power BI / Tableau) + SQL query history → **verified queries** (Atlan Trident `sql_query`) and
+**metrics** (Trident `metric`). The full stage design lives in
 `PIPELINE.md`; this file is the non-negotiable subset.
 
 These are the rules that are easy to break by accident and expensive to discover later. A
@@ -22,7 +22,7 @@ destination or a field.
    a validator that can reject it.
 
    **A3 is a COMPILER, not an LLM stage.** The reader that read a model compiles its units
-   (`compile_unit`, rule 22); the built-in readers share `plugs/readers/bicompile.py` and
+   (`compile_unit`, rule 22); the built-in readers share `plugs/readers/bicompile/` and
    `plugs/readers/data/bi_compiler_rules.yml`. The compiler writes the SQL from the rule table;
    the model REVIEWS it at A3b and proposes rule ROWS, never SQL.
    A row is data : schema-checkable, diffable, reversible; arbitrary code is none of those,
@@ -59,15 +59,15 @@ destination or a field.
 
 5. **Policy governs admission and ranking; it never makes a claim true.** Every threshold is in
    `agent_policy.yml`, read via `lib/policy.py`. A magic number in admission or ranking code is
-   a defect. Registry transport caps are NOT policy : they are facts about the Atlan Agent
-   Registry and live in the Registry plug's `registry.py` (`metrics-agent-atlan`) with their
+   a defect. Trident transport caps are NOT policy : they are facts about Atlan Trident
+   and live in the Trident plug's `registry.py` (`metrics-agent-atlan`) with their
    source.
 
 6. **Copy, never import.** Code taken from another project is a COPY, with a provenance
    header saying where it came from and what was deliberately left behind. Importing across
    projects drags in import-time side effects and path constants.
 
-7. **The registry source of truth is its own published contract** (its metric-kind validation).
+7. **Trident's source of truth is its own published contract** (its metric-kind validation).
    Field lists, caps and validation rules are read from it : never from a downstream schema that
    mirrored it once. Re-read it before touching `r1`/`r1b`/`r2`/`r3`.
 
@@ -133,9 +133,9 @@ destination or a field.
     `department`. Every join in the parent is declared too and `required_join` points at it :
     a dimension reached through a join is useless without it. A sub-field that cannot be
     resolved is **admitted in place** as `unknown`; it is never a reason to omit the
-    dimension. The Atlan Agent Registry permits this: its metric kind does not require
+    dimension. Atlan Trident permits this: its metric kind does not require
     `dimensions[].datatype`, and it checks the datatype vocabulary on `output.datatype` only
-    (the Registry's specification: https://github.com/atlanai/ai-registry). Roles ride in `extensions` : `Dimension` is `deny_unknown_fields`.
+    (Trident's specification: https://github.com/atlanai/ai-registry). Roles ride in `extensions` : `Dimension` is `deny_unknown_fields`.
 
 14. **Column metadata is optional, always.** The schema plugs (`inputs.schema`) close the ONE
     dimension field SQL cannot answer (`datatype`) and bring the column `description`; Atlan's metadata
@@ -170,7 +170,7 @@ destination or a field.
     defines the metric (a CASE label in a measure, a DATE_TRUNC grain) is part of the shape. The others are captured
     where the collapsed group exists (lane H), shaped by policy (`observed_values.*`), unioned
     at C2, and land at R1 in the `sql_query` artifact's `analysis.filters[].value`, beside the
-    representative's literal. That is the only field the kind has for them, and the Registry
+    representative's literal. That is the only field the kind has for them, and Trident
     deliberately does not index filter values (a literal can be customer data): never smuggle
     them into `usage_note`, `description` or any searchable text to win the findability back.
     They are CONTENT, never identity: `source_id` must stay unaffected.
@@ -201,7 +201,7 @@ destination or a field.
       present answer. Where no warehouse exists the verdict is `skipped_no_substrate` and
       nothing is withheld for it.
 
-19. **Secrets.** Registry token, warehouse credentials and Atlan keys from env with NO defaults.
+19. **Secrets.** Trident token, warehouse credentials and Atlan keys from env with NO defaults.
     Never print a token value. Warehouse role is read-only; the SQL gate blocks DML/DDL.
     `run.yml` never holds a credential: a setting that names or carries one is refused when the
     file is loaded. An Atlan credential goes only to a host under the policy's allowlists
@@ -254,7 +254,7 @@ destination or a field.
       its own rule table and regression corpus. The core keeps only what every compiler shares:
       the rule-table format and its gate (`lib/rules.py`) and the result (`sockets.Compiled`).
       The common schemas name no language; their `x-vocabulary` is filled from the readers.
-    - **Every plug follows the socket spec**, `docs/design/sockets.md`: what each socket
+    - **Every plug follows the socket spec**, `docs/metrics-engine/design/sockets.md` in the repository: what each socket
       takes, what it must return, and the common formats. A plug that needs more than the spec
       gives is a change to the spec, for every plug.
     - Built-in plugs (local files, the files output, the BI file readers and their compiler)
@@ -293,11 +293,11 @@ destination or a field.
 | Gate 2 | Blocks a column missing from a table it COULD read; **flags** one missing because the table could not be read at all. Unverified is not the same as wrong. |
 | Ungrounded metrics | A card that contradicts itself is **withheld** at D4B, by name and with the reason; the published `metric_refs_by_vq` names only what survived. |
 | Record versioning | Create-only with a stable `source_id`; never PATCH. |
-| Glossary sync | The glossary is the view PEOPLE read, derived one way from the layer. A term knows where it came from: its identity keys and, per field, the hash of what the agent wrote live ON THE TERM, never only in a run directory. Paired by Registry id → `source_id` → `metric_ref` (key rewritten) → adopted once by name (neither key), inside the target glossary only. Definition-bearing attributes are always written; name, description and README only where the agent wrote the live value last : a person's is kept and the withheld change reported. Categories, owners, certificate and placement are never sent after create; a new term lands in the policy's inbox category. A retired metric's term is deprecated once, never deleted. |
+| Glossary sync | The glossary is the view PEOPLE read, derived one way from the layer. A term knows where it came from: its identity keys and, per field, the hash of what the agent wrote live ON THE TERM, never only in a run directory. Paired by Trident id → `source_id` → `metric_ref` (key rewritten) → adopted once by name (neither key), inside the target glossary only. Definition-bearing attributes are always written; name, description and README only where the agent wrote the live value last : a person's is kept and the withheld change reported. Categories, owners, certificate and placement are never sent after create; a new term lands in the policy's inbox category. A retired metric's term is deprecated once, never deleted. |
 | BI context | C3 gets an inlined `bi_context` block, not file paths. Fragments are review-only. |
 | Faithfulness | Claims are stated as predicates and checked against the statement. Absent flags, band blocks. |
 | Observed values | Carried for BOTH lanes. Floor defaults to 1 (carry everything); the per-column cap is a policy value and a cap that bites is reported, never silent. |
-| Plugs | The core is common; plugs convert (rule 22). Any combination of plugs. The core never routes by a plug's name: each plug is validated against its own declarations, recorded with its settings, and served through its methods (`plug_runtime`). Several plugs per capability follow the plug design, `docs/design/plugs.md` in the public tree (one history corpus, schema and scope unions, mixed BI vendors, SQL check routed by database); one dialect per run; custody is per plug and a standalone run refuses any third-party one. |
+| Plugs | The core is common; plugs convert (rule 22). Any combination of plugs. The core never routes by a plug's name: each plug is validated against its own declarations, recorded with its settings, and served through its methods (`plug_runtime`). Several plugs per capability follow the plug design, `docs/metrics-engine/design/plugs.md` in the repository (one history corpus, schema and scope unions, mixed BI vendors, SQL check routed by database); one dialect per run; custody is per plug and a standalone run refuses any third-party one. |
 
 ## Layout
 
@@ -343,9 +343,10 @@ packages/          plug packages that depend on the core, never the reverse:
   metrics-agent-powerbi/    the `powerbi-fabric` plug (Power BI from Microsoft Fabric)
   metrics-agent-tableau/    the `tableau-cloud` plug (Tableau workbooks and their published
                    data sources, from Tableau Cloud or Tableau Server)
-examples/plugs/    community example plugs (databricks-direct, postgres-direct, jsonl-trace)
-scripts/           one-line shims, so `python scripts/<stage>.py` keeps working; and the
-                   standalone Power BI extractor (scripts/pbi-definition-extract/)
+examples/plugs/    postgres-direct, the example plug the `postgres` feature installs; the
+                   other examples are in the repository, docs/metrics-engine/examples/
+scripts/           the standalone Power BI extractor (scripts/pbi-definition-extract/); a
+                   stage runs as `metrics-agent stage <name>`
 gates/     the LLM stages, one GATE.md each (describe-verified-sql · author-questions · propose-metrics ·
                    merge-metrics · author-metric-card · relate-metrics · review-compiler)
                    + the orchestrator (run-pipeline) and setup-run

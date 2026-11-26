@@ -49,7 +49,7 @@ def _to_record(cand: Candidate, rev: ReverseResult) -> EvalRecord:
         tables=list(cand.tables),
         as_of=rev.as_of,
         # The tile, and the SQL as crawled before it was cut: without them a
-        # reviewer sees the cut but not what it was cut from. (The registry
+        # reviewer sees the cut but not what it was cut from. (The Atlan Trident
         # row carries the element, which holds both.)
         element=el.to_dict() if el is not None else None,
         original_sql=cand.original_sql,

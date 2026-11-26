@@ -9,7 +9,7 @@ Repeat the whole authoring recipe with the **same identity**: `workspace_id`,
 `source_type` and `source_id`. Read and reuse them from the existing skill;
 matching only its name is insufficient.
 
-That is an append, not a duplicate. The registry reconciles the create onto the existing
+That is an append, not a duplicate. Atlan Trident reconciles the create onto the existing
 line, runs the same materialization a first create runs, and the previous version stays
 resolvable at its own ordinal.
 
