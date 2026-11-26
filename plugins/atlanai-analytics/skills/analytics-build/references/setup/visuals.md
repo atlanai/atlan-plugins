@@ -106,9 +106,8 @@ If the page cannot start, its `next` gives the one line to tell the person. Othe
   is among the open panes, and show it again if not: a page in a closed pane still reports itself
   visible, so only the layout can tell. Do it right away; helper results name it again
   (`side_page`) until the page has been opened.
-- **A terminal:** the helper opens the address in the person's browser, and the next chip that
-  goes in a question names it, so the person can open it again.
-- **Anywhere else:** the next chip that goes in a question names the address the same way.
+- **A terminal, or anywhere else:** nothing opens on its own. The next chip that goes in a
+  question names the address, so the person opens it when they choose.
 
 The page shows what the build made, in every flow: the metrics, each in its state (Found,
 Defined, Tested, Not tested, Needs your review), then the queries, then the tiles that could not be built. A click
