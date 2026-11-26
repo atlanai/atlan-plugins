@@ -180,12 +180,25 @@ class EarlierWorkTest(unittest.TestCase):
         derived = {'name': 'n', 'formula': 'COUNT(*)', 'dialect': 'databricks',
                    'source': {'sql': '(SELECT 1 AS x)', 'alias': 'daily lines'}}
         self.assertEqual(statement(derived), 'SELECT COUNT(*) AS `n`\nFROM   (SELECT 1 AS x) AS `daily lines`')
-        self.assertEqual(self.card_sql.quoted_identifier('a"b', None), '"a""b"')
-        self.assertEqual(self.card_sql.quoted_identifier('a`b', 'databricks'), '`a``b`')
+        quoted = self.card_sql.quoted_identifier
+        self.assertEqual(quoted('a"b', None), '"a""b"')
+        self.assertEqual(quoted('a`b', 'databricks'), '`a``b`')
+        # BigQuery reads a quoted name with a string literal's escapes, not a doubled backtick.
+        self.assertEqual(quoted('a`b\\c', 'bigquery'), '`a\\`b\\\\c`')
+        # The dialect is matched whatever its case and spacing; anything else is the standard form.
+        self.assertEqual(quoted('n', ' DataBricks \n'), '`n`')
+        for dialect in ('spark', 'hive', 'mysql'):
+            self.assertEqual(quoted('n', dialect), '`n`', dialect)
+        # T-SQL reads double quotes as names by default, so its statements keep their bytes.
+        for dialect in ('tsql', 'snowflake', 'postgres', 'duckdb', 'redshift', '', None, 0, ['databricks']):
+            self.assertEqual(quoted('n', dialect), '"n"', repr(dialect))
         import sqlglot
-        for dialect in ('databricks', 'snowflake', 'bigquery', 'postgres', 'duckdb'):
+        for dialect in ('databricks', 'snowflake', 'bigquery', 'postgres', 'duckdb', 'spark', 'mysql', 'tsql'):
             tree = sqlglot.parse_one(statement(derived, dialect), read=dialect)
             self.assertEqual(tree.selects[0].alias, 'n', dialect)
+        for dialect, name in (('databricks', 'a`b'), ('bigquery', 'a`b'), ('snowflake', 'a"b')):
+            tree = sqlglot.parse_one(f'SELECT 1 AS {quoted(name, dialect)}', read=dialect)
+            self.assertEqual(tree.selects[0].alias, name, dialect)
 
     def test_a_date_literal_is_one_rule_and_function_aggregations_read_as_custom(self):
         self.assertTrue(self.card_sql.DATE_LITERAL.search("t.created_at >= '2026-04-22'"))

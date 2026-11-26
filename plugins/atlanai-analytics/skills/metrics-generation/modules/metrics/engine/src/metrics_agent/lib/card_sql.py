@@ -58,19 +58,32 @@ def tables_of(sql: str, entity, joins: list, dialect: str | None) -> list:
     return [out[k] for k in sorted(out)]
 
 
-def quoted_identifier(name: str, dialect: str | None) -> str:
-    """`name` as a quoted identifier in `dialect`, spelled the way the SQL parser spells one
-    there: backticks on Databricks, BigQuery and MySQL, double quotes on Snowflake and
-    Postgres. A double-quoted name is a STRING on Databricks, so one spelling for every
-    warehouse makes `AS "alias"` a syntax error there. With no dialect, or one the parser does
-    not know, the standard double-quoted form is used."""
-    from sqlglot import exp  # noqa: PLC0415 - sqlglot is loaded only where a statement is built
+# Where a double-quoted token is a STRING, not a name, so an alias has to be written in backticks.
+# T-SQL is left with double quotes: it reads them as identifiers by default, so its statements
+# (and the evidence recorded against them) keep their bytes.
+_BACKTICK_DIALECTS = frozenset({"databricks", "spark", "spark2", "hive", "bigquery", "mysql",
+                                "doris", "starrocks", "singlestore", "drill"})
 
-    ident = exp.to_identifier(str(name), quoted=True)
-    try:
-        return ident.sql(dialect=(dialect or "").strip().lower() or None)
-    except Exception:  # noqa: BLE001 - a dialect the parser does not know: the standard form
-        return ident.sql()
+
+def quoted_identifier(name: str, dialect: str | None) -> str:
+    """`name` as a quoted identifier in `dialect`: backticks where a double-quoted token is a
+    string (Databricks, Spark, Hive, BigQuery, the MySQL family), the standard double-quoted
+    form everywhere else, and for no dialect or one not listed.
+
+    PLAIN STRING WORK, NO PARSER. This module is loaded by file path from the project helper,
+    which runs under the person's own Python with nothing installed, so it imports nothing
+    beyond the standard library. Both it and the engine therefore build the same statement
+    for the same card.
+
+    The quote character is escaped the way each dialect reads it back: doubled, except on
+    BigQuery, where a quoted name takes a string literal's backslash escapes."""
+    text = str(name)
+    key = dialect.strip().lower() if isinstance(dialect, str) else ""
+    if key == "bigquery":
+        return "`" + text.replace("\\", "\\\\").replace("`", "\\`") + "`"
+    if key in _BACKTICK_DIALECTS:
+        return "`" + text.replace("`", "``") + "`"
+    return '"' + text.replace('"', '""') + '"'
 
 
 def canonical_statement(card: dict, dialect: str | None = None) -> str:
