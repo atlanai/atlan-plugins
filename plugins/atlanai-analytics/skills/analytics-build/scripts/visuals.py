@@ -72,11 +72,13 @@ def _shaped(value, shape):
     return isinstance(value, list) and all(isinstance(r, list) and len(r) >= 3 for r in value)
 
 
-def answer_from(given, result, facts=None):
+def answer_from(given, result, facts=None, sql=None):
     """The answer card's data from what the session names (the question, the metrics it used, and any words of its own:
     `headline`, `summary`, `rule`, `highlight`, `unit`) and the rows its query returned. Without a headline of its own,
-    the card leads with the metric's value (the one value, or the column named for the metric), or with a breakdown's
-    first row in the query's own order. None without a question or anything to lead with."""
+    the card leads with the metric's value (the one value, or the column named for the metric). A breakdown of a metric
+    that adds up (a sum or a count) leads with its rows' total, unless its query keeps only some rows (a LIMIT, or a
+    result cut short); any other breakdown leads with its first row in the query's own order. None without a question
+    or anything to lead with."""
     question = given.get('question')
     if not isinstance(question, str) or not question.strip():
         return None
@@ -99,16 +101,25 @@ def answer_from(given, result, facts=None):
         if parts:
             data['parts'] = parts
     elif len(rows) > 1:
-        value = next((i for i, v in enumerate(rows[0]) if num(v)), None)
-        label = next((i for i, v in enumerate(rows[0]) if v is not None and not num(v)), None)
+        # Columns read from every row: a NULL in the first row (a job with no rework logged) dropped the card.
+        value = min((i for r in rows for i, v in enumerate(r) if num(v)), default=None)
+        label = min((i for r in rows for i, v in enumerate(r) if v is not None and not num(v)), default=None)
         if value is not None and label is not None:
-            data['rows'] = [[str(r[label]), r[value]] for r in rows[:12] if len(r) > max(value, label) and num(r[value])]
+            kept = [r for r in rows if len(r) > max(value, label) and num(r[value])]
+            data['rows'] = [[str(r[label]), r[value]] for r in kept[:12]]
             if data['rows'] and 'headline' not in data:
-                data['headline'] = '%s: %s' % (data['rows'][0][0], number(data['rows'][0][1], unit))
-                data.setdefault('highlight', data['rows'][0][0])
+                # The demo run of 2026-11-26 led net fee revenue by fee type with "$1,677 · delivery", its first row.
+                whole = not result.get('truncated') and not LIMITED.search(sql or '')
+                if names and whole and facts and facts.adds_up(names[0]):
+                    data['headline'] = '%s: %s' % (names[0], number(sum(r[value] for r in kept), unit))
+                else:
+                    data['headline'] = '%s: %s' % (data['rows'][0][0], number(data['rows'][0][1], unit))
+                    data.setdefault('highlight', data['rows'][0][0])
     return data if data.get('headline') else None
 
 
+# A query that keeps only some of its rows: its rows never add up to the metric's total.
+LIMITED = re.compile(r'\b(limit\s+\d|fetch\s+(first|next)\b|top\s*\(?\s*\d)', re.I)
 MONEY = re.compile(r'(^|_)(fee|fees|value|sales|revenue|amount|price|cost|paid|spend|income)(_|$)')
 DAY = re.compile(r'^(\d{4})-(\d{2})-(\d{2})')
 # The parts a one-row answer's card lists under its number.
