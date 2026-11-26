@@ -66,8 +66,8 @@ Effective compiler-review failures become structured publication holds; never by
 
 | The definition is | Do |
 | --- | --- |
-| In this run, not yet published | Write `{"name", "changes": [{"path", "value"}], "before", "after"}` (each rule in plain words) to a file outside the run and run `EDIT <that file>`: it changes the definition, re-checks it and hands over the edit card in `show_first`, which says the change. Without a card, return "Changed <metric>." then "Before: <old rule> · <test result>" and "After: <new rule> · <test result>" |
-| Published, and the person owns the run that made it | The same, then `save` as a revision of the same metric, never a new one |
+| In this run, not yet published | Write `{"name", "changes": [{"path", "value"}], "before", "after"}` (each rule in plain words; a `path` is a field of the metric's or saved query's `definition` in the run's `context/metrics.json` or `context/queries.json`, such as `formula`, `source.sql`, `mandatory_filters` or a query's `sql`, or its `description`) to a file outside the run and run `EDIT <that file>`: it changes the definition, re-checks it and hands over the edit card in `show_first`, which says the change. On a warehouse it returns `run_on_warehouse` with `sql`: run that with the warehouse tool, then `EDIT` a file holding the metric's `name` and `result` (the rows, or `{"error": ...}`), and the card comes then. Without a card, return "Changed <metric>." then "Before: <old rule> · <test result>" and "After: <new rule> · <test result>" |
+| Published, and the person owns the run that made it | The same, then one native question, "Save this change to Atlan Trident too?" (Save it (Recommended), Keep it on this machine), its text holding the edit card's lines in a terminal; on yes, `save` as a revision of the same metric, never a new one |
 | Published by someone else, or the request came from an answer | `propose`: a proposal for its owners. It never saves |
 
 Keep the metric's identity through an edit. If reconciliation changes a definition or a
@@ -87,10 +87,11 @@ missing or sign-in is required, follow
 
 ## What comes back
 
-Return to the caller, or show the person, for each definition: "<name>: <rule in plain
-words>. Counts <population>. From <source>. <Tested / Not tested / Held back, because
-<reason>>." Keep execution, source review, holds and release status as separate facts. Total
-definitions are metrics plus saved queries. SQL is shown
+Return to the caller, or show the person, for each definition this request made or changed:
+"<name>: <rule in plain words>. Counts <population>. From <source>. <Tested / Not tested / Held
+back, because <reason>>." A request about one metric returns that one; the side page lists the
+rest. Keep execution, source review, holds and release status as separate facts. Total
+definitions are metrics plus saved queries. SQL and file paths are shown
 only when asked. Inside a guided flow, return to that flow after the checks. Metrics-only work
 ends after the publication summary.
 

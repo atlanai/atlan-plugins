@@ -95,6 +95,8 @@ def answer_from(given, result, facts=None):
         lead = named[0] if named else at[0] if len(at) == 1 else None
         if lead is not None and 'headline' not in data:
             data['headline'] = '%s: %s' % (names[0] if names else sentence(columns[lead].replace('_', ' ')), number(rows[0][lead], unit))
+        elif 'headline' not in data and len(rows[0]) == 1 and isinstance(rows[0][0], str) and rows[0][0].strip():
+            data.update(headline=' '.join(rows[0][0].split()), text_answer=True)
         parts = _row_parts(columns, rows[0], lead, facts) if lead is not None else []
         if parts:
             data['parts'] = parts
@@ -217,24 +219,22 @@ def _names(value):
 
 def collect(kind, facts):
     """What the run's own files say about a moment."""
-    if kind == 'agent' and facts.file('context', 'metrics.json', kind=list):
+    if kind == 'agent':
         # What a later session works on: the agent this folder already holds, before anything else is shown.
         import datetime
-        built = datetime.datetime.fromtimestamp((facts.dir / 'context' / 'metrics.json').stat().st_mtime)
-        return {'metrics': len(facts.file('context', 'metrics.json', kind=list)),
-                'queries': len(facts.file('context', 'queries.json', kind=list)),
+        metrics = len(facts.file('context', 'metrics.json', kind=list))
+        queries = len(facts.file('context', 'queries.json', kind=list))
+        if not (metrics or queries):
+            return {}
+        file = facts.dir / 'context' / ('metrics.json' if metrics else 'queries.json')
+        built = datetime.datetime.fromtimestamp(file.stat().st_mtime)
+        return {'metrics': metrics, 'queries': queries,
                 'built': '%d %s' % (built.day, built.strftime('%b')), 'saved': bool(facts.publication) and not facts.local}
     if kind == 'questions':
         # An accuracy check's questions, once loaded with their known answers: the side page lists each one.
         import eval_runs
         ev = eval_runs.questions_folder(facts.dir)
-        asked = eval_runs.questions(ev) if ev else None
-        if not (asked and asked['rows']):
-            return {}
-        tiles, queries = sum(r['from'] == 'tile' for r in asked['rows']), sum(r['from'] == 'query' for r in asked['rows'])
-        # A set the person brought is theirs: named, never "from your dashboard".
-        return {'questions': asked['total'], 'tiles': tiles, 'queries': queries,
-                **({'set': asked['name']} if asked.get('name') and all(r['from'] == 'set' for r in asked['rows']) else {})}
+        return eval_runs.questions_chip(ev) if ev else {}
     if kind == 'found' and facts.found[0]:
         # What the survey and the warehouse connection found, right before the person chooses what to build from.
         return {'found': facts.found[0], 'kinds': facts.found[1], 'said': facts.found[2]}
@@ -541,6 +541,9 @@ def build_spec(kind, run=None, data=None, engine_dir=None):
     page = page_link(run, kind, spec)
     if page:
         spec['page'] = page
+    if kind == 'answer' and not run:
+        # An answer from Atlan Trident with no run here: nothing says where its metrics came from, and no page holds them.
+        spec['standalone'] = True
     if kind == 'build' and facts and spec.get('funnel'):
         # A demo's facts passed on the call name its agent, as the questions after the card do.
         given = [i for i in (data if isinstance(data, list) else [data]) if isinstance(i, dict) and isinstance(i.get('ready'), dict)]
@@ -665,6 +668,8 @@ def _ordered(labels):
 
 def _headline(s):
     """An answer's headline as (what, number): 'Turbine base: -£6,360' reads as both."""
+    if s.get('text_answer'):
+        return '', s['headline']
     name, sep, value = str(s['headline']).rpartition(': ')
     return (name if sep else s.get('highlight') or ''), value
 
@@ -845,9 +850,10 @@ def _outcome(kind, s):
              'tail': 'e.g. ' + example if example and len(example) <= LINK_EXAMPLE else '',
              'rows': s.get('rows'),
              'what': 'Some metrics are built from others. Change one definition, and the ones built on it follow.'}
-    elif kind == 'agent' and s.get('metrics'):
-        o = {'mark': 'ok', 'bold': 'Your agent: %s and %s' % (count(s['metrics'], 'metric'),
-                                                               count(s.get('queries', 0), 'saved query', 'saved queries')),
+    elif kind == 'agent' and (s.get('metrics') or s.get('queries')):
+        queries = count(s.get('queries', 0), 'saved query', 'saved queries')
+        held = '%s and %s' % (count(s['metrics'], 'metric'), queries) if s.get('metrics') else queries
+        o = {'mark': 'ok', 'bold': 'Your agent: ' + held,
              'tail': 'built %s, saved to Atlan Trident' % s['built'] if s.get('saved') else 'built %s' % s['built']}
     elif kind == 'questions' and s.get('questions'):
         where = [x for x in ('%d from your dashboard' % s['tiles'] if s.get('tiles') else '',
@@ -1005,16 +1011,19 @@ def _parts(kind, s):
                 'most': ['Found most often', most['name'], _from(most)] if most and most['tiles'] + most['queries'] > 1 else None,
                 'names': s.get('merged') or [], 'groups': _by_source(s.get('merged') or [], evidence),
                 'more': ['Every metric and how it\'s worked out', s.get('page')]}
-    if kind == 'saved' and s.get('metrics') and not s.get('local'):
+    if kind == 'saved' and (s.get('metrics') or s.get('queries')) and not s.get('local'):
         featured = s.get('featured')
+        metrics = s.get('metrics') or []
+        queries = count(s.get('queries', 0), 'saved query', 'saved queries')
         return {'icon': 'check-circle', 'title': 'Saved to Atlan Trident', 'why': s.get('aside', ''),
-                'value': '%s, %s' % (count(len(s['metrics']), 'metric'), count(s.get('queries', 0), 'saved query', 'saved queries')),
-                'line': 'In %s, where chats with Atlan Analytics look for metrics' % (s.get('workspace') or 'your workspace'),
+                'value': '%s, %s' % (count(len(metrics), 'metric'), queries) if metrics else queries,
+                'line': 'In %s, where chats with Atlan Analytics look for %s' % (s.get('workspace') or 'your workspace',
+                                                                                'metrics' if metrics else 'saved queries'),
                 'note': ('Validated on %s: %d of %d passed' % (_where(s), s['kept'], s['total'])
                          + (', %d %s your review' % (s['need_look'], 'needs' if s['need_look'] == 1 else 'need')
                             if s.get('need_look') else '')) if s.get('total') else '',
                 'kv': [[' · '.join(x for x in (featured[0], _from(_evidence(s, featured[0]))) if x), featured[1]]] if featured else [],
-                'names': s['metrics'], 'groups': _by_source(s['metrics'], s.get('evidence'))}
+                'names': metrics, 'groups': _by_source(metrics, s.get('evidence'))}
     if kind == 'answer' and s.get('headline'):
         label, value = _headline(s)
         rows = [r for r in s.get('rows') or [] if isinstance(r, list) and len(r) > 1 and isinstance(r[1], (int, float))]
@@ -1032,9 +1041,9 @@ def _parts(kind, s):
                          for r in shown],
                 'rule': [s['rule']] if s.get('rule') else [],
                 'parts': [p for p in s.get('parts') or [] if isinstance(p, list) and len(p) == 2],
-                'sources': [[n, _from(_evidence(s, n)) or 'a saved query'] for n in proof[:2]],
+                'sources': [[n, _from(_evidence(s, n)) or ('' if s.get('standalone') else 'a saved query')] for n in proof[:2]],
                 'rest': '+%d more behind this answer' % (len(proof) - 2) if len(proof) > 2 else '',
-                'more': ['How this was worked out', s.get('page')]}
+                'more': None if s.get('standalone') else ['How this was worked out', s.get('page')]}
     if kind == 'edit' and s.get('values'):
         name, before, after = (s['values'][0] + ['', '', ''])[:3]
         return {'icon': 'edit', 'title': 'Definition changed', 'pre': name, 'value': '%s → %s' % (before, after),
@@ -1249,7 +1258,7 @@ def card_text(p, plain=False):
                ([x for r in p.get('rule', []) for x in _wrap(r)], False),
                ([_fit(left, WIDTH - len(_minus(right)) - 2).ljust(WIDTH - len(_minus(right))) + _minus(right)
                  for left, right in (p.get('kv') or []) + (p.get('parts') or [])], True),
-               ([x for name, why in p.get('sources') or [] for x in _wrap('%s, %s' % (name, why))], False),
+               ([x for name, why in p.get('sources') or [] for x in _wrap(', '.join(w for w in (name, why) if w))], False),
                ([p['rest']] if p.get('rest') else [], False),
                (_wrap(p['note']) if p.get('note') else [], False),
                ([_one_line(p['names'])] if p.get('names') else _wrap_items(p['chips']) if p.get('chips') else [], True),

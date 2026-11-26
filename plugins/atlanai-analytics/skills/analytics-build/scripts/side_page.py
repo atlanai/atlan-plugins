@@ -850,9 +850,13 @@ class _Server(ThreadingHTTPServer):
         self.lock = threading.Lock()
 
     def seen(self):
-        """The first time the page is open, so the helper can stop asking for it."""
+        """Each time the page is open, at most once a minute, so a later sitting can tell it was not seen there."""
         path = self.run / 'view' / 'seen.json'
-        if not path.is_file():
+        try:
+            fresh = time.time() - path.stat().st_mtime < 60
+        except OSError:
+            fresh = False
+        if not fresh:
             _write(path, json.dumps({'at': _now()}))
 
 
@@ -1123,10 +1127,24 @@ def instruction(opened, widget=False, run=None):
     return ('Say nothing about the side page now: the next chip in a question names its address, %s. %s' % (url, follows))
 
 
-def reminder(run, start=True):
+# A sitting, as the accuracy check counts one: a page last seen longer ago than this was seen in another chat, whose
+# pane is gone. A new chat restarted the page at its old address and was never told to open it (2026-11-26).
+SITTING = 3 * 3600
+
+
+def seen_lately(run):
+    """Whether the page was open in this sitting."""
+    try:
+        return time.time() - (Path(run) / 'view' / 'seen.json').stat().st_mtime < SITTING
+    except OSError:
+        return False
+
+
+def reminder(run, start=True, tab=None):
     """One line for the next helper result when the page needs the agent: it stopped and came back at a new address,
-    or, in the desktop app, nobody has opened it yet. None once all is well, or before the run first opened it. Only a
-    moment starts a page that stopped (start): any other helper call would wait for it and undo its idle stop."""
+    or, in the desktop app, nobody has opened it in this sitting. None once all is well, or before the run first opened
+    it. Only a moment starts a page that stopped (start): any other helper call would wait for it and undo its idle
+    stop. `tab` names the list the page opens on: tests, metrics or queries."""
     run = Path(run)
     moments = read_json(run / 'view' / 'state.json', dict, {}).get('moments') or []
     if not any(isinstance(m, dict) and m.get('kind') == 'connect' for m in moments) or (run / 'view' / 'stopped.json').is_file():
@@ -1139,9 +1157,11 @@ def reminder(run, start=True):
         if not opened.get('url'):
             return None
     host = os.environ.get('CLAUDE_CODE_ENTRYPOINT') or ''
+    if tab:
+        opened = {**opened, 'url': opened['url'] + '#l=' + tab}
     if opened.get('moved'):
         return 'The side page restarted at a new address. ' + instruction(opened, run=run)
-    if host == 'claude-desktop' and not (run / 'view' / 'seen.json').is_file():
+    if host == 'claude-desktop' and not seen_lately(run):
         return instruction({**opened, 'host': host}, run=run)
     return None
 

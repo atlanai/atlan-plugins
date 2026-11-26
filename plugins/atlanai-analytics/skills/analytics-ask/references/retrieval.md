@@ -5,8 +5,9 @@
 A run is selected when the caller passed its directory, or when the person refers to their
 setup. It is also selected without being named when all of these hold: the working folder has
 exactly one run (`PROJECT location --workspace "<working-directory>"`), `PROJECT journey
-status` shows it was kept on this machine, and one of its metrics or queries measures the
-question. Check this before writing any SQL of your own: the same question must not get one
+status` shows it was kept on this machine or saved to Atlan Trident, and one of its metrics or
+queries measures the question. A run saved to Atlan Trident still answers from the released
+definitions, as below; selecting it gives the answer its card and its next question. Check this before writing any SQL of your own: the same question must not get one
 number from the run and another from a fresh guess. With several runs, or none that measures
 the question, continue with released context and say "None of the metrics kept on this machine
 measures this, so I looked in Atlan Trident."
@@ -45,8 +46,13 @@ For a saved-query answer, run `PROJECT answer "<request.json>"`:
 
 ```json
 {"readbacks": {"workspace_id": "workspace_example", "artifacts": ["complete MCP response objects"]},
- "artifact_id": "sql_query_example", "parameters": {}, "limit": 100}
+ "artifact_id": "sql_query_example", "parameters": {}, "limit": 100,
+ "answer": {"question": "<the person's question>", "metrics": ["<the saved query's name>"]}}
 ```
+
+With `answer` and a selected run, the result hands over the answer card, as `PROJECT execute`
+does; a plan for the warehouse names, in its `next`, the `visual answer` call that draws it once
+its rows are back.
 
 Replace the illustrative array with actual complete objects. The helper checks the released
 revision against the setup receipt, uses its SQL, checks parameter names and selects execution:

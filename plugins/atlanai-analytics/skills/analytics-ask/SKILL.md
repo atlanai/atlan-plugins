@@ -37,9 +37,8 @@ you meant something else."
    the session. Semantic search can drop a released metric whose name the query lacks: an
    empty result proves nothing.
 
-   **A hit is a candidate, not an answer.** The right metric can rank low. Read each hit's
-   name and display name and keep the
-   one whose name or formula measures what the question asks (revenue is a sum of money; a
+   **A hit is a candidate, not an answer.** The right metric can rank low. Keep the hit
+   whose name or formula measures what the question asks (revenue is a sum of money; a
    count of crew is not revenue), allowing the synonyms its description lists. Sharing a
    dimension word such as "region" is not a match. Only when no hit of either search below
    measures it is the answer "No metric in Atlan Trident covers <measure>": go to **Nothing found**, naming
@@ -76,16 +75,16 @@ For a project run on this machine (SQLite or DuckDB), run each query with
 `PROJECT execute` as [project setup](../analytics-build/references/project.md) describes,
 never by opening its database file.
 This is an available data connection; do not ask for Snowflake or a new MCP server. Keep
-the binding across turns and use fresh released definitions and fresh query results.
+the binding across turns; use fresh released definitions and query results.
 
 Find the warehouse query tool with steps 0 to 2 of
 [warehouse discovery](../source-survey/references/connect.md): a record this conversation
 or a project holds, then a SQL tool behind Atlan (`mcp__search_tools`), then the harness's own
-connectors. Hold what you find, or that there is none, for the rest of the conversation.
+connectors. Hold what you find, or that there is none, for the conversation.
 
-With no warehouse tool, do not stop and do not run the rest of discovery for a one-off
+With no warehouse tool, do not stop or run the rest of discovery for a one-off
 question. Open with "I can't reach your warehouse through Atlan. An Atlan admin can add it
-from the Atlan Store." Then offer the smallest thing that answers the question:
+from the Atlan Store." Then offer the smallest thing that answers it:
 - **Run the SQL yourself**: "I'll write it from the definition for you to run." Use its
   dialect ([warehouses](../source-survey/references/warehouses.md));
 - **Paste a result**: "Paste a query result here, or attach a CSV export."
@@ -106,10 +105,11 @@ Apply [explanation checks](references/answer-checks.md) to numerical claims.
 1. Write one SELECT or WITH statement that keeps the definition's formula, population, mandatory
    filters and grain, adding only the filters the question needs. Check column names against
    the definition or the table's columns; never guess one.
-2. Run it with the warehouse query tool, with a LIMIT on anything returning rows. In a setup or
-   demo run, add `"answer": {"question": "<question>", "metrics": ["<each used>"]}` to the
-   answering `PROJECT execute` request and show its card first (on a warehouse,
-   `PROJECT visual answer --input -`: [visuals](../analytics-build/references/setup/visuals.md#data-files)).
+2. Run it with the warehouse query tool, with a LIMIT on anything returning rows. Show the
+   answer card first, the `show_first` of: in a setup or demo run, the answering `PROJECT execute`
+   with `"answer": {"question": "<question>", "metrics": ["<each used>"]}` (a warehouse plan's
+   `next` names the follow-up); with no run, `python3 "<analytics-build dir>/scripts/project.py"
+   visual answer --input -` with those and the result's `columns` and `rows`.
 3. Before answering, check the result:
    - the window is complete, or the answer says it is partial (this week so far);
    - a rate has a non-zero denominator, and segment shares add up to the total;

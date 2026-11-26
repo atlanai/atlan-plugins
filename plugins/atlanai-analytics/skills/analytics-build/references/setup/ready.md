@@ -116,7 +116,8 @@ numbers. Every answer has three parts, in this order:
    selected request, then, after an own-data answer, end on one native question instead of a
    `Next:` line: `PROJECT question next`, with `--accuracy` while the ready question offered
    the check and it has not run. Ask its `header`, `question` and `options` exactly as given;
-   they offer another question, Check how accurate it is, Build a dashboard and I'm done. Build
+   they offer another question, Check how accurate it is, Build a dashboard and I'm done. In a
+   terminal it returns a `text` instead, the answer's last line. Build
    a dashboard follows [the dashboard](../../../analytics-ask/references/dashboard.md).
 
 With the first answer on own data, say once per conversation: "This answer came from the metrics

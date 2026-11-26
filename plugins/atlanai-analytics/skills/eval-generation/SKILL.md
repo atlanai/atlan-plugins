@@ -97,4 +97,8 @@ was saved to, else the person's personal workspace (`registry__list_workspaces`,
 
 A result, as [conventions](../analytics-build/references/conventions.md) describes: how many
 questions the set holds, the metrics it covers, where each came from, and where the set lives.
-Each question in a plain line with the metric it tests.
+The questions chip and the side page list each question; only where the chip's lines say no page
+is open, each question in a plain line with the metric it tests. When a person asked for the
+questions themselves, end on one native question, "Test your agent on these <N> questions?"
+(Test them (Recommended), Not now), its text holding the chip's lines in a terminal; on Test them,
+`accuracy-check` runs the set as it is. A skill that called this one asks its own question instead.

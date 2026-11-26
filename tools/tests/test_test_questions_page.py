@@ -82,7 +82,8 @@ class TestQuestions(unittest.TestCase):
         t = eval_runs.questions(self.ev)
         self.assertEqual((t['state'], t['answered']), ('running', 1))
         self.assertEqual(t['rows'][0]['agent'], {'value': '1,550,066.18', 'answer': 'Gross sales are $1,550,066.18.',
-                                                 'sql': 'SELECT 1', 'right': None, 'why': ''})
+                                                 'sql': 'SELECT 1', 'right': None, 'why': '', 'cause': None, 'used': [],
+                                                 'rows': {'columns': ['x'], 'rows': [[1550066.18]]}})
         self.assertIsNone(t['rows'][1]['agent'])
 
     def test_once_scored_each_pass_is_marked_as_the_card_marks_it(self):

@@ -402,6 +402,38 @@ class ScopeTest(unittest.TestCase):
         self.assertEqual((res["questions"], res["dropped"][0]["id"], staged, res["generated"]), (1, "q2", ["finance"], False))
         self.assertEqual(json.loads((ev / "work" / "selection.json").read_text())[0]["metric"], "Net Revenue")
 
+    def test_the_only_set_is_one_written_for_this_agent_so_it_loads_without_a_question(self) -> None:
+        # "Check how accurate it is" was picked, then "Which questions?" offered the one set written for it (2026-11-26).
+        sets = self.tmp / ".atlan-evals" / "sets"
+        sets.mkdir(parents=True)
+        (sets / "revenue.jsonl").write_text('{"question": "Q?", "sql": "SELECT 1", "generated": true}\n')
+        res = self.check("start", "--project", str(self.tmp))
+        self.assertNotIn("ask", res)
+        self.assertEqual((res["next"], res["load"]), ("load", str(sets / "revenue.jsonl")))
+        # Beside a set the person brought, they choose.
+        (sets / "finance.jsonl").write_text('{"question": "Q?", "sql": "SELECT 1"}\n')
+        self.assertIn("ask", self.check("start", "--project", str(self.tmp)))
+
+    def test_written_questions_run_once_the_side_page_lists_them(self) -> None:
+        # The person already chose to check: with the page listing the questions, "Test them?" asked twice.
+        sets = self.tmp / ".atlan-evals" / "sets"
+        sets.mkdir(parents=True)
+        (sets / "revenue.jsonl").write_text('{"id": "m1", "question": "Total net revenue?", "sql": "SELECT 1", "generated": true}\n')
+        (sets / "finance.jsonl").write_text('{"id": "m1", "question": "Total net revenue?", "sql": "SELECT 1"}\n')
+        import argparse
+        real_gold, real_stage, real_open = check.gold_local, check.stage, check.page_open
+        check.gold_local = lambda run, ev, recs: {"ran": [{"id": "m1", "rows": 1, "first": [9]}], "failed": []}
+        check.stage = lambda ev, slug: None
+        try:
+            load = lambda name: check.cmd_load(argparse.Namespace(project=str(self.tmp), file=str(sets / name), run=None))  # noqa: E731
+            check.page_open = lambda run: True
+            self.assertTrue(load("revenue.jsonl")["run_now"])
+            self.assertFalse(load("finance.jsonl")["run_now"], "a set the person brought runs once they pick it")
+            check.page_open = lambda run: False
+            self.assertFalse(load("revenue.jsonl")["run_now"], "with no page, the table and its question come first")
+        finally:
+            check.gold_local, check.stage, check.page_open = real_gold, real_stage, real_open
+
     def test_a_warehouse_run_is_found_by_name_and_says_its_sql_runs_in_the_host(self) -> None:
         wh = self.warehouse_run()
         several = self.check("start", "--project", str(self.tmp))

@@ -5,6 +5,7 @@ The agent asks exactly what this prints. Every count comes from the run; a demo'
 and only on a run the journey records as a demo, so they never reach the person's own data. Without widgets the
 text says, in sentences, what a card would: no bars, since a question's text is set in a proportional font.
 """
+import os
 from pathlib import Path
 import re
 
@@ -355,6 +356,13 @@ def after_answer(run, widget=False, data=None, engine_dir=None, accuracy=False):
     import side_page
     check, board, done = _after_asking(f, accuracy)
     suggested = _supported(side_page.details(f), limit=4 - 1 - len(check) - len(board))
+    if os.environ.get('CLAUDE_CODE_ENTRYPOINT') == 'cli':
+        # In a terminal, text just before a native question folds, and the answer is that text: what comes next is its
+        # last line instead.
+        parts = ['ask another question' + (', such as "%s"' % suggested[0]['label'] if suggested else '')]
+        parts += ['check how accurate it is'] if check else []
+        parts += ["build a dashboard from your agent's answers"] if board else []
+        return {'text': 'Next: ' + (', '.join(parts[:-1]) + ', or ' + parts[-1] if len(parts) > 1 else parts[0]) + '.'}
     options = suggested[:1] + check + suggested[1:] + board + [done]
     return {'header': 'Next', 'question': 'What next? Pick one, or type another question in Other.', 'options': options}
 

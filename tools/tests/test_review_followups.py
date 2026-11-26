@@ -551,7 +551,9 @@ class CardGuides(unittest.TestCase):
     def test_the_ask_skill_puts_the_answer_on_the_query_that_answers(self):
         ask = self.text('analytics-ask/SKILL.md')
         self.assertIn('"answer": {"question":', ask)
-        self.assertIn('PROJECT visual answer --input -', ask, 'a warehouse answer: one call after the result')
+        # A warehouse plan's result names its one call after the rows (test_route_moments); with no run, the skill names it.
+        self.assertIn("a warehouse plan's `next` names the follow-up", ask)
+        self.assertIn('visual answer --input -', ask, 'an answer with no run here: one call after the result')
         self.assertNotIn('record its `answer` moment', ask)
 
     def test_a_run_on_this_machine_is_queried_only_through_the_helper(self):

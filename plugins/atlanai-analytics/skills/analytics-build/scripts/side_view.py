@@ -16,6 +16,7 @@ try:
 except ImportError:
     fcntl = None
 
+from context_state import digest
 from run_facts import RunFacts, read_json
 
 
@@ -94,9 +95,9 @@ def _answer_key(spec):
 
 
 def first_answer(run, spec):
-    """Whether this answer is the run's first: the same answer shown again (a widget rerun of a text form) stays first."""
-    return not any(isinstance(m, dict) and m.get('kind') == 'answer' and m.get('key') != _answer_key(spec)
-                   for m in _state(run)['moments'])
+    """The first answer of this sitting stays a card when redrawn as a widget."""
+    return not any(m.get('kind') == 'answer' and m.get('key') != _answer_key(spec)
+                   for m in _recent(_state(run)))
 
 
 # The moments the run's own files can show without a data file from the agent, so the run names them when due.
@@ -172,19 +173,70 @@ def handed(shown):
     return {'show_first': shown, 'visual': SHOW_FIRST} if shown else {}
 
 
-def show_card(run, kind, data=None):
+def show_card(run, kind, data=None, *, questions_dir=None):
     """A card drawn from what the result that produced it holds, as `visual <kind> --input -` draws it, and recorded:
     the result carries it whole. A guide line alone left the answer card undrawn (dry run C, 2026-11-25). Empty when it
     cannot be drawn, so that result never fails for it."""
     import subprocess
     import sys
     cmd = [sys.executable, str(Path(__file__).with_name('project.py')), '--run-dir', str(run), 'visual', kind]
+    if questions_dir is not None:
+        cmd.extend(['--questions-dir', str(questions_dir)])
+    if widget_mode(run):
+        cmd.append('--widget')
     try:
         done = subprocess.run(cmd + (['--input', '-'] if data else []), input=json.dumps(data) if data else None,
                               capture_output=True, text=True, timeout=90)
     except (OSError, subprocess.SubprocessError):
         return ''
-    return (done.stdout or '').strip() if done.returncode == 0 else ''
+    if done.returncode:
+        return ''
+    shown = done.stdout.strip()
+    if kind == 'answer' and isinstance(data, dict) and isinstance(data.get('result'), dict):
+        try:
+            return json.loads(shown)['show_first']
+        except (KeyError, TypeError, ValueError):
+            return ''
+    return shown
+
+
+# A moment shown this recently is this sitting's: a later chat shows it again.
+SITTING = 3 * 3600
+
+
+def _recent(state, since=0):
+    floor = max(since, time.time() - SITTING)
+    for m in state['moments']:
+        if not isinstance(m, dict):
+            continue
+        try:
+            at = datetime.fromisoformat(m.get('at')).timestamp()
+        except (TypeError, ValueError):
+            continue
+        if at >= floor:
+            yield m
+
+
+def shown_since(run, kinds, since=0, *, key=None):
+    """Whether one of these moments was shown after `since` and within this sitting."""
+    return any(m.get('kind') in kinds and (key is None or m.get('key') == key) for m in _recent(_state(run), since))
+
+
+def widget_mode(run=None):
+    """The desktop app, or a widget host the run has recorded."""
+    import visuals
+    return visuals.desktop() or bool(run and _state(run).get('widget'))
+
+
+def welcome(run):
+    """The standalone welcome when this sitting has yet to see the built agent."""
+    import visuals
+    if shown_since(run, ('agent', 'build', 'saved')):
+        return ''
+    spec = visuals.build_spec('agent', run)
+    if not (spec.get('metrics') or spec.get('queries')):
+        return ''
+    return show_card(run, 'agent')
 
 
 def show_due(run, engine_dir=None, limit=4):
@@ -199,6 +251,8 @@ def show_due(run, engine_dir=None, limit=4):
         if not before:
             break
         cmd = [sys.executable, str(Path(__file__).with_name('project.py')), '--run-dir', str(run), 'visual', 'next']
+        if widget_mode(run):
+            cmd.append('--widget')
         try:
             done = subprocess.run(cmd + (['--engine-dir', str(engine_dir)] if engine_dir else []),
                                   capture_output=True, text=True, timeout=90)
@@ -242,11 +296,92 @@ def stopped(run, engine_dir=None):
 
 # Recording ------------------------------------------------------------------------------------
 
-def note(run, kind, spec=None, engine_dir=None):
-    """Log a moment the chat has shown, so the helper can name the ones still due and tell a first answer from a later
-    one. The side page reads the run's own files and needs nothing from here."""
+def _with_welcome(run, state, moment, spec, shown, widget, plain):
+    """Prepend the welcome once, retaining it on a text-to-widget redraw of the same moment."""
+    import visual_kit
+    import visuals
+    recent = list(_recent(state))
+    due = not any(m.get('kind') in ('agent', 'build', 'saved') for m in recent)
+    last = recent[-1] if recent else {}
+    redraw = last.get('welcome_in_text') if widget and last.get('kind') == moment['kind'] else None
+    if not due and not redraw:
+        return shown
+    key = digest({k: v for k, v in spec.items() if k != 'page'}) if spec else None
+    if not due and key != redraw:
+        return shown
+    welcome = visuals.render('agent', visuals.build_spec('agent', run), widget, plain=plain)
+    if not welcome:
+        return shown
+    if due:
+        state['moments'].append({'kind': 'agent', 'at': moment['at']})
+    if key and not widget:
+        moment['welcome_in_text'] = key
+    return visual_kit.with_welcome(welcome, shown) if widget else welcome + '\n' + shown
+
+
+def note(run, kind, spec=None, engine_dir=None, *, shown='', widget=False, plain=False):
+    """Record a moment, including the welcome at the start of its text or HTML when due."""
+    import visuals
     with _locked(run):
         state = _state(run)
-        state['moments'].append({'kind': kind, 'at': _now(), **({'key': _answer_key(spec or {})} if kind == 'answer' else {}),
-                                 **({'engine': _build_name(run, engine_dir)} if kind in PER_BUILD else {})})
+        at = _now()
+        if widget and not visuals.desktop():
+            state['widget'] = True
+        moment = {'kind': kind, 'at': at}
+        if kind == 'answer':
+            moment['key'] = _answer_key(spec or {})
+        if kind == 'questions' and spec and spec.get('set_key'):
+            moment['key'] = spec['set_key']
+        if kind in PER_BUILD:
+            moment['engine'] = _build_name(run, engine_dir)
+        if shown and kind not in (*MIDWAY, 'agent', 'saved'):
+            shown = _with_welcome(run, state, moment, spec, shown, widget, plain)
+        state['moments'].append(moment)
         _write(Path(run) / 'view' / 'state.json', json.dumps(state, ensure_ascii=False, indent=1))
+    return shown
+
+
+# The list the side page opens on, for the moments that are about one of them. The welcome alone opens where the page
+# opens by itself, on the test questions once a check has written them: a check starts with it.
+PAGE_TABS = {'questions': 'tests', 'accuracy': 'tests', 'agent': 'tests', 'edit': 'metrics', 'answer': 'metrics'}
+
+
+def display_step(widget, title, asked=None, rerun=True):
+    if widget:
+        return ("Draw it now: pass the HTML above, as printed and never through a file, to `show_widget` with the title "
+                "`%s`. Use your tool search silently to load it if deferred and run its `read_me` the first time, before "
+                "your next question or reply. Never put it in a question's text. Add no line of your own about it." % title)
+    if asked:
+        text = ("Put the lines above, as they are, in %s: a question's own text is always shown, while text "
+                "written just before it folds. They are counted from the run's files, so never reword them or "
+                "add a number to them. Write nothing else before that question." % asked)
+    else:
+        text = ("Show the text above, unchanged, as this moment's result: start your very next message with it, "
+                "on its own lines, before any other words or tool call (this command's output is folded away, so "
+                "only your message shows it), as plain text with no code fence or quote around it.")
+    if rerun:
+        text += (" If you have a `show_widget` tool, run this again with `--widget`, pass the HTML to it instead, "
+                 "and add `--widget` to every later `visual` call.")
+    return text
+
+
+def output(shown, steps, task_list=None):
+    """The moment and its one instruction, in the order read by the host."""
+    next_step = ' '.join([steps[0]] + ['Then ' + s[0].lower() + s[1:] for s in steps[1:]])
+    line = json.dumps({**({'task_list': task_list} if task_list else {}), 'next': next_step}, ensure_ascii=False)
+    return (shown + '\n\n' if shown else '') + 'side view: ' + line
+
+
+def card_result(run, kind, shown, widget, title, spec=None):
+    """Hand over a rendered card with its run's welcome and page, when it has a run."""
+    import side_page
+    steps = [display_step(widget, title, rerun=kind != 'accuracy')]
+    if run:
+        reminder = side_page.reminder(run, tab=PAGE_TABS.get(kind))
+        if reminder:
+            steps.append(reminder)
+        try:
+            shown = note(run, kind, spec, shown=shown, widget=widget)
+        except OSError:
+            pass  # A read-only run still shows the card.
+    return handed(output(shown, steps))

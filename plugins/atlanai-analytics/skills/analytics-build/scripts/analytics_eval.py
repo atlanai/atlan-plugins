@@ -883,6 +883,18 @@ def cmd_todo(a) -> dict:
     else:
         train, validation, holdout = split_sets(pr.split())
         ids = sorted({"train": train, "validation": validation, "test": validation, "holdout": holdout}[a.ids])
+    if getattr(a, "questions", None):
+        # A question tested again alone after a fix, by its number in the score (or its id).
+        order = [c["case_id"] for c in pr.cases()]
+        want = {q.strip() for q in a.questions.split(",") if q.strip()}
+        ids = [i for n, i in enumerate(order, 1) if str(n) in want or i in want]
+        if len(ids) != len(want):
+            raise Blocked(f"No question {a.questions} in this check: name each by its number, 1 to {len(order)}.")
+        # The pass names what it tests, so the side page keeps every other question's newest answer.
+        covered = pr.vdir(a.variant) / "questions.json"
+        covered.parent.mkdir(parents=True, exist_ok=True)
+        before = json.loads(covered.read_text()) if covered.is_file() else []
+        covered.write_text(json.dumps(sorted(set(before) | set(ids))))
     res_path = pr.vdir(a.variant) / "results.jsonl"
     done = _done(res_path)
     latest = {(r["prompt_id"], int(r["rep"])): r for r in read_results(res_path)}
@@ -1653,7 +1665,20 @@ def cmd_before_after(a) -> dict:
                         "| # | Question |", "| --- | --- |"]
             changes += [f"| {number[i]} | {cell(text.get(i, ''))} |" for i in picked]
             changes.append("")
-    return {"status": "ok", "before": a.before, "after": a.after, "questions": n,
+    import eval_runs
+    import side_page
+    import side_view
+    try:
+        run = eval_runs.run_of(pr.dir.resolve())
+        on_page = run and eval_runs.questions_folder(run) == pr.dir.resolve() and side_page.running(run)
+    except (OSError, ValueError):
+        run, on_page = None, False
+    widget = _before_after_widget(ids, number, text, ma, mb, (ka, kb), (secs(ca), secs(cb)), only_after, only_before,
+                                  bool(on_page))
+    report = "\n".join(lines)
+    use_widget = side_view.widget_mode(run)
+    card = side_view.card_result(run, 'accuracy', widget if use_widget else report, use_widget, 'accuracy')
+    return {**card, "status": "ok", "before": a.before, "after": a.after, "questions": n,
             "correct": {"before": ka, "after": kb},
             "accuracy": {"before": round(ka / n, 4), "after": round(kb / n, 4)},
             "time_s_p50": {"before": ca["latency_s"]["p50"], "after": cb["latency_s"]["p50"]},
@@ -1662,10 +1687,9 @@ def cmd_before_after(a) -> dict:
             "wrong_both": neither, "judge_passed": judged, "left_out": left_out,
             "per_question": [{"id": i, "question": text.get(i, ""), "before": mark(ma, i), "after": mark(mb, i)}
                              for i in ids],
-            "report": "\n".join(lines), "headline": lines[0], "bars": "\n".join(lines[2:]),
+            "report": report, "headline": lines[0], "bars": "\n".join(lines[2:]),
             "changes": "\n".join(changes).rstrip(),
-            "widget": _before_after_widget(ids, number, text, ma, mb, (ka, kb), (secs(ca), secs(cb)), only_after, only_before,
-                                            _on_page(pr.dir))}
+            "widget": widget}
 
 
 TICK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12.5 4 4 8-9"/></svg>'
@@ -1677,24 +1701,20 @@ WIDGET_CSS = ('<style>.st{display:grid;grid-template-columns:112px repeat(var(--
               '.mc .st i.y svg{stroke:var(--sx)}.mc .st i.n svg{stroke:var(--cx)}'
               '.ls{display:grid;font-size:13px;line-height:18px}.ls div{display:grid;grid-template-columns:minmax(0,1fr) auto;'
               'gap:12px;border-top:.5px solid var(--bd);padding:5px 0}.ls b{font-weight:500;font-size:12px}'
-              '.ls b.vy{color:var(--ts)}.ls b.vn{color:var(--cx)}</style>')
-
-
-def _on_page(ev) -> bool:
-    """Whether the run's side page is open, so it lists every question with both answers under the card's numbers."""
-    try:
-        import eval_runs
-        import side_page
-        run = eval_runs.run_of(pathlib.Path(ev))
-        return bool(run and side_page.running(run))
-    except Exception:  # noqa: BLE001 - no page means the card lists the changes itself
-        return False
+              '.ls b.vy{color:var(--ts)}.ls b.vn{color:var(--cx)}.st i.go{cursor:pointer}.st i.go:hover{outline:1px solid var(--bd)}</style>')
+# Where the host runs scripts, a mark asks for its question in the chat; elsewhere the card draws the same, unclickable.
+OPEN_QUESTION = ("<script>if (typeof sendPrompt === 'function') document.querySelectorAll('.mc [data-n]').forEach(function (m) {"
+                 "m.classList.add('go'); m.setAttribute('role', 'button'); m.tabIndex = 0;"
+                 "var go = function () { sendPrompt('Show question ' + m.dataset.n + ' of the accuracy check'); };"
+                 "m.addEventListener('click', go); m.addEventListener('keydown', function (e) {"
+                 "if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });</script>")
 
 
 def _before_after_widget(ids, number, text, ma, mb, right, times, only_after, only_before, on_page=False) -> str:
     """The before-and-after card for a host that draws widgets: both scores, every question as a mark in each pass, and
-    the questions that changed, from the same numbers as the text card. No script: it draws in any widget host. With
-    the side page open, the page lists those questions with both answers, so the card counts them instead."""
+    the questions that changed, from the same numbers as the text card. It draws in any widget host; where the host runs
+    scripts, each mark asks for its question, which no mark did (2026-11-26). With the side page open, the page lists
+    those questions with both answers, so the card counts them instead."""
     import visual_kit as k
     e, n = k.e, len(ids)
     rows = [("Column names only", right[0], times[0]), ("Your agent", right[1], times[1])]
@@ -1703,7 +1723,8 @@ def _before_after_widget(ids, number, text, ma, mb, right, times, only_after, on
                     ', ' + e(t) if t else '') for label, kk, t in rows)
     strip = ''
     if n <= 30:
-        marks = lambda m: ''.join('<i class="%s">%s</i>' % ('y' if m[i] == 1 else 'n', TICK if m[i] == 1 else CROSS)
+        marks = lambda m: ''.join('<i class="%s" data-n="%d">%s</i>' % ('y' if m[i] == 1 else 'n', number[i],
+                                                                         TICK if m[i] == 1 else CROSS)
                                   for i in ids)  # noqa: E731
         strip = ('<div class="st" style="--n:%d"><span></span>%s<span>Column names only</span>%s<span>Your agent</span>%s</div>'
                  % (n, ''.join('<span class="hd">%d</span>' % number[i] for i in ids), marks(ma), marks(mb)))
@@ -1721,7 +1742,8 @@ def _before_after_widget(ids, number, text, ma, mb, right, times, only_after, on
                   if changed else '<div class="mt">No question changed between the two.</div>')
     body = (WIDGET_CSS + '<div class="mh">%s<b>Accuracy: your agent against column names only</b></div><div class="ba">%s</div>%s%s'
             % (k.icon('check-circle'), ba, strip, listed))
-    return k.card(body, 'Your agent got %d of %d right, against %d of %d from column names only.' % (right[1], n, right[0], n))
+    return k.card(body, 'Your agent got %d of %d right, against %d of %d from column names only.'
+                  % (right[1], n, right[0], n)) + (OPEN_QUESTION if strip else '')
 
 
 # ====================================================================== publishing (registry MCP)
@@ -2997,7 +3019,7 @@ def _selftest_inputs(ok) -> None:
         w = ba.get("widget") or ""
         ok("the desktop widget draws the same card: both scores, a mark per question, what changed",
            'class="a mc"' in w and "0 of 2" in w and "1 of 2" in w and w.count('class="y"') + w.count('class="n"') == 4
-           and "Now right with your agent" in w and "<script" not in w)
+           and "Now right with your agent" in w and w.count('data-n="2"') == 2 and "typeof sendPrompt" in w)
         summ = summarize(Proj(d), "ctx")
         ok("the summary says how many answers the judge decided",
            summ["graded_by"] == {"script": 1, "judge": 2} and summ["judge_passed"] == 1)
@@ -3239,6 +3261,7 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--variant", required=True)
     c.add_argument("--ids", choices=["all", "train", "validation", "test", "holdout"], default="all",
                    help="all is every case but the holdout; test is validation's old name")
+    c.add_argument("--questions", help="only these questions, by their numbers in the score or ids, comma separated")
     c.add_argument("--reps", type=int, default=1)
     c.set_defaults(func=cmd_todo)
 

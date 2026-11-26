@@ -5,7 +5,8 @@ or names a dashboard link or file instead. For this run, this file replaces the 
 `SKILL.md`, the shared checklist's step names and the interview's start of the build.
 Where it is silent, the shared files apply. The discovery and known-tables branches and the
 demo never read it. Generation works as everywhere else, except that the build covers only the
-chosen pages.
+chosen pages. `--widget` in this file is for a host that draws widgets (`show_widget`); in a
+terminal, run each command without it.
 
 What the person should feel throughout: the build is moving, they can see each metric as it is
 made, and they can trust what they see. Every rule below serves that.

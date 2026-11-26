@@ -18,6 +18,7 @@ import importlib.util
 import json
 from pathlib import Path
 import re
+import shlex
 import time
 import uuid
 from types import SimpleNamespace
@@ -94,6 +95,15 @@ def result_reference(request, result=None):
             and (expected is not None or 'expected_tolerance' not in request)):
         raise ProjectError('Give a finite expected value and a non-negative numeric tolerance.')
     return expected, tolerance
+
+
+def query_value(rows):
+    """Keep just a saved query's numeric answer for a later edit card."""
+    if rows and len(rows) == 1 and isinstance(rows[0], list) and len(rows[0]) == 1:
+        value = rows[0][0]
+        if value is not None and _metric_results.valid_reference(value, 0):
+            return value
+    return None
 
 
 def sample_errors(samples):
@@ -557,6 +567,7 @@ class Project(ContextState):
                                'status': 'held' if errors else 'example_executed' if kind == 'metric' else 'executed',
                                'samples': samples, 'query_id': result['query_id'], 'sql_hash': result['sql_hash'],
                                **({'composition': composition} if composition is not None else {}),
+                               **({'checked_value': query_value(result['rows'])} if kind == 'sql_query' and not errors else {}),
                                'errors': errors,
                                'coverage': 'authored_example_only' if kind == 'metric' else 'observed_parameter_samples',
                                'warnings': warnings}
@@ -623,6 +634,7 @@ class Project(ContextState):
             'samples': samples, 'executor': 'warehouse_tool',
             **({'composition': {'status': 'executed', 'rows': rows[:20], 'coverage': 'formula_source_mandatory_filters'}}
                if kind == 'metric' and not error else {}),
+            **({'checked_value': query_value(rows)} if kind == 'sql_query' and not errors else {}),
             'errors': errors,
             'coverage': 'warehouse_tool_result', 'warnings': warnings}
         self.write(path, checks)
@@ -832,8 +844,14 @@ class Project(ContextState):
             raise ProjectError('Read back the published workspace before retrieving question context.')
         plan = retrieval.query_plan(request, self.execution_binding(), receipt)
         if plan['execution']['kind'] == 'warehouse':
+            asked = request['answer'] if isinstance(request.get('answer'), dict) else {}
+            example = {'question': asked.get('question') or 'The question asked', 'metrics': asked.get('metrics') or [],
+                       'result': {'columns': [], 'rows': []}}
             return {**plan, 'status': 'execute_in_host',
-                    'next': 'Use the recorded read-only tool with separate native parameter bindings; report its fresh result.'}
+                    'next': ('Use the recorded read-only tool with separate native parameter bindings. Then run '
+                             '`PROJECT --run-dir %s visual answer --input -`. Send %s on stdin with the question asked, '
+                             'the metrics used and the fresh result in columns and rows.'
+                             % (shlex.quote(str(self.root)), json.dumps(example, ensure_ascii=False)))}
         result = self.execute(plan)
         return {**result, 'retrieval_check': 'passed', 'sql': plan['sql'], 'used_release': plan['used_release']}
 
@@ -863,7 +881,7 @@ class Project(ContextState):
                 'next': 'Use these retrieved definitions to execute fresh SQL.'}
 
 
-def _due(run, engine_dir=None, hand_over=True):
+def _due(run, engine_dir=None, hand_over=True, resume=False):
     """What the chat and the side page still need, named on whatever helper result comes next: the moments the run has
     reached but not shown, handed over whole unless the command only reads (it then names them and writes nothing), and
     a side page nobody has opened yet."""
@@ -871,11 +889,16 @@ def _due(run, engine_dir=None, hand_over=True):
     import side_view
     try:
         kinds = side_view.due(run, engine_dir)
-        page = side_page.reminder(run, start=False)
+        # A returning checklist can still have a deferred build chip. Welcome the person first, leaving the chip
+        # due for the build. A checklist mid-build keeps handing over each step as it finishes.
+        welcome = ''
+        if resume and (not hand_over or not kinds or set(side_view.seen(run)) & {'build', 'agent', 'saved'}):
+            welcome = side_view.welcome(run)
+        page = side_page.reminder(run, start=False, tab='metrics' if welcome else None)
     except Exception:  # noqa: BLE001 - the view never fails a command whose own work succeeded
         return {}
     out = {'side_page': page} if page else {}
-    shown = side_view.show_due(run, engine_dir) if kinds and hand_over else ''
+    shown = welcome or (side_view.show_due(run, engine_dir) if kinds and hand_over else '')
     if shown:
         # The dry run, 2026-11-25: told on every result to run `visual`, the session never did. The moment comes whole.
         out.update(side_view.handed(shown))
@@ -883,6 +906,33 @@ def _due(run, engine_dir=None, hand_over=True):
         out['visual'] = ('Due: run this helper\'s %s before going on, with the flags of every `visual` call (`--data` for a '
                          'demo, `--widget` where you have `show_widget`).' % ', then '.join('`visual %s`' % k for k in kinds))
     return out
+
+
+def _visual_input(kind, run):
+    """Read one bounded moment, including a warehouse's returned rows."""
+    import visuals
+    raw = sys.stdin.read(1_000_001)
+    if len(raw) > 1_000_000:
+        raise ProjectError("A moment's data is over 1 MB: keep it to what the moment shows.")
+    try:
+        given = json.loads(raw, parse_constant=lambda name: float('nan'))
+    except ValueError:
+        raise ProjectError("A moment's data is one JSON object.") from None
+    from_rows = kind == 'answer' and isinstance(given, dict) and isinstance(given.get('result'), dict)
+    if from_rows:
+        result = given['result']
+        columns, rows = result.get('columns'), result.get('rows')
+        if (not isinstance(columns, list) or not columns or not isinstance(rows, list)
+                or not all(isinstance(c.get('name') if isinstance(c, dict) else c, str) for c in columns)
+                or not all(isinstance(row, list) and len(row) == len(columns) for row in rows)):
+            raise ProjectError('Send the result with its named columns and matching rows.')
+        given = visuals.answer_from(given, result, visuals.RunFacts(run) if run else None) or {}
+    elif not run:
+        raise ProjectError('Send the question, metrics and query result with its columns and rows.')
+    problem = visuals.check_data(kind, given)
+    if problem:
+        raise ProjectError(problem)
+    return given, from_rows
 
 
 def _answer_card(run, given, result):
@@ -896,6 +946,14 @@ def _answer_card(run, given, result):
     except Exception:  # noqa: BLE001 - the card never fails the query that answered
         return {}
     return side_view.handed(side_view.show_card(run, 'answer', data)) if data else {}
+
+
+def _with_answer_card(run, request, result):
+    """A query's result with its answer card ahead of it, when the request names the question and rows came back. A plan
+    for the warehouse has no rows yet: its card comes with `visual answer` once they have run."""
+    if isinstance(request.get('answer'), dict) and isinstance(result, dict) and isinstance(result.get('rows'), list):
+        return {**_answer_card(run, request['answer'], result), **result}
+    return result
 
 
 def _saved_card(run, payload):
@@ -1017,6 +1075,7 @@ def main():
     visual.add_argument('--data', type=Path, action='append', default=[],
                         help="Facts the run's files cannot hold, such as a demo's firm and title; what the run's files prove always wins")
     visual.add_argument('--engine-dir', type=Path)
+    visual.add_argument('--questions-dir', type=Path, help='Draw the questions from this draft or check')
     visual.add_argument('--input', choices=('-',), help="The moment's data file as JSON on stdin (saved, answer, layout, edit), written to the run first")
 
     house = sub.add_parser('warehouse', help="Record the warehouse this run reads, once its check statement has run: the "
@@ -1086,7 +1145,9 @@ def main():
             print(json.dumps({'flow': args.flow or 'build', 'steps': checklist.initial(args.flow or 'build'), 'state': 'running',
                               'step': 1, 'of': len(checklist.initial(args.flow or 'build')), 'remote_writes': False}))
             return 0
-        if not args.run_dir:
+        standalone = (args.command == 'visual' and args.kind == 'answer' and args.input and not args.also
+                      and not args.data and not args.engine_dir and not args.run_dir)
+        if not args.run_dir and not standalone:
             raise ProjectError('Select a run directory, or use location to choose a permitted one.')
         if args.command == 'warehouse':
             # The record every warehouse step reads (connect.md, step 5). It was hand-written JSON that no step wrote,
@@ -1136,27 +1197,22 @@ def main():
         if args.command == 'visual':
             import side_page
             import side_view
-            run = safe_path(args.run_dir)
-            if not run.is_dir() or args.kind != 'connect' and not (run / 'run.json').is_file():
+            run = safe_path(args.run_dir) if args.run_dir else None
+            from_rows = False
+            if run and (not run.is_dir() or args.kind != 'connect' and not (run / 'run.json').is_file()):
                 raise ProjectError('Run this once the survey has created the run directory PROJECT location printed.')
             if args.input:
-                raw = sys.stdin.read(1_000_001)
-                if len(raw) > 1_000_000:
-                    raise ProjectError("A moment's data is over 1 MB: keep it to what the moment shows.")
-                try:
-                    given = json.loads(raw, parse_constant=lambda name: float('nan'))
-                except ValueError:
-                    raise ProjectError("A moment's data is one JSON object.") from None
-                if args.kind == 'answer' and isinstance(given, dict) and isinstance(given.get('result'), dict):
-                    # A warehouse's answer: the question, the metrics and the rows the warehouse returned, as a query
-                    # that answers the person takes them on this machine.
-                    from run_facts import RunFacts
-                    given = visuals.answer_from(given, given['result'], RunFacts(run)) or {}
-                problem = visuals.check_data(args.kind, given)
-                if problem:
-                    raise ProjectError(problem)
-                side_view._write(run / (args.kind + '.json'), json.dumps(given, indent=1, ensure_ascii=False))
+                given, from_rows = _visual_input(args.kind, run)
+                if run:
+                    side_view._write(run / (args.kind + '.json'), json.dumps(given, indent=1, ensure_ascii=False))
             data = [json.loads(path.read_text(encoding='utf-8')) for path in args.data]
+            if from_rows:
+                widget = args.widget or side_view.widget_mode(run)
+                spec = visuals.build_spec('answer', run, data if run else given, args.engine_dir)
+                shown = visuals.render('answer', spec, widget, not run or side_view.first_answer(run, spec))
+                result = side_view.card_result(run, 'answer', shown, widget, visuals.title_of('answer', spec), spec)
+                print(json.dumps(result, ensure_ascii=False))
+                return 0
             demo = visuals.read_json(run / 'interaction.json', dict, {}).get('flow') == 'demo'
             # The desktop app draws widgets: a dashboard run there never passed --widget, so every chip came back as text.
             args.widget = args.widget or visuals.desktop()
@@ -1182,7 +1238,7 @@ def main():
                     if facts:
                         side_view._write(run / 'view' / 'facts.json', json.dumps(facts, ensure_ascii=False, indent=1))
                 opened = side_page.open_page(run)
-                side_view.note(run, 'connect')
+                side_view.note(run, 'connect', widget=args.widget)
                 more = ' Then run `visual next` again: more is due.' if following and side_view.due(run, args.engine_dir) else ''
                 print('side view: ' + json.dumps({**{k: opened[k] for k in ('url', 'error') if k in opened},
                                                   'next': side_page.instruction(opened, args.widget, run) + more}, ensure_ascii=False))
@@ -1204,7 +1260,11 @@ def main():
                                                   'next': visuals.ON_PAGE_NEXT + more}, ensure_ascii=False))
                 return 0
             try:
-                spec = visuals.build_spec(args.kind, run, data, args.engine_dir)
+                if args.kind == 'questions' and args.questions_dir:
+                    import eval_runs
+                    spec = eval_runs.questions_chip(safe_path(args.questions_dir))
+                else:
+                    spec = visuals.build_spec(args.kind, run, data, args.engine_dir)
                 facts = visuals.RunFacts(run)
                 saved = bool(facts.publication) and facts.interaction.get('mode') != 'local'
                 asked = None if args.widget else visuals.asked(args.kind, demo, saved)
@@ -1221,34 +1281,20 @@ def main():
                     shown = ''
                 # In a terminal the first chip in a question names the side page, so its address reaches the person
                 # in text that is always shown, and the agent composes nothing.
+                # A stopped page restarts first, so the address named is the one serving now: named before the
+                # restart, a later chat's questions chip named no page and no table (2026-11-26).
+                reminder = side_page.reminder(run, tab=side_view.PAGE_TABS.get(args.kind))
                 page = side_page.running(run) if asked and shown and args.kind in ('found', 'sources', 'questions') else None
                 if page:
-                    shown += ('\n↗ Each question with its known answer, and your agent\'s as it comes back: ' if args.kind == 'questions'
-                              else '\n↗ Follow the build, and how each metric is reached: ') + page
+                    shown += ('\n↗ Each question with its known answer, and your agent\'s as it comes back: ' + page + '#l=tests'
+                              if args.kind == 'questions' else '\n↗ Follow the build, and how each metric is reached: ' + page)
             except (ValueError, KeyError, TypeError, AttributeError, OSError) as exc:
                 # A file the run wrote in a shape this cannot read leaves the moment unshown, never the run stopped.
                 print('side view: ' + json.dumps({'error': 'This moment could not be read: %s' % type(exc).__name__}))
                 return 0
-            if shown:
-                print(shown)
             steps = []
-            if shown and args.widget:
-                steps.append(("Draw it now: pass the HTML above, as printed and never through a file, to `show_widget` with the title `%s` (load it with your tool "
-                              "search first if it is deferred, and run its `read_me` the first time), before your next "
-                              "question or reply. Never put it in a question's text. It says what "
-                              "the step produced: add no line of your own about it.") % visuals.title_of(args.kind, spec))
-            elif shown and asked:
-                steps.append("Put the lines above, as they are, in %s: a question's own text is always shown, while text "
-                             "written just before it folds. They are counted from the run's files, so never reword them or "
-                             "add a number to them. Write nothing else before that question. If you have a "
-                             "`show_widget` tool, run this again with `--widget`, pass the HTML to it instead, and add "
-                             "`--widget` to every later `visual` call." % asked)
-            elif shown:
-                steps.append("Show the text above, unchanged, as this moment's result: start your very next message with it, "
-                             "on its own lines, before any other words or tool call (this command's output is folded away, so "
-                             "only your message shows it), as plain text with no code fence or quote around it. If "
-                             "you have a `show_widget` tool, run this again with `--widget`, pass the HTML to it instead, "
-                             "and add `--widget` to every later `visual` call.")
+            if shown:
+                steps.append(side_view.display_step(args.widget, visuals.title_of(args.kind, spec) if args.widget else None, asked))
             elif held:
                 steps.append("In a terminal the card waits for the save question, with the checks: once every check has "
                              "run, `PROJECT question save` prints both in it. If you have a `show_widget` tool, run this "
@@ -1280,12 +1326,12 @@ def main():
             # is named again by the next helper result.
             if shown or held:
                 try:
-                    side_view.note(run, args.kind, spec, engine_dir=args.engine_dir)
+                    shown = side_view.note(run, args.kind, spec, engine_dir=args.engine_dir, shown=shown,
+                                           widget=args.widget, plain=bool(asked))
                 except Exception:  # noqa: BLE001 - the moment's own result still shows
                     pass
             if following and (shown or held) and side_view.due(run, args.engine_dir):
                 steps.append('More is due: run `visual next` again, with the same flags.')
-            reminder = side_page.reminder(run)
             if reminder:
                 steps.append(reminder)
             if shown and args.kind == 'questions' and not side_page.running(run):
@@ -1295,10 +1341,7 @@ def main():
             if not steps:
                 # A moment with nothing to show still says what to do: given silence, a session filled it with its own line.
                 steps.append('Nothing to show for this moment yet: carry on, with no words about it.')
-            if steps:
-                print(('\n' if shown else '') + 'side view: ' + json.dumps(
-                    {**({'task_list': task_list} if task_list else {}),
-                     'next': ' '.join([steps[0]] + ['Then ' + s[0].lower() + s[1:] for s in steps[1:]])}, ensure_ascii=False))
+            print(side_view.output(shown, steps, task_list))
             return 0
         if args.command == 'question':
             import questions
@@ -1342,6 +1385,14 @@ def main():
                 except OSError:
                     pass  # A folder this session cannot write still gets its question: the note only spares a repeat.
             results = asked.pop('results', False)
+            if args.kind == 'next':
+                # The answer comes first: this ends it, after its last line.
+                asked['next'] = ('End your answer with this `text` as its last line, exactly as given.' if 'text' in asked else
+                                 'After your answer, ask one native question: this `header`, this `question` as its text '
+                                 'exactly as given, and these `options` in order, with the host\'s free-text entry. Never '
+                                 'reword it, and write nothing after it.')
+                print(json.dumps(asked, ensure_ascii=False))
+                return 0
             asked['next'] = ('Ask no native question: there is nothing to pick. Print this `question` text exactly as given, '
                              'with its line breaks, as the last thing in your reply, and wait for the person\'s question.') \
                 if args.kind == 'ready' and not asked['options'] else \
@@ -1430,22 +1481,22 @@ def main():
                 payload = project.read(safe_path(args.request))
             result = project.publication(payload)
             result = {**_saved_card(project.root, payload), **result}
-        elif args.command == 'execute':
+        elif args.command in ('execute', 'answer'):
+            # A saved query's answer draws its card as a query's does: `answer` alone drew none (2026-11-26).
             request = project.read(safe_path(args.request))
-            result = project.execute(request)
-            if isinstance(request.get('answer'), dict):
-                result = {**_answer_card(project.root, request['answer'], result), **result}
+            result = _with_answer_card(project.root, request, getattr(project, args.command)(request))
         elif args.command == 'acquisition': result = acquisition.cached(project, project.read(safe_path(args.request)))
         else: result = getattr(project, args.command.replace('-', '_'))(project.read(safe_path(args.request)))
-        if isinstance(result, dict) and args.command not in ('status', 'execute'):
-            # The side view's lines lead: a result cut short keeps them. A query's result carries none: the accuracy
-            # check's answering helpers run it, and a moment handed to a helper never reaches the person.
+        if isinstance(result, dict) and args.command not in ('status', 'execute') and result.get('status') != 'execute_in_host':
+            # A resume welcomes a returning person; `status` is read to look around, and its welcome went undrawn.
+            resume = args.command == 'journey' and args.action == 'resume'
             reads = args.command in READ_ONLY or args.command == 'journey' and args.action in ('status', 'resume')
-            due = _due(project.root, getattr(args, 'engine_dir', None), hand_over=not reads)
+            due = _due(project.root, getattr(args, 'engine_dir', None), hand_over=not reads,
+                       resume=resume or args.command == 'checklist')
             if due.get('show_first') and result.get('show_first'):
                 # The steps the run reached come first, then the card this result made.
                 result = {**result, 'show_first': due.pop('show_first') + '\n\n' + result['show_first']}
-            result = {**due, **{k: v for k, v in result.items() if k not in due}}
+            result = {**due, **result}
         if isinstance(result, str):
             print(result)
         else:
@@ -1464,6 +1515,8 @@ def main():
                 compact = {**{k: result[k] for k in ('side_page', 'visual', 'show_first') if k in result},
                            'status': result.get('status', 'ok'), 'result_file': str(target),
                            'next': 'Read the relevant fields from this private result artifact.'}
+                if result.get('status') == 'execute_in_host':
+                    compact['next'] = result['next']
                 if args.command == 'preview':
                     if result.get('snapshot'):
                         compact['snapshot'] = result['snapshot']

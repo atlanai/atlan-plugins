@@ -193,7 +193,7 @@ again, each to a fresh agent with only the source tables' schema and no addition
    `accuracy` ("Accuracy: 100%."), `before_after` ("With column names only: 40%. With your
    agent: 100%.") and `small_set`. Write the result from these, as [show the
    score](#show-the-score) describes. Never work a number out yourself, and never show one pass's
-   score without the other. Its `widget` is the result's card, drawn as [show the
+   score without the other. Its `show_first` is the result's card, shown as [show the
    score](#show-the-score) says; its `report` and `bars` are for a reader who asks for detail.
 
 ## Show the score
@@ -203,12 +203,18 @@ be, a small set included. It comes first, after its card where one is drawn, wit
 commands, no closing summary. I build and test, you choose, your agent answers: say it that
 way, in plain words, with no tool or file names.
 
-**The card first.** Where you have `show_widget`, draw the comparison's `widget` (on a demo,
-`ACC result --widget`) before the result: the before-and-after card, with every question's mark.
-The text then leaves out the banner and `lines.before_after`, which the card shows. Without
-`show_widget`, the text carries them as below. With the side page open, the card counts the
+**The card first.** `EVAL before-after` (on a demo, `ACC result`) hands over the before-and-after
+card in `show_first`, with every question's mark: show it before the result, as its `side view`
+line says. The text then leaves out the banner and `lines.before_after`, which the card shows.
+With the side page open, the card counts the
 questions that changed and the page lists each one with both answers, under the same numbers:
 never list them in the chat as well.
+
+**A question from the card.** Where the host runs the card's script, each mark sends "Show
+question <N> of the accuracy check". Run `CHECK question --evals <evals-run> --n <N>`. With
+`page`, in the desktop app, open it in the browser pane (your browser tool's navigate call) and
+show the pane, with no words. Otherwise answer in three lines from `question`: the question,
+the known answer beside your agent's, and, for a miss, its `cause` in plain words.
 
 **What it holds, in this order.** The script computes every number; you write the words.
 
@@ -315,6 +321,12 @@ machine, or saved to Atlan Trident once the check is saved), then the questions 
 number. A comparison whose other run the person cannot find is no comparison. `EVAL compare
 --a baseline --b v1` gives the same change as numbers when asked. The raw-source pass is not
 run again: the source did not change.
+
+When the person asks to test only some questions again ("test question 5 again"), run the next
+variant with `EVAL todo --questions <numbers>`: only those run, and the side page shows their new
+answers beside every other question's last one. Say how each did in one line ("Question 5 is
+now right."), with no new score or card: a score counts every question, so it comes from a test
+again on all of them.
 
 A comparison is only ever with a run of this same eval folder. When the person asks to compare
 with another run (an older check, another set), `CHECK start` lists the project's eval folders

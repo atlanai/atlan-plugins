@@ -82,9 +82,10 @@ The first thing on screen is the host's task list as the run left it. Read `PROJ
 (or take the checklist the person gave), create one task per step with its `content` and
 `active` as given, then set each to its `status`, before the reply and in the same turn, so
 finished steps start ticked. A checklist the person pasted is the helper's output: rebuilding
-the task list from it runs nothing, so do it even when told to run no commands. Then show the
-same steps in chat and say where the run stands, except when the person asks what is ready or
-what to ask: that reply is [the ready block](ready.md#on-resume) alone. Never say the task list was not updated, or
+the task list from it runs nothing, so do it even when told to run no commands. Then say where the
+run stands in one line: the task list already shows each step, so the chat never lists them again.
+When the person came for one thing (save it, ask, test, change a rule), go straight to it after that
+line. When the person asks what is ready or what to ask, the reply is [the ready block](ready.md#on-resume) alone. Never say the task list was not updated, or
 name a helper you ran or did not run.
 
 ## When a step ends

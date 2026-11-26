@@ -30,7 +30,7 @@ import python_version  # noqa: E402
 
 python_version.require()
 
-from eval_runs import Blocked, built_runs, engine_dir, execution, find_run, use_case  # noqa: E402
+from eval_runs import Blocked, built_runs, engine_dir, execution, find_run, question_counts, set_key, use_case  # noqa: E402
 
 # Words that say nothing about which metric a use case needs.
 _STOP = {"a", "an", "and", "the", "of", "to", "in", "on", "for", "by", "or", "is", "it", "its", "with",
@@ -103,7 +103,7 @@ def cmd_inputs(a) -> dict:
     text = {c.get("metric_ref"): f"{c.get('display_name') or ''} {c.get('description') or ''}"
             for c in cards.get("metrics") or []}
     want = _words(f"{intent.get('domain') or ''} {intent.get('purpose') or ''}")
-    scope = {"use_case": intent, "focus": focus_ref,
+    scope = {"run": str(run.resolve()), "use_case": intent, "focus": focus_ref,
              "metrics": [{"ref": r, "name": n, "relevance": len(want & _words(text.get(r, "")))}
                          for r, n in names.items()],
              "related": _related(engine, focus_ref), "pool": pool}
@@ -265,29 +265,21 @@ def cmd_emit(a) -> dict:
     out = gen.parents[1] / "sets" / f"{name}.jsonl"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    scope = load(gen / "scope.json", {}) or {}
+    scope["emitted"] = {**question_counts(name, [r["from"] for r in rows]), "set_key": set_key(out, rows)}
+    dump(gen / "scope.json", scope)
     return {"status": "ok", "set": str(out), "questions": len(rows), "spares_unused": spare,
-            "metrics": sorted({r["tests"] for r in rows if r["tests"]}), **_questions_chip(gen)}
+            "metrics": sorted({r["tests"] for r in rows if r["tests"]}), **_questions_chip(gen, scope.get("run"))}
 
 
-def _questions_chip(gen: pathlib.Path) -> dict:
+def _questions_chip(gen: pathlib.Path, run) -> dict:
     """Written questions are an output: their chip comes with the result, drawn whole and marked shown, and the side
     page lists them. Chips a guide only asked for went undrawn in the dry run (2026-11-25)."""
-    import subprocess
-    run = next((r for r in built_runs(gen.parents[2]) if r.name == gen.name), None)
-    if run is None:
-        return {}
-    runner = pathlib.Path(__file__).resolve().parents[2] / "analytics-build" / "scripts" / "project.py"
-    try:
-        done = subprocess.run([sys.executable, str(runner), "--run-dir", str(run), "visual", "questions"],
-                              capture_output=True, text=True, timeout=90)
-    except (OSError, subprocess.SubprocessError):
-        return {}
-    text = (done.stdout or "").strip()
-    if done.returncode or not text:
-        return {}
-    return {"show_first": text,
-            "visual": "Show `show_first` now, before any other words or call: pass each widget in it to `show_widget`, "
-                      "or print its lines as they are, and do what each of its `side view` lines says."}
+    import side_view
+    if not run:  # Drafts made before inputs recorded the selected run.
+        matches = [r for r in built_runs(gen.parents[2]) if r.name == gen.name]
+        run = matches[0] if len(matches) == 1 else None
+    return side_view.handed(side_view.show_card(run, 'questions', questions_dir=gen)) if run else {}
 
 
 def cmd_ready(a) -> dict:
