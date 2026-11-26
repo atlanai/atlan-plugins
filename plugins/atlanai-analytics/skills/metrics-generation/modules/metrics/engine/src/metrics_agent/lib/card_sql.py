@@ -75,12 +75,16 @@ def quoted_identifier(name: str, dialect: str | None) -> str:
     beyond the standard library. Both it and the engine therefore build the same statement
     for the same card.
 
-    The quote character is escaped the way each dialect reads it back: doubled, except on
-    BigQuery, where a quoted name takes a string literal's backslash escapes."""
+    The quote character inside a name is doubled, which each of these dialects and the
+    engine's own parser read back as one character. BigQuery is the exception: it reads a
+    quoted name with a string literal's backslash escapes, the parser reads a doubled
+    backtick, and no spelling of a backtick or a backslash is read the same by both. A name
+    must never be able to close its own quotes for one reader and not the other, so on
+    BigQuery those two characters are written as underscores."""
     text = str(name)
     key = dialect.strip().lower() if isinstance(dialect, str) else ""
     if key == "bigquery":
-        return "`" + text.replace("\\", "\\\\").replace("`", "\\`") + "`"
+        return "`" + text.replace("\\", "_").replace("`", "_") + "`"
     if key in _BACKTICK_DIALECTS:
         return "`" + text.replace("`", "``") + "`"
     return '"' + text.replace('"', '""') + '"'

@@ -183,8 +183,10 @@ class EarlierWorkTest(unittest.TestCase):
         quoted = self.card_sql.quoted_identifier
         self.assertEqual(quoted('a"b', None), '"a""b"')
         self.assertEqual(quoted('a`b', 'databricks'), '`a``b`')
-        # BigQuery reads a quoted name with a string literal's escapes, not a doubled backtick.
-        self.assertEqual(quoted('a`b\\c', 'bigquery'), '`a\\`b\\\\c`')
+        # BigQuery and the engine's parser read an escaped backtick differently, so neither a
+        # backtick nor a backslash is written there: the name cannot close its own quotes for either.
+        self.assertEqual(quoted('a`b\\c', 'bigquery'), '`a_b_c`')
+        self.assertEqual(quoted('\\` FROM t --', 'bigquery'), '`__ FROM t --`')
         # The dialect is matched whatever its case and spacing; anything else is the standard form.
         self.assertEqual(quoted('n', ' DataBricks \n'), '`n`')
         for dialect in ('spark', 'hive', 'mysql'):
@@ -196,9 +198,9 @@ class EarlierWorkTest(unittest.TestCase):
         for dialect in ('databricks', 'snowflake', 'bigquery', 'postgres', 'duckdb', 'spark', 'mysql', 'tsql'):
             tree = sqlglot.parse_one(statement(derived, dialect), read=dialect)
             self.assertEqual(tree.selects[0].alias, 'n', dialect)
-        for dialect, name in (('databricks', 'a`b'), ('bigquery', 'a`b'), ('snowflake', 'a"b')):
+        for dialect, name, read in (('databricks', 'a`b', 'a`b'), ('bigquery', 'a`b', 'a_b'), ('snowflake', 'a"b', 'a"b')):
             tree = sqlglot.parse_one(f'SELECT 1 AS {quoted(name, dialect)}', read=dialect)
-            self.assertEqual(tree.selects[0].alias, name, dialect)
+            self.assertEqual(tree.selects[0].alias, read, dialect)
 
     def test_a_date_literal_is_one_rule_and_function_aggregations_read_as_custom(self):
         self.assertTrue(self.card_sql.DATE_LITERAL.search("t.created_at >= '2026-04-22'"))
