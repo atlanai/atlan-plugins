@@ -334,13 +334,14 @@ class Page(unittest.TestCase):
             side_page.open_page(run)
             self.assertEqual(spawn.call_count, 2, 'asking for the page tries again')
 
-    def test_a_terminal_opens_the_browser_once_per_run(self):
+    def test_a_terminal_never_opens_the_browser(self):
+        # Test runs and headless agents inherit CLAUDE_CODE_ENTRYPOINT=cli, and each opened a browser tab (2026-11-25).
         run = make_run(self.root)
         with mock.patch.dict(os.environ, {'CLAUDE_CODE_ENTRYPOINT': 'cli'}), mock.patch('webbrowser.open', return_value=True) as browser:
-            side_page.open_page(run)
+            opened = side_page.open_page(run)
             side_page.stop(run)
-            side_page.open_page(run)
-        self.assertEqual(browser.call_count, 1, 'a page that restarts never opens another browser tab')
+        self.assertEqual(browser.call_count, 0, 'the address goes in the next chip; nothing opens a tab')
+        self.assertIn('the next chip in a question names its address', side_page.instruction(opened))
 
     def test_a_metric_with_no_sources_never_breaks_the_page(self):
         run = make_run(self.root)

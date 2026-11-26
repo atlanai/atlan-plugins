@@ -5,6 +5,7 @@ import sys
 import unittest
 
 import test_analytics_journey as fixtures
+from analytics_run import stop_pages
 from project import Project
 
 
@@ -14,6 +15,7 @@ class IntentCheckpoint(unittest.TestCase):
         self.fixture.setUp()
         self.addCleanup(self.fixture.doCleanups)
         self.run = self.fixture.run
+        self.addCleanup(stop_pages, self.run.root)
         self.fixture.fixture.write('progress.json', {'stage': 'scope', 'status': 'complete'})
 
     def test_clear_scope_still_asks_domain_then_tailored_purpose_after_restart(self):

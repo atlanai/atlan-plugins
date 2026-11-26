@@ -1023,8 +1023,8 @@ def running(run):
 
 
 def open_page(run, host=None, explicit=True):
-    """Start the run's page, or find the one already serving it. Returns its address, and whether this call opened it in
-    the system browser."""
+    """Start the run's page, or find the one already serving it. Returns its address. It never opens the system browser:
+    a terminal gets the address in the next chip, and the desktop app shows the page in its own pane."""
     run = Path(run)
     (run / 'view').mkdir(parents=True, exist_ok=True)
     if explicit:
@@ -1061,19 +1061,7 @@ def open_page(run, host=None, explicit=True):
             return {'error': 'The side page could not start on this machine.'}
         failed.unlink(missing_ok=True)
     host = host or os.environ.get('CLAUDE_CODE_ENTRYPOINT') or ''
-    opened = False
-    record = read_json(run / 'view' / 'address.json', dict, {})
-    # A terminal has no pane of its own: the helper opens the page in the system browser, once per run, however
-    # often the page restarts.
-    if host == 'cli' and not record.get('opened') and not (run / 'view' / 'seen.json').is_file():
-        import webbrowser
-        try:
-            opened = bool(webbrowser.open(url))
-        except Exception:  # noqa: BLE001 - no browser leaves the address to print
-            opened = False
-        if opened:
-            _write(run / 'view' / 'address.json', json.dumps({**record, 'opened': _now()}))
-    return {'url': url, 'started': started, 'opened': opened, 'moved': moved, 'host': host}
+    return {'url': url, 'started': started, 'opened': False, 'moved': moved, 'host': host}
 
 
 # The one line the person reads when the side page first opens during a build; every flow says the same
@@ -1116,10 +1104,6 @@ def instruction(opened, widget=False, run=None):
                 % (url, follows, opened_line(run), '' if _built(run) else
                    ' From here the page carries each metric step and the task list carries the build: follow the build '
                    'with `PROJECT drafts --wait` in the foreground, as progress says.'))
-    if opened.get('opened'):
-        return ('The side page opened in the person\'s browser at %s. Say once, in one short line: "%s" Nothing more '
-                'about it now: the next chip in a question names it. %s'
-                % (url, opened_line(run).replace('beside this chat', 'in your browser'), follows))
     return ('Say nothing about the side page now: the next chip in a question names its address, %s. %s' % (url, follows))
 
 

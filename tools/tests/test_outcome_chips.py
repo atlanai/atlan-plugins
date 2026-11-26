@@ -550,6 +550,7 @@ class Engine(unittest.TestCase):
         self.root = Path(self.tmp.name).resolve()
 
     def tearDown(self):
+        stop_pages(self.root)
         self.tmp.cleanup()
 
     def advance(self, run):
