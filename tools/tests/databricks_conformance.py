@@ -4,6 +4,8 @@ from metrics_agent import sockets as S
 from metrics_agent.testing.conformance import InputPlugConformance
 from metrics_agent_databricks.plug import DatabricksDirect
 
+VIEW='version: 1.1\nsource: demo.main.orders\nmeasures:\n  - name: orders\n    expr: COUNT(id)\n'
+
 class FakeRunner:
     kind='databricks'
     dialect='databricks'
@@ -31,3 +33,9 @@ class TestDatabricks(InputPlugConformance):
     env={'DATABRICKS_SERVER_HOSTNAME':'example.cloud.databricks.com','DATABRICKS_HTTP_PATH':'/sql/1.0/warehouses/example','DATABRICKS_TOKEN':'synthetic-token'}
     tables=['DEMO.MAIN.ORDERS']
     window=S.Window('2026-01-01','2026-02-01')
+
+    @pytest.fixture
+    def plug_settings(self,tmp_path):
+        view=tmp_path/'orders_metrics.yaml'
+        view.write_text(VIEW)
+        return {**self.settings,'bi':str(view)}

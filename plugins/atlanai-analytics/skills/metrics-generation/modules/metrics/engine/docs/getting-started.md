@@ -125,7 +125,7 @@ settings:
   local-files:
     history: exports/querylog.jsonl.gz   # .jsonl, .jsonl.gz, or a .json list of statements
     bi: exports/powerbi_model            # a Power BI model folder, .pbix, .bim, or Tableau files
-    bi_vendor: powerbi                   # powerbi | tableau | snowflake-semantic-view (Snowflake package)
+    bi_vendor: powerbi                   # powerbi | tableau | snowflake-semantic-view (Snowflake package) | databricks-metric-view (Databricks package)
                                          # also powerbi-scan | powerbi-paginated | powerbi-goals
     database: exports/warehouse.duckdb   # optional: the DuckDB file SQL is checked against
     witness_mode: explain                # parse | explain | execute

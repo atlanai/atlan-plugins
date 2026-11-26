@@ -243,6 +243,11 @@ class Model:
         for ms in facts.get("measures") or []:
             if ms.get("formula_language") != "sql" or not ms.get("formula"):
                 continue
+            # A metric no formula names as `role.name` (`referable: false`, a Databricks
+            # metric view): its reader replaced every reference already, and `role.<its
+            # name>` is a column. `revenue: SUM(revenue)` must not read as SUM of itself.
+            if ms.get("referable") is False:
+                continue
             home = str(ms.get("home_table") or "").lower() or None
             m.items[(home, str(ms["name"]).lower())] = Item(
                 "measure", home, str(ms["name"]), str(ms["formula"]), home)

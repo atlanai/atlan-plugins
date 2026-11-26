@@ -2,6 +2,8 @@
 
 The maintained `databricks-direct` plug reads native query history and Unity Catalog column
 metadata and verifies SQL through the existing read-only socket. Custody is `customer`.
+The package also registers the `databricks-metric-view` BI reader: see
+[Metric views](#metric-views).
 The optional `databricks` runtime feature installs this package. The older SQL-only example
 remains separate; do not install both distributions into the same runtime.
 
@@ -110,6 +112,61 @@ observers: []
 Run preparation and advancement with a real TTY for browser sign-in. An explicit parse-only
 run does not establish warehouse execution, and example execution does not prove formula
 parity. Publication remains the host plugin's responsibility.
+
+## Metric views
+
+A metric view is a declared model. Each measure becomes one metric with the view's own
+formula, the fields it can be cut by with their comments and synonyms, and the joins that
+reach them ([declared models](../../docs/design/declared-models-contract.md)).
+
+The plug reads a saved definition and fetches none: the definition is returned by `DESCRIBE`
+and by no query, and the plug's read-only gate admits queries alone. Save one of these and
+name the file, or a folder of them, as `bi`:
+
+| File | How to get it |
+| --- | --- |
+| `.json` | the output of `DESCRIBE TABLE EXTENDED <view> AS JSON`, or of Unity Catalog's table API. It types every field and measure |
+| `.yaml`, `.yml` | the view's YAML definition |
+| `.sql` | its `CREATE VIEW ... WITH METRICS LANGUAGE YAML AS $$ ... $$` statement |
+
+```yaml
+inputs:
+  history: []
+  schema: []
+  bi: [databricks-direct]
+  sql_check: databricks-direct
+settings:
+  databricks-direct:
+    bi: /absolute/private/example_metrics.json
+    server_hostname: example.cloud.databricks.com
+    http_path: /sql/1.0/warehouses/example_warehouse
+    sign_in: unified
+```
+
+`local-files` with `bi_vendor: databricks-metric-view` reads the same files with no
+connection.
+
+Read: YAML specification 0.1 and 1.1, `fields` or `dimensions`, many-to-one joins (nested
+too, `on` or `using`), `MEASURE()` references, and a top-level `filter`, which is written
+into every aggregate as `FILTER (WHERE ...)`. A view declares no key, so the card author
+states each metric's grain.
+
+Not read, each named in the run's reader notes: window measures and measures built on them,
+expressions that read a `parameters` entry, wildcard fields, columns that need quoting,
+one-to-many joins, joins to a query, and a view whose own source is a query or another metric
+view. A join written without table prefixes (`on: o_custkey = c_custkey`) is read only when
+the tables' columns come with the view. Wrap the description to supply them, and the source
+table's key:
+
+```json
+{"metric_view": {"view_text": "..."},
+ "source_columns": {"example_catalog.sales.orders": ["o_custkey"],
+                    "example_catalog.sales.customer": ["c_custkey"]},
+ "primary_keys": {"example_catalog.sales.orders": ["o_orderkey"]}}
+```
+
+Checked live on a Unity Catalog workspace: for 20 metric views, each declared formula over
+its base tables returned the value `MEASURE()` returns on the view.
 
 ## Connection isolation and reuse
 

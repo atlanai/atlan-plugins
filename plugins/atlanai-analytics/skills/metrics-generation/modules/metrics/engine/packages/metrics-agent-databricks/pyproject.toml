@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "metrics-agent-databricks"
-version = "0.1.0"
-description = "Databricks input plug: native query history, Unity Catalog columns and read-only SQL checks."
+version = "0.2.0"
+description = "Databricks input plug: native query history, Unity Catalog columns, read-only SQL checks, and the metric-view BI reader."
 license = { text = "Apache-2.0" }
 requires-python = ">=3.11"
 # Pinned to the newest release public for >= 7 days at pin time (2026-10-29): 4.7.0
@@ -16,6 +16,10 @@ dependencies = ["metrics-agent", "databricks-sql-connector==4.7.0", "databricks-
 
 [project.entry-points."metrics_agent.plugs"]
 databricks-direct = "metrics_agent_databricks:Direct"
+
+# A Databricks metric view is a BI model: this package's reader turns it into `bi_facts`.
+[project.entry-points."metrics_agent.readers"]
+databricks-metric-view = "metrics_agent_databricks.metric_view:MetricViewReader"
 
 [project.entry-points."metrics_agent.artifacts"]
 databricks = "metrics_agent_databricks.artifacts"

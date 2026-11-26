@@ -2,13 +2,13 @@
 
 > **Status: implemented, pre-1.0.** What a BI model *declares* about each of its metrics travels in
 > `bi_facts`, and the metric gates (X1 to X3) read it from there, whatever the model's vendor.
-> A Snowflake semantic view is the first model that fills it; Power BI and Tableau leave it
-> empty and are read the usual way.
+> A Snowflake semantic view was the first model that fills it and a Databricks metric view is
+> the second; Power BI and Tableau leave it empty and are read the usual way.
 
 **On this page:** [the problem](#the-problem) · [the contract](#the-contract) ·
 [how a declaration travels](#how-a-declaration-travels) · [A3](#a3-places-a-sql-measure) ·
 [X1 to X3](#x1-to-x3-read-the-declaration) · [the Snowflake plug](#the-snowflake-plug) ·
-[the reader](#the-reader) ·
+[the reader](#the-reader) · [Databricks metric views](#databricks-metric-views) ·
 [invariants](#invariants-and-the-failures-they-prevent) · [open questions](#open-questions)
 
 ## The problem
@@ -40,6 +40,7 @@ reads a model that omits them exactly as it does today.
 | `tables[].columns[]` | `is_hidden` | the column is used inside formulas only and is never offered as a dimension |
 | `measures[]` | `synonyms` | the model's other names for the metric |
 | `measures[]` | `is_hidden` | the metric is used inside other metrics only: it gets no unit and is never a metric of its own |
+| `measures[]` | `referable` | `false` when no formula names the metric as `table.name`: the model names a metric another way and its reader has already replaced each reference, so `table.<its name>` is a column. Omitted: a formula names it, and it is expanded there |
 | `measures[]` | `declared` | the metric as the model declares it (below) |
 | `relationships[]` | `name`, `from_role`, `to_role` | the relationship's name, and the model's own name for each end. A table used under two names keeps two roles |
 | `relationships[]` | `columns` | every key column pair, `[{from_column, to_column}]`. `from_column` and `to_column` stay, as the first pair |
@@ -187,6 +188,40 @@ Joins are never inferred unless the policy asks (`semantic_view.infer_relationsh
 `false` by default: the Snowflake package's own policy default, overridden in the run's policy), and even then only from a key that identifies one table and is not the
 joining table's own key.
 
+## Databricks metric views
+
+The reader ships with the Databricks package (`metrics_agent_databricks/metric_view.py`),
+registered under `metrics_agent.readers` as `databricks-metric-view`. It reads a view's YAML
+(specification 0.1 and 1.1), its `CREATE VIEW ... WITH METRICS` DDL, or the JSON that
+`DESCRIBE TABLE EXTENDED <view> AS JSON` or Unity Catalog's table API returns, and emits the
+contract above. Where a metric view differs from a semantic view, the reader settles it before
+`lib/declared` sees the model:
+
+- **One source, named `source`.** The view's table is the role `source`. Each join is a role
+  under its own name, and a nested join under its path (`customer.nation` is
+  `customer__nation`). A many-to-one join is one relationship on every key column pair. A
+  one-to-many join is carried and never walked.
+- **Columns are bound.** A metric view writes a source column bare (`SUM(o_totalprice)`). The
+  reader parses each expression in the Databricks dialect and binds every column to its role.
+  A bare name an earlier field defines is that field; any other is a column of the source.
+- **`MEASURE(x)` is replaced, and a measure is not a name.** A metric view names a measure only
+  as `MEASURE(x)`, so the reader puts that measure's expression in its place and marks every
+  measure `referable: false`. Without the mark, `revenue: SUM(revenue)` beside
+  `avg_revenue: AVG(revenue)` compiled to `AVG(SUM(revenue))`.
+- **The view's filter is part of every measure.** `declared` has no model-wide predicate, so the
+  filter is written into each aggregate as `FILTER (WHERE ...)`. The number is the view's.
+- **No key.** A metric view declares none. A description can carry its source table's key
+  (`primary_keys`); otherwise the grain is the card author's.
+
+Refused by name, in the reader's notes: a window measure and every measure built on one, an
+expression that reads a `parameters` entry, a wildcard field, a column that needs quoting, a
+join to a query, a join condition that is not equalities between its two tables, and anything
+that reads a column a later field of the same name redefines. A view whose own source is a
+query or another metric view is refused whole.
+
+`databricks-direct` declares the reader (`bi_vendor`) and reads the saved definition named by
+`settings.databricks-direct.bi`. It fetches nothing: see the open question below.
+
 ## Invariants, and the failures they prevent
 
 | # | Invariant | Failure it prevents |
@@ -199,6 +234,7 @@ joining table's own key.
 | 6 | Joins are inferred only when the policy asks (off by default), never on a key that is the joining table's own key or the key of several tables | `ID = ID` joins between unrelated tables |
 | 7 | The coverage guard checks the set of declared metrics present in the verified layer | a hidden metric the reader never emits holding the run blocked for ever |
 | 8 | `metric_ref` collisions are case-insensitive; a declared metric is identified by `model::metric`; a column the model types as a number is never a date, and only the date argument of a date function marks a date | a rename colliding on `metric_ref`, two models' `revenue` colliding, an integer offset marked as a date |
+| 9 | A metric no formula names (`referable: false`) is never an expansion target | a Databricks measure named after the column it sums compiling to an aggregate of an aggregate, in the statement and on the card |
 
 Each has a test that failed before its fix, on synthetic views.
 
@@ -222,6 +258,17 @@ Each was settled the conservative way for now; reviewers may prefer another.
 - **Role names on the card.** A table that plays two roles is a derived table under each role
   name, and X3 accepts a name the card's own FROM clause gives a derived table as a qualifier.
   The alternative, fully qualified names, cannot tell the two roles apart.
+- **Fetching a metric view.** Its definition is returned by `DESCRIBE TABLE EXTENDED` and by
+  Unity Catalog's table API, and by no query (`information_schema.views` does not list one).
+  The read-only gate admits queries alone, so `databricks-direct` reads a saved definition
+  instead of fetching. A fetch needs one of two decisions: a closed `describe` operation on the
+  read-only runner that builds its own statement from a checked name, or a table API read
+  through the plug's sign-in. Either also brings the tables' columns and keys.
+- **A metric view's filter** is written into each aggregate rather than carried as a required
+  filter of the card. A grouped query then keeps a group the filter empties, with a null
+  measure, where the view drops the group. A model-wide predicate in `declared`, compiled
+  into the statement's `WHERE` and held on the card as a mandatory filter, would match the view
+  exactly.
 - **A folder of views** is one model per view, identified `<plug>/<view file>` the way several
   BI plugs are. One BI plug delivering several models is new; A2 onwards read them exactly as
   they read several plugs.

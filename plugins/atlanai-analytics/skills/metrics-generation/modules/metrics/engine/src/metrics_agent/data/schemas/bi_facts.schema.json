@@ -486,6 +486,10 @@
             "type": "boolean",
             "description": "The model uses this metric only inside other metrics: it is expanded where a formula names it, gets no usage unit, and is never a metric of its own."
           },
+          "referable": {
+            "type": "boolean",
+            "description": "False when no formula names this metric as `table.name`: the model names a metric inside a formula another way (a Databricks metric view writes `MEASURE(name)`) and its reader has already put the metric's formula in place of each such reference. `table.<this name>` in a formula is then a COLUMN, never this metric. Omitted (true): a formula names the metric as `table.name`, and it is expanded there."
+          },
           "declared": {
             "$ref": "#/$defs/declared"
           },

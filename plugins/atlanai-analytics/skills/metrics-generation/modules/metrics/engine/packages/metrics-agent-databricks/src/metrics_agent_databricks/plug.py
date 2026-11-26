@@ -3,6 +3,8 @@
 """Databricks input over its SQL connector; every warehouse read passes the common gate."""
 from __future__ import annotations
 
+import pathlib
+
 from metrics_agent import sockets as S
 from metrics_agent.lib import access
 from metrics_agent.socket_gates import ReadOnlyRunner, plain_table_name, quote_part
@@ -32,7 +34,9 @@ class DatabricksDirect:
     kind = "input"
     custody = "customer"
     default_dialect = "databricks"
-    capabilities = ("query_history", "table_schema", "sql_runner")
+    capabilities = ("query_history", "table_schema", "bi_definitions", "sql_runner")
+    # A metric view is a BI model (a governed one): this package's reader reads its definition.
+    bi_vendor = "databricks-metric-view"
     requires_env = (auth.HOST, auth.PATH, auth.TOKEN, auth.DSN, auth.OWN_DSN,
                     "DATABRICKS_CLIENT_ID", "DATABRICKS_CLIENT_SECRET",
                     "DATABRICKS_HOST", "DATABRICKS_CONFIG_PROFILE", "DATABRICKS_AUTH_TYPE")
@@ -49,6 +53,9 @@ class DatabricksDirect:
         "history": (S.SetupQuestion("workspace_id", "The selected Databricks workspace ID (from its URL)"),),
         "sql_check": (S.SetupQuestion("catalog", "Default catalog", required=False),
                       S.SetupQuestion("schema", "Default schema", required=False)),
+        "bi": (S.SetupQuestion("bi", "Path to a saved metric view definition: its YAML, its "
+                               "DDL, or the JSON of DESCRIBE TABLE EXTENDED ... AS JSON (a "
+                               "folder reads every view in it)", kind="path"),),
     }
 
     def __init__(self, settings=None, *, dialect="databricks"):
@@ -128,7 +135,20 @@ class DatabricksDirect:
                               {"source": "databricks-information-schema"})
 
     def bi_definitions(self, assets, dest):
-        raise S.NotSupported("Use an installed BI reader or a supported local definition capture")
+        """The metric view files named by `bi`, read in place: one file, or every view file in
+        a folder (one model each).
+
+        Nothing is fetched. A metric view's definition is returned by `DESCRIBE TABLE EXTENDED
+        <view> AS JSON` and by Unity Catalog's table API, and by no query: the read-only gate
+        every statement of this plug passes admits queries alone, and it is not widened here.
+        Save the definition (see the package README) and name the file."""
+        from . import metric_view
+
+        if not self.settings.get("bi"):
+            raise S.NotSupported("databricks-direct: set `bi` to a saved metric view definition "
+                                 "(its YAML, DDL, or DESCRIBE TABLE EXTENDED ... AS JSON)")
+        root = pathlib.Path(str(self.settings["bi"])).expanduser()
+        return metric_view.models(root) if root.is_dir() else [root]
 
     def resolve_scope(self, refs):
         raise S.NotSupported("List bounded CATALOG.SCHEMA.TABLE names")
