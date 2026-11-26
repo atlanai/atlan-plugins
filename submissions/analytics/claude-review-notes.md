@@ -69,6 +69,21 @@ shell, `shell=True`, `eval(` or `exec(`, and two of them (`powerbi/dax.py`, `tab
 download, install or command at all. The plugin's two real installers are elsewhere and were not
 flagged: `metrics/driver.py` (pip, `--only-binary=:all:` with `constraints.txt` pins) and
 `dashboard_runtime/scripts/setup_pbixray.py` (`uv pip sync --require-hashes --only-binary`).
+What each flagged file does, to paste as the explanation (none downloads anything or runs code from
+the network):
+
+| File | What it is |
+|---|---|
+| `accuracy-check/SKILL.md`, `accuracy-check/references/run.md` | Instructions that run the plugin's own bundled helper, `python3 "<check-dir>/scripts/check.py"` |
+| `eval-generation/SKILL.md` | Instructions that run the bundled eval builder from the skill's own folder |
+| `analytics-build/references/project-conventions.md` | Defines the short names for bundled helpers (`python3 "<skill-dir>/scripts/…"`) |
+| `analytics-demo/references/accuracy.md` | Defines the short names for the demo's bundled helpers (`accuracy.py`, `edit_metric.py`) |
+| `dashboard_runtime/trident/dax_syntax.py` | Parses DAX text into types for a source inventory; no SQL, no I/O beyond its input |
+| `dashboard_runtime/trident/snowflake_cli.py` | Calls the person's already-installed Snowflake CLI with bound values; never installs it, never uses a shell, reads no credentials |
+| `analytics-build/scripts/source_inventory.py` | Detects what kind of source files a folder holds; parses nothing |
+| `eval_builder/sources/powerbi/dax.py` | Translates DAX expressions to SQL text, or refuses |
+| `eval_builder/sources/tableau/calc.py` | Translates Tableau calculations to SQL text, or refuses |
+
 **Open:** copy the "View on GitHub" line links from the re-validation report, then reword the
 matched text or explain each one here. The plugin's local helpers are standard-library Python, or the
 pinned metrics runtime installed once with the person's consent; nothing is downloaded and run at
