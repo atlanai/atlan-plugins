@@ -170,8 +170,8 @@ service principal), so their limits come from Microsoft's workspace-role table.
 
 ## More
 
-- [Getting started](../../docs/getting-started.md), section B: Power BI from Fabric.
-- [Plugs](../../docs/design/plugs.md): every plug and setting.
+- [Getting started](https://github.com/atlanai/atlan-plugins/blob/main/docs/metrics-engine/getting-started.md), section B: Power BI from Fabric.
+- [Plugs](https://github.com/atlanai/atlan-plugins/blob/main/docs/metrics-engine/design/plugs.md): every plug and setting.
 
 ## Over Microsoft's MCP servers (no plug credential)
 

@@ -71,7 +71,7 @@ The socket contract, as tests, runs against this plug offline (a fake `psycopg` 
 the server). From the root of this repository:
 
 ```bash
-# See the plug-author conformance example in docs/design/writing-a-plug.md.
+# See the plug-author conformance example in the repository's docs/metrics-engine/design/writing-a-plug.md.
 ```
 
 The same plug against a real server: `tests/test_postgres_live.py` seeds a small table and
@@ -80,4 +80,4 @@ as that role. It is skipped unless `METRICS_AGENT_TEST_PG_DSN` names a server it
 that fixture to; the module docstring shows a throwaway container to run it against.
 
 To test a plug of your own the same way, subclass `InputPlugConformance` from
-`metrics_agent.testing.conformance` (see *Writing a plug*, `docs/design/writing-a-plug.md`).
+`metrics_agent.testing.conformance` (see *Writing a plug*, `docs/metrics-engine/design/writing-a-plug.md`).

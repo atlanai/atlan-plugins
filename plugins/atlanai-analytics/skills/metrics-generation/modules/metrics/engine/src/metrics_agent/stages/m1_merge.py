@@ -112,6 +112,10 @@ def _without_times(value):
     return value
 
 
+def _layer_sha(objects: list) -> str:
+    return hashlib.sha256(json.dumps(_without_times(objects), sort_keys=True).encode()).hexdigest()[:12]
+
+
 def body(ctx: stage.Ctx) -> None:
     ri = ctx.read("run_inputs.json", "run_inputs.schema.json")
 
@@ -153,6 +157,12 @@ def body(ctx: stage.Ctx) -> None:
         used_names.add(obj["name"])
         merged.append(obj)
 
+    # THE LAYER BEFORE ITS PROSE. Described at the end (describe_timing), the metric gates
+    # stamped their work with the layer as it stood before these descriptions, and nothing
+    # else about the statements changes here. Recording that version lets a reader tell
+    # "the same statements, now described" from "different statements".
+    undescribed_sha = _layer_sha(sorted(merged, key=lambda o: o["vq_id"]))
+
     # THE DESCRIPTIONS ARE APPLIED LAST, over the merged layer, because that is the only
     # point at which one statement has one object to carry them. Absent, every object keeps
     # the estate's own alias and says so on `name_provisional`.
@@ -180,6 +190,7 @@ def body(ctx: stage.Ctx) -> None:
             used_after.add(o["name"])
 
     merged.sort(key=lambda o: o["vq_id"])
+    layer_sha = _layer_sha(merged)
     layer = {
         "contract_version": "1.0",
         # THE LAYER'S VERSION, OVER ITS CONTENT. Hashed over the ids alone, a re-described
@@ -187,8 +198,8 @@ def body(ctx: stage.Ctx) -> None:
         # Identity is each object's `source_id`, never this.
         # A timestamp (a witness's `executed_at`) is when, not what: left in, every re-run
         # would be a new version.
-        "layer_sha": hashlib.sha256(
-            json.dumps(_without_times(merged), sort_keys=True).encode()).hexdigest()[:12],
+        "layer_sha": layer_sha,
+        **({"described_from": undescribed_sha} if described and undescribed_sha != layer_sha else {}),
         "dialect": (bi_doc or hist_doc)["dialect"],
         "generated_at": (bi_doc or hist_doc).get("generated_at"),
         "scope": ri["scope"],

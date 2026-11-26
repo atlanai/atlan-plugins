@@ -2,7 +2,7 @@
 # Copyright 2026 Atlan Pte. Ltd.
 """The `metrics-agent` command.
 
-    metrics-agent run …            the whole pipeline (what `scripts/run.py` runs)
+    metrics-agent run …            the whole pipeline: the stage order and the human gates
     metrics-agent stage <name> …   one stage, e.g. `metrics-agent stage s0_inputs --run out/r`
     metrics-agent stages           list the stages
     metrics-agent setup …          the set-up interview: writes run.yml (--check tests one)

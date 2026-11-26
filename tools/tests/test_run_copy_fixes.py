@@ -1,6 +1,7 @@
 """What the overnight runs of 0.9.74 showed a person, each fixed at its root: words cut mid-word, bars in query order,
 a dashboard named where there was none, a reason that read wrong after its count, a sidecar counted as a source, and a
 past-query statement Snowflake refuses."""
+import importlib.util
 import json
 from pathlib import Path
 import re
@@ -93,7 +94,12 @@ class Sources(unittest.TestCase):
 
     def test_a_demos_welcome_counts_past_queries_as_its_chips_do(self):
         # 0.9.74: the sources chip said 75 past queries, the welcome 756.
-        lines = (SKILLS / 'analytics-demo/assets/box-office/history/query_history.jsonl').read_text(encoding='utf-8').splitlines()
+        # The history ships in parts; the working folder gets it whole, so read it as the demo does.
+        spec = importlib.util.spec_from_file_location('demo_data', SKILLS / 'analytics-demo/scripts/demo_data.py')
+        demo_data = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(demo_data)
+        history = 'history/query_history.jsonl'
+        lines = demo_data.content(history, demo_data.files('box-office')[history]).decode('utf-8').splitlines()
         rows = [json.loads(line) for line in lines if line.strip()]
         distinct = len({re.sub(r'\s+', ' ', r['statement_text']).strip().lower() for r in rows})
         welcome = (SKILLS / 'analytics-demo/references/box-office.md').read_text(encoding='utf-8')

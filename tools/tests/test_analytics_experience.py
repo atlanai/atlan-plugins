@@ -292,6 +292,26 @@ class AnalyticsExperience(unittest.TestCase):
         self.assertIn('engine directory is missing', model['next_step'])
         self.assertEqual(self.files(), before)
 
+    def test_a_layer_described_after_the_metric_gates_keeps_their_preview(self):
+        # Described at the end, M1 re-versions the layer after X1 and X2 stamped their work. It records
+        # the version they saw; the preview stands for that one, and for nothing else.
+        layer, proposals, manifest = self.engine()
+        undescribed = hashlib.sha256(json.dumps(layer['objects'], sort_keys=True).encode()).hexdigest()[:12]
+        layer['objects'][0]['description'] = 'Total cost of all work.'
+        layer['layer_sha'] = hashlib.sha256(json.dumps(layer['objects'], sort_keys=True).encode()).hexdigest()[:12]
+        manifest['stages'].insert(1, {'stage': 'm1_merge', 'verdict': 'ok', 'outputs': ['verified_queries.json']})
+        self.write('engine/manifest.json', manifest)
+        proposals['layer_sha'] = undescribed
+        self.write('engine/metric_proposals.json', proposals)
+        self.write('engine/verified_queries.json', layer)
+        self.assertIsNone(experience.snapshot(self.run, 'engine')['sample'])
+        layer['described_from'] = undescribed
+        self.write('engine/verified_queries.json', layer)
+        self.assertEqual(experience.snapshot(self.run, 'engine')['sample']['calculation'], 'SUM(cost)')
+        layer['described_from'] = 'another-layer'
+        self.write('engine/verified_queries.json', layer)
+        self.assertIsNone(experience.snapshot(self.run, 'engine')['sample'])
+
     def test_proposal_needs_matching_layer_and_successful_manifest_output(self):
         layer, proposals, manifest = self.engine()
         proposals['layer_sha'] = 'different'
