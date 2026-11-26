@@ -440,6 +440,16 @@ def wait(root, engine_dir=None, timeout=540, quiet=180, interval=2.0, out=None, 
         named_order = [s.get('stage') for s in stages if isinstance(s, dict)]
         # With the descriptions written last, their step ends just before the build does: `done` says it.
         late = 'm2_emit' in named_order[:named_order.index('x1_emit')] if 'x1_emit' in named_order else False
+        # The links step comes after the definitions: the build is done once it has a verdict, kept or skipped.
+        # With the descriptions written last (the engine's default), the build ends after they are taken in and the
+        # cards refreshed from them: a walkthrough was told "done" while the descriptions were still refused (2026-11-23).
+        named = {s.get('stage'): s.get('verdict') for s in stages if isinstance(s, dict)}
+        prose_in = 'm2_emit' not in named or 'm2_ingest' in accepted
+        refreshed = 'x3_refresh' not in named or bool(named.get('x4_refresh'))
+        if ('x3_ingest' in accepted and named.get('x4_ingest') and prose_in and refreshed):
+            # Checked before the step ends: a session that waits only once the build has ended was handed each old
+            # step end, one per call, and `visual next` had nothing to show for any of them (e2e box-office, 2026-11-25).
+            return say('done')
         for stage in WAKES:
             if late and stage == 'm2_ingest':
                 continue
@@ -454,14 +464,6 @@ def wait(root, engine_dir=None, timeout=540, quiet=180, interval=2.0, out=None, 
                 _save_record(engine, dict(record, steps=sorted(done | {stage}), said=None,
                                           started=sorted(started | ({begin['gate']} if begin else set()))))
                 return say('step', start=begin)
-        # The links step comes after the definitions: the build is done once it has a verdict, kept or skipped.
-        # With the descriptions written last (the engine's default), the build ends after they are taken in and the
-        # cards refreshed from them: a walkthrough was told "done" while the descriptions were still refused (2026-11-23).
-        named = {s.get('stage'): s.get('verdict') for s in stages if isinstance(s, dict)}
-        prose_in = 'm2_emit' not in named or 'm2_ingest' in accepted
-        refreshed = 'x3_refresh' not in named or bool(named.get('x4_refresh'))
-        if ('x3_ingest' in accepted and named.get('x4_ingest') and prose_in and refreshed):
-            return say('done')
         # A chip that comes due without a step end this session sees (the dashboard flow's helpers advance every step),
         # and the side page once there is something on it: each named once.
         import side_view

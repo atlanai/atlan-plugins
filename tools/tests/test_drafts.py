@@ -95,6 +95,17 @@ class Drafts(unittest.TestCase):
         self.run.write(self.run.root / 'drafts-reported.json', {'engine': {'steps': ['m2_ingest', 'x1_ingest', 'x2_ingest', 'x3_ingest']}})
         self.assertEqual(self.wait(tasks=False)['event'], 'done')
 
+    def test_a_wait_after_the_build_ended_says_done_not_each_old_step(self):
+        # e2e box-office demo, 2026-11-25: the session advanced the whole build without a wait, then called
+        # `drafts --wait` once it had finished and got `step` three times (x1, x2, x3 ingests, one per call), each
+        # answered by "Nothing new to show yet: carry on." from `visual next`, before ever hearing the build was done.
+        stages = [{'stage': s, 'verdict': 'ok'} for s in (
+            'm2_emit', 'x1_emit', 'x1_ingest', 'x2_emit', 'x2_ingest', 'x3_emit', 'x3_ingest', 'x4_emit', 'x4_ingest',
+            'm2_ingest', 'm1_merge', 'x3_refresh', 'd4b_refresh', 'x4_refresh')]
+        self.run.write(self.engine / 'manifest.json', {'stages': stages})
+        self.assertEqual(self.wait(tasks=False)['event'], 'done')
+        self.assertEqual(self.wait(tasks=False)['event'], 'done', 'it stays done; no old step end comes back after it')
+
     def test_a_second_build_in_the_same_run_reports_its_own_steps(self):
         # Walk 3: the past queries' build never woke the session at its merge, already reported for the first build.
         self.run.write(self.run.root / 'drafts-reported.json', {'engine': {'steps': ['x1_ingest'], 'answered': ['x1']}})
