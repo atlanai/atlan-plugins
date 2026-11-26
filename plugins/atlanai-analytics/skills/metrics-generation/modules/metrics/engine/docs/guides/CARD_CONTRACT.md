@@ -98,7 +98,7 @@ hint. That is a prompt, not a traceback, so the loop closes without anybody carr
 message:
 
 ```bash
-python scripts/x3_loop.py --run <run> --from 'answers/*.json' --author "<command>"
+metrics-agent stage x3_loop --run <run> --from 'answers/*.json' --author "<command>"
 ```
 
 `--author` is the operator's command; the stage holds no model key. Four guards, because the

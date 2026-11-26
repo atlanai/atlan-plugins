@@ -1,4 +1,4 @@
-# Analytics
+# Atlan Analytics
 
 This plugin builds your agent: it answers your data questions in plain English from your
 context, the metrics and saved queries the plugin builds and tests. Each answer names the metric
@@ -109,13 +109,20 @@ This plugin has no hooks and ships no executable binaries.
   environment, with pinned packages pip installs from your package index (PyPI unless pip is set
   otherwise).
 - **Reads:** the sources you pick, your warehouse through read-only statements (SELECT, WITH, SHOW
-  or DESCRIBE, with a LIMIT on anything that returns rows), and a Power BI workspace through its
-  API when you point the plugin at one.
+  or DESCRIBE, with a LIMIT on anything that returns rows), and a Power BI workspace or Tableau
+  site through its API when you point the plugin at one.
+- **Credentials:** the ones you set for your own systems: `PBI_*` for Power BI, `TABLEAU_*` for
+  Tableau, and `METRICS_AGENT_WAREHOUSE_DSN` for a local DuckDB or SQLite file. Each goes only to
+  the system it names (Microsoft's sign-in and Power BI or Fabric APIs, your Tableau server), never
+  anywhere else.
 - **Writes:** working files in one folder in your project, `.atlan-analytics/`: each run, the
   metrics runtime, test questions (`evals/`) and a demo's data (`demo/`). Add it to `.gitignore`.
   Reading a Power BI workspace caches its sign-in token under `~/.cache/pbi_definition_extract/`.
 - **Sends:** to Atlan, only what you approve saving, through the `atlanai` plugin's connection,
   signed in as you.
+- **Starts:** a progress page served on `127.0.0.1` for this machine only, opened in your browser;
+  and, when you check accuracy, your own Claude Code or Codex CLI to answer each test question
+  fresh, signed in as you.
 
 See Atlan's [privacy notice](https://atlan.com/privacy-policy/).
 

@@ -90,10 +90,10 @@ settings:
 
 ## More
 
-- [Getting started](../../docs/getting-started.md), section C: Snowflake, step by step.
-- [Declared models](../../docs/design/declared-models-contract.md): how a semantic view's
+- [Getting started](https://github.com/atlanai/atlan-plugins/blob/main/docs/metrics-engine/getting-started.md), section C: Snowflake, step by step.
+- [Declared models](https://github.com/atlanai/atlan-plugins/blob/main/docs/metrics-engine/design/declared-models-contract.md): how a semantic view's
   declarations reach the metric cards.
-- [Plugs](../../docs/design/plugs.md): every plug and setting.
+- [Plugs](https://github.com/atlanai/atlan-plugins/blob/main/docs/metrics-engine/design/plugs.md): every plug and setting.
 
 ## Access limits are named, never a failure
 

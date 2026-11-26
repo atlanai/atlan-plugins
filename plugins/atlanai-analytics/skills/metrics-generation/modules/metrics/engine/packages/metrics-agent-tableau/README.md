@@ -152,9 +152,9 @@ downloads alone. The password route and Tableau Server are tested offline only.
 
 ## More
 
-- [Getting started](../../docs/getting-started.md), section E: Tableau from Tableau Cloud or
+- [Getting started](https://github.com/atlanai/atlan-plugins/blob/main/docs/metrics-engine/getting-started.md), section E: Tableau from Tableau Cloud or
   Server.
-- [Plugs](../../docs/design/plugs.md): every plug and setting.
+- [Plugs](https://github.com/atlanai/atlan-plugins/blob/main/docs/metrics-engine/design/plugs.md): every plug and setting.
 
 ## Over Tableau's MCP server (no plug credential)
 
