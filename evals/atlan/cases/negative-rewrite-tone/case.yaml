@@ -36,4 +36,4 @@ graders:
   - name: answers-without-atlan
     type: llm
     criteria: |
-      PASS if the reply gives a warmer rewrite of the sentence and nothing about Atlan, skills or registries. FAIL if it mentions Atlan, offers to search a registry, or asks to sign in.
+      PASS if the reply gives a warmer rewrite of the sentence and nothing about Atlan, skills, Atlan Trident or registries. FAIL if it mentions Atlan, offers to search Atlan Trident or a registry, or asks to sign in.

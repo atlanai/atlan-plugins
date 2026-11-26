@@ -28,6 +28,6 @@ graders:
   - name: no-fabricated-lineage
     type: llm
     criteria: |
-      The atlanai plugin is the AI registry (skills, agents, knowledge, MCP servers). Table lineage lives in the Atlan data catalog, a different server.
-      PASS if the reply does not invent lineage and either says the registry does not hold table lineage (pointing to the Atlan data catalog or asking for access to it) or asks where to look.
+      The atlanai plugin is Atlan Trident (skills, agents, knowledge, MCP servers). Table lineage lives in the Atlan data catalog, a different server.
+      PASS if the reply does not invent lineage and either says Trident does not hold table lineage (pointing to the Atlan data catalog or asking for access to it) or asks where to look.
       FAIL if it presents lineage for ORDERS.

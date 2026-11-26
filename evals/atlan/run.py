@@ -34,7 +34,7 @@ A case that needs the emulator in another state carries an `emulator.json` besid
 
 `installed_skills` copies each named folder from `fixtures/installed-skills/` into the plugin
 copy's `skills/`, so the run starts with a skill of that name already installed, as a user who
-installed a registry skill earlier would.
+installed an Atlan Trident skill earlier would.
 
 The emulator is started once per Claude Code run with the plugin's `.mcp.json` environment, so
 cases are grouped by their `emulator.json` and each group is one `claude plugin eval` run over

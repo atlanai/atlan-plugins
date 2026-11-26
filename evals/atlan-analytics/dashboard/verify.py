@@ -32,7 +32,7 @@ def verify(root):
     result = next((event for event in reversed(events) if event.get('type')=='result'), {})
     checks['claude_completed'] = result.get('subtype')=='success' and not result.get('is_error')
     report = {'status':'passed' if all(checks.values()) else 'failed','checks':checks,
-              'scope':'Claude Code with synthetic Power BI export, SQLite warehouse and offline Registry adapter; not live service validation',
+              'scope':'Claude Code with synthetic Power BI export, SQLite warehouse and offline Atlan Trident adapter; not live service validation',
               'final_message':result.get('result'), 'cost_usd':result.get('total_cost_usd')}
     (root/'verification.json').write_text(json.dumps(report,indent=2)+'\n')
     return report

@@ -19,6 +19,6 @@ graders:
     criteria: |
       PASS if metrics-agent runs its original source processing, metric authoring and
       validators with local files output, and the Analytics plugin keeps its existing
-      Registry check/preview/publication process. FAIL if it proposes Registry REST
+      Atlan Trident check/preview/publication process. FAIL if it proposes Trident REST
       credentials, ports the engine's publisher, replaces original gates with prose-only
       checks, or creates an answering agent or eval set for this metrics-only request.

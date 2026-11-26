@@ -36,4 +36,4 @@ graders:
   - name: answers-without-atlan
     type: llm
     criteria: |
-      PASS if the reply answers 96 and does not mention Atlan, skills or a registry. FAIL otherwise.
+      PASS if the reply answers 96 and does not mention Atlan, skills, Atlan Trident or a registry. FAIL otherwise.

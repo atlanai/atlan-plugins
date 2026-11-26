@@ -26,7 +26,7 @@ describe them, and build tools. In scope here:
 - a manifest that points at the wrong MCP endpoint or requests more than it needs,
 - a problem in the tools under `tools/` or in the CI workflows.
 
-Problems in Atlan's MCP gateway at `https://api.atlan.com/mcp`, the Atlan registry or the Atlan
+Problems in Atlan's MCP gateway at `https://api.atlan.com/mcp`, Atlan Trident or the Atlan
 product go through the same responsible disclosure program.
 
 ## Supported versions

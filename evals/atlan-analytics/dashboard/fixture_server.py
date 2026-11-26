@@ -37,7 +37,7 @@ TOOLS=[
     {'name':'fixture_source','description':'Read the sanctioned synthetic report export, verified scope and physical mapping. Offline test only.', 'inputSchema':obj({})},
     {'name':'fixture_reference','description':'Observe an independent synthetic report value by measure name. Offline parity reference only.', 'inputSchema':obj({'measure':STRING},['measure'])},
     {'name':'fixture_query','description':'Execute one read-only SQL query with bound parameters against the synthetic SQLite warehouse.', 'inputSchema':obj({'sql':STRING,'parameters':{'type':'object'}},['sql','parameters'])},
-    {'name':'fixture_registry','description':'Local Registry test adapter: read schema/inventory, create/read/release synthetic metrics and agents. Never reaches live Registry. Names: registry__get_kind_schema, registry__list_artifacts, registry__get_artifact, registry__create_artifact; fixture_release is test-only.', 'inputSchema':obj({'name':STRING,'arguments':{'type':'object'}},['name','arguments'])},
+    {'name':'fixture_registry','description':'Local Atlan Trident test adapter: read schema/inventory, create/read/release synthetic metrics and agents. Never reaches live Trident. Names: registry__get_kind_schema, registry__list_artifacts, registry__get_artifact, registry__create_artifact; fixture_release is test-only.', 'inputSchema':obj({'name':STRING,'arguments':{'type':'object'}},['name','arguments'])},
     {'name':'fixture_advance','description':'Advance only the synthetic warehouse amounts after validation to prove fresh answers. Offline test only.', 'inputSchema':obj({})},
 ]
 
@@ -76,7 +76,7 @@ def call(root, name, args):
             return item if a.get('channel')!='latest' or item.get('release_id') else {'not_released':True}
         if tool=='fixture_release':
             item=state[a['artifact_id']];item['release_id']='release_'+item['id'];path.write_text(json.dumps(state));return item
-        raise ValueError('unsupported fixture Registry operation')
+        raise ValueError('unsupported fixture Trident operation')
     raise ValueError('unknown fixture operation')
 
 def main():

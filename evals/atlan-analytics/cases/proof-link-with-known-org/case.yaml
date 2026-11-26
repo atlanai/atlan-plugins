@@ -4,7 +4,7 @@ tags: [demo-flow-fix, analytics, ask, links, regression]
 execution:
   prompt: |
     Use analytics-ask's proof-link instructions to format this already-computed answer.
-    This is a presentation test; no warehouse execution, Registry calls or further research.
+    This is a presentation test; no warehouse execution, Atlan Trident calls or further research.
     The observed result is gross margin of 24 percent, from released metric Gross margin,
     handle metric_example, version 2, workspace workspace_example. The authenticated host
     transport has just read GET /registry/v1/users/me and returned org_id org_active with

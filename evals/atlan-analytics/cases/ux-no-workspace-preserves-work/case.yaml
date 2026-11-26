@@ -3,7 +3,7 @@ name: ux-no-workspace-preserves-work
 tags: [analytics, setup, ux, workspace]
 execution:
   prompt: |
-    Use Atlan Analytics to continue this saved setup checkpoint. The existing Registry
+    Use Atlan Analytics to continue this saved setup checkpoint. The existing Atlan Trident
     connection succeeded, but registry__list_workspaces returned no active workspaces
     accessible to this user. The core plugin is already installed. Do not retry tools or
     execute commands in this test; the supplied read is the current evidence.
@@ -24,7 +24,7 @@ graders:
     type: llm
     focus: last_message
     criteria: |
-      Known checkpoint: Registry authentication succeeded, listing workspaces succeeded but
+      Known checkpoint: Trident authentication succeeded, listing workspaces succeeded but
       returned no active accessible workspace, and the core plugin is already installed.
       The user has not requested a new workspace. PASS if the reply preserves local drafts,
       names access to an existing workspace as the publishing requirement and permits keeping
@@ -41,7 +41,7 @@ graders:
       and one real draft appear in chat with calculation, population, source and untested
       execution status, and the reply preserves continuing the saved run after access is fixed.
       Naming the exact run path is optional; keeping the existing saved work is required.
-      FAIL on restarting extraction, silently discarding work or claiming Registry-backed
+      FAIL on restarting extraction, silently discarding work or claiming Trident-backed
       answers are already ready. The locally finished work is a valid result.
   - name: plain-reply
     type: llm
@@ -52,7 +52,7 @@ graders:
       an existing workspace, while allowing Keep local. A preserved-run file link may accompany
       but cannot replace the sample. FAIL on raw status footer, command wall, repeated plan
       or generic closing offer. Describing the preserved local result is useful evidence.
-  # Checkpoint prompts authorize instruction reads, not new execution or Registry calls.
+  # Checkpoint prompts authorize instruction reads, not new execution or Trident calls.
   - name: no-shell-calls
     type: tool_used
     tool: Bash

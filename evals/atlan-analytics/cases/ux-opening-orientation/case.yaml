@@ -5,7 +5,7 @@ execution:
   prompt: |
     Use Atlan Analytics to help me ask questions about the dashboards and query history
     in /workspace/analytics-input. This is an opening-message checkpoint: write what you
-    would say before the survey starts. Do not inspect the folder, make Registry calls,
+    would say before the survey starts. Do not inspect the folder, make Atlan Trident calls,
     install packages or claim you found its contents in this test. Use the plugin's workflow.
   max_turns: 14
   allowed_tools: [Read, Glob, Grep, Skill]
@@ -33,7 +33,7 @@ graders:
       leads with that next action or the outcome of asking questions here. No greeting,
       generic closing offer, em dash or machine status token. No metric has been extracted
       yet, so a sample is not required and a fabricated preview or completion claim fails.
-  # Checkpoint prompts authorize instruction reads, not new execution or Registry calls.
+  # Checkpoint prompts authorize instruction reads, not new execution or Trident calls.
   - name: no-shell-calls
     type: tool_used
     tool: Bash

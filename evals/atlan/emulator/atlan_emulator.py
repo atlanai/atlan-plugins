@@ -5,7 +5,7 @@
 (`mcp__call_tool`, `registry__get_artifact`), so the eval runner points the plugin's `atlan`
 server at this file instead. It serves the three search-mode tools with the live gateway's
 schemas and refusals, over one fixed organization (`world.json`) built from what the
-production registry returned on 30 October 2026: duplicate skill names, a skill held for
+production Atlan Trident returned on 30 October 2026: duplicate skill names, a skill held for
 review, a blocked one, archived workspaces, a Claw-only session reader, an unconnected
 Linear server and a lookalike `create_issue` tool on another server.
 
@@ -138,7 +138,7 @@ if ANALYTICS:
     WORLD["analytics"] = _EXTRA
 
 # The data-catalog plugin named `atlan` (Anthropic's directory, atlanhq/agent-toolkit) serves
-# `https://mcp.atlan.com/mcp`: asset tools, no registry and no search mode.
+# `https://mcp.atlan.com/mcp`: asset tools, no Trident and no search mode.
 CATALOG_TOOLS = [
     {"name": name, "description": description,
      "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}
@@ -492,8 +492,8 @@ def head(item: dict) -> dict:
             item = item | {"version_ordinal": newer["version_ordinal"],
                            "metadata": item.get("metadata", {}) | {k: v for k, v in newer["metadata"].items() if k not in line}}
         # The head's version handle and etag, which `approve_artifact` and a fenced patch take back as
-        # preconditions. Strong, as the registry's is, and moved by an owner change as well as a
-        # version, because the registry's etag covers `owner_id`.
+        # preconditions. Strong, as Trident's is, and moved by an owner change as well as a
+        # version, because Trident's etag covers `owner_id`.
         ordinal = item.get("version_ordinal", 1)
         status = state["approved"].get(item["id"], item.get("artifact_status"))
         moves = state["owner_moves"].get(item["id"], 0)
@@ -504,7 +504,7 @@ def head(item: dict) -> dict:
     state["heads"].setdefault(item["id"], {"etag": item["etag"], "version_ordinal": item["version_ordinal"],
                                            "content": WORLD["files"][item["id"]]["content"]})
     current = state["heads"][item["id"]]
-    shown = {k: v for k, v in item.items() if k != "concurrent_edit"}  # the fixture's script is not the registry's
+    shown = {k: v for k, v in item.items() if k != "concurrent_edit"}  # the fixture's script is not Trident's
     return shown | {"etag": current["etag"], "version_ordinal": current["version_ordinal"],
                     "metadata": item["metadata"] | {"size_bytes": len(current["content"].encode())}}
 
@@ -738,7 +738,7 @@ MAX_FILES = 8
 
 
 def file_contents(a: dict) -> dict:
-    """`get_file_contents`, as the registry answers it: each entry read as `get_file_content` reads
+    """`get_file_contents`, as Trident answers it: each entry read as `get_file_content` reads
     it, in order, with an `error` in place of `content` for one that cannot be read. The call fails
     only when no entry could be read."""
     files = a["files"]
@@ -879,7 +879,7 @@ def write(kind: str, a: dict) -> dict:
     live = next((i for i in artifacts().values() if i["kind"] == kind and key[2]
                  and (i["workspace_id"], i.get("source_type"), i.get("source_id")) == key), None)
     if live and kind == "file":
-        # The registry refuses a second file under a live source key, changed bytes or not.
+        # Trident refuses a second file under a live source key, changed bytes or not.
         raise Refusal(409, "conflict", "The request conflicts with the current state of the resource.")
     if live:
         # Any other kind reconciles: the create becomes the line's next version, under its handle.
@@ -1165,8 +1165,8 @@ def answer(name: str, a: dict) -> dict:
         if a.get("errors_only"):
             spans = [s for s in spans if s.get("span_status") == "error"]
         include = a.get("include") or []
-        # As agent service: `content` adds input and output, `errors` adds the error message. The
-        # registry's own reader has no `include` switch, so a failed step carries its message.
+        # As agent service: `content` adds input and output, `errors` adds the error message.
+        # Trident's own reader has no `include` switch, so a failed step carries its message.
         if name.startswith("registry__"):
             include = ["errors"]
         hidden = {"content", "error_message"} - {"content" if "content" in include else "", "error_message" if "errors" in include else ""}
@@ -1198,7 +1198,7 @@ def list_users(a: dict) -> dict:
 
 def fenced(a: dict) -> None:
     """A patch's optional `if_match`, held as the gateway holds it: a wildcard, weak or listed tag is
-    refused before the call, and a tag that is not the head's is the registry's 412."""
+    refused before the call, and a tag that is not the head's is Trident's 412."""
     if "if_match" not in a or a["if_match"] is None:
         return
     tag = str(a["if_match"]).strip().strip('"')
@@ -1210,7 +1210,7 @@ def fenced(a: dict) -> None:
 
 
 def transfer_owner(a: dict) -> dict:
-    """A patch that moves `owner_id`, under the registry's rule: its current owner or an admin of its
+    """A patch that moves `owner_id`, under Trident's rule: its current owner or an admin of its
     workspace may, an artifact with no owner takes one only from an admin, and the new owner must be
     a person in the directory. It moves on every version and makes no new one."""
     found = artifact(a["artifact_id"])
@@ -1366,7 +1366,7 @@ ANALYTICS_HANDLERS = {"extension__metric__search_metrics": search_metrics, "exte
 
 
 def security_findings(a: dict) -> dict:
-    """`get_security_findings`, as the registry answers it: the fixture's findings for a scanned
+    """`get_security_findings`, as Trident answers it: the fixture's findings for a scanned
     artifact, and `not_scanned` with no findings for any other one the caller can see, or one
     whose scan is stuck."""
     found = artifact(a["artifact_id"])
@@ -1471,7 +1471,7 @@ def present(value: float | None) -> dict:
 
 
 def list_traces(a: dict) -> dict:
-    """The caller's runs in a window, most recent first, as the registry's own reader lists them."""
+    """The caller's runs in a window, most recent first, as Trident's own reader lists them."""
     runs = [run for run in WORLD["runs"].values()
             if (a.get("from") is None or run["started_at"] >= a["from"])
             and (a.get("to") is None or run["started_at"] < a["to"])
@@ -1551,7 +1551,7 @@ def evidence_text(item: dict) -> str:
 
 
 def append_version(a: dict) -> dict:
-    """`registry__append_artifact_version` over a `file`, with the etag rule the registry enforces.
+    """`registry__append_artifact_version` over a `file`, with the etag rule Trident enforces.
 
     The world's `concurrent_edit` on a file is another editor landing a version between this
     caller's read and write: the first append of that file, whatever its `if_match`, finds the head
@@ -1671,7 +1671,7 @@ def publish_output(a: dict) -> dict:
     live = holder("output")
     pin = ("file_artifact_id", "file_version_ordinal", "external_url")
     if live and not edges and all(head(live)["metadata"].get(k) == meta.get(k) for k in pin):
-        # The same pin is no change: the registry's append answers the current version.
+        # The same pin is no change: Trident's append answers the current version.
         ordinal, handle = head(live)["version_ordinal"], live["id"]
     elif live:
         ordinal = head(live)["version_ordinal"] + 1
