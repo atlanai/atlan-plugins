@@ -527,6 +527,23 @@ class WarehouseCheckResults(unittest.TestCase):
             self.assertIn('"result"', handed['next'])
         self.assertEqual(self.checks(), {})
 
+    def test_a_metrics_statement_is_built_with_the_standard_library_alone(self):
+        # The project helper loads the engine's statement builder by file path and runs under the person's
+        # own Python, with nothing installed. With the SQL parser made unimportable, a Databricks metric
+        # still gets its statement, its alias in backticks: a double-quoted alias is a string there.
+        code = ("import sys\n"
+                "sys.modules['sqlglot'] = None\n"
+                "import project\n"
+                "card = {'formula': 'AVG(oee_pct)', 'dialect': 'databricks', 'output': {'alias': 'avg oee'},\n"
+                "        'source': {'table': 'demo.gold.oee_daily'}}\n"
+                "print(project._card_sql.canonical_statement(card))\n"
+                "print(project._card_sql.canonical_statement({**card, 'dialect': 'snowflake'}))\n")
+        ran = subprocess.run([sys.executable, '-c', code], cwd=Path(sys.modules['project'].__file__).parent,
+                             capture_output=True, text=True)
+        self.assertEqual(ran.returncode, 0, ran.stderr)
+        self.assertEqual(ran.stdout.splitlines(), ['SELECT AVG(oee_pct) AS `avg oee`', 'FROM   demo.gold.oee_daily',
+                                                   'SELECT AVG(oee_pct) AS "avg oee"', 'FROM   demo.gold.oee_daily'])
+
     def test_a_warehouse_result_is_recorded_against_the_definition_it_checked(self):
         import side_page
         from run_facts import RunFacts

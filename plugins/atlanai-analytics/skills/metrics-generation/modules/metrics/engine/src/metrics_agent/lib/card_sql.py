@@ -58,7 +58,43 @@ def tables_of(sql: str, entity, joins: list, dialect: str | None) -> list:
     return [out[k] for k in sorted(out)]
 
 
-def canonical_statement(card: dict) -> str:
+# Where a double-quoted token is a STRING, not a name, so an alias has to be written in backticks.
+# T-SQL is left with double quotes: it reads them as identifiers by default, so its statements
+# (and the evidence recorded against them) keep their bytes.
+_BACKTICK_DIALECTS = frozenset({"databricks", "spark", "spark2", "hive", "bigquery", "mysql",
+                                "doris", "starrocks", "singlestore", "drill"})
+
+
+def quoted_identifier(name: str, dialect: str | None) -> str:
+    """`name` as a quoted identifier in `dialect`: backticks where a double-quoted token is a
+    string (Databricks, Spark, Hive, BigQuery, the MySQL family), the standard double-quoted
+    form everywhere else, and for no dialect or one not listed.
+
+    PLAIN STRING WORK, NO PARSER. This module is loaded by file path from the project helper,
+    which runs under the person's own Python with nothing installed, so it imports nothing
+    beyond the standard library. Both it and the engine therefore build the same statement
+    for the same card.
+
+    The quote character inside a name is doubled, which each of these dialects and the
+    engine's own parser read back as one character. BigQuery is the exception: it reads a
+    quoted name with a string literal's backslash escapes, the parser reads a doubled
+    backtick, and no spelling of a backtick or a backslash is read the same by both. A name
+    must never be able to close its own quotes for one reader and not the other, so on
+    BigQuery those two characters are written as underscores. ClickHouse reads a backslash
+    escape inside a double-quoted name, so a doubled quote does not hold there either
+    (`a\\"` would end the name): its backslash and double quote are written as underscores too."""
+    text = str(name)
+    key = dialect.strip().lower() if isinstance(dialect, str) else ""
+    if key == "bigquery":
+        return "`" + text.replace("\\", "_").replace("`", "_") + "`"
+    if key == "clickhouse":
+        return '"' + text.replace("\\", "_").replace('"', "_") + '"'
+    if key in _BACKTICK_DIALECTS:
+        return "`" + text.replace("`", "``") + "`"
+    return '"' + text.replace('"', '""') + '"'
+
+
+def canonical_statement(card: dict, dialect: str | None = None) -> str:
     """The metric's definition as one SELECT, composed from the fields that define it.
 
     `source.sql` is the FROM clause, not a statement — Atlan Trident's `Source` is "a table
@@ -68,17 +104,22 @@ def canonical_statement(card: dict) -> str:
 
     Deliberately not the compiler. This is the human-facing surface and it needs a sentence
     of SQL, not a compilation — and the agent does not depend on the compiler to publish.
+
+    The output alias and a derived source's alias are quoted for `dialect`, or the card's own
+    `dialect` when none is passed: the statement is run on the card's warehouse.
     """
+    # A blank dialect argument says nothing, so the card's own dialect still decides.
+    dialect = (dialect.strip() if isinstance(dialect, str) else dialect) or card.get("dialect")
     formula = str(card.get("formula") or "").strip()
     alias = str(((card.get("output") or {}).get("alias")) or card.get("name") or "").strip()
     frm = str(card.get("sql") or (card.get("source") or {}).get("sql") or "").strip() \
         or str(card.get("entity") or (card.get("source") or {}).get("table") or (card.get("source") or {}).get("entity") or "").strip()
     if frm.startswith('(') and frm.endswith(')') and (card.get('source') or {}).get('alias'):
-        name = str(card['source']['alias']).replace('"', '""')
-        frm += f' AS "{name}"'
+        frm += f" AS {quoted_identifier(card['source']['alias'], dialect)}"
     if not formula or not frm:
         return ""
-    out = [f'SELECT {formula}' + (f' AS "{alias}"' if alias else ""), f"FROM   {frm}"]
+    out = [f"SELECT {formula}" + (f" AS {quoted_identifier(alias, dialect)}" if alias else ""),
+           f"FROM   {frm}"]
     mand = [str(f).strip() for f in (card.get("mandatory_filters") or []) if str(f).strip()]
     if mand:
         out.append("WHERE  " + "\n  AND  ".join(mand))

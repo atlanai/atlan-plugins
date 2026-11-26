@@ -165,6 +165,65 @@ class EarlierWorkTest(unittest.TestCase):
         self.assertFalse(a3_translate._in_native(unit, 'signal'))
         self.assertFalse(a3_translate._in_native({}, 'signal_1'))
 
+    def test_a_card_statement_quotes_its_aliases_the_way_its_dialect_does(self):
+        card = {'name': 'oee_pct', 'formula': 'AVG(oee_pct)', 'source': {'table': 'mfg.gold.oee_daily'}}
+        statement = self.card_sql.canonical_statement
+        # A double-quoted name is a string on Databricks: `AS "oee_pct"` does not parse there.
+        self.assertEqual(statement({**card, 'dialect': 'databricks'}).splitlines()[0],
+                         'SELECT AVG(oee_pct) AS `oee_pct`')
+        self.assertEqual(statement(card, 'bigquery').splitlines()[0], 'SELECT AVG(oee_pct) AS `oee_pct`')
+        # The passed dialect wins over the card's; Snowflake and no dialect keep double quotes.
+        self.assertEqual(statement({**card, 'dialect': 'databricks'}, 'snowflake').splitlines()[0],
+                         'SELECT AVG(oee_pct) AS "oee_pct"')
+        self.assertEqual(statement(card).splitlines()[0], 'SELECT AVG(oee_pct) AS "oee_pct"')
+        self.assertEqual(statement(card, 'not-a-dialect').splitlines()[0], 'SELECT AVG(oee_pct) AS "oee_pct"')
+        derived = {'name': 'n', 'formula': 'COUNT(*)', 'dialect': 'databricks',
+                   'source': {'sql': '(SELECT 1 AS x)', 'alias': 'daily lines'}}
+        self.assertEqual(statement(derived), 'SELECT COUNT(*) AS `n`\nFROM   (SELECT 1 AS x) AS `daily lines`')
+        quoted = self.card_sql.quoted_identifier
+        self.assertEqual(quoted('a"b', None), '"a""b"')
+        self.assertEqual(quoted('a`b', 'databricks'), '`a``b`')
+        # BigQuery and the engine's parser read an escaped backtick differently, so neither a
+        # backtick nor a backslash is written there: the name cannot close its own quotes for either.
+        self.assertEqual(quoted('a`b\\c', 'bigquery'), '`a_b_c`')
+        self.assertEqual(quoted('\\` FROM t --', 'bigquery'), '`__ FROM t --`')
+        # The dialect is matched whatever its case and spacing; anything else is the standard form.
+        self.assertEqual(quoted('n', ' DataBricks \n'), '`n`')
+        # Each dialect that reads a double-quoted token as a string, named here one by one.
+        for dialect in ('databricks', 'spark', 'spark2', 'hive', 'bigquery', 'mysql', 'doris', 'starrocks',
+                        'singlestore', 'drill'):
+            self.assertEqual(quoted('n', dialect), '`n`', dialect)
+        # T-SQL reads double quotes as names by default, so its statements keep their bytes; so
+        # does every dialect that does not read a backtick as a quote at all.
+        for dialect in ('tsql', 'snowflake', 'postgres', 'duckdb', 'redshift', 'trino', 'presto', 'athena',
+                        'oracle', 'sqlite', 'teradata', 'clickhouse', '', None, 0, ['databricks']):
+            self.assertEqual(quoted('n', dialect), '"n"', repr(dialect))
+        # ClickHouse reads a backslash escape inside a double-quoted name, so neither a backslash
+        # nor a double quote is written there: `a\" , (SELECT 1) AS x --` stays one name.
+        self.assertEqual(quoted('a\\" , (SELECT 1) AS x --', 'clickhouse'), '"a__ , (SELECT 1) AS x --"')
+        # A blank dialect argument says nothing: the card's own dialect still decides.
+        self.assertEqual(statement({**card, 'dialect': 'databricks'}, ' ').splitlines()[0],
+                         'SELECT AVG(oee_pct) AS `oee_pct`')
+        import sqlglot
+        for dialect in ('databricks', 'snowflake', 'bigquery', 'postgres', 'duckdb', 'spark', 'mysql', 'tsql'):
+            tree = sqlglot.parse_one(statement(derived, dialect), read=dialect)
+            self.assertEqual(tree.selects[0].alias, 'n', dialect)
+        # No alias closes its own quotes: the statement stays one select item reading one table.
+        from sqlglot import exp
+        for dialect in ('databricks', 'spark', 'hive', 'mysql', 'bigquery', 'clickhouse', 'snowflake', 'postgres',
+                        'duckdb', 'trino', 'tsql'):
+            for hostile in ('a" , (SELECT 1) AS x --', 'a\\" , (SELECT 1) AS x --', 'a` , (SELECT 1) AS x --',
+                            'a\\` , (SELECT 1) AS x --', 's" CROSS JOIN secrets AS z --',
+                            's\\" CROSS JOIN secrets AS z --', 's` CROSS JOIN secrets AS z --'):
+                run = statement({'name': 'n', 'formula': 'COUNT(*)', 'output': {'alias': hostile},
+                                 'source': {'sql': '(SELECT 1 AS x)', 'alias': hostile}}, dialect)
+                tree = sqlglot.parse_one(run, read=dialect)
+                self.assertEqual(len(tree.selects), 1, (dialect, hostile))
+                self.assertEqual([t.name for t in tree.find_all(exp.Table)], [], (dialect, hostile))
+        for dialect, name, read in (('databricks', 'a`b', 'a`b'), ('bigquery', 'a`b', 'a_b'), ('snowflake', 'a"b', 'a"b')):
+            tree = sqlglot.parse_one(f'SELECT 1 AS {quoted(name, dialect)}', read=dialect)
+            self.assertEqual(tree.selects[0].alias, read, dialect)
+
     def test_a_date_literal_is_one_rule_and_function_aggregations_read_as_custom(self):
         self.assertTrue(self.card_sql.DATE_LITERAL.search("t.created_at >= '2026-04-22'"))
         self.assertFalse(self.card_sql.DATE_LITERAL.search("t.created_at >= {{start}}"))
