@@ -94,8 +94,8 @@ target. Record that ID only when the user approves this concrete plan. The helpe
 
 A checked plan is not authorization by itself. The source and workspace must match the trusted
 conversation record. If the person drops items, rerun `CONTEXT check` and keep the new plan within
-that scope. Existing producer logic, batching, ETags, idempotency, retries and release readbacks
-below are unchanged. Never ask again for file reads, or because the publication phase started.
+that scope. Follow the version checks, retries and release readbacks below. The approved
+plan covers its file reads and publication scope.
 
 **Show me 5 first** has an immediate action: run
 `python3 "<build-dir>/scripts/project.py" --run-dir "<run-dir>" preview --limit 5 --format markdown`
@@ -107,122 +107,72 @@ or ask for a workspace to show samples. Optional rich cards must fall back to th
 
 ## 2. Metrics
 
-### Load create batches from local files
+### Send the prepared native batches
 
-Prepare guarded local batches before copying definitions or SQL into tool arguments. Use the
-current host's discovered Atlan runner, whatever its server is named. A capability notice
-is useful evidence, but a missing notice does not prove that a hook is unavailable:
-
-```bash
-python3 "<build-dir>/scripts/publication_batches.py" --record-receipts --context "<context-dir>" --authorization "<project>/authorization.json" --workspace "<workspace-id>" --source "<original-asset-identity>"
-```
-
-Repeat `--source` for every selected source. The helper checks the existing task authorization,
-publication holds and checked plan, and writes immutable, digest-named JSON files inside the
-context. It returns small call descriptors, source identities and counts, never definition
-bodies. Only admitted `create` actions are batched, separated by kind, at most 25 items and
-240 KiB per file. No SQL is truncated. Revisions, reuse and links keep the procedures below.
-
-Send each returned descriptor's `name` and `arguments` through the Atlan write runner, adding
-the existing session and rationale beside them. Preserve `items: []`, `items_from`,
-`items_sha256`, `kind` and the selected `workspace_id` exactly. The hook verifies the digest,
-path, size, text and workspace, then replaces those local fields with the file's `items`.
-It uses the same Atlan call and sign-in; it never runs a REST publisher.
-
-Without the hook, the empty items list is refused before any create. If `invalid_arguments`
-explicitly rejects `items_from` as undeclared, no create was dispatched: treat the file helper
-as unavailable for that connection. Do not send the same descriptor again or add inline items
-beside `items_from`. Remove `items_from`, `items_sha256`, `workspace_id` and `receipt_dir` from
-the top-level remote arguments and use the normal native bulk procedure below, retaining
-`workspace_id` inside every item. Stop expecting automatic receipts on that unsupported route. A timeout, lost reply, partial outcome or local receipt
-failure is not this refusal: reconcile it before any further write. Do not repeatedly probe
-an unavailable helper. A changed file requires preparation and review
-again, not editing its digest by hand. Keep the reviewed context fixed while sending batches.
-
-**Cortex Code runs no publish hook.** Skip the guarded empty-items probe there. Prepare with
-`--max-bytes 35000`, read each batch file the helper wrote (a JSON list of items, each with its
-`workspace_id`) and send that list inline as `items`, exactly as written. Never trim or
-regenerate a body to make it fit: a smaller `--max-bytes` makes smaller batches. Record receipts
-by hand.
-
-Send the returned `preflight` read first, through the connection that will write. A refused
-or empty answer means that connection cannot reach the reviewed workspace: send nothing.
-Its counts are the "before" side of the count check in **5. Verify**.
-
-**When the host refuses a rewritten call.** Some hosts review a tool call before a hook
-expands it and refuse what they cannot review (Claude Code's auto mode refuses a call a hook
-rewrote). That refusal sends nothing. Do not resend the descriptor. Say "Auto mode blocked
-this save, so nothing was sent. Approve these saves yourself, or I'll send them in smaller
-parts." Either ask the person to
-approve these calls themselves (leave the auto mode) and send the same descriptors, or prepare
-again with `--max-bytes 60000` and send each smaller batch inline, as the native procedure
-below says.
-
-Read every returned slot by index against the descriptor's `source_ids`. Record successes
-before addressing failures. A result can be cut to its first rows; its `created` and `failed`
-totals still count every slot. Save each result, then run
-`python3 "<build-dir>/scripts/publication_followup.py" --context "<context-dir>" --workspace
-"<workspace-id>" --batches <saved batch descriptors> --result <saved result>…` (one
-`--result` per call, in order). It settles every item as created, failed or unreported, and
-prints the name lookups that resolve the rest, the approved links whose two ends both exist,
-and the failed items worth a retry. A `conflict` is never resent: report it ("<name> wasn't
-saved, because <workspace> already has one with that name. I held it back rather than rename
-it."), hold the item and the links that touch it, and name the existing artifact when a read finds it. Never resend a complete partially successful batch. If the reply
-is lost, reconcile each source identity and exact definition/version before retrying anything;
-a repeated create can append a version. A confirmed failed subset needs its own checked,
-authorized plan and batch, excluding successful and uncertain items. Stop on an unexpected
-revision and reconcile it. Keep all normal release, link and complete readback checks.
-
-### Record native receipts without copying them through the model
-
-The preparation command requests deterministic recording with `--record-receipts`. After
-an actual call reports `Atlan receipt saved`, use its returned `receipt_dir` for this run's checked plan.
-An installed-hook notice alone does not establish that this host can rewrite inputs or expose
-complete outputs. On an unsupported route, use native MCP arguments and the normal receipt
-procedure below; never claim that automatic recording ran.
-The create descriptors already carry this local field. Keep a returned relative path relative
-to the same working directory. Add the same field to each
-`registry__get_artifact` read with `channel: latest` and each relationship verification read
-with `registry__get_related_artifacts`. The hook strips the field before dispatch and saves
-the native response locally. Other hosts keep the existing manual recording procedure.
-
-After the creates, inspect the captured state using counts and call descriptors only:
+Use the same procedure in Codex and Claude Code. Send ordinary Atlan MCP requests using
+the existing signed-in connection. File paths and local recording arguments stay on the machine.
 
 ```bash
-python3 "<build-dir>/scripts/publication_receipts.py" --run-dir "<run-dir>" --receipts "<receipt-dir>" --workspace "<workspace-id>"
+python3 "<build-dir>/scripts/publication_batches.py" --context "<context-dir>" --authorization "<project>/authorization.json" --workspace "<workspace-id>" --source "<original-asset-identity>"
 ```
 
-Send each returned `readback_calls` and `link_readback_calls` entry alone through
-`mcp__call_read_tool`, the runner the result names. Never batch either list in
-`mcp__call_read_tools`, whatever the conventions say about batching reads: the receipt hook
-does not rewrite batches, so the gateway refuses `receipt_dir` and nothing is recorded.
-Pass `receipt_dir` only on the calls in these two lists; a reuse comparison or any other
-read takes native arguments. Send `readback_calls` first, continue the normal approved link
-procedure, then send `link_readback_calls` to capture its proofs. Do not copy raw tool
-responses into Write calls or Python literals. Do not read the full receipt files into the
-conversation merely to assemble them. The helper compares complete released definitions,
-SQL, identity and planned links with the checked bodies. A create response is not a release
-readback. A failed, missing, changed or conflicting receipt stays pending.
+Repeat `--source` for each selected asset. The helper binds the checked bodies, holds and
+target to the approved plan. Keep the returned manifest and receipt directory. Send
+`preflight.name` and `preflight.arguments` through `mcp__call_read_tool` first. Wait
+for its successful reply before claiming any batch. Its counts are the before side of
+the final count check.
 
-Once the status is `ready`, repeat that command with `--finalize`. It assembles the native
-readbacks and invokes the existing publication validator and compact durable run receipts.
-Re-running it is safe and makes no Trident writes. The normal final counts/search checks
-remain. If local recording fails after a tool runs, preserve the result and reconcile live
-state; never repeat a write to repair a receipt. Missing readbacks can be read again safely.
+In the commands below, replace `NATIVE` with
+`python3 "<build-dir>/scripts/publication_native.py" --run-dir "<run-dir>" --workspace "<workspace-id>" --manifest "<manifest>"`.
 
-For an interrupted run, resume with the same receipt directory and run the helper first;
-complete only its missing reads and normal checked link work. Conflicting revisions require
-reconciliation and a fresh receipt set. A new run still reads live Trident inventory and
-runs the existing create/revise/reuse checker. Local receipts never replace that discovery
-or the fresh released-context retrieval required to answer questions. Each receipt set is
-bounded to 128 immutable files, with at most 256 KiB per native response file.
+1. Run `NATIVE status` and use its `unsent_batches`, in order. For each index, run
+   `NATIVE claim <index>`. Send the returned `name` and `arguments` to the write runner
+   with the current session and rationale. Claim several indices in one command when the
+   requests fit, for example `NATIVE claim 0 1`. Each request already contains the exact
+   checked bodies. Preserve its JSON values, including SQL and workspace IDs. Send each
+   batch once.
+2. Save the native result JSON (or its MCP envelope) with
+   `NATIVE capture --batch <index> --input "<saved-result-file>"` or pipe the JSON to the
+   same command without `--input`. The helper records each returned slot. A reserved batch
+   with a missing, truncated or refused result is uncertain. Check live state before any
+   new write. Send the helper's `lookup_batches` to recover identities, verify their exact
+   releases, and never replay the original batch. A conflict is held for review. A proven
+   absent failed item can be considered only in a new checked and approved plan.
+For fewer local calls, save several replies together with `NATIVE advance --input "<file>"`.
+Pass `{"results":[{"batch":0,"reply":...},{"request":...,"reply":...}]}` using the actual
+batch indices, read requests and replies. The helper saves them and returns the next phase.
 
-- **Create:** `registry__create_artifacts` with kind `metric`, each body exactly as checked, in
-  calls of at most 100 items and about 256 KB of JSON (the core plugin's **Batches** rule in
-  `calling-tools.md`): about 25 full metric definitions to a call. Save each returned id against
-  its `source_id` in `<context-dir>/published.json`. Reuse the exact checked bodies; do not
-  regenerate metric JSON while constructing each call. Use the supported file-backed hook
-  above when available, with inline bulk calls as the fallback. Do not invent a REST route.
+3. Run `NATIVE status` after the create phase if you used individual captures. Send
+   `verification_batches` through
+   `mcp__call_read_tools`. To record a read, pass a JSON object with the exact `request`
+   (its `name` and native `arguments`) and `reply` to `NATIVE capture`. For a read batch
+   the request name is `mcp__call_read_tools` and its arguments hold `calls`. A failed or
+   truncated slot leaves only that check outstanding. Retry the missing reads in smaller
+   batches or use the single descriptors in `readback_calls`, `lookup_calls`, and
+   `link_readback_calls`. A create response alone is not proof of release.
+4. Follow the link procedure below. The initial verification batches also read existing
+   relationships. Send the helper's `link_calls` after those reads. Use
+   `link_readback_batches` to verify the links after writing. If an initial relationship
+   read was incomplete, finish that read before writing its links. When resuming after an
+   uncertain link write, read the relationships again before considering further writes.
+   The helper holds edges that conflict with existing attributes. Follow the separate
+   `depends_on` procedure below for derived edges.
+5. Run `NATIVE status --finalize` when the helper shows `ready` or `partial`. It records
+   only complete release and relationship proof. Report held items and links for a
+   partial result. The finalizer is safe to rerun and performs no Trident writes.
+
+When your host can compose tool calls, pass the prepared JSON and tool replies directly
+between the shell and MCP inside the host's tool composer. In Codex, use one
+`functions.exec` call per phase, awaiting each create and recording its result before the
+next create. Send independent read batches concurrently in the same phase. Return compact
+counts, not the full result bodies. Treat every shell argument as literal data and use safe
+shell quoting. Use the normal host approval for every tool call. In Claude Code, use the
+ordinary MCP write/read runner. Save replies together in a private JSON file with the
+host's file tool, then pass it to `NATIVE advance` to obtain the next phase. Use a separate
+input per read batch when replies are large. Keep each input under 256 KiB.
+
+- **Create:** use the prepared batches above. Each batch is one kind and at most 25 items.
+  The helper also limits the request bytes and keeps each definition whole.
 - **Revise:** append a new version to the matched artifact (`match_id`), as
   [appending a revision](#appending-a-revision) below says. Keep its `name` and `display_name`.
   The checked body already carries `definition.version` one above the reviewed live version.

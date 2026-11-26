@@ -62,8 +62,8 @@ run `CONTEXT check` with that destination. Only now show actual create/revise/re
 If reconciliation changes a candidate, show the changed preview. Follow [publication](../../../metrics-generation/references/metrics/publish.md)
 for the concrete plan, missing authorization, idempotency, release policy and uncertain-write
 recovery. Never retry an uncertain remote mutation blindly. Carry approved writes through
-release and full MCP readback. Record receipts with `PROJECT publication` as the local
-procedures describe. A draft or local plan is not publication.
+release and full MCP readback. Record the verified receipts with the native publication helper.
+A checked local plan becomes published only after Trident confirms its releases.
 When definitions already exist, say which, how many and where, and why reuse beats a copy:
 "6 of the 8 metrics were already in Analytics Demo, so I reused them. 2 are new." Use actual counts and names, never only "everything was already created".
 Reusing everything still requires the visible preview before marking Ready. Explain count

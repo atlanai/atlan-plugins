@@ -23,9 +23,9 @@ explicit orchestration policy for phase approvals and continuation; these safety
 
 Send independent reads together: as one `mcp__call_read_tools` call (up to 8,
 `{ "calls": [{ "name", "arguments" }, …], "session_id", "rationale" }`) when the host lists it,
-otherwise as parallel calls in one turn. A read that carries `receipt_dir` is the exception:
-it goes alone through `mcp__call_read_tool`, as [publication](../../metrics-generation/references/metrics/publish.md)
-says, because the receipt hook does not rewrite batches. Hold for the rest of the conversation what does
+otherwise as parallel calls in one turn. For reads that record publication proofs, use
+the native request and receipt helpers in [publication](../../metrics-generation/references/metrics/publish.md).
+Hold for the rest of the conversation what does
 not change within it: each metric's `workspace_id` and the warehouse query tool (or that there
 is none). A later question reuses them and skips discovery; look
 again only after a call is refused.
