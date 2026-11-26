@@ -1,4 +1,4 @@
-# What the built-in readers' SQL writers (`mquery_steps.py`, `bicompile.py`) know about each
+# What the built-in readers' SQL writers (`mquery_steps.py`, `bicompile/`) know about each
 # warehouse: data, not code, so no module keeps a list of engines (AGENT_GUARDRAILS rule 22).
 
 # A warehouse connector function -> the dialect its SQL is written in, and the index of the

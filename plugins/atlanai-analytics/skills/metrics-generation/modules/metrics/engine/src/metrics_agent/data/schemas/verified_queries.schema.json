@@ -12,6 +12,10 @@
       "type": "string",
       "minLength": 1
     },
+    "described_from": {
+      "type": "string",
+      "description": "M1 only: the layer_sha of the same statements before this pass applied their descriptions. A gate that ran before the descriptions (describe at the end) stamped its work with it; the statements are unchanged, only their prose is new."
+    },
     "dialect": {
       "type": "string",
       "minLength": 1

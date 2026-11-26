@@ -319,11 +319,16 @@ def _engine(reader, directory):
     if len(queries) != len(objects):
         reader.issues.append('Source query identities are missing or duplicated; provisional preview is withheld.')
         return result
+    # Described at the end, M1 re-versions the layer after the metric gates stamped their work.
+    # It records the version those gates saw; the statements are the same, only their prose is new.
+    current = {layer_hash}
+    if producer.get('stage') in ('m1_merge_pre', 'm1_merge') and isinstance(layer.get('described_from'), str):
+        current.add(layer['described_from'])
     for filename, field in (('merged_metrics.json', 'metrics'), ('metric_proposals.json', 'proposals')):
         if not produced(filename):
             continue
         document = _dict(reader.read(directory / filename, {}))
-        if document.get('layer_sha') != layer_hash:
+        if document.get('layer_sha') not in current:
             reader.issues.append('An intermediate metric belongs to a different query layer; preview is withheld.')
             continue
         rows = _rows(document.get(field, []))

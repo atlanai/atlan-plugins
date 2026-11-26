@@ -964,7 +964,7 @@ def _vc_table_lineage(vc: "VirtualConnection | None", tname: str, dialect: str, 
                 f"datasource {caption!r} connects through the virtual connection {vc_name!r}, "
                 f"and no virtual-connection file for it is beside the input. Its tables, "
                 f"columns and connections live in the virtual connection: save it as a .tvcx "
-                f"(see docs/getting-started.md, \"Tableau files to supply\") beside the "
+                f"(see https://github.com/atlanai/atlan-plugins/blob/main/docs/metrics-engine/getting-started.md, \"Tableau files to supply\") beside the "
                 f"datasource and re-run.")
         raise TableauError(
             f"datasource {caption!r} reads table {tname!r} of the virtual connection "
