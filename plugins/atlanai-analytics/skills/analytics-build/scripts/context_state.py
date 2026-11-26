@@ -6,6 +6,8 @@ from pathlib import Path
 import tempfile
 import uuid
 
+import layout
+
 
 def ordinary(path, root=None):
     path = Path(path).expanduser().absolute()
@@ -26,8 +28,11 @@ def resolve_run(workspace, explicit=None, cache=None, home_permitted=False):
     """Permission is a host decision; never probe home by creating files there."""
     if explicit:
         return ordinary(explicit)
-    root = ordinary(cache) if cache else (Path.home() / '.atlan/analytics/runs'
-                                         if home_permitted else ordinary(workspace) / '.atlan-metrics')
+    if cache or home_permitted:
+        root = ordinary(cache) if cache else Path.home() / '.atlan/analytics/runs'
+    else:
+        layout.adopt(ordinary(workspace))
+        root = layout.root(ordinary(workspace))
     return ordinary(root / ('run_' + uuid.uuid4().hex[:16]))
 
 

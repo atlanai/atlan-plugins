@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """check.py: run any eval set against the context built in a project.
 
-An eval set is a JSONL file in <project>/.atlan-evals/sets/, one question per line: {"id",
+An eval set is a JSONL file in <project>/.atlan-analytics/evals/sets/, one question per line: {"id",
 "question", "sql"}, plus optional "tests" (the metric it checks), "from" (where the question came
 from) and "note" (the rule the SQL encodes). A generated set and a brought one look the same.
 
@@ -15,7 +15,7 @@ from) and "note" (the rule the SQL encodes). A generated set and a brought one l
     python3 check.py link --evals <eval folder> --org <organization slug>
 
 `start` finds the built run, where its context lives, how its SQL is executed and the sets the
-project holds. `load` puts a set in a fresh eval folder in .atlan-evals/ and gets each question's
+project holds. `load` puts a set in a fresh eval folder in .atlan-analytics/evals/ and gets each question's
 trusted answer. On a run bound to a local database it runs each trusted SQL there and sets the
 questions up for scoring. On a warehouse run nothing on this machine can run SQL, so `load` writes
 each trusted SQL to a file and returns `pending_gold`: the host runs each one with the warehouse
@@ -44,6 +44,7 @@ python_version.require()
 
 from eval_runs import Blocked, execution, find_run, load, questions, use_case  # noqa: E402
 from run_facts import report_name  # noqa: E402
+import layout  # noqa: E402
 
 
 def dump(path: pathlib.Path, obj) -> None:
@@ -85,7 +86,7 @@ def saved_to(run: pathlib.Path):
 
 def evals_dir(project: pathlib.Path, run: pathlib.Path) -> pathlib.Path:
     """A fresh eval folder for this run: a scored set never changes, so a repeat check gets -2, -3."""
-    base = project / ".atlan-evals" / run.name
+    base = layout.evals(project) / run.name
     n, ev = 1, base
     while (ev / "hillclimb").exists() or (ev / "work").exists():
         n += 1
@@ -102,7 +103,7 @@ def _written(line: str) -> bool:
 
 def sets(project: pathlib.Path) -> list:
     found = []
-    for f in sorted((project / ".atlan-evals" / "sets").glob("*.jsonl")):
+    for f in sorted((layout.evals(project) / "sets").glob("*.jsonl")):
         rows = [l for l in f.read_text().splitlines() if l.strip()]
         # eval-generation marks each question it wrote; a set the person brought carries no mark.
         written = bool(rows) and all(_written(l) for l in rows)
@@ -114,7 +115,7 @@ def checks(project: pathlib.Path, run: pathlib.Path) -> list:
     """The checks already scored on this run, oldest first: read only when the person asks to
     compare with one. A new request to check accuracy never starts from these."""
     found = []
-    for ev in sorted((project / ".atlan-evals").glob(run.name + "*"), key=lambda p: p.stat().st_mtime):
+    for ev in sorted(layout.evals(project).glob(run.name + "*"), key=lambda p: p.stat().st_mtime):
         runs = sorted(d.name for d in (ev / "hillclimb").glob("*") if (d / "results.jsonl").is_file())
         if runs:
             spec = load(ev / "work" / "spec.json", {}) or {}

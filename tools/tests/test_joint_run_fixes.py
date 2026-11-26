@@ -58,9 +58,9 @@ class CollectedInTheForeground(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name).resolve()
-        self.run = self.root / '.atlan-metrics' / 'box-office'
+        self.run = self.root / '.atlan-analytics' / 'box-office'
         write(self.run / 'run.json', {})
-        self.ev = self.root / '.atlan-evals' / 'box-office'
+        self.ev = self.root / '.atlan-analytics' / 'evals' / 'box-office'
         write(self.ev / 'eval' / 'cases.jsonl', ''.join(json.dumps({'case_id': i, 'question': 'Question %s?' % i}) + '\n'
                                                        for i in ('a', 'b')))
         write(self.ev / 'eval' / 'answers.jsonl', ''.join(json.dumps({'case_id': i, 'gold_sql': 'SELECT %s' % i}) + '\n'

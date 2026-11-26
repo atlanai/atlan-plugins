@@ -18,7 +18,7 @@ from run_facts import RunFacts  # noqa: E402
 class SecondRun(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.run = Path(self.tmp.name).resolve() / '.atlan-metrics' / 'run'
+        self.run = Path(self.tmp.name).resolve() / '.atlan-analytics' / 'run'
         (self.run / 'engine' / 'answers' / 'c3').mkdir(parents=True)
 
     def tearDown(self):

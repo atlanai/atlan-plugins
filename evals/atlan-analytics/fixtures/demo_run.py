@@ -24,7 +24,7 @@ sys.path.insert(0, str(SCRIPTS))
 from context_state import digest  # noqa: E402
 
 CWD = Path.cwd()
-RUN = CWD / ".atlan-metrics" / "fixit-demo"
+RUN = CWD / ".atlan-analytics" / "fixit-demo"
 
 
 def run(*argv) -> dict:

@@ -4,9 +4,8 @@
 Shared by `eval-generation` (scope.py) and `accuracy-check` (check.py), so both agree on which
 run a project holds, what it was built for and where its SQL runs. Standard library only.
 
-A built run is a folder with `context/metrics.json`. A demo or a local-file build keeps it in
-`<project>/.atlan-metrics/run_*`; a warehouse build names it after its use case, in
-`<project>/.atlan-metrics/<slug>` or `<project>/.atlan-analytics/<slug>`.
+A built run is a folder with `context/metrics.json`, kept in `<project>/.atlan-analytics/`: a demo
+or a local-file build as `run_*`, a warehouse build named after its use case (layout.py).
 """
 from __future__ import annotations
 
@@ -14,8 +13,13 @@ import json
 import os
 import pathlib
 import re
+import sys
 
-ROOTS = (".atlan-metrics", ".atlan-analytics")
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import layout  # noqa: E402
+
+# Where a run sits: the plugin's folder, or an earlier version's not moved in yet.
+ROOTS = (layout.ROOT, ".atlan-metrics")
 LOCAL = ("duckdb", "sqlite")
 
 
@@ -40,7 +44,8 @@ def purpose(run: pathlib.Path) -> str:
 
 
 def built_runs(project: pathlib.Path) -> list:
-    """Every built run in the project, newest first."""
+    """Every built run in the project, newest first. Read-only (the side page calls it): commands move earlier
+    folders in first, through find_run."""
     runs = [r for root in ROOTS for r in (project / root).glob("*") if r.is_dir() and is_built(r)]
     return sorted(runs, key=lambda r: (r / "context" / "metrics.json").stat().st_mtime, reverse=True)
 
@@ -51,7 +56,7 @@ def outside(project: pathlib.Path, run: pathlib.Path) -> pathlib.Path:
     proj, r = project.expanduser().resolve(), run.resolve()
     if proj == r or r in proj.parents:
         raise Blocked(f"--project is inside the run at {r}. Use the folder that holds the run's "
-                      f".atlan-metrics or .atlan-analytics folder ({r.parent.parent}), so eval files stay "
+                      f"{layout.ROOT} folder ({r.parent.parent}), so eval files stay "
                       "outside what answering agents read.")
     return run
 
@@ -62,10 +67,13 @@ def find_run(project: pathlib.Path, run=None) -> pathlib.Path:
         named = pathlib.Path(run).expanduser()
         if not named.is_absolute():
             named = project / named
+        layout.adopt(project)
+        named = layout.current(project, named)
         if not is_built(named):
             raise Blocked(f"Nothing is built at {named}: it has no context/metrics.json. Name the folder "
                           "that holds your agent, or ask me to build one first.")
         return outside(project, named)
+    layout.adopt(project)
     ready = built_runs(project)
     if not ready:
         raise Blocked("This folder has no agent built with Atlan Analytics, so there's nothing to test. "
@@ -188,12 +196,13 @@ def shown_beside(result: dict, known: dict) -> str:
 
 
 def check_folder(run: pathlib.Path):
-    """The newest accuracy check of this run with its questions loaded: `<project>/.atlan-evals/<run name>`, or
-    `-2`, `-3` for a later check. None before any. Another run's check never counts, whatever its name starts with."""
+    """The newest accuracy check of this run with its questions loaded: `<project>/.atlan-analytics/evals/<run name>`,
+    or `-2`, `-3` for a later check. None before any. Another run's check never counts, whatever its name starts with.
+    Read every second by the side page, so it only reads: moving earlier folders is for the commands."""
     run = pathlib.Path(run)
     project = run.parent.parent if run.parent.name in ROOTS else run.parent
     pattern = re.compile(re.escape(run.name) + r"(-\d+)?")
-    root = project / ".atlan-evals"
+    root = layout.root(project) / layout.EVALS
     # Read every second by the side page: a folder removed while it is read means no check, never an error.
     try:
         found = [root / n for n in os.listdir(root) if pattern.fullmatch(n) and (root / n / "work" / "spec.json").is_file()]
@@ -203,11 +212,11 @@ def check_folder(run: pathlib.Path):
 
 
 def written_folder(run: pathlib.Path):
-    """Where `eval-generation` drafts this run's test questions, once it has a set: `<project>/.atlan-evals/gen/<run
-    name>`. None before any."""
+    """Where `eval-generation` drafts this run's test questions, once it has a set:
+    `<project>/.atlan-analytics/evals/gen/<run name>`. None before any."""
     run = pathlib.Path(run)
     project = run.parent.parent if run.parent.name in ROOTS else run.parent
-    gen = project / ".atlan-evals" / "gen" / run.name
+    gen = layout.root(project) / layout.EVALS / "gen" / run.name
     return gen if (gen / "work" / "spec.json").is_file() else None
 
 
@@ -240,7 +249,8 @@ def others(run: pathlib.Path) -> list:
 def run_of(ev: pathlib.Path):
     """The built run a check belongs to, or None."""
     ev = pathlib.Path(ev)
-    return next((r for r in built_runs(ev.parent.parent) if check_folder(r) == ev), None)
+    # A check is <project>/.atlan-analytics/evals/<run name>.
+    return next((r for r in built_runs(ev.parents[2]) if check_folder(r) == ev), None)
 
 
 def _pass(vd: pathlib.Path, case: str, marks: dict, reasons: dict, known: dict):

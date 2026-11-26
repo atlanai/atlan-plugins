@@ -13,7 +13,7 @@ module; the standard-library helpers retain validation and publication only. Bel
 - `CONTEXT` means `python3 "<build-dir>/scripts/context_contracts.py"`. `<build-dir>` is the
   `analytics-build` skill's directory (`${CLAUDE_PLUGIN_ROOT}/skills/analytics-build` in Claude
   Code), which holds the shared helpers; `<metrics-dir>` is this skill's directory beside it.
-- `<context-dir>` is `.atlan-metrics/<slug>/context`.
+- `<context-dir>` is `.atlan-analytics/<slug>/context`.
 
 `CONTEXT` prints one JSON object. It exits 2 when BLOCKED, and 1 with `"status": "REFUSED"` when
 a check refuses an item.
@@ -33,10 +33,11 @@ Explicit metrics mode retains its entry contract below.
    explicit personal-workspace selection directly. Never choose the first accessible workspace
    silently or attempt workspace creation through API/CLI. With no accessible workspace, keep drafts and explain the access
    needed. An explicit new-workspace request gets the UI/admin route, followed by a list refresh.
-2. Keep state in `.atlan-metrics/<slug>/state.json`, with `mode: "metrics"`,
+2. Keep state in `.atlan-analytics/<slug>/state.json`, with `mode: "metrics"`,
    `ids.workspace_id` and `session_id` when connected, and set `phase` to `context`. Resume only a metrics
-   state for this workspace and scope; when several match, ask which. Never read or resume
-   `.atlan-analytics/*/state.json`, and do not call `EVAL init`. Keep source files and authored
+   state for this workspace and scope; when several match, ask which. Never read or resume a
+   `state.json` of another mode, and do not call `EVAL init`; a folder already holding one belongs to
+   that run, so choose another slug. Keep source files and authored
    answers under the run directory and out of commits.
 3. Reuse the supplied business area and scope. Derive a bounded table set from the selected
    BI lineage or declared model and write `tables.txt`. Ask only when ambiguity affects the

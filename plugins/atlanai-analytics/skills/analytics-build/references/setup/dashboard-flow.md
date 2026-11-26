@@ -358,7 +358,7 @@ lines above.
 Start installing the Power BI reader as soon as the link is recognised as Power BI, in a
 background helper, while item 2's questions are asked: `ENGINE setup` with `--feature powerbi`
 and the warehouse's own feature, as [the metrics module](../../../metrics-generation/references/metrics-engine.md)
-says. First reuse a compatible runtime: one under `.atlan-metrics/` built for this plugin
+says. First reuse a compatible runtime: one under `.atlan-analytics/` built for this plugin
 version with those features, or the folder a refusal's `fix` names. Say one line while it
 installs: "Installing a Power BI reader on this machine so I can read your report. About a
 minute; then I'll list its pages."

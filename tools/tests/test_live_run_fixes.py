@@ -133,7 +133,7 @@ class SignInRunFixes(unittest.TestCase):
 
     def test_a_report_fetched_from_its_link_counts_as_a_source(self):
         with tempfile.TemporaryDirectory() as tmp:
-            run = Path(tmp).resolve() / '.atlan-metrics' / 'run'
+            run = Path(tmp).resolve() / '.atlan-analytics' / 'run'
             (run / 'engine').mkdir(parents=True)
             (run / 'engine' / 'bi_fetch.json').write_text(json.dumps({'plug': 'powerbi-fabric'}))
             found = RunFacts(run).found
@@ -144,7 +144,7 @@ class SignInRunFixes(unittest.TestCase):
         # PR 205's review run: a report nobody could read still counted, and a warehouse recorded as "other" read
         # "other warehouse".
         with tempfile.TemporaryDirectory() as tmp:
-            run = Path(tmp).resolve() / '.atlan-metrics' / 'run'
+            run = Path(tmp).resolve() / '.atlan-analytics' / 'run'
             (run / 'engine').mkdir(parents=True)
             (run / 'engine' / 'bi_fetch.json').write_text(json.dumps(
                 {'plug': 'powerbi-fabric', 'fetched': {'powerbi-fabric': {'blocked': ['no_access']}}}))
