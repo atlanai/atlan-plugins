@@ -46,7 +46,7 @@ Every operation needs a survey. With none in the run, run `source-survey` `inven
 | `generate`, or `metrics` with a scope | Authors the selected metrics and what they depend on, with every surveyed source as context | [The metrics workflow](references/metrics.md) and [the metrics module](references/metrics-engine.md) |
 | `check` | Runs each definition on the data and records what passed, what is untested and what is held | [Build and check](../analytics-build/references/setup/build-check.md), section 4 |
 | `edit` | Changes one definition's rule, re-checks it and returns the difference | Below |
-| `save` | Keeps definitions on this machine or publishes them to a workspace | [Publication](references/metrics/publish.md), [contracts](references/metrics/contracts.md) |
+| `save` | Keeps definitions on this machine or publishes them to a workspace, or moves saved ones to another workspace | [Publication](references/metrics/publish.md), [contracts](references/metrics/contracts.md); a move is [publication step 6](references/metrics/publish.md#6-move-to-another-workspace) |
 | `dashboard` | A Power BI or Tableau dashboard to metrics | [Dashboard through the metrics module](references/dashboard-agent.md); a saved dashboard-helper job uses [legacy readback](references/dashboard.md) |
 | `propose` | A metric gap or correction from this conversation, for its owners | [The proposal workflow](references/propose.md); no metric save |
 

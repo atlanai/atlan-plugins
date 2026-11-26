@@ -26,6 +26,7 @@ and export a new context. A held-only export stops with its reasons and sends no
 - 3. Saved queries
 - 4. Links
 - 5. Verify
+- 6. Move to another workspace
 
 ## Contract preflight
 
@@ -64,6 +65,8 @@ Review the plan from `plan.json`. Keep the detailed bodies and link list in the 
 preview file; show a short progress summary with:
 - "Ready to save to <workspace>: <N> new metrics, <N> updated and <N> already there, plus <N>
   saved queries."
+- "Moving metrics and saved queries later means copying them and archiving the originals, so
+  check <workspace> is the right place now."
 - "For example, <metric>: <definition in plain words>."
 - "<N> were tested on your data. <N> weren't tested."
 - for every held item: "Held back: <name>, because <reason>." After the last one: "To fix one,
@@ -229,7 +232,7 @@ bounded to 128 immutable files, with at most 256 KiB per native response file.
   saved, because <workspace> already has one with that name. I held it back rather than rename
   it." Never rename to get around it.
 
-Never archive, and never rename.
+Never rename. Archive only to finish a requested move ([6. Move](#6-move-to-another-workspace)).
 
 ### Appending a revision
 
@@ -307,3 +310,37 @@ and read `page.total`). Each kind's count must equal the preflight count plus th
 report; a difference is an item to find by name before anything is resent. Then `registry__search_artifacts` for one sample
 question with kind `sql_query`. It should come back near the top. Report the counts at the
 workflow's STOP gate.
+
+## 6. Move to another workspace
+
+`registry__move_artifact` refuses metrics and saved queries: their links must stay in one
+workspace. When the person asks to move saved ones, copy them and archive each original in the
+same run once its copy is in place. Never leave an original live for a later cleanup when its
+copy is ready.
+
+1. Before any write, read `registry__list_workspaces` on this connection. When the old
+   workspace shows `can_manage: false`, archiving will be refused: name who can and stop.
+2. Read each original's head with `registry__get_artifact` and its links with
+   `registry__get_related_artifacts`. Hold an original whose head no longer matches its checked
+   body, that any artifact outside the moved set links to or loads, or that links to a metric
+   or saved query outside it. A held original stays in the old workspace, so repeat these
+   checks until none more is held: also hold every original a held one links to or loads, and
+   every original that links to a held one. Name each held original with the reason.
+3. Run this flow again from **1. Preview** for the target workspace, through the same
+   connection, for the originals not held. The preview adds every original to archive, by id:
+   "Once each copy is in place, I'll archive its original in <old workspace>: <name> (<id>)."
+   Leave out the line about choosing the workspace now: the archive list takes its place. One
+   approval covers the copies and that list.
+4. Create, link and verify in the target as above.
+5. Archive saved queries first, then metrics, each metric before any metric it depends on, so
+   stopping at any point leaves no live original linked to an archived one. Just before each
+   archive, read the original again as in step 2 and hold it if its head changed or it gained a
+   link from outside the set. Archive an original with `registry__archive_artifact` (run with
+   `mcp__call_tool`) only when it is on the approved list, its copy was created or reused, the
+   copy's release reads back, and every approved link of the copy exists. Under the `manual`
+   release policy the copy has no release yet: keep the original live and say "<name> stays in
+   <old workspace> until its copy is released in <workspace>." If an archive is refused or its
+   confirmation declined, stop archiving and keep the rest live. When the person later says the
+   copies are released, read their releases back and run this step again against the same
+   approved list.
+6. Report the new ids, the archived originals, and every original still live with its reason.

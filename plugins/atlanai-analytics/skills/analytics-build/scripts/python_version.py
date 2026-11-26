@@ -13,6 +13,7 @@ def require():
     if sys.version_info >= (3, 11):
         return
     usable = [p for p in (shutil.which('python3.13'), shutil.which('python3.12'), shutil.which('python3.11'),
+                          os.path.join('.atlan-analytics', 'runtime', 'venv', 'bin', 'python'),
                           os.path.join('.atlan-metrics', 'runtime', 'venv', 'bin', 'python')) if p and os.path.exists(p)]
     print(json.dumps({'status': 'blocked',
                       'message': 'These helpers need Python 3.11 or later; this one is %d.%d.' % sys.version_info[:2],

@@ -51,7 +51,7 @@ Ready to build?
 | Firm | Fixit |
 | Agent | job profit agent |
 | Tour | https://atlanai.github.io/analytics-agent-accelerator/yard-tour/ |
-| Working folder | `atlan-analytics-demo/yard/` |
+| Working folder | `.atlan-analytics/demo/yard/` |
 | Dashboard | a Power BI dashboard with 6 tiles: 4 metrics and 2 charts |
 | Tiles | gross margin, rework cost, material waste, late jobs; charts of gross margin by job and rework cost by crew member |
 | Past queries | 110 |

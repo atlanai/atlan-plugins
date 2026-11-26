@@ -15,7 +15,7 @@ When the working project is already clear, **Set up this project for analytics**
 Do not ask the person to repeat a supplied folder or business question.
 
 `PROJECT` below means `python3 "<skill-dir>/scripts/project.py" --run-dir
-"<project>/.atlan-metrics/<slug>"`. Use the metrics engine's pinned Python runtime for generation and CSV preparation. The helper
+"<project>/.atlan-analytics/<slug>"`. Use the metrics engine's pinned Python runtime for generation and CSV preparation. The helper
 records the interpreter for later queries. Prepare missing data as section 2 describes. Do not add dependencies or run
 unreviewed repository code simply because a README recommends it.
 The helper only writes local state; Atlan Trident operations use the existing Atlan MCP connection.
