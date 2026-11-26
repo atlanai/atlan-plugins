@@ -165,6 +165,28 @@ class EarlierWorkTest(unittest.TestCase):
         self.assertFalse(a3_translate._in_native(unit, 'signal'))
         self.assertFalse(a3_translate._in_native({}, 'signal_1'))
 
+    def test_a_card_statement_quotes_its_aliases_the_way_its_dialect_does(self):
+        card = {'name': 'oee_pct', 'formula': 'AVG(oee_pct)', 'source': {'table': 'mfg.gold.oee_daily'}}
+        statement = self.card_sql.canonical_statement
+        # A double-quoted name is a string on Databricks: `AS "oee_pct"` does not parse there.
+        self.assertEqual(statement({**card, 'dialect': 'databricks'}).splitlines()[0],
+                         'SELECT AVG(oee_pct) AS `oee_pct`')
+        self.assertEqual(statement(card, 'bigquery').splitlines()[0], 'SELECT AVG(oee_pct) AS `oee_pct`')
+        # The passed dialect wins over the card's; Snowflake and no dialect keep double quotes.
+        self.assertEqual(statement({**card, 'dialect': 'databricks'}, 'snowflake').splitlines()[0],
+                         'SELECT AVG(oee_pct) AS "oee_pct"')
+        self.assertEqual(statement(card).splitlines()[0], 'SELECT AVG(oee_pct) AS "oee_pct"')
+        self.assertEqual(statement(card, 'not-a-dialect').splitlines()[0], 'SELECT AVG(oee_pct) AS "oee_pct"')
+        derived = {'name': 'n', 'formula': 'COUNT(*)', 'dialect': 'databricks',
+                   'source': {'sql': '(SELECT 1 AS x)', 'alias': 'daily lines'}}
+        self.assertEqual(statement(derived), 'SELECT COUNT(*) AS `n`\nFROM   (SELECT 1 AS x) AS `daily lines`')
+        self.assertEqual(self.card_sql.quoted_identifier('a"b', None), '"a""b"')
+        self.assertEqual(self.card_sql.quoted_identifier('a`b', 'databricks'), '`a``b`')
+        import sqlglot
+        for dialect in ('databricks', 'snowflake', 'bigquery', 'postgres', 'duckdb'):
+            tree = sqlglot.parse_one(statement(derived, dialect), read=dialect)
+            self.assertEqual(tree.selects[0].alias, 'n', dialect)
+
     def test_a_date_literal_is_one_rule_and_function_aggregations_read_as_custom(self):
         self.assertTrue(self.card_sql.DATE_LITERAL.search("t.created_at >= '2026-04-22'"))
         self.assertFalse(self.card_sql.DATE_LITERAL.search("t.created_at >= {{start}}"))

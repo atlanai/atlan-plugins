@@ -838,7 +838,7 @@ def _ingest(ctx: stage.Ctx) -> None:
                         f"statement into whatever the fields are joined into.")
             composed = _card_sql.canonical_statement(
                 {"formula": a.get("formula"), "source": src, "name": nm,
-                 "mandatory_filters": a.get("mandatory_filters")})
+                 "mandatory_filters": a.get("mandatory_filters")}, dialect)
             if composed and (snapshot := _validation.snapshot_problem(
                     a.get("grain"), _MARKER.sub("0", composed), dialect,
                     period=metric_checks.get(key, {}).get("snapshot_period_column"))):
@@ -1130,7 +1130,7 @@ def _card_witness(cards: list[dict], run_inputs: dict, dialect: str, ctx: stage.
     out = []
     try:
         for card in cards:
-            sql = _card_sql.canonical_statement(card)
+            sql = _card_sql.canonical_statement(card, dialect)
             if not sql:
                 continue
             name = card["name"]

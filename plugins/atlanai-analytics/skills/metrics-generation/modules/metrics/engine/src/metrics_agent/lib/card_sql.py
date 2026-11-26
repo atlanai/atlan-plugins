@@ -58,7 +58,22 @@ def tables_of(sql: str, entity, joins: list, dialect: str | None) -> list:
     return [out[k] for k in sorted(out)]
 
 
-def canonical_statement(card: dict) -> str:
+def quoted_identifier(name: str, dialect: str | None) -> str:
+    """`name` as a quoted identifier in `dialect`, spelled the way the SQL parser spells one
+    there: backticks on Databricks, BigQuery and MySQL, double quotes on Snowflake and
+    Postgres. A double-quoted name is a STRING on Databricks, so one spelling for every
+    warehouse makes `AS "alias"` a syntax error there. With no dialect, or one the parser does
+    not know, the standard double-quoted form is used."""
+    from sqlglot import exp  # noqa: PLC0415 - sqlglot is loaded only where a statement is built
+
+    ident = exp.to_identifier(str(name), quoted=True)
+    try:
+        return ident.sql(dialect=(dialect or "").strip().lower() or None)
+    except Exception:  # noqa: BLE001 - a dialect the parser does not know: the standard form
+        return ident.sql()
+
+
+def canonical_statement(card: dict, dialect: str | None = None) -> str:
     """The metric's definition as one SELECT, composed from the fields that define it.
 
     `source.sql` is the FROM clause, not a statement — Atlan Trident's `Source` is "a table
@@ -68,17 +83,21 @@ def canonical_statement(card: dict) -> str:
 
     Deliberately not the compiler. This is the human-facing surface and it needs a sentence
     of SQL, not a compilation — and the agent does not depend on the compiler to publish.
+
+    The output alias and a derived source's alias are quoted for `dialect`, or the card's own
+    `dialect` when none is passed: the statement is run on the card's warehouse.
     """
+    dialect = dialect or card.get("dialect")
     formula = str(card.get("formula") or "").strip()
     alias = str(((card.get("output") or {}).get("alias")) or card.get("name") or "").strip()
     frm = str(card.get("sql") or (card.get("source") or {}).get("sql") or "").strip() \
         or str(card.get("entity") or (card.get("source") or {}).get("table") or (card.get("source") or {}).get("entity") or "").strip()
     if frm.startswith('(') and frm.endswith(')') and (card.get('source') or {}).get('alias'):
-        name = str(card['source']['alias']).replace('"', '""')
-        frm += f' AS "{name}"'
+        frm += f" AS {quoted_identifier(card['source']['alias'], dialect)}"
     if not formula or not frm:
         return ""
-    out = [f'SELECT {formula}' + (f' AS "{alias}"' if alias else ""), f"FROM   {frm}"]
+    out = [f"SELECT {formula}" + (f" AS {quoted_identifier(alias, dialect)}" if alias else ""),
+           f"FROM   {frm}"]
     mand = [str(f).strip() for f in (card.get("mandatory_filters") or []) if str(f).strip()]
     if mand:
         out.append("WHERE  " + "\n  AND  ".join(mand))
