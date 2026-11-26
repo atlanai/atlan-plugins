@@ -209,22 +209,20 @@ class MetricViewReaderTest(unittest.TestCase):
         measure = {m['name']: m for m in facts['measures']}
         self.assertIn("source.o_orderdate >= CAST('2021-01-01' AS DATE)", measure['orders']['formula'])
         self.assertEqual(d['orders']['formula'],
-                         'COUNT(1) FILTER(WHERE demo.sales.orders.o_orderdate >= '
-                         'CAST({{o_orderdate_from_2021_01_01}} AS DATE) AND demo.sales.customer.c_active)')
+                         'COUNT(1) FILTER(WHERE demo.sales.orders.o_orderdate >= CAST({{o_orderdate_from}} AS DATE) '
+                         'AND demo.sales.customer.c_active)')
         self.assertEqual(d['orders']['parameters'],
-                         [{'name': 'o_orderdate_from_2021_01_01', 'datatype': 'date', 'default': '2021-01-01'}])
-        # A name ends in its date, so no two dates share one.
+                         [{'name': 'o_orderdate_from', 'datatype': 'date', 'default': '2021-01-01'}])
+        # Two dates bound one column from below here, so each of the two also carries its date.
         self.assertEqual({p['name']: p['default'] for p in d['year_revenue']['parameters']},
-                         {'o_orderdate_from_2024_01_01': '2024-01-01', 'o_orderdate_to_2024_12_31': '2024-12-31',
+                         {'o_orderdate_from_2024_01_01': '2024-01-01', 'o_orderdate_to': '2024-12-31',
                           'o_orderdate_from_2021_01_01': '2021-01-01'})
         # A typed value is written as the cast it means: a marker cannot follow the keyword.
-        self.assertIn('demo.sales.orders.shipped_at > CAST({{shipped_at_from_2024_06_30_23_59_59}} AS TIMESTAMP)',
-                      d['late']['formula'])
-        self.assertEqual(d['late']['parameters'][0], {'name': 'shipped_at_from_2024_06_30_23_59_59',
-                                                      'datatype': 'timestamp', 'default': '2024-06-30 23:59:59'})
+        self.assertIn('demo.sales.orders.shipped_at > CAST({{shipped_at_from}} AS TIMESTAMP)', d['late']['formula'])
+        self.assertEqual(d['late']['parameters'][0],
+                         {'name': 'shipped_at_from', 'datatype': 'timestamp', 'default': '2024-06-30 23:59:59'})
         # One date used two ways is named after the date alone, once.
-        self.assertEqual([p['name'] for p in d['both_sides']['parameters']],
-                         ['date_2022_07_01', 'o_orderdate_from_2021_01_01'])
+        self.assertEqual([p['name'] for p in d['both_sides']['parameters']], ['date_2022_07_01', 'o_orderdate_from'])
         self.assertEqual(d['both_sides']['formula'].count('{{date_2022_07_01}}'), 2)
         for name, found in d.items():
             self.assertNotRegex(found['formula'], r"'\d{4}-\d{2}-\d{2}", name)
@@ -242,9 +240,10 @@ class MetricViewReaderTest(unittest.TestCase):
                       self.notes(facts))
         self.assertNotIn('parameters', self.declared(self.read(ORDERS))['revenue'])
 
-    def test_two_measures_that_differ_only_in_a_date_stay_two_metrics(self):
-        # The declared formula is a metric's identity downstream. With the date lifted out, two
-        # measures over two years would read as one formula unless the name carried the date.
+    def test_two_measures_that_differ_only_in_a_date_declare_one_formula_with_two_defaults(self):
+        # A name says what a date is for, not what it is. Two measures over two years are then one
+        # formula with two defaults: downstream, one metric whose dates a reader may move. X3
+        # refuses them as two cards, and merged the card keeps both statements as examples.
         d = self.declared(self.read("""
             version: 1.1
             source: demo.sales.orders
@@ -260,18 +259,20 @@ class MetricViewReaderTest(unittest.TestCase):
               - name: other_digits
                 expr: COUNT(CASE WHEN note = '２０２４-01-01' THEN 1 END)
         """))
-        self.assertNotEqual(d['orders_fy23']['formula'], d['orders_fy24']['formula'])
-        self.assertNotEqual(declared.identity({**d['orders_fy23'], 'model': 'm', 'metric': 'a'}),
-                            declared.identity({**d['orders_fy24'], 'model': 'm', 'metric': 'b'}))
-        self.assertIn('{{o_orderdate_from_2022_07_01}} AND {{o_orderdate_to_2023_06_30}}', d['orders_fy23']['formula'])
+        self.assertEqual(d['orders_fy23']['formula'], d['orders_fy24']['formula'])
+        self.assertEqual(declared.identity({**d['orders_fy23'], 'model': 'm', 'metric': 'a'}),
+                         declared.identity({**d['orders_fy24'], 'model': 'm', 'metric': 'b'}))
+        self.assertIn('BETWEEN {{o_orderdate_from}} AND {{o_orderdate_to}}', d['orders_fy23']['formula'])
+        self.assertEqual([p['default'] for p in d['orders_fy23']['parameters']], ['2022-07-01', '2023-06-30'])
+        self.assertEqual([p['default'] for p in d['orders_fy24']['parameters']], ['2023-07-01', '2024-06-30'])
         # Two spellings of one moment are two values, and each keeps its own name and default.
         self.assertEqual({p['name']: p['default'] for p in d['two_spellings']['parameters']},
                          {'made_from_2024_01_01_00_00': '2024-01-01 00:00',
                           'made_from_2024_01_01t00_00': '2024-01-01T00:00'})
         # A timestamp with a zone is a plain timestamp.
         self.assertEqual({p['name']: (p['datatype'], p['default']) for p in d['zoned']['parameters']},
-                         {'made_from_2024_01_01t00_00_00z': ('timestamp', '2024-01-01T00:00:00Z'),
-                          'made_to_2024_02_01_00_00_00p05_30': ('timestamp', '2024-02-01 00:00:00+05:30')})
+                         {'made_from': ('timestamp', '2024-01-01T00:00:00Z'),
+                          'made_to': ('timestamp', '2024-02-01 00:00:00+05:30')})
         self.assertNotIn('other_digits', d)               # not a date this reader can lift, so not read
 
     def test_what_the_sql_writer_would_change_is_not_read(self):
@@ -368,18 +369,17 @@ class MetricViewReaderTest(unittest.TestCase):
         decl = self.declared(self.read(self.DATED))['orders']
         card = {'name': 'Orders', 'formula': decl['formula'],
                 'source': {'entity': decl['entity'], 'alias': 'Orders',
-                           'parameters': [{'name': 'o_orderdate_from_2021_01_01', 'datatype': 'date',
-                                           'default': '1999-09-09'},
+                           'parameters': [{'name': 'o_orderdate_from', 'datatype': 'date', 'default': '1999-09-09'},
                                           {'name': 'kept', 'datatype': 'integer', 'default': 1}]}}
         self.assertEqual(declared.held_to(card, decl), [])
         done, counts = declared.complete(card, decl, dialect='databricks')
         # The model's value leads; a parameter of the author's own is kept.
         self.assertEqual(done['source']['parameters'],
                          [{'name': 'kept', 'datatype': 'integer', 'default': 1},
-                          {'name': 'o_orderdate_from_2021_01_01', 'datatype': 'date', 'default': '2021-01-01'}])
+                          {'name': 'o_orderdate_from', 'datatype': 'date', 'default': '2021-01-01'}])
         self.assertEqual(counts['parameters'], 1)
         statement = card_sql.canonical_statement({**done, 'dialect': 'databricks', 'output': {'alias': 'orders'}})
-        self.assertIn('{{o_orderdate_from_2021_01_01}}', statement)
+        self.assertIn('{{o_orderdate_from}}', statement)
         run = card_sql.bound(statement, done['source']['parameters'])
         self.assertIn("demo.sales.orders.o_orderdate >= CAST('2021-01-01' AS DATE)", run)
         sqlglot.parse_one(run, read='databricks')

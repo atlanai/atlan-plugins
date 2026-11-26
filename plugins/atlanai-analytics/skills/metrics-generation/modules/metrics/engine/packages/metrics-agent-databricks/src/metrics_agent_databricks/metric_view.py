@@ -69,11 +69,12 @@ and one metric that holds one stops the export of every metric in the run. A vie
 often holds one (`order_date >= DATE'2021-01-01'`). The measure's own formula keeps the date,
 so the statement compiled from it runs. The declaration writes it as `{{name}}` and lists the
 parameter with the view's date as its default, so the card's number is the view's until a
-reader moves the date. The name ends in the date (`order_date_from_2021_01_01`, or
-`date_2021_01_01` where the date is not compared with one column in one way), so two measures
-that differ only in a date differ in their formula's text and stay two metrics. A text value
-that starts like a date and is not a plain date or timestamp cannot be lifted out, and that
-measure is not read.
+reader moves the date. A date compared with one column is named for the column and the side
+it bounds (`order_date_from`); two dates that would share a name each carry their date too,
+and any other is named for the date (`date_2021_01_01`). Two measures that differ only in a
+date so declare one formula with two defaults: downstream they are one metric with a date a
+reader may move, and the card gate refuses them as two cards. A text value that starts like a
+date and is not a plain date or timestamp cannot be lifted out, and that measure is not read.
 
 **WHAT THE SQL WRITER WOULD CHANGE IS NOT READ.** Every expression is written back by the
 parser's SQL writer, and the writer renders some forms as other SQL. An expression is read
@@ -871,10 +872,15 @@ def _date_tag(value: str) -> str:
 
 
 def _date_names(formula: str, values: list[str]) -> dict[str, str]:
-    """{date: parameter name}. The name ends in the date itself, so two formulas that differ
-    only in a date differ in their text too: nothing downstream may read them as one metric.
-    It starts with the column the date bounds and the side (`order_date_from_2024_01_01`),
-    or with `date` where the date is not compared with one column in one way."""
+    """{date: parameter name}. A date compared with one column in one way is named for the
+    column and the side it bounds (`order_date_from`). Two dates that would share that name
+    each also carry their date (`order_date_from_2024_01_01`), and a date not compared with
+    one column in one way is named for the date alone (`date_2024_01_01`).
+
+    The name says what the date is for, not what it is. Two measures that differ only in a
+    date therefore declare ONE formula with two defaults, which is what they are downstream:
+    one metric whose date a reader may move. The card gate holds them to that: it refuses two
+    cards with one formula and says they are one metric under two names."""
     said: dict[str, set[str]] = {}
     try:
         tree = sqlglot.parse_one(formula, read=DIALECT)
@@ -900,11 +906,13 @@ def _date_names(formula: str, values: list[str]) -> dict[str, str]:
         base = re.sub(r"[^A-Za-z0-9_]", "_", cols.pop()).lower() if len(cols) == 1 else ""
         said.setdefault(lit.this, set()).add(
             f"{base}_{side}" if side and re.match(r"[a-z_]", base) else "")
-    names = {}
+    bases = {}
     for v in values:
         one = said.get(v) or set()
-        names[v] = f"{next(iter(one)) if len(one) == 1 and '' not in one else 'date'}_{_date_tag(v)}"
-    return names
+        bases[v] = next(iter(one)) if len(one) == 1 and "" not in one else "date"
+    shared = Counter(bases.values())
+    return {v: base if base != "date" and shared[base] == 1 else f"{base}_{_date_tag(v)}"
+            for v, base in bases.items()}
 
 
 def date_parameters(formula: str) -> tuple[str, list[dict]]:

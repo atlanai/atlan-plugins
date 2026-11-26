@@ -223,10 +223,13 @@ contract above. Where a metric view differs from a semantic view, the reader set
   the reader recognises. A filter that cannot be read leaves no measure read.
 - **A fixed date is a parameter on the card.** A card keeps no fixed date in its formula, and
   one that does stops the whole export. The measure's formula keeps the date, so its statement
-  runs; the declaration writes it as `{{name}}` with the view's date as the default. The name
-  ends in the date (`order_date_from_2021_01_01`, or `date_2021_01_01` where no one column names
-  it), so two measures that differ only in a date differ in their formula's text and stay two
-  metrics. A text value that starts like a date and is not a plain date or timestamp cannot be
+  runs; the declaration writes it as `{{name}}` with the view's date as the default
+  (`order_date_from`; two dates that would share a name each carry their date too, and one no
+  column names is `date_2021_01_01`). Two measures that differ only in a date so declare one
+  formula with two defaults: downstream they are one metric with a date a reader may move. X3
+  refuses them as two cards and says they are one metric under two names; merged, the card
+  takes the first measure's name and dates, and both statements stay as its examples and saved
+  queries. A text value that starts like a date and is not a plain date or timestamp cannot be
   lifted out, and that measure is not read.
 - **What the SQL writer would change is not read.** Every expression is written back by the
   parser's SQL writer, which renders some forms as other SQL. An expression is read only when
