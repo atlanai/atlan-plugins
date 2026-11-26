@@ -15,7 +15,10 @@ The engine reconciles both through the same proposal, merge, card and relationsh
   `DESCRIBE TABLE EXTENDED <view> AS JSON` through the read-only query tool, as a `.json` file
   per view, and name the file or folder as the Databricks input's `bi`. The
   `databricks-metric-view` reader, installed with the `databricks` feature, turns each measure
-  into one declared metric. Its notes name every measure it does not read; report those.
+  into one declared metric. Its notes name every measure it does not read; report those. When
+  the workspace's host is known (the query tool's server, or the CLI profile's host), save
+  `{"metric_view": <that JSON>, "workspace_host": "<host>"}` instead, so each metric links back
+  to its view.
 - **Query history:** use the supplied export or the scoped read-only capture in
   [query history](../../../source-survey/references/warehouses/query-history.md). `CONTEXT querylog` normalizes saved exports;
   the identifying-literal filter runs before the engine sees them. `PROJECT history` performs

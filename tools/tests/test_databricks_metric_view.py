@@ -370,6 +370,41 @@ class MetricViewReaderTest(unittest.TestCase):
         self.assertTrue(all(reader.detect(p) for p in (fetched, saved, api, ddl)))
         self.assertEqual(reader.models(self.root), sorted([fetched, saved, api, ddl]))
 
+    def test_the_view_is_the_models_asset_and_is_linked_only_when_its_workspace_is_named(self):
+        described = {'catalog_name': 'demo', 'schema_name': 'sales', 'table_name': 'orders_metrics',
+                     'type': 'METRIC_VIEW', 'table_id': 'example-table-id',
+                     'view_text': 'version: 1.1\nsource: demo.sales.orders\nmeasures:\n  - name: orders\n    expr: COUNT(1)\n'}
+
+        def read(doc, name):
+            path = self.root / name
+            path.write_text(json.dumps(doc))
+            facts = MV.parse(path)
+            jsonschema.validate(public(facts), self.schema)
+            return facts
+
+        # A description names the view, never the workspace it was read from: no link.
+        self.assertEqual(read(described, 'described.json')['assets'], [{
+            'role': 'semantic_model', 'name': 'demo.sales.orders_metrics', 'vendor_id': 'example-table-id',
+            'path': 'demo/sales/orders_metrics', 'site': None}])
+        linked = read({'metric_view': described, 'workspace_host': 'Example.cloud.databricks.com'},
+                      'linked.extended.json')
+        self.assertEqual(linked['assets'][0]['site'], 'example.cloud.databricks.com')
+        self.assertEqual(linked['assets'][0]['url'],
+                         'https://example.cloud.databricks.com/explore/data/demo/sales/orders_metrics')
+        self.assertNotIn('no link', self.notes(linked))
+        # Only a bare workspace host is taken: nothing with a scheme, a path, credentials or another domain.
+        for host in ('https://example.cloud.databricks.com', 'example.cloud.databricks.com/login',
+                     'user@example.cloud.databricks.com', 'example.com', 7):
+            with self.subTest(host=host):
+                refused = read({'metric_view': described, 'workspace_host': host}, 'refused.extended.json')
+                self.assertNotIn('url', refused['assets'][0])
+                self.assertIsNone(refused['assets'][0]['site'])
+                self.assertIn('not a Databricks workspace host', self.notes(refused))
+        # A definition kept as YAML has no catalog.schema.view name to link to.
+        bare = self.read('version: 1.1\nsource: demo.sales.orders\nmeasures:\n  - name: orders\n    expr: COUNT(1)\n')
+        self.assertEqual(bare['assets'], [{'role': 'semantic_model', 'name': 'orders_metrics',
+                                           'vendor_id': None, 'path': None, 'site': None}])
+
     def test_what_is_not_a_readable_metric_view_is_refused_in_words(self):
         reader = MV.MetricViewReader()
         other = self.view('tables:\n  - name: orders\n', 'semantic_model.yaml')

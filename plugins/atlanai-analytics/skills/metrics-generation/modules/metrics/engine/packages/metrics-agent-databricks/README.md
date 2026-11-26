@@ -165,6 +165,21 @@ table's key:
  "primary_keys": {"example_catalog.sales.orders": ["o_orderkey"]}}
 ```
 
+A view's definition does not say which workspace it was read from. To give each metric a link
+back to the view, add the workspace's host beside the description:
+
+```json
+{"metric_view": {"catalog_name": "example_catalog", "schema_name": "sales",
+                 "table_name": "orders_metrics", "view_text": "..."},
+ "workspace_host": "example-workspace.cloud.databricks.com"}
+```
+
+The reader then records the view's page in Catalog Explorer
+(`https://<host>/explore/data/<catalog>/<schema>/<view>`) on the model's asset, and each
+metric built from the view carries it as a source reference (`provenance.observed_in`). Only a
+bare workspace host is taken, and only for a view with a plain three-part name; anything else
+is named in the reader notes and no link is recorded.
+
 Checked live on a Unity Catalog workspace: for 20 metric views, each declared formula over
 its base tables returned the value `MEASURE()` returns on the view.
 

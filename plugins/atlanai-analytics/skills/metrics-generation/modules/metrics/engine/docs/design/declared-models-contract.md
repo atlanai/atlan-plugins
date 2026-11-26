@@ -212,6 +212,13 @@ contract above. Where a metric view differs from a semantic view, the reader set
   filter is written into each aggregate as `FILTER (WHERE ...)`. The number is the view's.
 - **No key.** A metric view declares none. A description can carry its source table's key
   (`primary_keys`); otherwise the grain is the card author's.
+- **A link back to the view.** The view is the model's one asset (`assets`, role
+  `semantic_model`). An asset may carry `url`, its own page in the tool it lives in: https, no
+  query string or fragment. The reader gives the view's Catalog Explorer page only when the
+  saved description names its workspace (`workspace_host`) and the view has a plain three-part
+  name. X3 copies the pages of a metric's statements' assets into the card's
+  `provenance.observed_in`, which the Trident metric contract already has. Any reader may state
+  `url`; none is ever built from a name alone.
 
 Refused by name, in the reader's notes: a window measure and every measure built on one, an
 expression that reads a `parameters` entry, a wildcard field, a column that needs quoting, a

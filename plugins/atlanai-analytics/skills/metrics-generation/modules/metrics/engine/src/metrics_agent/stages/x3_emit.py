@@ -1388,6 +1388,16 @@ def _repair_bundle(faults: dict, authored: dict, by_name: dict,
     }
 
 
+def _asset_pages(vq_ids: list, stmts: dict) -> list[str]:
+    """WHERE A PERSON CAN OPEN THE DEFINITION: the pages of the assets a metric's statements came
+    from, as their reader recorded them (`url`). A reference only: never fetched, and empty when
+    no reader stated one."""
+    return sorted({a["url"] for v in vq_ids
+                   for a in ((((stmts.get(v) or {}).get("provenance") or {}).get("bi") or {})
+                             .get("assets") or [])
+                   if isinstance(a, dict) and isinstance(a.get("url"), str) and a["url"]})
+
+
 def _project(a: dict, m: dict, stmts: dict, evidence: dict, scope: str,
              dialect: str, *, policy=None, cands: dict | None = None,
              expr_of: dict | None = None) -> dict:
@@ -1434,6 +1444,7 @@ def _project(a: dict, m: dict, stmts: dict, evidence: dict, scope: str,
         {v: _bi_tags.aliases_for([m.get("expression")] + own.get(v, []),
                                  (cands or {}).get(v) or []) for v in vq_ids})
     lanes = [((stmts.get(v) or {}).get("provenance") or {}).get("lane") for v in vq_ids]
+    seen_in = _asset_pages(vq_ids, stmts)
     body_lane = next((l for l in ("merged", "bi", "history") if l in set(lanes)), None)
     tier, tier_basis = measures.tier_of(body_lane, lanes)
     return {
@@ -1509,7 +1520,8 @@ def _project(a: dict, m: dict, stmts: dict, evidence: dict, scope: str,
         "tier": tier,
         "tier_basis": tier_basis,
         "status": "",
-        "provenance": {"source": "verified-queries", "derived_from": vq_ids},
+        "provenance": {"source": "verified-queries", "derived_from": vq_ids,
+                       **({"observed_in": seen_in} if seen_in else {})},
         # The model's own other names for the metric: retrieval words, never interpreted.
         **({"synonyms": list(a["synonyms"])} if a.get("synonyms") else {}),
     }

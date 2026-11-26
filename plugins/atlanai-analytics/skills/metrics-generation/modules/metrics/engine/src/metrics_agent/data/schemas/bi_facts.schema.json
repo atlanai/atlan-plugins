@@ -1529,6 +1529,14 @@
             "null"
           ]
         },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^https://[^?#\\s]+$",
+          "description": "The asset's own page in the tool it lives in, when the input says where that is: https, with no query string or fragment (either can carry a session or a filter state). Absent or null otherwise; never guessed from a name alone."
+        },
         "model": {
           "type": "string",
           "minLength": 1,

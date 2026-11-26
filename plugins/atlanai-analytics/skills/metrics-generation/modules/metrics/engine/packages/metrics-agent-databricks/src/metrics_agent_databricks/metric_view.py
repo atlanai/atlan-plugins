@@ -14,8 +14,9 @@ FOUR INPUT SHAPES, ONE READER. All carry the same YAML definition:
     `columns` carry each field's and measure's type.
   * **extended**: a description with what the YAML leaves out beside it,
     `{"metric_view": <describe>, "source_columns": {table: [column]}, "primary_keys":
-    {table: [column]}}`: the columns of the tables the view reads (a join written without
-    table prefixes cannot be read without them) and each table's key.
+    {table: [column]}, "workspace_host": "<host>"}`: the columns of the tables the view reads
+    (a join written without table prefixes cannot be read without them), each table's key,
+    and the workspace the view lives in.
   * **yaml**: the definition alone (`version`, `source`, `fields` or `dimensions`,
     `measures`), as it is kept in a repository.
   * **ddl**: `CREATE VIEW ... WITH METRICS LANGUAGE YAML AS $$ ... $$`.
@@ -54,6 +55,11 @@ tables. A view whose own source is a query or another metric view is refused who
 A metric view declares no key. The extended shape carries its source table's; otherwise the
 grain is the card author's to state.
 
+THE VIEW IS THE MODEL'S ONE ASSET, named catalog.schema.view. No definition says which
+workspace it was read from, so its address in Catalog Explorer is given only when the extended
+shape names the host (`workspace_host`) and the view has a three-part name: a link is never
+guessed from a name alone.
+
 Deterministic: the same file always yields the same facts, in the file's own order.
 """
 from __future__ import annotations
@@ -82,6 +88,9 @@ _DDL = re.compile(r"(?is)\bCREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+(?:IF\s+NOT\s+EXI
                   r"(?P<name>[`\w.$-]+).*?\bWITH\s+METRICS\b.*?\$\$(?P<yaml>.*)\$\$")
 _QUERY = re.compile(r"(?is)^\s*\(?\s*(SELECT|WITH)\b")
 _CARD = {"many_to_one": "M:1", "one_to_many": "1:M"}
+# A workspace's host, as the connector's own sign-in accepts it: no scheme, path or credentials.
+_HOST = re.compile(r"[A-Za-z0-9][A-Za-z0-9.-]*\.(?:cloud\.databricks\.com|azuredatabricks\.net"
+                   r"|gcp\.databricks\.com)")
 
 
 class MetricViewError(S.ReaderRefused):
@@ -132,13 +141,39 @@ def load(path: pathlib.Path) -> tuple[dict, dict, str]:
         name = ".".join(str(p) for p in parts if p) or src.stem
         extra = {"name": name, "columns": desc.get("columns") or [],
                  "source_columns": doc.get("source_columns") or {},
-                 "primary_keys": doc.get("primary_keys") or {}}
+                 "primary_keys": doc.get("primary_keys") or {},
+                 "three_part": [str(p) for p in parts] if all(parts) else None,
+                 "table_id": desc.get("table_id"),
+                 "workspace_host": doc.get("workspace_host") if shape == "extended" else None}
         return _yaml(text, f"{src}: the view's YAML"), extra, shape
     ddl = _DDL.search(text)
     if ddl:
         return (_yaml(ddl.group("yaml"), f"{src}: the view's YAML"),
                 {"name": ddl.group("name").replace("`", "")}, "ddl")
     return _yaml(text, str(src)), {"name": src.stem}, "yaml"
+
+
+def asset(extra: dict, name: str) -> tuple[dict, str | None]:
+    """(the view as the model's one asset, a note when a stated host was not used). The
+    address is the view's page in Catalog Explorer, built only from a host the input states
+    and a catalog.schema.view name whose parts are plain identifiers."""
+    parts = extra.get("three_part")
+    plain = bool(parts) and all(_PLAIN.fullmatch(p) for p in parts)
+    host = extra.get("workspace_host")
+    out: dict[str, Any] = {"role": "semantic_model", "name": name,
+                           "vendor_id": str(extra["table_id"]) if extra.get("table_id") else None,
+                           "path": "/".join(parts) if plain else None, "site": None}
+    if host is None:
+        return out, None
+    if not isinstance(host, str) or not _HOST.fullmatch(host.strip().lower()):
+        return out, ("`workspace_host` is not a Databricks workspace host (no scheme, path or "
+                     "credentials), so no link to the view is recorded")
+    out["site"] = host.strip().lower()
+    if not plain:
+        return out, ("the view has no plain catalog.schema.view name, so no link to it is "
+                     "recorded")
+    out["url"] = f"https://{out['site']}/explore/data/{out['path']}"
+    return out, None
 
 
 def is_metric_view(doc: Any) -> bool:
@@ -653,6 +688,10 @@ def parse(path: pathlib.Path, report_index: dict | None = None, *,
         "model_name": name, "tables": tables, "measures": measures,
         "relationships": view.relationships, "usage": [], "parameters": [],
     }
+    own, unlinked = asset(extra, name)
+    facts["assets"] = [own]
+    if unlinked:
+        view.notes.append(unlinked)
     notes = _declared.attach(facts, dialect=DIALECT)
 
     facts["usage"] = [{

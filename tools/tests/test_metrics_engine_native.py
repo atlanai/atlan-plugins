@@ -165,6 +165,19 @@ class EarlierWorkTest(unittest.TestCase):
         self.assertFalse(a3_translate._in_native(unit, 'signal'))
         self.assertFalse(a3_translate._in_native({}, 'signal_1'))
 
+    def test_a_card_names_the_pages_its_statements_assets_state_and_no_others(self):
+        from metrics_agent.stages import x3_emit
+        page = 'https://example.cloud.databricks.com/explore/data/demo/sales/orders_metrics'
+        stmts = {'a': {'provenance': {'bi': {'assets': [
+                     {'role': 'semantic_model', 'name': 'demo.sales.orders_metrics', 'vendor_id': None, 'url': page},
+                     {'role': 'dashboard', 'name': 'Orders', 'vendor_id': None}]}}},
+                 'b': {'provenance': {'bi': {'assets': [
+                     {'role': 'semantic_model', 'name': 'demo.sales.orders_metrics', 'vendor_id': None, 'url': page},
+                     {'role': 'report', 'name': 'Other', 'vendor_id': None, 'url': None}]}}},
+                 'c': {'provenance': {'lane': 'history'}}}
+        self.assertEqual(x3_emit._asset_pages(['a', 'b', 'c', 'missing'], stmts), [page])
+        self.assertEqual(x3_emit._asset_pages(['c'], stmts), [])
+
     def test_a_card_statement_quotes_its_aliases_the_way_its_dialect_does(self):
         card = {'name': 'oee_pct', 'formula': 'AVG(oee_pct)', 'source': {'table': 'mfg.gold.oee_daily'}}
         statement = self.card_sql.canonical_statement
