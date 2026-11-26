@@ -120,6 +120,10 @@ synonyms), `examples`, `timeframe_column`, `description` (the metric's comment) 
   statements cut by, a filter, the words of `description` and `population`;
 * a declared example is named `declared:<name>`, like a statement: name it, never write its
   SQL or question;
+* a declared formula can hold `{{name}}`. The model fixed a date there, and a card keeps no
+  fixed date, so the declaration names it and gives the model's date as its default. Carry the
+  formula with its markers. X3 adds the parameters to `source.parameters`; say in `population`
+  and `notes` what the default date is and that the model sets it;
 * the card takes the model's name for the metric; yours is kept as a synonym.
 
 ## A task with a rollup or catalogue declaration

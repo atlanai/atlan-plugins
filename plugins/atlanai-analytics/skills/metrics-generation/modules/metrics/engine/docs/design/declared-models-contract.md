@@ -59,6 +59,7 @@ interprets it:
 | `dimensions[]` | every dimension the model declares on a table the metric reaches: name, `kind`, `datatype`, `sql`, `required_join`, the model's comment as `description`, and `synonyms` |
 | `examples[]` | the model's example questions that read the metric, each with its SQL over the base tables and the dimensions it groups by |
 | `timeframe_column` | the date the metric's examples restrict or group by, when they name exactly one |
+| `parameters[]` | optional: each value the formula names as `{{name}}`, with the model's own value as its default (`name`, `datatype`, `default`). X3 adds them to the card's `source.parameters` and runs the card at the defaults |
 
 A table that plays two roles in one metric (a flight's departure and arrival airport) is
 written as a derived table under its role name in `source`, and its role name qualifies every
@@ -220,6 +221,11 @@ contract above. Where a metric view differs from a semantic view, the reader set
   where there is one. The number is the view's. A measure the filter cannot be shown to reach
   is refused: one that calls an unknown function, or reads a column outside every aggregate
   the reader recognises. A filter that cannot be read leaves no measure read.
+- **A fixed date is a parameter on the card.** A card keeps no fixed date in its formula, and
+  one that does stops the whole export. The measure's formula keeps the date, so its statement
+  runs; the declaration writes it as `{{name}}` with the view's date as the default
+  (`order_date_from`, or `date_2021_01_01` where no one column names it). A date inside a longer
+  text value cannot be lifted out, and that measure is not read.
 - **A field that redefines a column the filter reads is not listed.** `lib/declared` reads
   `role.name` as the field wherever it appears, so one model cannot hold a column and a field
   of the same name. The filter keeps the column, and a measure that reads the field carries

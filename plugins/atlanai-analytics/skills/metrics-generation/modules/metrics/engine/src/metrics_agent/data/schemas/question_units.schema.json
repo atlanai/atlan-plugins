@@ -1377,6 +1377,30 @@
             }
           }
         },
+        "parameters": {
+          "type": "array",
+          "description": "OPTIONAL. Each value the formula names as `{{name}}`, with the model's own value as its default. A reader writes a fixed date this way: Atlan keeps no fixed date in a metric's formula.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "datatype",
+              "default"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "datatype": {
+                "type": "string",
+                "minLength": 1
+              },
+              "default": {}
+            }
+          }
+        },
         "timeframe_column": {
           "type": [
             "string",

@@ -178,6 +178,92 @@ class MetricViewReaderTest(unittest.TestCase):
         self.assertNotIn('odd', self.declared(own))
         self.assertIn("measure 'odd' calls MY_UDAF, which may aggregate", self.notes(own))
 
+    DATED = '''
+        version: 1.1
+        source: demo.sales.orders
+        joins:
+          - name: customer
+            source: demo.sales.customer
+            'on': source.o_custkey = customer.c_custkey
+        filter: o_orderdate >= DATE'2021-01-01' AND customer.c_active
+        measures:
+          - name: orders
+            expr: COUNT(1)
+          - name: year_revenue
+            expr: SUM(revenue) FILTER (WHERE o_orderdate BETWEEN '2024-01-01' AND '2024-12-31')
+          - name: late
+            expr: COUNT(CASE WHEN shipped_at > TIMESTAMP'2024-06-30 23:59:59' THEN 1 END)
+          - name: both_sides
+            expr: COUNT(CASE WHEN created < '2022-07-01' AND closed >= '2022-07-01' THEN 1 END)
+          - name: noted
+            expr: COUNT(CASE WHEN note = '2024-01-01 onwards' THEN 1 END)
+    '''
+
+    def test_a_fixed_date_is_a_parameter_on_the_declaration_and_stays_in_the_statement(self):
+        # Atlan keeps no fixed date in a metric's formula, and one metric that holds one stops
+        # the export of every metric in the run. The statement keeps the view's date, so it
+        # runs; the declaration names it, with the view's date as the default.
+        from metrics_agent.lib import card_sql
+        facts = self.read(self.DATED)
+        d = self.declared(facts)
+        measure = {m['name']: m for m in facts['measures']}
+        self.assertIn("source.o_orderdate >= CAST('2021-01-01' AS DATE)", measure['orders']['formula'])
+        self.assertEqual(d['orders']['formula'],
+                         'COUNT(1) FILTER(WHERE demo.sales.orders.o_orderdate >= CAST({{o_orderdate_from}} AS DATE) '
+                         'AND demo.sales.customer.c_active)')
+        self.assertEqual(d['orders']['parameters'],
+                         [{'name': 'o_orderdate_from', 'datatype': 'date', 'default': '2021-01-01'}])
+        # Two dates bound one column from below here, so both names carry their date.
+        self.assertEqual({p['name']: p['default'] for p in d['year_revenue']['parameters']},
+                         {'o_orderdate_from_2024_01_01': '2024-01-01', 'o_orderdate_to': '2024-12-31',
+                          'o_orderdate_from_2021_01_01': '2021-01-01'})
+        # A typed value is written as the cast it means: a marker cannot follow the keyword.
+        self.assertIn('demo.sales.orders.shipped_at > CAST({{shipped_at_from}} AS TIMESTAMP)', d['late']['formula'])
+        self.assertEqual(d['late']['parameters'][0],
+                         {'name': 'shipped_at_from', 'datatype': 'timestamp', 'default': '2024-06-30 23:59:59'})
+        # One date used two ways is named after the date, once.
+        self.assertEqual([p['name'] for p in d['both_sides']['parameters']], ['date_2022_07_01', 'o_orderdate_from'])
+        self.assertEqual(d['both_sides']['formula'].count('{{date_2022_07_01}}'), 2)
+        for name, found in d.items():
+            self.assertNotRegex(found['formula'], r"'\d{4}-\d{2}-\d{2}", name)
+            used = set(card_sql._MARKER.findall(found['formula']))
+            self.assertEqual(used, {p['name'] for p in found['parameters']}, name)
+            run = card_sql.bound(f"SELECT {found['formula']} FROM {found['source']}", found['parameters'])
+            self.assertNotIn('{{', run)
+            sqlglot.parse_one(run, read='databricks')
+        self.assertIn("CAST('2021-01-01' AS DATE)", card_sql.bound(d['orders']['formula'], d['orders']['parameters']))
+        # A date inside a longer text value cannot be lifted out, so the measure is not read.
+        self.assertNotIn('noted', d)
+        self.assertIn("measure 'noted' holds a fixed date inside a longer text value", self.notes(facts))
+        self.assertIn("a fixed date is a parameter on the metric, with the view's date as its default",
+                      self.notes(facts))
+        self.assertNotIn('parameters', self.declared(self.read(ORDERS))['revenue'])
+
+    def test_a_card_takes_the_declarations_parameters_and_runs_at_their_defaults(self):
+        from metrics_agent.lib import card_sql
+        decl = self.declared(self.read(self.DATED))['orders']
+        card = {'name': 'Orders', 'formula': decl['formula'],
+                'source': {'entity': decl['entity'], 'alias': 'Orders',
+                           'parameters': [{'name': 'o_orderdate_from', 'datatype': 'date', 'default': '1999-09-09'},
+                                          {'name': 'kept', 'datatype': 'integer', 'default': 1}]}}
+        self.assertEqual(declared.held_to(card, decl), [])
+        done, counts = declared.complete(card, decl, dialect='databricks')
+        # The model's value leads; a parameter of the author's own is kept.
+        self.assertEqual(done['source']['parameters'],
+                         [{'name': 'kept', 'datatype': 'integer', 'default': 1},
+                          {'name': 'o_orderdate_from', 'datatype': 'date', 'default': '2021-01-01'}])
+        self.assertEqual(counts['parameters'], 1)
+        statement = card_sql.canonical_statement({**done, 'dialect': 'databricks', 'output': {'alias': 'orders'}})
+        self.assertIn('{{o_orderdate_from}}', statement)
+        run = card_sql.bound(statement, done['source']['parameters'])
+        self.assertIn("demo.sales.orders.o_orderdate >= CAST('2021-01-01' AS DATE)", run)
+        sqlglot.parse_one(run, read='databricks')
+        # A marker inside a text value is text; one with no default stays for the reader to fill.
+        self.assertEqual(card_sql.bound("SELECT '{{a}}', {{a}}, {{n}}, {{on}}, {{b}}",
+                                        [{'name': 'a', 'default': "it's"}, {'name': 'n', 'default': 3},
+                                         {'name': 'on', 'default': True}, {'name': 'b', 'default': None}]),
+                         "SELECT '{{a}}', 'it''s', 3, TRUE, {{b}}")
+
     def test_what_is_not_read_is_named_and_takes_what_is_built_on_it(self):
         facts = self.read('''
             version: 1.1

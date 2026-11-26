@@ -1130,7 +1130,9 @@ def _card_witness(cards: list[dict], run_inputs: dict, dialect: str, ctx: stage.
     out = []
     try:
         for card in cards:
-            sql = _card_sql.canonical_statement(card, dialect)
+            # A card's statement runs with each parameter at its declared default.
+            sql = _card_sql.bound(_card_sql.canonical_statement(card, dialect),
+                                  card.get("parameters"))
             if not sql:
                 continue
             name = card["name"]

@@ -537,12 +537,15 @@ class WarehouseCheckResults(unittest.TestCase):
                 "card = {'formula': 'AVG(oee_pct)', 'dialect': 'databricks', 'output': {'alias': 'avg oee'},\n"
                 "        'source': {'table': 'demo.gold.oee_daily'}}\n"
                 "print(project._card_sql.canonical_statement(card))\n"
-                "print(project._card_sql.canonical_statement({**card, 'dialect': 'snowflake'}))\n")
+                "print(project._card_sql.canonical_statement({**card, 'dialect': 'snowflake'}))\n"
+                "print(project._card_sql.bound('d >= CAST({{d_from}} AS DATE)',\n"
+                "                              [{'name': 'd_from', 'datatype': 'date', 'default': '2021-01-01'}]))\n")
         ran = subprocess.run([sys.executable, '-c', code], cwd=Path(sys.modules['project'].__file__).parent,
                              capture_output=True, text=True)
         self.assertEqual(ran.returncode, 0, ran.stderr)
         self.assertEqual(ran.stdout.splitlines(), ['SELECT AVG(oee_pct) AS `avg oee`', 'FROM   demo.gold.oee_daily',
-                                                   'SELECT AVG(oee_pct) AS "avg oee"', 'FROM   demo.gold.oee_daily'])
+                                                   'SELECT AVG(oee_pct) AS "avg oee"', 'FROM   demo.gold.oee_daily',
+                                                   "d >= CAST('2021-01-01' AS DATE)"])
 
     def test_a_warehouse_result_is_recorded_against_the_definition_it_checked(self):
         import side_page

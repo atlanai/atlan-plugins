@@ -64,6 +64,15 @@ aggregate this reader recognises (`ANY(flag)`). A filter that cannot be read lea
 read. A field that redefines a column the filter reads cannot share the model with that
 column, so it is not listed as a dimension, and a measure that reads it carries its expression.
 
+**A FIXED DATE IS A PARAMETER ON THE CARD.** Atlan keeps no fixed date in a metric's formula,
+and one metric that holds one stops the export of every metric in the run. A view's filter
+often holds one (`order_date >= DATE'2021-01-01'`). The measure's own formula keeps the date,
+so the statement compiled from it runs. The declaration writes it as `{{name}}` and lists the
+parameter with the view's date as its default, so the card's number is the view's until a
+reader moves the date. A date compared with one column is named for the column and the side
+it bounds (`order_date_from`); any other is named for the date. A date inside a longer text
+value cannot be lifted out, and that measure is not read.
+
 **WHAT IS NOT READ, EACH SAID BY NAME** in `_reader_notes`, never dropped silently: a window
 measure and every measure built on one (its frame is applied when the view is queried), an
 expression that names a `parameters` entry or holds a parameter marker (`:name`, `?`), a
@@ -747,6 +756,93 @@ class _View:
         return out
 
 
+# ── fixed dates ──────────────────────────────────────────────────────────────────────────
+
+_DATED = re.compile(r"'(\d{4}-\d{2}-\d{2})([ T]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)?'")
+_DATE_START = re.compile(r"'\d{4}-\d{2}-\d{2}")
+_TYPED = re.compile(r"(?i)(?<![A-Za-z0-9_$.`])(DATE|TIMESTAMP)\s*$")
+_SIDES = {exp.GTE: ("from", "to"), exp.GT: ("from", "to"), exp.LTE: ("to", "from"),
+          exp.LT: ("to", "from"), exp.EQ: ("on", "on")}
+_THROUGH = (exp.Cast, exp.TryCast, exp.Paren, exp.TsOrDsToDate, exp.TsOrDsToTimestamp,
+            exp.StrToDate, exp.StrToTime, exp.Date, exp.Timestamp, exp.Anonymous)
+
+
+def _date_names(formula: str, values: list[str]) -> dict[str, str]:
+    """{date: parameter name}. A date compared with one column is named after that column and
+    the side it bounds (`order_date_from`); any other is named after the date itself, and so
+    is a date the formula uses in two ways, which one such name would describe wrongly."""
+    said: dict[str, set[str]] = {}
+    try:
+        tree = sqlglot.parse_one(formula, read=DIALECT)
+    except Exception:                                 # noqa: BLE001 - names fall back to the date
+        tree = None
+    for lit in (tree.find_all(exp.Literal) if tree is not None else []):
+        if not lit.is_string or lit.this not in values:
+            continue
+        node: exp.Expression = lit
+        while isinstance(node.parent, _THROUGH):
+            node = node.parent
+        cmp_ = node.parent
+        other, side = None, None
+        if isinstance(cmp_, exp.Between):
+            other = cmp_.this
+            side = "from" if cmp_.args.get("low") is node else \
+                "to" if cmp_.args.get("high") is node else None
+        elif type(cmp_) in _SIDES:
+            right = cmp_.expression is node
+            other = cmp_.this if right else cmp_.expression
+            side = _SIDES[type(cmp_)][0 if right else 1]
+        cols = {c.name for c in other.find_all(exp.Column)} if other is not None else set()
+        said.setdefault(lit.this, set()).add(
+            f"{re.sub(r'[^A-Za-z0-9_]', '_', cols.pop()).lower()}_{side}"
+            if side and len(cols) == 1 else "")
+    def digits(v: str) -> str:
+        return re.sub(r"[^0-9]+", "_", v).strip("_")
+
+    bases = {}
+    for v in values:
+        one = said.get(v) or set()
+        base = next(iter(one)) if len(one) == 1 else ""
+        bases[v] = base if re.match(r"[A-Za-z_]", base) else ""
+    # Two dates that bound one column on one side both carry their date, so neither name
+    # depends on which the formula writes first.
+    shared = {b for b in bases.values() if b and list(bases.values()).count(b) > 1}
+    return {v: (f"{b}_{digits(v)}" if b in shared else b) if b else f"date_{digits(v)}"
+            for v, b in bases.items()}
+
+
+def date_parameters(formula: str) -> tuple[str, list[dict]]:
+    """`formula` with every fixed date written as `{{name}}`, and the parameters that give each
+    its date as the default. Atlan keeps no fixed date in a metric's formula: a date is a value
+    a reader may move. Raises _Skip for a date this cannot lift out, one inside a longer text
+    value."""
+    parts = _declared.outside_literals(formula)
+    values = list(dict.fromkeys(
+        text[1:-1] for is_code, text in parts if not is_code and _DATED.fullmatch(text)))
+    if any(not is_code and _DATE_START.search(text) and not _DATED.fullmatch(text)
+           for is_code, text in parts):
+        raise _Skip("holds a fixed date inside a longer text value, which a saved metric "
+                    "cannot keep")
+    if not values:
+        return formula, []
+    names = _date_names(formula, values)
+    out: list[str] = []
+    for is_code, text in parts:
+        if is_code or text[1:-1] not in names:
+            out.append(text)
+            continue
+        marker = "{{" + names[text[1:-1]] + "}}"
+        # `DATE '2024-01-01'` is one typed value: a marker cannot follow the keyword, so the
+        # pair is written as the cast it means.
+        typed = _TYPED.search(out[-1]) if out else None
+        if typed:
+            out[-1] = out[-1][:typed.start()]
+            marker = f"CAST({marker} AS {typed.group(1).upper()})"
+        out.append(marker)
+    return "".join(out), [{"name": names[v], "datatype": "timestamp" if len(v) > 10 else "date",
+                           "default": v} for v in values]
+
+
 # ── types ────────────────────────────────────────────────────────────────────────────────
 
 def _types(columns: Any, notes: list[str]) -> dict[str, str]:
@@ -1062,6 +1158,27 @@ def _read(src: pathlib.Path) -> dict[str, Any]:
     if unlinked:
         view.notes.append(unlinked)
     notes = _declared.attach(facts, dialect=DIALECT)
+    # A FIXED DATE IS A PARAMETER ON THE CARD. The statement keeps the date as the view wrote
+    # it, so it runs; the declaration names it, with the view's date as the default.
+    dated: dict[str, str] = {}
+    for m in list(measures):
+        decl = m.get("declared")
+        if not decl:
+            continue
+        try:
+            decl["formula"], params = date_parameters(decl["formula"])
+        except _Skip as exc:
+            what = f"measure {m['name']!r}"
+            view.notes.append(f"{what} {exc}; it is not read")
+            dropped.add(what)
+            measures.remove(m)
+            continue
+        if params:
+            decl["parameters"] = params
+            dated.update({p_["name"]: p_["default"] for p_ in params})
+    if not measures:
+        raise MetricViewError(f"{src}: the metric view declares no measure this reader reads"
+                              + "".join(f"\n  {n}" for n in view.notes))
 
     facts["usage"] = [{
         "unit_id": f"databricks-mv::{name}::{m['name']}",
@@ -1093,6 +1210,10 @@ def _read(src: pathlib.Path) -> dict[str, Any]:
     if cond is not None:
         reader_notes.append("the view's filter is written into every measure as "
                             f"FILTER (WHERE {_sql(cond)})")
+    if dated:
+        reader_notes.append("a fixed date is a parameter on the metric, with the view's date "
+                            "as its default: "
+                            + ", ".join(f"{k} = {v}" for k, v in sorted(dated.items())))
     if not any(t.get("primary_key") for t in tables[:1]):
         reader_notes.append("the view declares no key and none came with it: the grain of "
                             "each metric is the card author's to state")
