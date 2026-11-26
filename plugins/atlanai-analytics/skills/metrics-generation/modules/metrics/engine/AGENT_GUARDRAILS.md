@@ -254,7 +254,7 @@ destination or a field.
       its own rule table and regression corpus. The core keeps only what every compiler shares:
       the rule-table format and its gate (`lib/rules.py`) and the result (`sockets.Compiled`).
       The common schemas name no language; their `x-vocabulary` is filled from the readers.
-    - **Every plug follows the socket spec**, `docs/design/sockets.md`: what each socket
+    - **Every plug follows the socket spec**, `docs/metrics-engine/design/sockets.md` in the repository: what each socket
       takes, what it must return, and the common formats. A plug that needs more than the spec
       gives is a change to the spec, for every plug.
     - Built-in plugs (local files, the files output, the BI file readers and their compiler)
@@ -297,7 +297,7 @@ destination or a field.
 | BI context | C3 gets an inlined `bi_context` block, not file paths. Fragments are review-only. |
 | Faithfulness | Claims are stated as predicates and checked against the statement. Absent flags, band blocks. |
 | Observed values | Carried for BOTH lanes. Floor defaults to 1 (carry everything); the per-column cap is a policy value and a cap that bites is reported, never silent. |
-| Plugs | The core is common; plugs convert (rule 22). Any combination of plugs. The core never routes by a plug's name: each plug is validated against its own declarations, recorded with its settings, and served through its methods (`plug_runtime`). Several plugs per capability follow the plug design, `docs/design/plugs.md` in the public tree (one history corpus, schema and scope unions, mixed BI vendors, SQL check routed by database); one dialect per run; custody is per plug and a standalone run refuses any third-party one. |
+| Plugs | The core is common; plugs convert (rule 22). Any combination of plugs. The core never routes by a plug's name: each plug is validated against its own declarations, recorded with its settings, and served through its methods (`plug_runtime`). Several plugs per capability follow the plug design, `docs/metrics-engine/design/plugs.md` in the repository (one history corpus, schema and scope unions, mixed BI vendors, SQL check routed by database); one dialect per run; custody is per plug and a standalone run refuses any third-party one. |
 
 ## Layout
 
@@ -343,9 +343,10 @@ packages/          plug packages that depend on the core, never the reverse:
   metrics-agent-powerbi/    the `powerbi-fabric` plug (Power BI from Microsoft Fabric)
   metrics-agent-tableau/    the `tableau-cloud` plug (Tableau workbooks and their published
                    data sources, from Tableau Cloud or Tableau Server)
-examples/plugs/    community example plugs (databricks-direct, postgres-direct, jsonl-trace)
-scripts/           one-line shims, so `python scripts/<stage>.py` keeps working; and the
-                   standalone Power BI extractor (scripts/pbi-definition-extract/)
+examples/plugs/    postgres-direct, the example plug the `postgres` feature installs; the
+                   other examples are in the repository, docs/metrics-engine/examples/
+scripts/           the standalone Power BI extractor (scripts/pbi-definition-extract/); a
+                   stage runs as `metrics-agent stage <name>`
 gates/     the LLM stages, one GATE.md each (describe-verified-sql · author-questions · propose-metrics ·
                    merge-metrics · author-metric-card · relate-metrics · review-compiler)
                    + the orchestrator (run-pipeline) and setup-run

@@ -39,6 +39,8 @@ assets/hero.png                   the README's banner and the repository's socia
 assets/logo.svg                   the listing icon: the Atlan desktop app's icon (frontend, apps/dashboard/src-tauri/icons/source/atlan-app-icon.svg)
 tools/                            build, lint and the skill index, standard library Python 3.11+
 tools/tests/                      unit tests for the tools
+docs/metrics-engine/              the metrics engine's contributor docs and example plugs: kept in the
+                                  repository, not shipped in the plugin (docs/metrics-module.md)
 evals/atlan/                      the core plugin's behaviour evals and the gateway emulator they run against
 ```
 

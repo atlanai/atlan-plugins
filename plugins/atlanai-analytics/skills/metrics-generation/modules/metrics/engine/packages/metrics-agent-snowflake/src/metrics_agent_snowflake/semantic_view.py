@@ -5,7 +5,7 @@
 PROVENANCE. Written for this repo; not ported. The precedent it follows is `metrics_agent/plugs/readers/tabular.py`:
 a semantic model with no report layer, read into the same contract every other BI reader
 writes, so nothing downstream branches on vendor. Design:
-`docs/design/declared-models-contract.md`.
+`docs/metrics-engine/design/declared-models-contract.md` (in the repository).
 
 THREE INPUT SHAPES, ONE READER. All describe the same object and differ only in spelling:
 
