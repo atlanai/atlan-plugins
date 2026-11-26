@@ -886,14 +886,14 @@ def _due(run, engine_dir=None, hand_over=True):
     return out
 
 
-def _answer_card(run, given, result):
+def _answer_card(run, given, result, sql=None):
     """The answer card, with the query that answers the person: built from the question and metrics the session names
     and the rows the query returned. A query run without `answer` (an accuracy check's helper) carries nothing."""
     import side_view
     import visuals
     from run_facts import RunFacts
     try:
-        data = visuals.answer_from(given, result, RunFacts(run))
+        data = visuals.answer_from(given, result, RunFacts(run), sql)
     except Exception:  # noqa: BLE001 - the card never fails the query that answered
         return {}
     return side_view.handed(side_view.show_card(run, 'answer', data)) if data else {}
@@ -1437,7 +1437,7 @@ def main():
             request = project.read(safe_path(args.request))
             result = project.execute(request)
             if isinstance(request.get('answer'), dict):
-                result = {**_answer_card(project.root, request['answer'], result), **result}
+                result = {**_answer_card(project.root, request['answer'], result, request.get('sql')), **result}
         elif args.command == 'acquisition': result = acquisition.cached(project, project.read(safe_path(args.request)))
         else: result = getattr(project, args.command.replace('-', '_'))(project.read(safe_path(args.request)))
         if isinstance(result, dict) and args.command not in ('status', 'execute'):

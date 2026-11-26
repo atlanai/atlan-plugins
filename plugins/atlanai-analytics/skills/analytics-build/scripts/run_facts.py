@@ -618,6 +618,13 @@ class RunFacts:
         m = self._metric(name)
         return (self.unit_of(m) or None) if m else None
 
+    def adds_up(self, name):
+        """Whether the context's metric with this name is a sum or a count, so a breakdown's rows add up to it. A rate,
+        an average or a distinct count never does."""
+        d = (self._metric(name) or {}).get('definition')
+        agg = d.get('aggregation') if isinstance(d, dict) else None
+        return isinstance(agg, dict) and agg.get('type') in ('sum', 'count')
+
     def _metric(self, name):
         wanted = sentence(name or '').lower()
         if not wanted:
