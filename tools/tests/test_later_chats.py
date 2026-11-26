@@ -31,12 +31,12 @@ class NewQuestionsAfterACheck(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name).resolve()
-        self.run = self.root / '.atlan-metrics' / 'box-office'
+        self.run = self.root / '.atlan-analytics' / 'box-office'
         dump(self.run / 'context' / 'metrics.json', [{'name': 'Gross Sales'}])
         dump(self.run / 'run.json', {})
-        self.old = self.root / '.atlan-evals' / 'box-office'
+        self.old = self.root / '.atlan-analytics' / 'evals' / 'box-office'
         dump(self.old / 'work' / 'spec.json', {'name': 'old-set', 'records': [{'id': i, 'question': 'Old %s?' % i} for i in 'abc']})
-        self.gen = self.root / '.atlan-evals' / 'gen' / 'box-office'
+        self.gen = self.root / '.atlan-analytics' / 'evals' / 'gen' / 'box-office'
 
     def tearDown(self):
         stop_pages(self.root)
@@ -79,10 +79,10 @@ class PageInALaterChat(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name).resolve()
-        self.run = self.root / '.atlan-metrics' / 'box-office'
+        self.run = self.root / '.atlan-analytics' / 'box-office'
         dump(self.run / 'context' / 'metrics.json', [{'name': 'Gross Sales'}])
         dump(self.run / 'run.json', {})
-        ev = self.root / '.atlan-evals' / 'box-office'
+        ev = self.root / '.atlan-analytics' / 'evals' / 'box-office'
         dump(ev / 'work' / 'spec.json', {'name': 'box-office', 'records': [{'id': i, 'question': 'Question %s?' % i} for i in 'ab']})
         (ev / 'eval').mkdir(parents=True)
         (ev / 'eval' / 'cases.jsonl').write_text(''.join(json.dumps({'case_id': i, 'question': 'Question %s?' % i}) + '\n'
@@ -134,7 +134,7 @@ class WelcomeBackInAnyRoute(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name).resolve()
-        self.run = self.root / '.atlan-metrics' / 'box-office'
+        self.run = self.root / '.atlan-analytics' / 'box-office'
         dump(self.run / 'context' / 'metrics.json', [{'name': 'Gross Sales', 'definition': {'output': {'unit': 'USD'}}}])
         dump(self.run / 'context' / 'queries.json', [{'name': 'sales-by-month'}])
         dump(self.run / 'run.json', {})
@@ -165,7 +165,7 @@ class AnswerCardOnTheSavedQueryRoute(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name).resolve()
-        self.run = self.root / '.atlan-metrics' / 'box-office'
+        self.run = self.root / '.atlan-analytics' / 'box-office'
         dump(self.run / 'context' / 'metrics.json', [{'name': 'Gross Sales', 'definition': {'output': {'unit': 'USD'}}}])
         dump(self.run / 'run.json', {})
 
@@ -191,16 +191,16 @@ class TestQuestionsTab(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name).resolve()
-        self.run = self.root / '.atlan-metrics' / 'box-office'
+        self.run = self.root / '.atlan-analytics' / 'box-office'
         dump(self.run / 'context' / 'metrics.json', [{'name': 'All Tickets Sold', 'source_id': 'metric:x:1'},
                                                      {'name': 'Paid Primary Tickets Sold', 'source_id': 'metric:x:2'}])
         dump(self.run / 'context' / 'queries.json', [{'name': 'gross-sales', 'display_name': 'Gross sales by month',
                                                       'source_id': 'vq:x:g'}])
         dump(self.run / 'run.json', {})
-        self.check(self.root / '.atlan-evals' / 'box-office', [('m7', 'For each event, how many tickets?', 'SELECT a', True),
+        self.check(self.root / '.atlan-analytics' / 'evals' / 'box-office', [('m7', 'For each event, how many tickets?', 'SELECT a', True),
                                                                ('m8', 'Gross sales?', 'SELECT  b', True)],
                    '2026-11-24T10:00:00+00:00', age=7200)
-        self.ev = self.root / '.atlan-evals' / 'box-office-2'
+        self.ev = self.root / '.atlan-analytics' / 'evals' / 'box-office-2'
         self.check(self.ev, [('q1', 'How many tickets did each completed show sell?', 'select a', False),
                              ('q2', 'What were gross sales?', 'SELECT b', True)], '2026-11-25T10:00:00+00:00', age=3600)
         vd = self.ev / 'hillclimb' / 'baseline'
@@ -360,10 +360,10 @@ class AccuracyCardOpensAQuestion(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         root = Path(tmp.name).resolve()
-        run = root / '.atlan-metrics' / 'box-office'
+        run = root / '.atlan-analytics' / 'box-office'
         dump(run / 'context' / 'metrics.json', [])
         dump(run / 'run.json', {})
-        ev = root / '.atlan-evals' / 'box-office'
+        ev = root / '.atlan-analytics' / 'evals' / 'box-office'
         dump(ev / 'work' / 'spec.json', {'name': 's', 'records': [{'id': 'q1', 'question': 'Gross sales?'},
                                                                    {'id': 'q2', 'question': 'Fee rate?'}]})
         ask = lambda n: check.cmd_question(argparse.Namespace(evals=str(ev), n=n))  # noqa: E731
@@ -389,7 +389,7 @@ class WarehouseRuleChange(unittest.TestCase):
         estate = Path(self.tmp.name).resolve() / 'estate'
         estate.mkdir()
         (estate / 'notes.sql').write_text('SELECT 1')
-        self.run = Project(estate / '.atlan-metrics' / 'example')
+        self.run = Project(estate / '.atlan-analytics' / 'example')
         self.run.survey(estate)
         (self.run.root / 'state.json').write_text(json.dumps({'warehouse': {'kind': 'snowflake', 'dialect': 'snowflake',
                                                                             'tool': 'sql_exec'}}))

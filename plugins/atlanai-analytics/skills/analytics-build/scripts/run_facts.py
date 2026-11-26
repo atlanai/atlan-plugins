@@ -307,10 +307,10 @@ class RunFacts:
 
     @property
     def folder(self):
-        """The working folder a chat opens in to find this run (`<folder>/.atlan-metrics/run_…`, or a dashboard project's
-        `<folder>/.atlan-analytics/<slug>`), home as ~, or None for a run kept anywhere else. A dashboard run in
-        `.atlan-analytics` read "this folder" in every message (0.9.76's live run)."""
-        if self.dir.parent.name not in ('.atlan-metrics', '.atlan-analytics'):
+        """The working folder a chat opens in to find this run (`<folder>/.atlan-analytics/<run>`, or an earlier
+        version's `<folder>/.atlan-metrics/run_…` not moved yet), home as ~, or None for a run kept anywhere else. A
+        dashboard run in `.atlan-analytics` read "this folder" in every message (0.9.76's live run)."""
+        if self.dir.parent.name not in ('.atlan-analytics', '.atlan-metrics'):
             return None
         folder = self.dir.absolute().parent.parent
         try:
@@ -617,6 +617,13 @@ class RunFacts:
         """The unit of the context's metric with this name, or None when the context has no such metric."""
         m = self._metric(name)
         return (self.unit_of(m) or None) if m else None
+
+    def adds_up(self, name):
+        """Whether the context's metric with this name is a sum or a count, so a breakdown's rows add up to it. A rate,
+        an average or a distinct count never does."""
+        d = (self._metric(name) or {}).get('definition')
+        agg = d.get('aggregation') if isinstance(d, dict) else None
+        return isinstance(agg, dict) and agg.get('type') in ('sum', 'count')
 
     def _metric(self, name):
         wanted = sentence(name or '').lower()

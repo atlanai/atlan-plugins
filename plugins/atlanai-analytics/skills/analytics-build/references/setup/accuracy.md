@@ -72,7 +72,7 @@ sources do not name it.
 - **Facts.** There is no facts file: `<agent name>`, `<firm>` and the use case come from this run's
   intent and sources, as above.
 - **Generating.** When `eval-generation` `generate` returns blocked, say its reason in one line,
-  that a set the person brings goes in `.atlan-evals/sets/`, and go to [ready](ready.md).
+  that a set the person brings goes in `.atlan-analytics/evals/sets/`, and go to [ready](ready.md).
 - **Releasing in Atlan.** This is the person's real context, read by their team. After a
   tested fix that `EVAL compare` clears, ask one native question, "Release version <N> to
   everyone?", whose text is the score move and the changed rule, before

@@ -27,7 +27,7 @@ class Drafts(unittest.TestCase):
         (folder / name).write_text(payload if isinstance(payload, str) else json.dumps(payload))
 
 
-    def wait(self, due=(), tasks=True, engine='engine', **kw):
+    def wait(self, due=(), tasks=True, engine='engine', progress=('build', 'running'), **kw):
         """One wait in a terminal that keeps a task list (or not), with the chips the run's files make due held to `due`,
         so each test sees only what it is about."""
         import io
@@ -37,7 +37,7 @@ class Drafts(unittest.TestCase):
         import drafts
         import side_view
         out = io.StringIO()
-        self.run.write(self.run.root / 'progress.json', {'stage': 'build', 'status': 'running'})
+        self.run.write(self.run.root / 'progress.json', {'stage': progress[0], 'status': progress[1]})
         self.run.write(self.run.root / 'interaction.json', {'version': 1, 'mode': 'active', 'focus': None, 'tasks': tasks})
         with mock.patch.object(side_view, 'due', return_value=list(due)), mock.patch.dict(os.environ, {'CLAUDE_CODE_ENTRYPOINT': ''}):
             drafts.wait(self.run.root, engine, interval=0.05, out=out, **{'timeout': 5, 'quiet': 0.4, 'batch_every': 0, **kw})
@@ -94,6 +94,30 @@ class Drafts(unittest.TestCase):
         self.run.write(self.engine / 'manifest.json', {'stages': stages})
         self.run.write(self.run.root / 'drafts-reported.json', {'engine': {'steps': ['m2_ingest', 'x1_ingest', 'x2_ingest', 'x3_ingest']}})
         self.assertEqual(self.wait(tasks=False)['event'], 'done')
+
+    def test_a_wait_after_the_build_ended_says_done_not_each_old_step(self):
+        # e2e box-office demo, 2026-11-25: the session advanced the whole build without a wait, then called
+        # `drafts --wait` once it had finished and got `step` three times (x1, x2, x3 ingests, one per call), each
+        # answered by "Nothing new to show yet: carry on." from `visual next`, before ever hearing the build was done.
+        stages = [{'stage': s, 'verdict': 'ok'} for s in (
+            'm2_emit', 'x1_emit', 'x1_ingest', 'x2_emit', 'x2_ingest', 'x3_emit', 'x3_ingest', 'x4_emit', 'x4_ingest',
+            'm2_ingest', 'm1_merge', 'x3_refresh', 'd4b_refresh', 'x4_refresh')]
+        self.run.write(self.engine / 'manifest.json', {'stages': stages})
+        self.assertEqual(self.wait(tasks=False)['event'], 'done')
+        self.assertEqual(self.wait(tasks=False)['event'], 'done', 'it stays done; no old step end comes back after it')
+
+    def test_a_wait_after_the_close_out_does_not_ask_for_it_again(self):
+        # The same box-office run had exported, checked and saved the build and taken a question before its first wait:
+        # `done` would have sent it back to the structural check and the build card.
+        stages = [{'stage': s, 'verdict': 'ok'} for s in (
+            'm2_emit', 'x1_emit', 'x1_ingest', 'x2_emit', 'x2_ingest', 'x3_emit', 'x3_ingest', 'x4_emit', 'x4_ingest',
+            'm2_ingest', 'm1_merge', 'x3_refresh', 'd4b_refresh', 'x4_refresh')]
+        self.run.write(self.engine / 'manifest.json', {'stages': stages})
+        self.assertEqual(self.wait(tasks=False, progress=('check', 'running'))['event'], 'done',
+                         'a check still running is not a close-out')
+        said = self.wait(tasks=False, progress=('preview', 'complete'))
+        self.assertEqual(said['event'], 'closed')
+        self.assertIn('do not wait again', said['next'])
 
     def test_a_second_build_in_the_same_run_reports_its_own_steps(self):
         # Walk 3: the past queries' build never woke the session at its merge, already reported for the first build.

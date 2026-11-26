@@ -20,6 +20,7 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "analytics-build" / "scripts"))
 from project import Project, ProjectError, query_value  # noqa: E402
 from context_state import digest, ordinary  # noqa: E402
+import layout  # noqa: E402
 
 
 def _select(run, name):
@@ -175,7 +176,7 @@ def _version_file(run, kind, name, version):
     return ordinary(run.root.parent / folder / run.root.name / f'{slug}-v{version}.json')
 
 def _keep(path, value):
-    # Beside the run under .atlan-metrics/, outside the run's guarded store on purpose.
+    # Beside the run under .atlan-analytics/, outside the run's guarded store on purpose.
     path = ordinary(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, indent=1))
@@ -300,7 +301,7 @@ def main(argv=None) -> int:
     p.add_argument("request")
     a = p.parse_args(argv)
     try:
-        run = Project(a.run_dir)
+        run = Project(layout.follow(a.run_dir))
         print(json.dumps(edit_metric(run, json.loads(pathlib.Path(a.request).read_text()))))
         return 0
     except (ProjectError, ValueError, OSError) as exc:

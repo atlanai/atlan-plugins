@@ -78,7 +78,7 @@ trusted results come from the warehouse, and no model copies a value:
   agent with fixed instructions that reads only the question and the two results, never the
   answering agent's conversation. An answer with no result fails without a judge. The summary
   says how many answers the judge decided.
-- A transcript that opens anything under `.atlan-evals/` or names an eval artifact is marked
+- A transcript that opens anything under `.atlan-analytics/evals/` or names an eval artifact is marked
   contaminated and fails.
 
 ## Run it
@@ -350,7 +350,7 @@ and stop. On each answer:
 | `past_queries` | Let me read your past queries | When they could not be read (`gaps.history_unreadable`), give the person the ask from its description to send their admin, then close. You never change a permission. When they say it is granted, or when the queries were readable but not used, build again with past queries (`analytics-build`) and check again. |
 | `other_pages`, `another_dashboard`, `a_dashboard` | Add the other pages, Add another dashboard, Add a dashboard | Build again from it with `analytics-build`, then check again on the same questions. |
 | `tables` | Name the tables your team uses | Ask which tables in plain chat, build again with them, then check again. |
-| `own_questions` | Add questions of your own | Ask in plain chat for each question and the SQL that gives its known answer (theirs, or a past query or tile they name). Write them as a set in `.atlan-evals/sets/` and test it as a set the person brought. |
+| `own_questions` | Add questions of your own | Ask in plain chat for each question and the SQL that gives its known answer (theirs, or a past query or tile they name). Write them as a set in `.atlan-analytics/evals/sets/` and test it as a set the person brought. |
 | `save` | Save this score to Atlan Trident | [Save the check](#save-to-atlan-trident), then close. Offered only with 5 questions or more. |
 | `done` | I'm done | Close. |
 

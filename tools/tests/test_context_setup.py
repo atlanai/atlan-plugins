@@ -281,7 +281,7 @@ class GenericSetup(unittest.TestCase):
 
     def test_run_location_prefers_explicit_and_does_not_probe_home(self):
         self.assertEqual(resolve_run(self.estate, self.run.root), self.run.root)
-        self.assertEqual(resolve_run(self.estate).parent, self.estate / '.atlan-metrics')
+        self.assertEqual(resolve_run(self.estate).parent, self.estate / '.atlan-analytics')
         self.assertEqual(resolve_run(self.estate, cache=self.root / 'permitted').parent, self.root / 'permitted')
         self.assertFalse((self.root / 'permitted').exists())
         self.assertEqual(resolve_run(self.estate, home_permitted=True).parent, Path.home() / '.atlan/analytics/runs')

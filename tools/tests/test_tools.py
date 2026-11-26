@@ -1410,3 +1410,26 @@ class EvalCasesTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DirectoryLimitsTest(unittest.TestCase):
+    """The plugin directory's file limits, checked before a submission meets them."""
+
+    def test_a_big_or_binary_file_and_too_many_files_are_named(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "big.csv").write_bytes(b"a,b\n" * (lint.DIRECTORY_MAX_BYTES // 4 + 1))
+            (root / "model.pbit").write_bytes(b"PK\x03\x04\x00\x00")
+            (root / "logo.png").write_bytes(b"\x89PNG\x00" * 70000)  # an image may be big and binary
+            (root / "ok.md").write_text("fine\n")
+            errors = lint.lint_directory_limits(root, sorted(root.iterdir()))
+            self.assertEqual(len(errors), 2, errors)
+            self.assertIn("big.csv", errors[0])
+            self.assertIn("model.pbit", errors[1])
+            many = [root / "ok.md"] * (lint.DIRECTORY_MAX_FILES + 1)
+            self.assertIn("513 files", lint.lint_directory_limits(root, many)[-1])
+
+    def test_every_plugin_in_this_repository_is_inside_the_limits(self) -> None:
+        for root in lint.plugin_roots():
+            with self.subTest(plugin=root.name):
+                self.assertEqual(lint.lint_directory_limits(root), [])

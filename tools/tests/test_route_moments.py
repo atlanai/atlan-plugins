@@ -326,7 +326,7 @@ class SavedQueryRoutes(unittest.TestCase):
 
     def test_an_older_set_shows_after_another_set_and_only_once(self):
         from test_eval_scope import check
-        sets = self.estate / '.atlan-evals' / 'sets'
+        sets = self.estate / '.atlan-analytics' / 'evals' / 'sets'
         for name in ('first', 'older'):
             file = sets / (name + '.jsonl')
             write(file, {'id': 'total', 'question': 'What did the work cost?', 'sql': self.query['definition']['sql']})

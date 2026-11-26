@@ -30,10 +30,10 @@ class TestQuestions(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name).resolve()
-        self.run = self.root / '.atlan-metrics' / 'box-office'
+        self.run = self.root / '.atlan-analytics' / 'box-office'
         dump(self.run / 'context' / 'metrics.json', [{'name': 'Gross Sales'}])
         dump(self.run / 'run.json', {})
-        self.ev = self.root / '.atlan-evals' / 'box-office'
+        self.ev = self.root / '.atlan-analytics' / 'evals' / 'box-office'
         ids = ('a', 'b', 'c')
         dump(self.ev / 'work' / 'spec.json', {'name': 'box-office', 'records': [{'id': i, 'question': 'Question %s?' % i} for i in ids]})
         (self.ev / 'eval').mkdir(parents=True)
@@ -109,17 +109,17 @@ class TestQuestions(unittest.TestCase):
 
     def test_a_run_reads_its_newest_check_and_never_another_runs(self):
         self.assertEqual(eval_runs.check_folder(self.run), self.ev)
-        newer = self.root / '.atlan-evals' / 'box-office-2'
+        newer = self.root / '.atlan-analytics' / 'evals' / 'box-office-2'
         dump(newer / 'work' / 'spec.json', {'name': 'box-office', 'records': []})
         os.utime(self.ev / 'work' / 'spec.json', (1, 1))
         # Another run's check whose name starts the same way.
-        dump(self.root / '.atlan-evals' / 'box-office-pulse' / 'work' / 'spec.json', {'name': 'x', 'records': []})
+        dump(self.root / '.atlan-analytics' / 'evals' / 'box-office-pulse' / 'work' / 'spec.json', {'name': 'x', 'records': []})
         self.assertEqual(eval_runs.check_folder(self.run), newer)
         self.assertEqual(eval_runs.run_of(newer), self.run)
-        other = self.root / '.atlan-metrics' / 'box-office-pulse'
+        other = self.root / '.atlan-analytics' / 'box-office-pulse'
         dump(other / 'context' / 'metrics.json', [])
-        self.assertEqual(eval_runs.check_folder(other), self.root / '.atlan-evals' / 'box-office-pulse')
-        self.assertIsNone(eval_runs.check_folder(self.root / '.atlan-metrics' / 'never-checked'))
+        self.assertEqual(eval_runs.check_folder(other), self.root / '.atlan-analytics' / 'evals' / 'box-office-pulse')
+        self.assertIsNone(eval_runs.check_folder(self.root / '.atlan-analytics' / 'never-checked'))
 
     def test_a_question_set_still_being_loaded_is_not_shown(self):
         (self.ev / 'work' / 'spec.json').unlink()
@@ -158,7 +158,7 @@ class TestQuestions(unittest.TestCase):
 
     def test_a_set_written_earlier_is_offered_as_written_not_as_the_persons_own(self):
         # Dry run B, 2026-11-25: a set written the day before was offered as "Your own questions".
-        sets = self.root / '.atlan-evals' / 'sets'
+        sets = self.root / '.atlan-analytics' / 'evals' / 'sets'
         sets.mkdir(parents=True, exist_ok=True)
         row = {'question': 'Question?', 'sql': 'SELECT 1'}
         (sets / 'written.jsonl').write_text(json.dumps({**row, 'id': 'w', 'generated': True}) + '\n')
@@ -172,7 +172,7 @@ class TestQuestions(unittest.TestCase):
     def test_questions_written_show_their_chip_once_whoever_shows_it_first(self):
         import shutil
         shutil.rmtree(self.ev)  # written by eval-generation, not loaded by any check yet
-        gen = self.root / '.atlan-evals' / 'gen' / self.run.name
+        gen = self.root / '.atlan-analytics' / 'evals' / 'gen' / self.run.name
         dump(gen / 'work' / 'spec.json', {'name': 'x', 'records': [{'id': 'a', 'question': 'Question a?'}]})
         self.assertIn('test question written', visuals.render('questions', visuals.build_spec('questions', self.run, []), False))
         first = check.show_questions(self.run)
@@ -213,7 +213,7 @@ class OnThePage(unittest.TestCase):
 
     def test_the_page_lists_the_questions_and_follows_each_answer_as_it_lands(self):
         self.assertNotIn('tests', side_page.snapshot(self.run))
-        ev = self.root / '.atlan-evals' / self.run.name  # a run outside .atlan-metrics keeps its checks beside it
+        ev = self.root / '.atlan-analytics' / 'evals' / self.run.name  # a run outside .atlan-analytics keeps its checks beside it
         dump(ev / 'work' / 'spec.json', {'name': 'jobs', 'records': [{'id': 'q1', 'question': 'How many jobs?'}]})
         dump(ev / 'eval' / 'gold' / 'q1.json', {'columns': ['n'], 'rows': [[12]]})
         tests = side_page.snapshot(self.run)['tests']
@@ -226,21 +226,21 @@ class OnThePage(unittest.TestCase):
 
     def test_questions_written_but_not_yet_tested_are_on_the_page(self):
         # A session that only writes test questions: the set exists before any check loads it.
-        gen = self.root / '.atlan-evals' / 'gen' / self.run.name
+        gen = self.root / '.atlan-analytics' / 'evals' / 'gen' / self.run.name
         dump(gen / 'work' / 'spec.json', {'name': 'jobs', 'records': [{'id': 'g1', 'question': 'How many jobs ran?'}]})
         dump(gen / 'work' / 'selection.json', [{'id': 'g1', 'metric': 'Jobs', 'from': 'dashboard tile'}])
         tests = side_page.snapshot(self.run)['tests']
         self.assertEqual(tests['state'], 'ready')
         self.assertEqual([(r['n'], r['question'], r['metric'], r['known']) for r in tests['rows']], [(1, 'How many jobs ran?', 'Jobs', '')])
         # Once a check loads them, the check's own folder is what the page reads.
-        ev = self.root / '.atlan-evals' / self.run.name
+        ev = self.root / '.atlan-analytics' / 'evals' / self.run.name
         dump(ev / 'work' / 'spec.json', {'name': 'jobs', 'records': [{'id': 'q1', 'question': 'How many jobs?'}]})
         dump(ev / 'eval' / 'gold' / 'q1.json', {'columns': ['n'], 'rows': [[12]]})
         self.assertEqual(side_page.snapshot(self.run)['tests']['rows'][0]['known'], '12')
 
     def test_the_page_names_the_other_builds_in_this_folder_and_a_dashboard_built(self):
         self.assertNotIn('others', side_page.snapshot(self.run))
-        other = self.root / '.atlan-metrics' / 'fee-ledger'
+        other = self.root / '.atlan-analytics' / 'fee-ledger'
         dump(other / 'context' / 'metrics.json', [{'name': 'Fee Take Rate'}, {'name': 'Net Fee Revenue'}])
         dump(other / 'context' / 'queries.json', [{'name': 'fees-by-month'}])
         dump(other / 'interaction.json', {'intent': {'purpose': 'Fee ledger: what each fee brings in'}})

@@ -1,0 +1,249 @@
+{
+  "name": "Hard Hat Area",
+  "compatibilityLevel": 1550,
+  "model": {
+    "culture": "en-GB",
+    "defaultPowerBIDataSourceVersion": "powerBI_V3",
+    "tables": [
+      {
+        "name": "JOB_LEDGER",
+        "columns": [
+          {
+            "name": "project_id",
+            "dataType": "string",
+            "sourceColumn": "project_id"
+          },
+          {
+            "name": "project_name",
+            "dataType": "string",
+            "sourceColumn": "project_name"
+          },
+          {
+            "name": "entry_type",
+            "dataType": "string",
+            "sourceColumn": "entry_type"
+          },
+          {
+            "name": "amount_gbp",
+            "dataType": "decimal",
+            "sourceColumn": "amount_gbp"
+          }
+        ],
+        "measures": [
+          {
+            "name": "Gross Margin",
+            "expression": "SUM(JOB_LEDGER[amount_gbp])",
+            "formatString": "\u00a3#,##0",
+            "description": "Contract value less labour (rework included) and delivered materials, cancelled jobs excluded."
+          }
+        ],
+        "partitions": [
+          {
+            "name": "JOB_LEDGER",
+            "mode": "import",
+            "source": {
+              "type": "m",
+              "expression": [
+                "let",
+                "    Source = Value.NativeQuery(Odbc.DataSource(\"driver={SQLite3 ODBC Driver};database=site.sqlite\"), \"SELECT p.project_id, p.project_name, 'contract' AS entry_type, p.contract_value_gbp AS amount_gbp FROM site.projects p WHERE p.status <> 'cancelled' UNION ALL SELECT p.project_id, p.project_name, 'labour', -SUM(w.hours * c.hourly_rate_gbp) FROM site.work_logs w JOIN site.crew c ON c.crew_id = w.crew_id JOIN site.projects p ON p.project_id = w.project_id WHERE p.status <> 'cancelled' GROUP BY p.project_id, p.project_name UNION ALL SELECT p.project_id, p.project_name, 'materials', -SUM(o.quantity * o.unit_cost_gbp) FROM site.material_orders o JOIN site.projects p ON p.project_id = o.project_id WHERE o.order_status = 'delivered' AND p.status <> 'cancelled' GROUP BY p.project_id, p.project_name\")",
+                "in",
+                "    Source"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "WORK_COST",
+        "columns": [
+          {
+            "name": "log_id",
+            "dataType": "string",
+            "sourceColumn": "log_id"
+          },
+          {
+            "name": "project_id",
+            "dataType": "string",
+            "sourceColumn": "project_id"
+          },
+          {
+            "name": "work_date",
+            "dataType": "dateTime",
+            "sourceColumn": "work_date"
+          },
+          {
+            "name": "task_type",
+            "dataType": "string",
+            "sourceColumn": "task_type"
+          },
+          {
+            "name": "crew_name",
+            "dataType": "string",
+            "sourceColumn": "crew_name"
+          },
+          {
+            "name": "crew_type",
+            "dataType": "string",
+            "sourceColumn": "crew_type"
+          },
+          {
+            "name": "hours",
+            "dataType": "decimal",
+            "sourceColumn": "hours"
+          },
+          {
+            "name": "cost_gbp",
+            "dataType": "decimal",
+            "sourceColumn": "cost_gbp"
+          }
+        ],
+        "measures": [
+          {
+            "name": "Rework Cost",
+            "expression": "CALCULATE(SUM(WORK_COST[cost_gbp]), WORK_COST[task_type] = \"rework\")",
+            "formatString": "\u00a3#,##0",
+            "description": "Labour spent putting things right after a snag, at each crew member's or machine's hourly rate. Never billed."
+          }
+        ],
+        "partitions": [
+          {
+            "name": "WORK_COST",
+            "mode": "import",
+            "source": {
+              "type": "m",
+              "expression": [
+                "let",
+                "    Source = Value.NativeQuery(Odbc.DataSource(\"driver={SQLite3 ODBC Driver};database=site.sqlite\"), \"SELECT w.log_id, w.project_id, w.work_date, w.task_type, c.crew_name, c.crew_type, w.hours,        w.hours * c.hourly_rate_gbp AS cost_gbp FROM site.work_logs w JOIN site.crew c ON c.crew_id = w.crew_id\")",
+                "in",
+                "    Source"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "DELIVERED_MATERIALS",
+        "columns": [
+          {
+            "name": "order_id",
+            "dataType": "string",
+            "sourceColumn": "order_id"
+          },
+          {
+            "name": "project_id",
+            "dataType": "string",
+            "sourceColumn": "project_id"
+          },
+          {
+            "name": "material",
+            "dataType": "string",
+            "sourceColumn": "material"
+          },
+          {
+            "name": "supplier",
+            "dataType": "string",
+            "sourceColumn": "supplier"
+          },
+          {
+            "name": "order_date",
+            "dataType": "dateTime",
+            "sourceColumn": "order_date"
+          },
+          {
+            "name": "delivered_value_gbp",
+            "dataType": "decimal",
+            "sourceColumn": "delivered_value_gbp"
+          },
+          {
+            "name": "wasted_value_gbp",
+            "dataType": "decimal",
+            "sourceColumn": "wasted_value_gbp"
+          }
+        ],
+        "measures": [
+          {
+            "name": "Material Waste",
+            "expression": "SUM(DELIVERED_MATERIALS[wasted_value_gbp])",
+            "formatString": "\u00a3#,##0",
+            "description": "Value of delivered material that ended up in a skip. Cancelled orders were never delivered, so never wasted."
+          }
+        ],
+        "partitions": [
+          {
+            "name": "DELIVERED_MATERIALS",
+            "mode": "import",
+            "source": {
+              "type": "m",
+              "expression": [
+                "let",
+                "    Source = Value.NativeQuery(Odbc.DataSource(\"driver={SQLite3 ODBC Driver};database=site.sqlite\"), \"SELECT o.order_id, o.project_id, o.material, o.supplier, o.order_date,        o.quantity * o.unit_cost_gbp AS delivered_value_gbp, o.wasted_quantity * o.unit_cost_gbp AS wasted_value_gbp FROM site.material_orders o WHERE o.order_status = 'delivered'\")",
+                "in",
+                "    Source"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "JOBS",
+        "columns": [
+          {
+            "name": "project_id",
+            "dataType": "string",
+            "sourceColumn": "project_id"
+          },
+          {
+            "name": "project_name",
+            "dataType": "string",
+            "sourceColumn": "project_name"
+          },
+          {
+            "name": "project_type",
+            "dataType": "string",
+            "sourceColumn": "project_type"
+          },
+          {
+            "name": "actual_end_date",
+            "dataType": "dateTime",
+            "sourceColumn": "actual_end_date"
+          },
+          {
+            "name": "delivery",
+            "dataType": "string",
+            "sourceColumn": "delivery"
+          }
+        ],
+        "measures": [
+          {
+            "name": "Late Jobs",
+            "expression": "CALCULATE(COUNTROWS(JOBS), JOBS[delivery] = \"late\")",
+            "formatString": "0",
+            "description": "Completed jobs handed over more than 7 days after their planned end date. Fixit's contracts give the client a week's grace before the late-completion discount applies, so a job handed over within that week counts as on time. Jobs still open are not late yet."
+          }
+        ],
+        "partitions": [
+          {
+            "name": "JOBS",
+            "mode": "import",
+            "source": {
+              "type": "m",
+              "expression": [
+                "let",
+                "    Source = Value.NativeQuery(Odbc.DataSource(\"driver={SQLite3 ODBC Driver};database=site.sqlite\"), \"SELECT p.project_id, p.project_name, p.project_type, p.actual_end_date,        CASE WHEN CAST(julianday(p.actual_end_date) - julianday(p.planned_end_date) AS INTEGER) > 7 THEN 'late' ELSE 'on_time' END AS delivery FROM site.projects p WHERE p.status = 'complete'\")",
+                "in",
+                "    Source"
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "relationships": [],
+    "annotations": [
+      {
+        "name": "Source",
+        "value": "The builder's yard practice estate"
+      }
+    ]
+  }
+}

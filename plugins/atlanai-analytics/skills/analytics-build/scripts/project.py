@@ -27,6 +27,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent / 'dashboard_runtime'))
 from context_state import ContextState, resolve_run
+import layout
 import retrieval
 import page_scope
 import metric_preview
@@ -935,14 +936,14 @@ def _visual_input(kind, run):
     return given, from_rows
 
 
-def _answer_card(run, given, result):
+def _answer_card(run, given, result, sql=None):
     """The answer card, with the query that answers the person: built from the question and metrics the session names
     and the rows the query returned. A query run without `answer` (an accuracy check's helper) carries nothing."""
     import side_view
     import visuals
     from run_facts import RunFacts
     try:
-        data = visuals.answer_from(given, result, RunFacts(run))
+        data = visuals.answer_from(given, result, RunFacts(run), sql)
     except Exception:  # noqa: BLE001 - the card never fails the query that answered
         return {}
     return side_view.handed(side_view.show_card(run, 'answer', data)) if data else {}
@@ -952,7 +953,7 @@ def _with_answer_card(run, request, result):
     """A query's result with its answer card ahead of it, when the request names the question and rows came back. A plan
     for the warehouse has no rows yet: its card comes with `visual answer` once they have run."""
     if isinstance(request.get('answer'), dict) and isinstance(result, dict) and isinstance(result.get('rows'), list):
-        return {**_answer_card(run, request['answer'], result), **result}
+        return {**_answer_card(run, request['answer'], result, request.get('sql')), **result}
     return result
 
 
@@ -1121,6 +1122,8 @@ def main():
                  'reviewed-values'):
         sub.add_parser(name).add_argument('request', type=Path)
     args = p.parse_args()
+    if args.run_dir:  # a run an earlier version kept elsewhere, where it is now
+        args.run_dir = str(layout.follow(args.run_dir))
     if args.command == 'visual':
         for kind in args.also:
             if kind not in visuals.KINDS:

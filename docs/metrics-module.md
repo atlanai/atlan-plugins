@@ -19,11 +19,14 @@ plugins/atlanai-analytics/skills/metrics-generation/
         pyproject.toml
         src/metrics_agent/
         packages/
-        examples/plugs/
-        skills/
-        tests/
-        docs/
+        examples/plugs/postgres-direct/
+        docs/guides/                the guides the skills and gates read at runtime
 ```
+
+The engine's contributor docs (design, getting started, versioning, CONTRIBUTING) and the
+example plugs no feature installs live in [`docs/metrics-engine/`](metrics-engine/README.md),
+outside the plugin folder: the repository keeps them, and the plugin does not ship them. The
+Claude plugin directory holds a plugin of more than 512 files for review (`make check` checks it).
 
 ## Ownership and extension
 

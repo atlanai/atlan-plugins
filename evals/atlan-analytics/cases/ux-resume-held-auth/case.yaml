@@ -3,7 +3,7 @@ name: ux-resume-held-auth
 tags: [analytics, setup, ux, auth, resume, no-registry]
 execution:
   prompt: |
-    Use Atlan Analytics to resume /workspace/.atlan-metrics/shipping-run from this supplied
+    Use Atlan Analytics to resume /workspace/.atlan-analytics/shipping-run from this supplied
     checkpoint. Do not run tools beyond reading the plugin instructions in this test. Inspect
     and scope are complete. The engine has one provisional Shipped units candidate: units
     on shipped orders, SUM(s.units), status = 'shipped', evidence from the shipments model.
@@ -26,7 +26,7 @@ graders:
     type: llm
     focus: last_message
     criteria: |
-      Saved run /workspace/.atlan-metrics/shipping-run has completed inspect and scope.
+      Saved run /workspace/.atlan-analytics/shipping-run has completed inspect and scope.
       Provisional Shipped units is units on shipped orders, SUM(s.units), mandatory filter
       status = 'shipped', from the shipments model. Its SQL has not executed. A second
       candidate, Return rate, is held because a required filter is missing. Both are local,

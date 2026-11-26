@@ -8,7 +8,7 @@ Reuse the supplied source and the selected run. Without a run, use the helper's 
 command with `--workspace "<working-directory>"`. An explicit `--run-dir` wins. A configured,
 permitted cache can be supplied as `--permitted-cache`. Only when the host already permits it,
 `--home-permitted` selects `~/.atlan/analytics/runs/<opaque-id>/`. Otherwise the default is a
-private `.atlan-metrics/<opaque-id>/` in the current workspace. The resolver creates nothing.
+private `.atlan-analytics/<opaque-id>/` in the current workspace. The resolver creates nothing.
 Preserve existing run locations; do not change host permissions or read credential config.
 
 - **Repository link:** reuse a matching local checkout, or clone the exact requested repo into

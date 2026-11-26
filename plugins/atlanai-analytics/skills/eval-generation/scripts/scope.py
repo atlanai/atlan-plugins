@@ -12,7 +12,7 @@ input, picks the set (the focus metric first, then breadth) and writes it. Stand
     python3 scope.py emit --gen <gen-dir> --name <set name>
     python3 scope.py ready --set <set.jsonl>
 
-`emit` writes <project>/.atlan-evals/sets/<name>.jsonl, one question per line: {"id", "question",
+`emit` writes <project>/.atlan-analytics/evals/sets/<name>.jsonl, one question per line: {"id", "question",
 "sql", "tests", "from", "generated"}, the same shape as a set a person brings, so whatever runs a set runs
 this one. Every command prints one JSON object. Exit 2 means something the person must supply.
 """
@@ -31,6 +31,7 @@ import python_version  # noqa: E402
 python_version.require()
 
 from eval_runs import Blocked, built_runs, engine_dir, execution, find_run, question_counts, set_key, use_case  # noqa: E402
+import layout  # noqa: E402
 
 # Words that say nothing about which metric a use case needs.
 _STOP = {"a", "an", "and", "the", "of", "to", "in", "on", "for", "by", "or", "is", "it", "its", "with",
@@ -49,7 +50,7 @@ def dump(path: pathlib.Path, obj) -> None:
 
 def gen_dir(project: pathlib.Path, run: pathlib.Path) -> pathlib.Path:
     """Where a set is drafted, outside the run: answering agents read the run."""
-    return project / ".atlan-evals" / "gen" / run.name
+    return layout.evals(project) / "gen" / run.name
 
 
 def cmd_inputs(a) -> dict:
@@ -69,7 +70,7 @@ def cmd_inputs(a) -> dict:
         raise Blocked("Your agent has no metrics or saved queries yet. Once I build them, I can write questions to test it.")
     if not (cards or {}).get("metrics"):
         raise Blocked("I can't tie questions to your agent's metrics here. Bring your own questions instead: one "
-                      "question and its SQL per line, in .atlan-evals/sets/.")
+                      "question and its SQL per line, in .atlan-analytics/evals/sets/.")
     if ev.exists():
         shutil.rmtree(ev)
     refs_by_vq = cards.get("metric_refs_by_vq") or {}
@@ -276,8 +277,8 @@ def _questions_chip(gen: pathlib.Path, run) -> dict:
     """Written questions are an output: their chip comes with the result, drawn whole and marked shown, and the side
     page lists them. Chips a guide only asked for went undrawn in the dry run (2026-11-25)."""
     import side_view
-    if not run:  # Drafts made before inputs recorded the selected run.
-        matches = [r for r in built_runs(gen.parents[2]) if r.name == gen.name]
+    if not run:  # Drafts made before inputs recorded the selected run, in <project>/.atlan-analytics/evals/gen.
+        matches = [r for r in built_runs(gen.parents[3]) if r.name == gen.name]
         run = matches[0] if len(matches) == 1 else None
     return side_view.handed(side_view.show_card(run, 'questions', questions_dir=gen)) if run else {}
 
@@ -302,7 +303,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     s = p.add_subparsers(dest="cmd", required=True)
     c = s.add_parser("inputs", help="eval-builder input and scope.json from the analytics run")
-    c.add_argument("--project", required=True, help="the folder holding .atlan-metrics/")
+    c.add_argument("--project", required=True, help="the folder holding .atlan-analytics/")
     c.add_argument("--run", help="the run folder to use, when the project holds several")
     c.add_argument("--use-case", help="which agent, answering what, when the run recorded none")
     c.set_defaults(func=cmd_inputs)
@@ -312,7 +313,7 @@ def main(argv=None) -> int:
     c.add_argument("--spare", type=int, default=4, help="extra questions drafted in case a draft drops some")
     c.add_argument("--focus-count", type=int, default=2)
     c.set_defaults(func=cmd_pick)
-    c = s.add_parser("emit", help="write the drafted set to .atlan-evals/sets/<name>.jsonl")
+    c = s.add_parser("emit", help="write the drafted set to .atlan-analytics/evals/sets/<name>.jsonl")
     c.add_argument("--gen", required=True)
     c.add_argument("--name", required=True)
     c.set_defaults(func=cmd_emit)
