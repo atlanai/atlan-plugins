@@ -21,7 +21,10 @@ FOUR INPUT SHAPES, ONE READER. All carry the same YAML definition:
     `measures`), as it is kept in a repository.
   * **ddl**: `CREATE VIEW ... WITH METRICS LANGUAGE YAML AS $$ ... $$`.
 
-The shape is detected from the content and never guessed.
+The shape is detected from the content and never guessed. A file is UTF-8 text of at most
+1 MiB. A folder is read as every file in it that is a metric view with a measure (`models`):
+any other file there is left out, never an error of the run, and a hidden folder or a symbolic
+link is not read at all.
 
 **ONE SOURCE, NAMED `source`.** The view's source table is the role `source`, as the view
 itself calls it. Each join is a role under its own name; a nested join is named by its path
@@ -29,11 +32,22 @@ itself calls it. Each join is a role under its own name; a nested join is named 
 relationship on every key column pair it names; a one-to-many join is carried as one and never
 walked, so a measure that needs it is refused by name.
 
+**A NAME IS A NAME, OR IT IS NOT READ.** A table is `catalog.schema.table`, each part a plain
+identifier, in backticks or not. A `using` column and a key column are one plain identifier.
+Nothing else is taken as a name, because a name is written into SQL as it stands: a query, a
+name with anything after it, or a name that needs its quoting refuses the view (its source)
+or the join (its source, its `using`). The definition cannot tell a table from another metric
+view, so a source that is a metric view is read as a table; the run's live check is what
+finds that out.
+
 **EVERY COLUMN REFERENCE IS QUALIFIED HERE.** A metric view writes a source column bare
 (`SUM(o_totalprice)`); a statement with joins cannot. Each expression is parsed in the
 Databricks dialect and every column is bound to its role, so `lib/declared` places it like any
-other SQL measure. A bare name that an EARLIER field defines is that field; any other bare name
-is a column of the source.
+other SQL measure. In a field or a measure, a bare name that an EARLIER field defines is that
+field; any other bare name is a column of the source. In the view's filter a bare name is
+always a column of the source, never a field. Both are what Databricks does, observed on a
+workspace on 2026-11-26: with a field `status` defined as `LOWER(status)`, the filter
+`status = 'f'` compared the column and a measure's `status = 'f'` compared the field.
 
 **`MEASURE(x)` IS REPLACED HERE, AND A MEASURE IS NOT A NAME.** A metric view names another
 measure only as `MEASURE(x)`; a bare `x` is always a column or a field. So this reader puts
@@ -43,14 +57,23 @@ which it would otherwise (`revenue: SUM(revenue)` is a common spelling).
 
 **THE VIEW'S FILTER IS PART OF EVERY MEASURE.** A top-level `filter` applies to every query of
 the view. The declaration has no field for a model-wide predicate, so it is written into each
-measure: every aggregate gains `FILTER (WHERE <filter>)`. The number is the view's. A measure
-whose aggregates cannot all be seen (an unknown function) is not read, and a note says so.
+measure: every aggregate gains `FILTER (WHERE <filter>)`, after `WITHIN GROUP (...)` where
+there is one. The number is the view's. A measure the filter cannot be shown to reach is not
+read, and a note says so: one that calls an unknown function, or reads a column outside every
+aggregate this reader recognises (`ANY(flag)`). A filter that cannot be read leaves no measure
+read. A field that redefines a column the filter reads cannot share the model with that
+column, so it is not listed as a dimension, and a measure that reads it carries its expression.
 
 **WHAT IS NOT READ, EACH SAID BY NAME** in `_reader_notes`, never dropped silently: a window
 measure and every measure built on one (its frame is applied when the view is queried), an
-expression that names a `parameters` entry, a wildcard field, a column that needs quoting, a
-join whose source is a query, and a join condition that is not equalities between the two
-tables. A view whose own source is a query or another metric view is refused whole.
+expression that names a `parameters` entry or holds a parameter marker (`:name`, `?`), a
+wildcard field, a column that needs quoting, an expression that is not one expression or that
+holds a query or a lambda, a string literal with a quote or a backslash in it (`lib/declared`
+reads a literal to the next quote), an ordered aggregate the SQL writer would change
+(`PERCENTILE_CONT ... WITHIN GROUP`, `ARRAY_AGG(x ORDER BY y)`), a field or measure longer
+than 20,000 characters once what it reads is written out, a join whose source is not a table
+name, and a join condition that is not equalities between the two tables. A view whose own
+source is not a table name is refused whole.
 
 A metric view declares no key. The extended shape carries its source table's; otherwise the
 grain is the card author's to state.
@@ -65,6 +88,7 @@ Deterministic: the same file always yields the same facts, in the file's own ord
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import re
 from typing import Any
@@ -72,6 +96,7 @@ from typing import Any
 import sqlglot
 import yaml
 from sqlglot import exp
+from sqlglot.tokens import TokenType
 
 from metrics_agent import sockets as S
 from metrics_agent.lib import declared as _declared
@@ -82,11 +107,27 @@ DIALECT = "databricks"
 SUFFIXES = (".json", ".yaml", ".yml", ".sql")
 SOURCE_ROLE = "source"
 VERSIONS = ("0.1", "1.1")
+MAX_BYTES = 1 << 20          # one definition file: 1 MiB, far above any real view's
+MAX_EXPANDED = 20_000        # characters of one field or measure, written out in full
+FILTER = "the view's filter"
 
 _PLAIN = re.compile(r"[A-Za-z_][A-Za-z0-9_$]*")
-_DDL = re.compile(r"(?is)\bCREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+(?:IF\s+NOT\s+EXISTS\s+)?"
-                  r"(?P<name>[`\w.$-]+).*?\bWITH\s+METRICS\b.*?\$\$(?P<yaml>.*)\$\$")
-_QUERY = re.compile(r"(?is)^\s*\(?\s*(SELECT|WITH)\b")
+# One part of a name as it may be written: plain, or a plain name inside backticks.
+_NAME = r"(?:[A-Za-z_][A-Za-z0-9_$]*|`[A-Za-z_][A-Za-z0-9_$]*`)"
+_COLUMN = re.compile(_NAME)
+_TABLE = re.compile(rf"{_NAME}(?:\.{_NAME}){{0,2}}")
+# A DDL file is read in one pass, never searched: what may come before the statement, the
+# statement's head (matched where the text starts), and the first `WITH METRICS` after it.
+_LEAD = re.compile(r"(?s)\s*(?:--[^\n]*|/\*.*?\*/)?")
+_DDL_HEAD = re.compile(r"(?i)CREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+(?:IF\s+NOT\s+EXISTS\s+)?"
+                       r"(?P<name>(?:`[^`\n]+`|[\w$-]+)(?:\.(?:`[^`\n]+`|[\w$-]+))*)")
+_WITH_METRICS = re.compile(r"(?i)\bWITH\s+METRICS\b")
+_STRINGS = frozenset({TokenType.STRING, TokenType.RAW_STRING, TokenType.NATIONAL_STRING,
+                      TokenType.BYTE_STRING, TokenType.HEX_STRING, TokenType.BIT_STRING,
+                      TokenType.UNICODE_STRING, TokenType.HEREDOC_STRING})
+# What one field, measure or filter may be: a value, not a statement and not `x AS y`.
+_VALUE = (exp.Condition, exp.Filter, exp.WithinGroup, exp.IgnoreNulls, exp.RespectNulls,
+          exp.Interval, exp.Star)
 _CARD = {"many_to_one": "M:1", "one_to_many": "1:M"}
 # A workspace's host, as the connector's own sign-in accepts it: no scheme, path or credentials.
 _HOST = re.compile(r"[A-Za-z0-9][A-Za-z0-9.-]*\.(?:cloud\.databricks\.com|azuredatabricks\.net"
@@ -107,25 +148,99 @@ class _Skip(Exception):
 def _yaml(text: str, where: str) -> dict:
     try:
         doc = yaml.safe_load(text)
-    except yaml.YAMLError as exc:
+    except RecursionError:
+        raise MetricViewError(f"{where} is nested too deeply to read") from None
+    except (yaml.YAMLError, ValueError, OverflowError) as exc:
         raise MetricViewError(f"{where} is not readable YAML: {type(exc).__name__}") from None
     if not isinstance(doc, dict):
         raise MetricViewError(f"{where} is not a YAML mapping")
     return doc
 
 
+def _text(src: pathlib.Path) -> str:
+    """The file's text. UTF-8, and a byte order mark is not content. No more than
+    `MAX_BYTES` is ever read."""
+    if src.is_dir():
+        raise MetricViewError(f"{src} is a folder that holds no metric view this reader reads "
+                              f"with a measure ({', '.join(SUFFIXES)}): name one file to be "
+                              "told why it is not read")
+    try:
+        if not src.is_file():
+            raise MetricViewError(f"{src} is not a file")
+        with src.open("rb") as fh:
+            data = fh.read(MAX_BYTES + 1)
+    except OSError as exc:
+        raise MetricViewError(f"{src} is not readable: {type(exc).__name__}") from None
+    if len(data) > MAX_BYTES:
+        raise MetricViewError(f"{src} is larger than 1 MiB, which no metric view definition "
+                              "is; it is not read")
+    try:
+        return data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise MetricViewError(f"{src} is not UTF-8 text") from None
+
+
+def _ddl(text: str, src: pathlib.Path) -> tuple[str, str] | None:
+    """(the view's name, its YAML) when `text` is a `CREATE VIEW ... WITH METRICS` statement,
+    else None. The statement starts the text, after blank space and comments, and its YAML
+    lies between the first `$$` and the next. One statement to a file."""
+    at = 0
+    while True:
+        end = _LEAD.match(text, at).end()
+        if end == at:
+            break
+        at = end
+    head = _DDL_HEAD.match(text, at)
+    metrics = _WITH_METRICS.search(text, head.end()) if head else None
+    if not metrics:
+        return None
+    start = text.find("$$", metrics.end())
+    stop = text.find("$$", start + 2) if start >= 0 else -1
+    if stop < 0:
+        raise MetricViewError(f"{src}: the `CREATE VIEW ... WITH METRICS` statement has no "
+                              "definition between `$$` and `$$`")
+    if text[stop + 2:].strip(" \t\r\n;"):
+        raise MetricViewError(f"{src} holds text after the view's definition: this reader "
+                              "reads one `CREATE VIEW ... WITH METRICS` statement to a file, "
+                              "and `$$` cannot appear inside the definition")
+    return head.group("name").replace("`", ""), text[start + 2:stop]
+
+
+def _by_table(raw: Any, what: str, notes: list[str]) -> dict[str, list[str]]:
+    """{table (lower): [column]} from `source_columns` or `primary_keys`: a mapping of each
+    table to a list of column names. One name alone is a list of one. Anything else is left
+    out, and a note says so."""
+    if raw is None or raw == {}:
+        return {}
+    if not isinstance(raw, dict):
+        notes.append(f"`{what}` is not a mapping of table to columns; it is ignored")
+        return {}
+    out: dict[str, list[str]] = {}
+    for table, cols in raw.items():
+        cols = [cols] if isinstance(cols, (str, dict)) else cols
+        names = ([c.get("name") if isinstance(c, dict) else c for c in cols]
+                 if isinstance(cols, list) else None)
+        if names is None or not all(isinstance(n, str) and n.strip() for n in names):
+            notes.append(f"`{what}` for {str(table)[:120]!r} is not a list of column names; "
+                         "it is ignored")
+            continue
+        out[str(table).strip().lower()] = [n.strip() for n in names]
+    return out
+
+
 def load(path: pathlib.Path) -> tuple[dict, dict, str]:
     """(the view's YAML definition, what came with it, the input shape). What came with it:
     `name`, `columns` (the view's own, typed), `source_columns` and `primary_keys` (by table),
-    each present only when the input carries it."""
+    each present only when the input carries it in the shape this reader reads, and `notes`
+    naming what it carried in another shape."""
     src = pathlib.Path(path)
-    try:
-        text = src.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise MetricViewError(f"{src} is not readable: {type(exc).__name__}") from None
+    text = _text(src)
+    notes: list[str] = []
     if src.suffix.lower() == ".json":
         try:
             doc = json.loads(text)
+        except RecursionError:
+            raise MetricViewError(f"{src} is nested too deeply to read") from None
         except ValueError:
             raise MetricViewError(f"{src} is not readable JSON") from None
         if not isinstance(doc, dict):
@@ -136,20 +251,22 @@ def load(path: pathlib.Path) -> tuple[dict, dict, str]:
         if not isinstance(text, str):
             raise MetricViewError(f"{src}: not a metric view description: expected the JSON of "
                                   "`DESCRIBE TABLE EXTENDED <view> AS JSON`, with `view_text`")
-        parts = [desc.get("catalog_name"), desc.get("schema_name"),
-                 desc.get("table_name") or desc.get("name")]
-        name = ".".join(str(p) for p in parts if p) or src.stem
-        extra = {"name": name, "columns": desc.get("columns") or [],
-                 "source_columns": doc.get("source_columns") or {},
-                 "primary_keys": doc.get("primary_keys") or {},
-                 "three_part": [str(p) for p in parts] if all(parts) else None,
-                 "table_id": desc.get("table_id"),
-                 "workspace_host": doc.get("workspace_host") if shape == "extended" else None}
+        parts = [p.strip() if isinstance(p, str) and p.strip() else None
+                 for p in (desc.get("catalog_name"), desc.get("schema_name"),
+                           desc.get("table_name") or desc.get("name"))]
+        table_id = desc.get("table_id")
+        extra = {"name": ".".join(p for p in parts if p) or src.stem,
+                 "columns": desc.get("columns"),
+                 "source_columns": _by_table(doc.get("source_columns"), "source_columns", notes),
+                 "primary_keys": _by_table(doc.get("primary_keys"), "primary_keys", notes),
+                 "three_part": parts if all(parts) else None,
+                 "table_id": table_id if type(table_id) in (str, int) else None,
+                 "workspace_host": doc.get("workspace_host") if shape == "extended" else None,
+                 "notes": notes}
         return _yaml(text, f"{src}: the view's YAML"), extra, shape
-    ddl = _DDL.search(text)
+    ddl = _ddl(text, src)
     if ddl:
-        return (_yaml(ddl.group("yaml"), f"{src}: the view's YAML"),
-                {"name": ddl.group("name").replace("`", "")}, "ddl")
+        return _yaml(ddl[1], f"{src}: the view's YAML"), {"name": ddl[0]}, "ddl"
     return _yaml(text, str(src)), {"name": src.stem}, "yaml"
 
 
@@ -182,20 +299,47 @@ def is_metric_view(doc: Any) -> bool:
 
 
 def models(path: pathlib.Path) -> list[pathlib.Path]:
-    """The views a BI input holds: the file itself, or every view file in a folder (one model
-    each), sorted."""
+    """The views a BI input holds, one model each, sorted: the file itself, or every file
+    under a folder that this reader reads as a metric view with at least one measure.
+
+    A folder is a place other files live too (a bundle's own YAML, a dimension-only view, a
+    query), so a file this reader does not read is left out, never an error of the run: name
+    that file alone to be told why. A hidden folder is not entered and a symbolic link is not
+    followed, so nothing outside the folder is read."""
     path = pathlib.Path(path)
     if not path.is_dir():
         return [path]
-    return sorted(p for p in path.rglob("*") if p.is_file() and p.suffix.lower() in SUFFIXES)
+    found = []
+    for root, dirs, files in os.walk(path):           # never follows a link to a folder
+        dirs[:] = sorted(d for d in dirs if not d.startswith("."))
+        for name in files:
+            file = pathlib.Path(root) / name
+            if file.suffix.lower() in SUFFIXES and not file.is_symlink() and _reads(file):
+                found.append(file)
+    return sorted(found)
 
 
-def _three_part(raw: Any) -> str | None:
-    text = str(raw or "").strip()
-    if not text or _QUERY.match(text):
-        return None
-    parts = [p.strip().strip("`") for p in text.split(".")]
-    return ".".join(parts) if len(parts) == 3 and all(parts) else None
+def _reads(path: pathlib.Path) -> bool:
+    try:
+        parse(path)
+    except MetricViewError:
+        return False
+    return True
+
+
+def _table(raw: Any) -> str | None:
+    """A table's name with its backticks removed, or None when `raw` is not one: one to three
+    parts joined by dots, each a plain identifier or a plain identifier in backticks. A query,
+    a name with anything after it and a name that needs its quoting are not names here: what
+    is taken is written into SQL as it stands."""
+    text = raw.strip() if isinstance(raw, str) else ""
+    return text.replace("`", "") if _TABLE.fullmatch(text) else None
+
+
+def _column(raw: Any) -> str | None:
+    """One column's name with its backticks removed, or None when `raw` is not a plain one."""
+    text = raw.strip() if isinstance(raw, str) else ""
+    return text.strip("`") if _COLUMN.fullmatch(text) else None
 
 
 # ── names and expressions ────────────────────────────────────────────────────────────────
@@ -206,18 +350,72 @@ def _ident(name: str) -> str:
     return out if not out[0].isdigit() else f"j_{out}"
 
 
-def _parse(sql: Any, what: str) -> exp.Expression:
-    text = str(sql if sql is not None else "").strip()
-    if not text:
-        raise _Skip(f"{what} has no expression")
+def _strings(text: str, what: str) -> None:
+    """Refuse SQL whose string literals `lib/declared` would misread. It reads a formula as
+    text and takes a literal to end at the next quote, so a literal with a quote or a
+    backslash in it (which Databricks SQL writes with a backslash) would leave the rest of
+    the formula read as a literal, and `source` unbound. Two literals side by side are the
+    same hazard under another spelling (`'it''s'`)."""
     try:
-        return sqlglot.parse_one(text, read=DIALECT)
+        tokens = sqlglot.tokenize(text, read=DIALECT)
+    except Exception:  # noqa: BLE001 - text the tokenizer cannot read is not read
+        raise _Skip(f"{what} is not SQL the parser reads") from None
+    before = False
+    for token in tokens:
+        literal = token.token_type in _STRINGS
+        if ((literal or token.token_type == TokenType.IDENTIFIER)
+                and ("'" in token.text or "\\" in token.text)):
+            raise _Skip(f"{what} holds a string literal with a quote or a backslash in it, "
+                        f"which this reader does not carry")
+        if literal and before:
+            raise _Skip(f"{what} writes two string literals side by side (a doubled quote, "
+                        f"or two literals to be joined), which this reader does not carry")
+        before = literal
+
+
+def _parse(sql: Any, what: str) -> exp.Expression:
+    """ONE expression, as the Databricks dialect reads it. Raises _Skip, naming why."""
+    if sql is None or (isinstance(sql, str) and not sql.strip()):
+        raise _Skip(f"{what} has no expression")
+    if not isinstance(sql, str):
+        raise _Skip(f"{what} has an expression that is not text (YAML reads it as "
+                    f"{type(sql).__name__})")
+    text = sql.strip()
+    if len(text) > MAX_EXPANDED:
+        raise _Skip(f"{what} is longer than {MAX_EXPANDED:,} characters")
+    _strings(text, what)
+    try:
+        tree = sqlglot.parse_one(text, read=DIALECT)
     except Exception:  # noqa: BLE001 - an expression the parser cannot read is not read
         raise _Skip(f"{what} is not SQL the parser reads") from None
+    if not isinstance(tree, _VALUE):                  # `a; DROP TABLE t`, `SUM(a) AS total`
+        raise _Skip(f"{what} is not one SQL expression")
+    return tree
 
 
 def _sql(tree: exp.Expression) -> str:
-    return tree.sql(dialect=DIALECT)
+    # A comment is not part of the number, and its text is not SQL `lib/declared` can read.
+    return tree.sql(dialect=DIALECT, comments=False)
+
+
+def _written(tree: exp.Expression, what: str) -> str:
+    """`tree` as Databricks SQL, for a formula. An aggregate with an ordering (`WITHIN GROUP`,
+    or `ORDER BY` inside the call) is written only when the text reads back as the same
+    expression: the SQL writer turns `PERCENTILE_CONT(...) WITHIN GROUP (...)` into an
+    approximate percentile and drops the ordering of `ARRAY_AGG(x ORDER BY y)`, and either is
+    another result. Raises _Skip."""
+    sql = _sql(tree)
+    _strings(sql, what)
+    if tree.find(exp.WithinGroup, exp.Order):
+        try:
+            same = sqlglot.parse_one(sql, read=DIALECT) == tree
+        except Exception:  # noqa: BLE001 - text that does not parse is not the expression
+            same = False
+        if not same:
+            raise _Skip(f"{what} uses an ordered aggregate (WITHIN GROUP, or ORDER BY inside "
+                        f"the call) that this reader's SQL writer does not write back "
+                        f"unchanged")
+    return sql
 
 
 def _is_measure_call(node: exp.Expression) -> bool:
@@ -235,14 +433,14 @@ class _View:
         self.roles: dict[str, dict] = {}
         self.by_path: dict[tuple[str, ...], str] = {}
         self.relationships: list[dict] = []
-        self.parameters = {str(p.get("name") or "").lower()
-                           for p in doc.get("parameters") or [] if isinstance(p, dict)}
+        self.parameters: set[str] = set()
         # field name (lower) -> {"name", "role", "tree", "reads", "plain"}; in definition order.
         self.fields: dict[str, dict] = {}
         # measure name (lower) -> the measure's expression, columns bound and every
         # `MEASURE()` replaced, before the view's filter is written in.
         self.measures: dict[str, exp.Expression] = {}
         self.measure_names: dict[str, str] = {}
+        self.sizes: dict[str, int] = {}               # measure name (lower) -> `size` of it
         self.unread: set[str] = set()                 # measures named but not read
         self.unread_fields: set[str] = set()
         # what reads what: {"measure 'a'": {"field 'b'", "measure 'c'"}}. Something that is
@@ -254,35 +452,55 @@ class _View:
     # -- roles ---------------------------------------------------------------------------
     def columns_of(self, role: str) -> set[str] | None:
         """The table's own columns (lower), when the input carries them."""
-        cols = {str(k).lower(): v for k, v in (self.extra.get("source_columns") or {}).items()}
-        got = cols.get(self.roles[role]["physical"].lower())
-        return {str(c.get("name") if isinstance(c, dict) else c).lower() for c in got} \
-            if got else None
+        got = (self.extra.get("source_columns") or {}).get(self.roles[role]["physical"].lower())
+        return {c.strip("`").lower() for c in got} if got else None
+
+    def add_parameters(self) -> None:
+        """The names `parameters` declares. Each is a name no expression may read, so an
+        entry this reader cannot name leaves no bare name it can trust to be a column."""
+        declared = self.doc.get("parameters")
+        if declared is None or declared == []:
+            return
+        if not isinstance(declared, list):
+            raise MetricViewError("its `parameters` is not a list, so the names it declares "
+                                  "cannot be told from columns")
+        for p in declared:
+            name = p.get("name") if isinstance(p, dict) else p
+            if not isinstance(name, str) or not name.strip():
+                raise MetricViewError("a `parameters` entry has no name, so the name it "
+                                      "declares cannot be told from a column")
+            self.parameters.add(name.strip().lower())
 
     def add_source(self) -> None:
-        raw = self.doc.get("source")
-        physical = _three_part(raw)
+        physical = _table(self.doc.get("source"))
         if not physical:
-            what = ("a query" if _QUERY.match(str(raw or "")) else
-                    "not a CATALOG.SCHEMA.TABLE name")
-            raise MetricViewError(f"the metric view's source is {what}; this reader reads a "
-                                  "view over one table, with joins to others")
+            raise MetricViewError("its source is not a table name this reader can read: a "
+                                  "query, or a name that needs quoting")
+        if physical.count(".") != 2:
+            raise MetricViewError("its source is not a CATALOG.SCHEMA.TABLE name; this reader "
+                                  "reads a view over one table, with joins to others")
         self.roles[SOURCE_ROLE] = {"name": SOURCE_ROLE, "physical": physical, "path": ()}
         self.by_path[(SOURCE_ROLE,)] = SOURCE_ROLE
 
     def add_joins(self, joins: Any, parent: str, path: tuple[str, ...]) -> None:
+        if joins is not None and not isinstance(joins, list):
+            self.notes.append("`joins` is not a list; no join under it is read")
         for j in joins if isinstance(joins, list) else []:
-            if not isinstance(j, dict) or not j.get("name"):
-                self.notes.append("a join without a name is not read")
+            if not isinstance(j, dict) or not isinstance(j.get("name"), str) \
+                    or not j["name"].strip():
+                self.notes.append("a join without a name that is text is not read")
                 continue
-            name = str(j["name"])
+            name = j["name"].strip()
             here = path + (name.lower(),)
             role = "__".join(_ident(p) for p in here)
             label = ".".join(here)
-            physical = _three_part(j.get("source"))
-            if not physical:
-                self.notes.append(f"join {label!r} reads a query, not a table; it is not "
-                                  f"read, and nothing that needs it is placed")
+            physical = _table(j.get("source"))
+            if not physical or physical.count(".") != 2:
+                why = ("is not a CATALOG.SCHEMA.TABLE name" if physical else
+                       "is not a table name this reader can read: a query, or a name that "
+                       "needs quoting")
+                self.notes.append(f"join {label!r} has a source that {why}; it is not read, "
+                                  f"and nothing that needs it is placed")
                 continue
             if role.lower() in self.roles:
                 self.notes.append(f"join {label!r} has the name of another join; it is not read")
@@ -311,8 +529,11 @@ class _View:
     def _pairs(self, join: dict, parent: str, role: str, name: str) -> list[tuple[str, str]]:
         """Every (parent column, joined column) pair of one join."""
         using = join.get("using")
-        if using:
-            return [(str(c), str(c)) for c in (using if isinstance(using, list) else [using])]
+        if using is not None:
+            cols = [_column(c) for c in using] if isinstance(using, list) else []
+            if not cols or not all(cols):
+                raise _Skip("has a `using` that is not a list of plain column names")
+            return [(c, c) for c in cols]
         # YAML 1.1 reads a bare `on:` key as the boolean true.
         cond = join.get("on", join.get(True))
         if cond in (None, ""):
@@ -373,19 +594,38 @@ class _View:
         return ("parent", name) if name.lower() in theirs else (None, name)
 
     # -- expressions ---------------------------------------------------------------------
-    def bind(self, raw: Any, what: str, *, own: str | None = None,
-             measures: bool = False) -> tuple[exp.Expression, set[str]]:
+    def bind(self, raw: Any, what: str, *, own: str | None = None, measures: bool = False,
+             in_filter: bool = False) -> tuple[exp.Expression, set[str]]:
         """(`raw` with every column bound to its role and every `MEASURE()` replaced, the
         roles it reads). `own` is the field being defined: its own name inside its own
-        expression is the column. Raises _Skip, naming why."""
+        expression is the column. `in_filter` is the view's filter, which reads the tables'
+        columns and never a field: a bare name there is a column of the source, whatever
+        field has that name. Raises _Skip, naming why."""
         tree = _parse(raw, what)
         if isinstance(tree, exp.Star) or (isinstance(tree, exp.Column)
                                           and isinstance(tree.this, exp.Star)):
             raise _Skip(f"{what} is a wildcard; its columns are not listed in the view")
         if tree.find(exp.Window):
             raise _Skip(f"{what} uses a window function")
+        if tree.find(exp.Placeholder, exp.Parameter, exp.SessionParameter):
+            raise _Skip(f"{what} reads a parameter (a marker such as `:name` or `?`), whose "
+                        f"value is given when the view is queried")
+        if tree.find(exp.Query):
+            raise _Skip(f"{what} holds a query of its own; this reader reads expressions over "
+                        f"the view's tables")
+        if tree.find(exp.Lambda):
+            raise _Skip(f"{what} uses a lambda, whose names cannot be told from columns")
         reads: set[str] = set()
         deps = self.deps.setdefault(what, set())
+        spent = [len(_sql(tree))]
+
+        def spend(more: int) -> None:
+            # Checked BEFORE the copy is made: a chain of measures that each read the last
+            # one twice doubles at every step, and is stopped at the step that crosses the cap.
+            spent[0] += more
+            if spent[0] > MAX_EXPANDED:
+                raise _Skip(f"{what} is longer than {MAX_EXPANDED:,} characters once the "
+                            f"fields and measures it reads are written out")
 
         def measure(node: exp.Expression) -> exp.Expression:
             args = node.expressions
@@ -398,6 +638,7 @@ class _View:
                 why = ("which is not read" if key in self.unread else
                        "which is not an earlier measure of this view")
                 raise _Skip(f"{what} reads MEASURE({named}), {why}")
+            spend(self.sizes[key])
             inner = self.measures[key].copy()
             reads.update(_declared.qualifiers(_sql(inner)))
             deps.add(f"measure {self.measure_names[key]!r}")
@@ -415,16 +656,20 @@ class _View:
                 name = lower[0]
                 if name in self.parameters:
                     raise _Skip(f"{what} reads the parameter `{parts[0]}`")
-                if name in self.unread_fields and name != own:
+                if name in self.unread_fields and name != own and not in_filter:
                     raise _Skip(f"{what} reads the field `{parts[0]}`, which is not read")
-                field = self.fields.get(name)
+                field = None if in_filter else self.fields.get(name)
                 if field is not None and name != own:
+                    spend(field["size"])
                     reads.update(field["reads"])
                     deps.add(f"field {field['name']!r}")
                     if field["plain"]:
-                        return exp.column(field["name"], table=field["role_name"])
-                    # A field whose name needs quoting cannot be named in a formula
-                    # `lib/declared` reads: its expression stands in its place.
+                        named = exp.column(field["name"], table=field["role_name"])
+                        named.meta["field"] = name    # `lib/declared` writes it out later
+                        return named
+                    # A field whose name needs quoting, or whose name is a column the
+                    # view's filter reads, cannot be named in a formula `lib/declared` reads:
+                    # its expression stands in its place.
                     return exp.Paren(this=field["tree"].copy())
             if role is None and len(parts) > 1:
                 raise _Skip(f"{what} names `{'.'.join(parts)}`: `{parts[0]}` is neither the "
@@ -447,50 +692,102 @@ class _View:
                 return column(node)
             return node
 
-        return tree.transform(visit, copy=True), reads
+        bound = tree.transform(visit, copy=True)
+        self.room(bound, what)
+        return bound, reads
 
+    def size(self, tree: exp.Expression) -> int:
+        """How long `tree` is as a formula once every field it names is written out, which
+        `lib/declared` does for each one, however deep the chain."""
+        return len(_sql(tree)) + sum(self.fields[c.meta["field"]]["size"]
+                                     for c in tree.find_all(exp.Column)
+                                     if c.meta.get("field") in self.fields)
 
-def _filtered(tree: exp.Expression, cond: exp.Expression, what: str) -> exp.Expression:
-    """`tree` with the view's filter written into every aggregate. Raises _Skip when an
-    aggregate could be hidden in a function the parser does not know."""
-    unknown = sorted({str(n.name).upper() for n in tree.find_all(exp.Anonymous)})
-    if unknown:
-        raise _Skip(f"{what} calls {', '.join(unknown)}, which may aggregate: the view's "
-                    f"filter cannot be written into it")
+    def room(self, tree: exp.Expression, what: str, more: int = 0) -> None:
+        if self.size(tree) + more > MAX_EXPANDED:
+            raise _Skip(f"{what} is longer than {MAX_EXPANDED:,} characters once the fields "
+                        f"and measures it reads are written out")
 
-    def visit(node: exp.Expression) -> exp.Expression:
-        if isinstance(node, exp.Filter):
-            where = node.expression
-            where.set("this", exp.and_(exp.paren(where.this.copy()), exp.paren(cond.copy())))
+    def filtered(self, tree: exp.Expression, cond: exp.Expression, what: str) -> exp.Expression:
+        """`tree` with the view's filter written into every aggregate. Raises _Skip when the
+        filter cannot be shown to reach all of it: an aggregate could be hidden in a function
+        the parser does not know, or a column is read outside every aggregate."""
+        unknown = sorted({str(n.name).upper() for n in tree.find_all(exp.Anonymous)})
+        if unknown:
+            raise _Skip(f"{what} calls {', '.join(unknown)}, which may aggregate: the view's "
+                        f"filter cannot be written into it")
+        # Checked before the filter is copied into each aggregate, for the same reason.
+        self.room(tree, what, sum(1 for _ in tree.find_all(exp.AggFunc)) * (self.size(cond) + 16))
+
+        def visit(node: exp.Expression) -> exp.Expression:
+            if isinstance(node, exp.Filter):
+                where = node.expression
+                where.set("this", exp.and_(exp.paren(where.this.copy()), exp.paren(cond.copy())))
+                return node
+            if isinstance(node.parent, (exp.Filter, exp.WithinGroup)) \
+                    or node.find_ancestor(exp.AggFunc) is not None:
+                return node
+            # An ordered-set aggregate takes its FILTER after `WITHIN GROUP (...)`, which is
+            # where Databricks reads it, so the whole clause is what the filter wraps.
+            if isinstance(node, exp.AggFunc) or (isinstance(node, exp.WithinGroup)
+                                                 and isinstance(node.this, exp.AggFunc)):
+                return exp.Filter(this=node.copy(), expression=exp.Where(this=cond.copy()))
             return node
-        if isinstance(node, exp.AggFunc) and not isinstance(node.parent, exp.Filter) \
-                and node.find_ancestor(exp.AggFunc) is None:
-            return exp.Filter(this=node.copy(), expression=exp.Where(this=cond.copy()))
-        return node
 
-    return tree.transform(visit, copy=True)
+        out = tree.transform(visit, copy=True)
+        # An aggregate this reader did not recognise as one (`ANY(flag)`) is left unfiltered
+        # above. What gives it away is its column, read outside every FILTER.
+        loose = sorted({c.name for c in out.find_all(exp.Column)
+                        if c.find_ancestor(exp.Filter) is None})
+        if loose:
+            raise _Skip(f"{what} reads {', '.join(f'`{c}`' for c in loose[:3])} outside every "
+                        f"aggregate this reader recognises, so the view's filter could not be "
+                        f"applied to all of it")
+        self.room(out, what)
+        return out
 
 
 # ── types ────────────────────────────────────────────────────────────────────────────────
 
-def _types(columns: list) -> dict[str, str]:
+def _types(columns: Any, notes: list[str]) -> dict[str, str]:
     """{field or measure name (lower): its type, as the view's description declares it}."""
-    out = {}
-    for c in columns or []:
-        if not isinstance(c, dict) or not c.get("name"):
+    if columns is None or columns == []:
+        return {}
+    if not isinstance(columns, list):
+        notes.append("`columns` is not a list; no field's or measure's type is read")
+        return {}
+    out, odd = {}, 0
+    for c in columns:
+        if not isinstance(c, dict) or not isinstance(c.get("name"), str):
+            odd += 1
             continue
         t = c.get("type") or c.get("type_text")       # DESCRIBE's, or the table API's
-        name = str((t.get("name") if isinstance(t, dict) else t) or "").upper()
-        if isinstance(t, dict) and name == "DECIMAL" and t.get("precision") is not None:
-            name = f"DECIMAL({t['precision']},{t.get('scale') or 0})"
-        if name:
-            out[str(c["name"]).lower()] = "BIGINT" if name == "LONG" else name
+        name = t.get("name") if isinstance(t, dict) else t
+        if not isinstance(name, str) or not name.strip():
+            odd += t is not None
+            continue
+        name = name.strip().upper()
+        if isinstance(t, dict) and name == "DECIMAL" and type(t.get("precision")) is int:
+            scale = t.get("scale") if type(t.get("scale")) is int else 0
+            name = f"DECIMAL({t['precision']},{scale})"
+        out[c["name"].lower()] = "BIGINT" if name == "LONG" else name
+    if odd:
+        notes.append(f"{odd} entr{'y' if odd == 1 else 'ies'} of `columns` did not name a "
+                     "column and its type; ignored")
     return out
 
 
-def _words(item: dict) -> list[str]:
-    out = [str(x) for x in item.get("synonyms") or [] if str(x).strip()]
-    shown = str(item.get("display_name") or "").strip()
+def _said(value: Any) -> str | None:
+    """A comment or display name: text, or nothing. Another YAML value is not prose."""
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _words(item: dict, what: str, notes: list[str]) -> list[str]:
+    raw = item.get("synonyms")
+    if raw is not None and not isinstance(raw, list):
+        notes.append(f"{what} has `synonyms` that are not a list; they are ignored")
+    out = [x.strip() for x in (raw if isinstance(raw, list) else []) if _said(x)]
+    shown = _said(item.get("display_name"))
     if shown and shown.lower() not in {str(item.get("name") or "").lower(),
                                        *(w.lower() for w in out)}:
         out.insert(0, shown)
@@ -499,15 +796,22 @@ def _words(item: dict) -> list[str]:
 
 def _name(item: dict, kind: str) -> str:
     """An item's name, or the name Databricks derives when it has none: a column's own."""
-    if item.get("name") not in (None, ""):
-        return str(item["name"])
+    name, expr = item.get("name"), item.get("expr")
+    if isinstance(name, str) and name.strip():
+        return name
+    if name not in (None, ""):
+        # `name: no` is a boolean to YAML and `name: 2024-01-01` a date. Which name
+        # Databricks gave such an item is not something to guess.
+        raise _Skip(f"a {kind} whose name is not text (YAML reads it as "
+                    f"{type(name).__name__}) is not read")
     try:
-        tree = sqlglot.parse_one(str(item.get("expr") or ""), read=DIALECT)
+        tree = sqlglot.parse_one(expr, read=DIALECT) if isinstance(expr, str) else None
     except Exception:  # noqa: BLE001
         tree = None
     if isinstance(tree, exp.Column):
         return tree.name
-    raise _Skip(f"a {kind} without a name ({str(item.get('expr') or '')[:60]!r}) is not read")
+    shown = expr[:60] if isinstance(expr, str) else ""
+    raise _Skip(f"a {kind} without a name ({shown!r}) is not read")
 
 
 # ── the parse ────────────────────────────────────────────────────────────────────────────
@@ -515,8 +819,22 @@ def _name(item: dict, kind: str) -> str:
 def parse(path: pathlib.Path, report_index: dict | None = None, *,
           dialect: str | None = None) -> dict[str, Any]:
     """`report_index` is accepted and ignored: a metric view has no report layer. A metric
-    view's SQL is Databricks SQL, whatever the run's `dialect`."""
+    view's SQL is Databricks SQL, whatever the run's `dialect`.
+
+    Every refusal is a `MetricViewError`. Each shape this reader expects is checked where it
+    is read; the last clause is the backstop for a malformed definition that slips past those
+    checks, and it names the file and the kind of error, never the file's contents."""
     src = pathlib.Path(path)
+    try:
+        return _read(src)
+    except MetricViewError:
+        raise
+    except (TypeError, AttributeError, KeyError, IndexError, ValueError, RecursionError) as exc:
+        raise MetricViewError(f"{src}: the definition is malformed in a way this reader does "
+                              f"not read ({type(exc).__name__}); it is not read") from None
+
+
+def _read(src: pathlib.Path) -> dict[str, Any]:
     doc, extra, shape = load(src)
     if not is_metric_view(doc):
         raise MetricViewError(f"{src}: not a metric view: expected `source` and `measures` "
@@ -524,30 +842,52 @@ def parse(path: pathlib.Path, report_index: dict | None = None, *,
     name = str(extra.get("name") or src.stem)
     version = str(doc.get("version") or "").strip()
     view = _View(doc, extra)
+    view.notes += extra.get("notes") or []
     if version not in VERSIONS:
         view.notes.append(f"specification version {version or '(none)'!r} is not one this "
                           f"reader was written for ({', '.join(VERSIONS)}); read as 1.1")
     try:
         view.add_source()
+        view.add_parameters()
     except MetricViewError as exc:
-        raise MetricViewError(f"{src}: {exc}") from None
+        raise MetricViewError(f"{src}: the metric view is not read: {exc}") from None
     view.add_joins(doc.get("joins"), SOURCE_ROLE, ())
-    types = _types(extra.get("columns") or [])
+    types = _types(extra.get("columns"), view.notes)
     columns: dict[str, list[dict]] = {r: [] for r in view.roles}
     not_carried = {"formats": 0}
 
+    # THE VIEW'S FILTER, bound first and over the tables' columns alone: a bare name in it is
+    # a column of the source, never a field (`in_filter`). It is part of every number the
+    # view gives, so when it cannot be read no measure is.
+    cond = None
+    if doc.get("filter") not in (None, ""):
+        try:
+            cond, _reads = view.bind(doc["filter"], FILTER, in_filter=True)
+        except (_Skip, RecursionError) as exc:
+            why = exc if isinstance(exc, _Skip) else f"{FILTER} is nested too deeply to read"
+            raise MetricViewError(f"{src}: {why}; the filter is part of every measure of the "
+                                  "view, so none is read") from None
+
     # FIELDS, in the view's order: a field may read only the ones before it.
-    for item in doc.get("fields") or doc.get("dimensions") or []:
+    fields = doc.get("fields") or doc.get("dimensions") or []
+    if not isinstance(fields, list):
+        view.notes.append("the view's fields are not a list; none is read")
+        fields = []
+    for item in fields:
         if not isinstance(item, dict):
+            view.notes.append("a field that is not a mapping is not read")
             continue
+        what = "a field"
         try:
             fname = _name(item, "field")
             what = f"field {fname!r}"
             tree, reads = view.bind(item.get("expr"), what, own=fname.lower())
-        except _Skip as exc:
-            view.notes.append(f"{exc}; it is not read")
-            if item.get("name"):
-                view.unread_fields.add(str(item["name"]).lower())
+            formula = _written(tree, what)
+        except (_Skip, RecursionError) as exc:
+            why = exc if isinstance(exc, _Skip) else f"{what} is nested too deeply to read"
+            view.notes.append(f"{why}; it is not read")
+            if isinstance(item.get("name"), str):
+                view.unread_fields.add(item["name"].lower())
             continue
         others = [r for r in sorted(reads) if r != SOURCE_ROLE]
         role = others[0] if others else SOURCE_ROLE
@@ -561,31 +901,55 @@ def parse(path: pathlib.Path, report_index: dict | None = None, *,
                                "role": "dimension", "is_calculated": not simple,
                                "source_column": tree.name if simple else fname}
         if not simple:
-            col["formula"] = _sql(tree)
+            col["formula"] = formula
             col["formula_language"] = "sql"
-        if item.get("comment"):
-            col["description"] = str(item["comment"])
-        if _words(item):
-            col["synonyms"] = _words(item)
+        if _said(item.get("comment")):
+            col["description"] = _said(item.get("comment"))
+        words = _words(item, what, view.notes)
+        if words:
+            col["synonyms"] = words
         not_carried["formats"] += bool(item.get("format"))
-        columns[role].append(col)
+        computed = not simple or tree.name.lower() != fname.lower()
+        # A FIELD THAT REDEFINES A COLUMN THE FILTER READS. The filter reads the column and a
+        # measure reads the field, under one name. `lib/declared` reads `role.name` as the
+        # field wherever it appears, so the model cannot hold both: the column keeps the
+        # name, the field is not listed, and what reads the field carries its expression.
+        listed = not (computed and FILTER in view.physical.get((role, fname.upper()), []))
+        if listed:
+            columns[role].append(col)
+        else:
+            view.notes.append(f"{what} redefines a column the view's filter reads. The filter "
+                              f"reads the column, so the field is not listed as a dimension; "
+                              f"a measure that reads the field carries its expression")
         view.fields[fname.lower()] = {"name": fname, "role": role, "role_name": role_name,
                                       "tree": tree, "reads": reads | {role},
-                                      "plain": bool(_PLAIN.fullmatch(fname)),
-                                      "computed": not simple or tree.name.lower() != fname.lower()}
+                                      "plain": listed and bool(_PLAIN.fullmatch(fname)),
+                                      "size": view.size(tree), "listed": listed,
+                                      "computed": computed}
 
-    # THE VIEW'S FILTER, bound like any expression: it may name a field.
-    cond = None
-    if doc.get("filter") not in (None, ""):
-        try:
-            cond, _reads = view.bind(doc["filter"], "the view's filter")
-        except _Skip as exc:
-            raise MetricViewError(f"{src}: {exc}; every measure of the view depends on it, "
-                                  "so the view is not read") from None
+    # THE FILTER NAMES NO FIELD. A field the source has no column for cannot be what the
+    # filter reads, so Databricks would not have accepted the view; that is only knowable
+    # when the source's columns came with the view.
+    known = view.columns_of(SOURCE_ROLE)
+    for (of, column), readers in sorted(view.physical.items()):
+        read = column.lower()
+        if (cond is not None and of == SOURCE_ROLE and set(readers) == {FILTER}
+                and known is not None and read not in known
+                and (read in view.fields or read in view.unread_fields)):
+            raise MetricViewError(
+                f"{src}: {FILTER} reads `{read}`, which is a field of the view and not a "
+                "column of its source (`source_columns`). Databricks reads a view's filter "
+                "over the source's columns and accepts no such view, so the filter is not "
+                "read; it is part of every measure of the view, so none is read")
 
+    declared = doc.get("measures") or []
+    if not isinstance(declared, list):
+        view.notes.append("the view's measures are not a list; none is read")
+        declared = []
     measures: list[dict] = []
-    for item in doc.get("measures") or []:
+    for item in declared:
         if not isinstance(item, dict):
+            view.notes.append("a measure that is not a mapping is not read")
             continue
         try:
             mname = _name(item, "measure")
@@ -594,26 +958,30 @@ def parse(path: pathlib.Path, report_index: dict | None = None, *,
             continue
         what = f"measure {mname!r}"
         try:
-            if item.get("window"):
+            if item.get("window") not in (None, [], {}, ""):
                 raise _Skip(f"{what} is a window measure: its frame is applied when the view "
                             f"is queried")
             tree, _reads = view.bind(item.get("expr"), what, measures=True)
-            final = _filtered(tree, cond, what) if cond is not None else tree
-        except _Skip as exc:
-            view.notes.append(f"{exc}; it is not read")
+            final = view.filtered(tree, cond, what) if cond is not None else tree
+            formula = _written(final, what)
+        except (_Skip, RecursionError) as exc:
+            why = exc if isinstance(exc, _Skip) else f"{what} is nested too deeply to read"
+            view.notes.append(f"{why}; it is not read")
             view.unread.add(mname.lower())
             continue
         view.measures[mname.lower()] = tree
         view.measure_names[mname.lower()] = mname
-        m: dict[str, Any] = {"name": mname, "home_table": SOURCE_ROLE, "formula": _sql(final),
+        view.sizes[mname.lower()] = view.size(tree)
+        m: dict[str, Any] = {"name": mname, "home_table": SOURCE_ROLE, "formula": formula,
                              "formula_language": "sql", "aggregation_at_use_site": False,
                              # A metric view names a measure only as MEASURE(x), replaced
                              # above: `source.<name>` in a formula is always a column.
                              "referable": False}
-        if item.get("comment"):
-            m["description"] = str(item["comment"])
-        if _words(item):
-            m["synonyms"] = _words(item)
+        if _said(item.get("comment")):
+            m["description"] = _said(item.get("comment"))
+        words = _words(item, what, view.notes)
+        if words:
+            m["synonyms"] = words
         not_carried["formats"] += bool(item.get("format"))
         measures.append(m)
 
@@ -628,7 +996,7 @@ def parse(path: pathlib.Path, report_index: dict | None = None, *,
     # reads it is dropped by name rather than computed from the wrong one.
     clash: dict[str, str] = {}
     for f in view.fields.values():
-        if not f["computed"]:
+        if not f["computed"] or not f["listed"]:      # an unlisted field is no name in the model
             continue
         own = f"field {f['name']!r}"
         for what in view.physical.get((f["role"], f["name"].upper()), []):
@@ -647,9 +1015,6 @@ def parse(path: pathlib.Path, report_index: dict | None = None, *,
                 dropped.add(what)
                 grew = True
                 view.notes.append(f"{what} reads {hit[0]}, which is not read; it is not read")
-    if "the view's filter" in dropped:
-        raise MetricViewError(f"{src}: the view's filter cannot be read, and every measure of "
-                              "the view depends on it" + "".join(f"\n  {n}" for n in view.notes))
     measures = [m for m in measures if f"measure {m['name']!r}" not in dropped]
     for role in columns:
         columns[role] = [c for c in columns[role] if f"field {c['name']!r}" not in dropped]
@@ -657,12 +1022,16 @@ def parse(path: pathlib.Path, report_index: dict | None = None, *,
         raise MetricViewError(f"{src}: the metric view declares no measure this reader reads"
                               + "".join(f"\n  {n}" for n in view.notes))
 
-    keys = {str(k).lower(): [str(c) for c in v or []]
-            for k, v in (extra.get("primary_keys") or {}).items()}
+    keys = extra.get("primary_keys") or {}
     tables: list[dict] = []
     for role, r in view.roles.items():
         cols = columns[role]
-        pk = keys.get(r["physical"].lower()) or []
+        # A key column is written into the card's grain as it stands, so it is a plain name.
+        pk = [_column(k) for k in keys.get(r["physical"].lower()) or []]
+        if not all(pk):
+            view.notes.append(f"`primary_keys` for {r['physical']} names a column that needs "
+                              "quoting; the key is ignored")
+            pk = []
         have = {str(c["source_column"]).lower() for c in cols}
         joined = [p["from_column"] for rel in view.relationships
                   if rel["from_role"].lower() == role for p in rel["columns"]]
@@ -731,7 +1100,7 @@ def parse(path: pathlib.Path, report_index: dict | None = None, *,
         reader_notes.append(f"not carried by the contract: {not_carried['formats']} format(s)")
     if doc.get("materialization"):
         reader_notes.append("not carried by the contract: the view's materialization")
-    if doc.get("comment"):
+    if _said(doc.get("comment")):
         reader_notes.append("not carried by the contract: the view's own comment")
     facts["_unresolved_published"] = []
     facts["_reader_notes"] = reader_notes
@@ -756,10 +1125,10 @@ class MetricViewReader(FormulaCompiler):
     languages: tuple[str, ...] = ()
 
     def detect(self, path: pathlib.Path) -> bool:
+        """Whether ONE file is a metric view. A folder is never detected: it is read only
+        when the run names this reader, and then through `models`."""
         path = pathlib.Path(path)
-        if path.is_dir():
-            return any(self.detect(p) for p in models(path))
-        if path.suffix.lower() not in SUFFIXES:
+        if path.is_dir() or path.suffix.lower() not in SUFFIXES:
             return False
         try:
             doc, _extra, _shape = load(path)
@@ -768,12 +1137,10 @@ class MetricViewReader(FormulaCompiler):
         return is_metric_view(doc)
 
     def models(self, path: pathlib.Path) -> list[pathlib.Path]:
-        """One path per view: every view file in a folder; a single file is itself."""
-        path = pathlib.Path(path)
-        found = models(path)
-        if path.is_dir() and not found:
-            raise MetricViewError(f"no metric view file (.json, .yaml, .yml, .sql) under {path}")
-        return found
+        """One path per view: a single file is itself, and a folder is every file in it that
+        reads as a metric view with a measure. It never raises for a file it leaves out; a
+        folder with none is refused by name when it is parsed."""
+        return models(pathlib.Path(path))
 
     def parse(self, path: pathlib.Path, **opts: Any) -> dict[str, Any]:
         """ONE view."""

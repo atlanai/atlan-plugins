@@ -1388,14 +1388,28 @@ def _repair_bundle(faults: dict, authored: dict, by_name: dict,
     }
 
 
+# An asset's page as the contract allows it: https, and no query string, fragment or space.
+_PAGE = re.compile(r"https://[^?#\s]+")
+
+
 def _asset_pages(vq_ids: list, stmts: dict) -> list[str]:
     """WHERE A PERSON CAN OPEN THE DEFINITION: the pages of the assets a metric's statements came
     from, as their reader recorded them (`url`). A reference only: never fetched, and empty when
-    no reader stated one."""
-    return sorted({a["url"] for v in vq_ids
-                   for a in ((((stmts.get(v) or {}).get("provenance") or {}).get("bi") or {})
-                             .get("assets") or [])
-                   if isinstance(a, dict) and isinstance(a.get("url"), str) and a["url"]})
+    no reader stated one. Only a page the contract allows is copied to a card, whatever a
+    reader wrote, and a statement whose provenance has another shape gives none."""
+    def held(value, key):
+        got = value.get(key) if isinstance(value, dict) else None
+        return got if isinstance(got, (dict, list)) else {}
+
+    pages = set()
+    for v in vq_ids if isinstance(vq_ids, (list, tuple)) else []:
+        stmt = stmts.get(v) if isinstance(stmts, dict) and isinstance(v, str) else None
+        assets = held(held(held(stmt, "provenance"), "bi"), "assets")
+        for a in assets if isinstance(assets, list) else []:
+            url = a.get("url") if isinstance(a, dict) else None
+            if isinstance(url, str) and _PAGE.fullmatch(url):
+                pages.add(url)
+    return sorted(pages)
 
 
 def _project(a: dict, m: dict, stmts: dict, evidence: dict, scope: str,

@@ -4,10 +4,12 @@ Each case is a rule the reader holds: what it binds, what it replaces, what it r
 """
 import importlib.util
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
 import textwrap
+import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -235,7 +237,7 @@ class MetricViewReaderTest(unittest.TestCase):
                      "field 'city' names `address.city`",
                      "join 'items' is one_to_many: it is not walked",
                      "metric 'quantity' reads items, which no declared many-to-one or one-to-one path",
-                     "join 'daily' reads a query, not a table",
+                     "join 'daily' has a source that is not a table name this reader can read",
                      "measure 'per_day' names `daily.n`",
                      "measure 'spaced' names the column `order total`, which needs quoting",
                      "the view declares no key"):
@@ -410,7 +412,7 @@ class MetricViewReaderTest(unittest.TestCase):
         other = self.view('tables:\n  - name: orders\n', 'semantic_model.yaml')
         self.assertFalse(reader.detect(other))
         for text, said in (('version: 1.1\nsource: SELECT * FROM demo.sales.orders\nmeasures:\n  - name: n\n    expr: COUNT(1)\n',
-                            "source is a query"),
+                            'its source is not a table name this reader can read: a query, or a name that needs quoting'),
                            ('version: 1.1\nsource: orders\nmeasures:\n  - name: n\n    expr: COUNT(1)\n',
                             'not a CATALOG.SCHEMA.TABLE name'),
                            ('version: 1.1\nsource: demo.sales.orders\ndimensions:\n  - name: d\n    expr: d\n',
@@ -425,6 +427,564 @@ class MetricViewReaderTest(unittest.TestCase):
         self.assertIn('specification 0.1', self.notes(old))
         new = self.read('version: 9.9\nsource: demo.sales.orders\nmeasures:\n  - name: n\n    expr: COUNT(1)\n')
         self.assertIn("specification version '9.9' is not one this reader was written for", self.notes(new))
+
+    # What follows holds the reader to four rules. A formula returns the view's number or is
+    # refused by name. No SQL rides in on a name. Every refusal is the reader's own. A small
+    # file takes a small time.
+
+    COUNTED = 'measures:\n  - name: orders\n    expr: COUNT(1)\n'
+
+    def refused(self, text, name='orders_metrics.yaml'):
+        with self.assertRaises(MV.MetricViewError) as caught:
+            MV.parse(self.view(text, name))
+        return str(caught.exception)
+
+    def test_a_source_that_is_not_a_plain_table_name_refuses_the_view(self):
+        for source in ('demo.sales.orders CROSS JOIN hr_salaries', '/* c */ SELECT * FROM demo.sales.orders',
+                       'demo.sales.orders TABLESAMPLE (10 PERCENT)', 'FROM demo.sales.orders |> WHERE open',
+                       'demo.sales.orders AS o', 'demo.sales.orders; DROP TABLE demo.sales.x',
+                       '`demo`.`sales`.`orders 2024`', 'demo..orders', 'range(10)'):
+            with self.subTest(source=source):
+                said = self.refused(f'version: 1.1\nsource: {json.dumps(source)}\n{self.COUNTED}')
+                self.assertIn('the metric view is not read: its source is not a table name this reader can read: '
+                              'a query, or a name that needs quoting', said)
+        # A plain name in backticks is the same name, and its backticks are not carried.
+        facts = self.read(f'version: 1.1\nsource: "`demo`.sales.`orders`"\n{self.COUNTED}')
+        self.assertEqual(facts['tables'][0]['name'], 'demo.sales.orders')
+        self.assertEqual(self.declared(facts)['orders']['source'], 'demo.sales.orders')
+
+    def test_a_join_whose_names_are_not_plain_is_refused_with_what_reads_it(self):
+        facts = self.read("""
+            version: 1.1
+            source: demo.sales.orders
+            joins:
+              - name: sampled
+                source: demo.sales.customer TABLESAMPLE (10 PERCENT)
+                on: source.o_custkey = sampled.c_custkey
+              - name: quoted
+                source: "`demo`.`sales`.`customer 2024`"
+                on: source.o_custkey = quoted.c_custkey
+              - name: customer
+                source: demo.sales.customer
+                using: ["id OR TRUE"]
+              - name: region
+                source: demo.sales.region
+                using: region_id
+              - name: nation
+                source: "`demo`.`sales`.`nation`"
+                using: ["`nation_id`"]
+            measures:
+              - name: orders
+                expr: COUNT(1)
+              - name: sampled_names
+                expr: COUNT(DISTINCT sampled.c_name)
+              - name: customers
+                expr: COUNT(DISTINCT customer.c_name)
+              - name: nations
+                expr: COUNT(DISTINCT nation.n_name)
+        """)
+        notes = self.notes(facts)
+        for said in ("join 'sampled' has a source that is not a table name this reader can read: a query, or a name "
+                     "that needs quoting; it is not read, and nothing that needs it is placed",
+                     "join 'quoted' has a source that is not a table name this reader can read",
+                     "measure 'sampled_names' names `sampled.c_name`: `sampled` is neither the source nor a join",
+                     "join 'customer' has a `using` that is not a list of plain column names",
+                     "join 'region' has a `using` that is not a list of plain column names",
+                     "metric 'customers' reads customer, which no declared many-to-one or one-to-one path"):
+            self.assertIn(said, notes)
+        d = self.declared(facts)
+        self.assertEqual(sorted(d), ['customers', 'nations', 'orders'])
+        self.assertIsNone(d['customers'])
+        self.assertEqual(d['nations']['source'],
+                         'demo.sales.orders\nLEFT JOIN demo.sales.nation\n  ON demo.sales.orders.nation_id = demo.sales.nation.nation_id')
+        carried = json.dumps(public(facts))
+        for text in ('TABLESAMPLE', 'OR TRUE', 'customer 2024', '`'):
+            self.assertNotIn(text, carried)
+
+    def test_an_expression_is_one_expression_and_a_key_is_a_plain_name(self):
+        described = {'metric_view': {'catalog_name': 'demo', 'schema_name': 'sales', 'table_name': 'v',
+                                     'view_text': textwrap.dedent("""
+                                         version: 1.1
+                                         source: demo.sales.orders
+                                         measures:
+                                           - name: orders
+                                             expr: COUNT(1)
+                                           - name: two
+                                             expr: COUNT(1); DROP TABLE demo.sales.orders
+                                           - name: aliased
+                                             expr: SUM(amount) AS total
+                                           - name: share
+                                             expr: SUM(amount) / (SELECT SUM(amount) FROM demo.sales.orders)
+                                           - name: folded
+                                             expr: SUM(AGGREGATE(items, 0, (acc, x) -> acc + x))
+                                     """)},
+                     'primary_keys': {'demo.sales.orders': ['o_orderkey OR TRUE']}}
+        path = self.root / 'v.json'
+        path.write_text(json.dumps(described))
+        facts = MV.parse(path)
+        self.assertEqual(sorted(self.declared(facts)), ['orders'])
+        self.assertEqual(self.declared(facts)['orders']['grain'], [])
+        notes = self.notes(facts)
+        for said in ("measure 'two' is not one SQL expression", "measure 'aliased' is not one SQL expression",
+                     "measure 'share' holds a query of its own", "measure 'folded' uses a lambda",
+                     "`primary_keys` for demo.sales.orders names a column that needs quoting; the key is ignored"):
+            self.assertIn(said, notes)
+        self.assertNotIn('DROP', json.dumps(public(facts)))
+
+    def test_a_measure_the_views_filter_cannot_reach_is_refused(self):
+        facts = self.read("""
+            version: 1.1
+            source: demo.sales.orders
+            filter: status = 'F'
+            measures:
+              - name: orders
+                expr: COUNT(1)
+              - name: any_late
+                expr: ANY(is_late)
+              - name: doubled
+                expr: amount * 2
+              - name: per_unit
+                expr: SUM(amount) / units
+              - name: first_amount
+                expr: FIRST(amount) IGNORE NULLS
+        """)
+        d = self.declared(facts)
+        self.assertEqual(sorted(d), ['first_amount', 'orders'])
+        self.assertEqual(d['orders']['formula'], "COUNT(1) FILTER(WHERE demo.sales.orders.status = 'F')")
+        self.assertEqual(d['first_amount']['formula'],
+                         "FIRST(demo.sales.orders.amount) FILTER(WHERE demo.sales.orders.status = 'F') IGNORE NULLS")
+        notes = self.notes(facts)
+        for name, column in (('any_late', 'is_late'), ('doubled', 'amount'), ('per_unit', 'units')):
+            self.assertIn(f"measure {name!r} reads `{column}` outside every aggregate this reader recognises, so the "
+                          "view's filter could not be applied to all of it; it is not read", notes)
+        # Without a filter there is nothing to apply, and the same measure is read as written.
+        plain = self.read('version: 1.1\nsource: demo.sales.orders\nmeasures:\n  - name: any_late\n    expr: ANY(is_late)\n')
+        self.assertEqual(self.declared(plain)['any_late']['formula'], 'ANY(demo.sales.orders.is_late)')
+
+    def test_a_string_literal_with_a_quote_or_a_backslash_is_refused_by_name(self):
+        facts = self.read(r"""
+            version: 1.1
+            source: demo.sales.orders
+            dimensions:
+              - name: mens
+                expr: category = 'Men\'s'
+              - name: segment
+                expr: CASE WHEN category = 'Sport' THEN 'A' ELSE 'B' END
+            measures:
+              - name: orders
+                expr: COUNT(1)
+              - name: escaped
+                expr: SUM(CASE WHEN category = 'Men\'s' THEN amount END)
+              - name: double_quoted
+                expr: SUM(CASE WHEN category = "it's source.amount" THEN amount END)
+              - name: backslash
+                expr: COUNT_IF(path = 'a\\b')
+              - name: raw
+                expr: COUNT_IF(code RLIKE r'\d+')
+              - name: doubled
+                expr: SUM(CASE WHEN category = 'Men''s' THEN amount END)
+              - name: plain
+                expr: SUM(CASE WHEN category = 'Sport' THEN amount END)
+              - name: noted
+                expr: "SUM(amount) -- it's net of source.tax"
+        """)
+        d = self.declared(facts)
+        self.assertEqual(sorted(d), ['noted', 'orders', 'plain'])
+        self.assertEqual(d['plain']['formula'], "SUM(CASE WHEN demo.sales.orders.category = 'Sport' THEN demo.sales.orders.amount END)")
+        self.assertEqual(d['noted']['formula'], 'SUM(demo.sales.orders.amount)')     # a comment is not carried
+        self.assertEqual([x['name'] for x in d['orders']['dimensions']], ['Segment'])
+        notes = self.notes(facts)
+        for what in ("field 'mens'", "measure 'escaped'", "measure 'double_quoted'", "measure 'backslash'", "measure 'raw'"):
+            self.assertIn(f'{what} holds a string literal with a quote or a backslash in it, which this reader does '
+                          'not carry; it is not read', notes)
+        self.assertIn("measure 'doubled' writes two string literals side by side", notes)
+        for found in (x for x in d.values() if x):
+            self.assertNotIn('source.', found['formula'])
+        # The filter is part of every number, so a filter refused this way leaves no measure.
+        said = self.refused("version: 1.1\nsource: demo.sales.orders\nfilter: category = 'Men\\'s'\n" + self.COUNTED)
+        self.assertIn("the view's filter holds a string literal with a quote or a backslash in it, which this reader "
+                      'does not carry; the filter is part of every measure of the view, so none is read', said)
+
+    def test_an_ordered_aggregate_takes_the_filter_after_within_group_or_is_refused(self):
+        view = """
+            version: 1.1
+            source: demo.sales.orders
+            {filter}
+            measures:
+              - name: orders
+                expr: COUNT(1)
+              - name: names
+                expr: LISTAGG(name, ',') WITHIN GROUP (ORDER BY name)
+              - name: own_filter
+                expr: LISTAGG(name, ',') WITHIN GROUP (ORDER BY name) FILTER (WHERE amount > 0)
+              - name: median_amount
+                expr: PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY amount)
+              - name: amounts
+                expr: ARRAY_AGG(amount ORDER BY placed_at)
+        """
+        refusal = ('uses an ordered aggregate (WITHIN GROUP, or ORDER BY inside the call) that this reader\'s SQL '
+                   'writer does not write back unchanged; it is not read')
+        for filter_line in ("filter: status = 'F'", 'comment: no filter'):
+            facts = self.read(view.format(filter=filter_line))
+            self.assertEqual(sorted(m['name'] for m in facts['measures']), ['names', 'orders', 'own_filter'])
+            for name in ('median_amount', 'amounts'):
+                self.assertIn(f'measure {name!r} {refusal}', self.notes(facts))
+        by_name = {m['name']: m['formula'] for m in facts['measures']}
+        self.assertEqual(by_name['names'], "LISTAGG(source.name, ',') WITHIN GROUP (ORDER BY source.name)")
+        filtered = {m['name']: m['formula'] for m in self.read(view.format(filter="filter: status = 'F'"))['measures']}
+        self.assertEqual(filtered['names'],
+                         "LISTAGG(source.name, ',') WITHIN GROUP (ORDER BY source.name) FILTER(WHERE source.status = 'F')")
+        self.assertEqual(filtered['own_filter'],
+                         "LISTAGG(source.name, ',') WITHIN GROUP (ORDER BY source.name) "
+                         "FILTER(WHERE (source.amount > 0) AND (source.status = 'F'))")
+        # The round trip: what is written parses, as a FILTER over the whole WITHIN GROUP clause, and writes the same.
+        for formula in (filtered['names'], filtered['own_filter']):
+            back = sqlglot.parse_one(formula, read='databricks')
+            self.assertIsInstance(back, sqlglot.exp.Filter)
+            self.assertIsInstance(back.this, sqlglot.exp.WithinGroup)
+            self.assertEqual(back.sql(dialect='databricks'), formula)
+        # Why the percentile is refused: the writer makes it another function.
+        self.assertEqual(sqlglot.parse_one('PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY amount)', read='databricks')
+                         .sql(dialect='databricks'), 'PERCENTILE_APPROX(amount, 0.5)')
+
+    def test_a_parameter_marker_is_refused_by_name(self):
+        facts = self.read("""
+            version: 1.1
+            source: demo.sales.orders
+            dimensions:
+              - name: discounted
+                expr: amount * (1 - :discount)
+            measures:
+              - name: orders
+                expr: COUNT(1)
+              - name: named
+                expr: SUM(amount * (1 - :discount))
+              - name: positional
+                expr: SUM(amount * ?)
+        """)
+        self.assertEqual(sorted(self.declared(facts)), ['orders'])
+        for what in ("field 'discounted'", "measure 'named'", "measure 'positional'"):
+            self.assertIn(f'{what} reads a parameter (a marker such as `:name` or `?`)', self.notes(facts))
+        said = self.refused('version: 1.1\nsource: demo.sales.orders\nfilter: amount > :floor\n' + self.COUNTED)
+        self.assertIn("the view's filter reads a parameter", said)
+        for bad, why in (('parameters: discount', 'its `parameters` is not a list'),
+                         ('parameters:\n  - default: 0', 'a `parameters` entry has no name')):
+            self.assertIn(why, self.refused(f'version: 1.1\nsource: demo.sales.orders\n{bad}\n{self.COUNTED}'))
+
+    def test_the_views_filter_reads_the_sources_columns_and_a_measure_reads_the_field(self):
+        # Both rules are what Databricks does (observed on a workspace on 2026-11-26).
+        view = """
+            version: 1.1
+            source: demo.sales.orders
+            filter: status = 'open'
+            dimensions:
+              - name: status
+                expr: UPPER(status)
+              - name: priority
+                expr: o_priority
+            measures:
+              - name: orders
+                expr: COUNT(1)
+              - name: revenue
+                expr: SUM(amount)
+              - name: open_orders
+                expr: COUNT_IF(status = 'OPEN')
+        """
+        facts = self.read(view)
+        d = self.declared(facts)
+        cond = "FILTER(WHERE demo.sales.orders.status = 'open')"
+        self.assertEqual(d['orders']['formula'], f'COUNT(1) {cond}')
+        self.assertEqual(d['revenue']['formula'], f'SUM(demo.sales.orders.amount) {cond}')
+        # The measure reads the FIELD, whose expression stands in its place; the filter beside it reads the column.
+        self.assertEqual(d['open_orders']['formula'], f"COUNT_IF((UPPER(demo.sales.orders.status)) = 'OPEN') {cond}")
+        for found in d.values():
+            self.assertTrue(found['formula'].endswith(cond))
+            self.assertNotIn('UPPER', found['formula'].rsplit('FILTER', 1)[1])
+        self.assertEqual([x['name'] for x in d['orders']['dimensions']], ['Priority'])
+        self.assertIn("field 'status' redefines a column the view's filter reads. The filter reads the column, so the "
+                      'field is not listed as a dimension', self.notes(facts))
+        # With no filter the field is a dimension as before, and a measure reads it by name.
+        unfiltered = self.declared(self.read(view.replace("filter: status = 'open'", 'comment: unfiltered')))
+        self.assertEqual(unfiltered['open_orders']['formula'], "COUNT_IF(UPPER(demo.sales.orders.status) = 'OPEN')")
+        self.assertEqual([x['name'] for x in unfiltered['orders']['dimensions']], ['Status', 'Priority'])
+
+    def test_a_filter_that_names_only_a_field_is_refused_when_the_sources_columns_are_known(self):
+        text = textwrap.dedent("""
+            version: 1.1
+            source: demo.sales.orders
+            filter: order_year >= 1996 AND o_status = 'F'
+            dimensions:
+              - name: order_year
+                expr: YEAR(o_orderdate)
+            measures:
+              - name: orders
+                expr: COUNT(1)
+        """)
+        path = self.root / 'v.extended.json'
+        path.write_text(json.dumps({'metric_view': {'view_text': text},
+                                    'source_columns': {'demo.sales.orders': ['o_orderdate', 'o_status']}}))
+        with self.assertRaises(MV.MetricViewError) as caught:
+            MV.parse(path)
+        self.assertIn("the view's filter reads `order_year`, which is a field of the view and not a column of its "
+                      'source', str(caught.exception))
+        # Unknown columns prove nothing: the name is bound to the source, as every bare name in a filter is.
+        self.assertEqual(self.declared(self.read(text))['orders']['formula'],
+                         "COUNT(1) FILTER(WHERE demo.sales.orders.order_year >= 1996 AND demo.sales.orders.o_status = 'F')")
+
+    def test_a_one_to_many_join_refuses_the_measure_that_reads_it_with_its_reason(self):
+        facts = self.read("""
+            version: 1.1
+            source: demo.sales.orders
+            joins:
+              - name: items
+                source: demo.sales.order_items
+                on: source.o_orderkey = items.i_orderkey
+                cardinality: one_to_many
+            measures:
+              - name: orders
+                expr: COUNT(1)
+              - name: quantity
+                expr: SUM(items.i_qty)
+        """)
+        quantity = next(m for m in facts['measures'] if m['name'] == 'quantity')
+        self.assertNotIn('declared', quantity)
+        self.assertEqual(facts['relationships'][0]['cardinality'], '1:M')
+        notes = self.notes(facts)
+        self.assertIn("join 'items' is one_to_many: it is not walked, and a measure that reads it is not placed", notes)
+        self.assertIn("metric 'quantity' reads items, which no declared many-to-one or one-to-one path from source "
+                      'reaches; it carries no declaration', notes)
+        self.assertEqual(self.declared(facts)['orders']['source'], 'demo.sales.orders')    # and no join fans it out
+
+    def test_a_declared_formula_returns_the_views_number_on_duckdb(self):
+        import duckdb
+        facts = self.read("""
+            version: 1.1
+            source: demo.sales.orders
+            filter: o_status <> 'P' AND customer.c_active
+            joins:
+              - name: customer
+                source: demo.sales.customer
+                on: source.o_custkey = customer.c_custkey
+            dimensions:
+              - name: segment
+                expr: customer.c_segment
+              - name: o_status
+                expr: LOWER(o_status)
+            measures:
+              - name: orders
+                expr: COUNT(1)
+              - name: revenue
+                expr: SUM(amount)
+              - name: big_orders
+                expr: COUNT(1) FILTER (WHERE amount > 50)
+              - name: fulfilled
+                expr: COUNT(CASE WHEN o_status = 'f' THEN 1 END)
+              - name: revenue_per_order
+                expr: MEASURE(revenue) / MEASURE(orders)
+              - name: customers
+                expr: COUNT(DISTINCT customer.c_name)
+        """)
+        con = duckdb.connect()
+        self.addCleanup(con.close)
+        con.execute("ATTACH ':memory:' AS demo")
+        con.execute('CREATE SCHEMA demo.sales')
+        con.execute('CREATE TABLE demo.sales.customer (c_custkey INT, c_name VARCHAR, c_segment VARCHAR, c_active BOOLEAN)')
+        con.execute('CREATE TABLE demo.sales.orders (o_orderkey INT, o_custkey INT, o_status VARCHAR, amount DOUBLE)')
+        con.executemany('INSERT INTO demo.sales.customer VALUES (?, ?, ?, ?)',
+                        [(1, 'Ada', 'retail', True), (2, 'Bo', 'retail', False), (3, 'Cy', 'trade', True), (4, 'Ada', 'trade', None)])
+        con.executemany('INSERT INTO demo.sales.orders VALUES (?, ?, ?, ?)',
+                        [(1, 1, 'F', 10.0), (2, 1, 'P', 20.0), (3, 2, 'F', 40.0), (4, 3, 'O', 80.0), (5, 3, 'F', None),
+                         (6, 4, 'F', 160.0), (7, None, 'F', 320.0), (8, 9, 'O', 640.0), (9, 1, 'F', 60.0)])
+        # The view's meaning, written by hand: the source, its join, the filter as a WHERE.
+        base = ("FROM demo.sales.orders o LEFT JOIN demo.sales.customer c ON o.o_custkey = c.c_custkey "
+                "WHERE o.o_status <> 'P' AND c.c_active")
+        hand = {'orders': 'COUNT(1)', 'revenue': 'SUM(o.amount)', 'big_orders': 'COUNT(1) FILTER (WHERE o.amount > 50)',
+                'fulfilled': "COUNT(CASE WHEN LOWER(o.o_status) = 'f' THEN 1 END)",
+                'revenue_per_order': 'SUM(o.amount) / COUNT(1)', 'customers': 'COUNT(DISTINCT c.c_name)'}
+        d = self.declared(facts)
+        self.assertEqual(sorted(d), sorted(hand))
+        for name, found in d.items():
+            with self.subTest(measure=name):
+                self.assertIn("FILTER(WHERE", found['formula'])
+                got = con.execute(f"SELECT {found['formula']} FROM {found['source']}").fetchone()[0]
+                want = con.execute(f'SELECT {hand[name]} {base}').fetchone()[0]
+                self.assertEqual(got, want)
+                segment = next(x['sql'] for x in found['dimensions'] if x['name'] == 'Segment')
+                cut = dict(con.execute(f"SELECT {segment}, {found['formula']} FROM {found['source']} GROUP BY 1").fetchall())
+                by_hand = dict(con.execute(f'SELECT c.c_segment, {hand[name]} {base} GROUP BY 1').fetchall())
+                # A group the filter empties is absent from the view and a zero or a null here.
+                self.assertEqual({k: v for k, v in cut.items() if v}, {k: v for k, v in by_hand.items() if v})
+        self.assertEqual(con.execute(f"SELECT {d['orders']['formula']} FROM {d['orders']['source']}").fetchone()[0], 4)
+        self.assertEqual(con.execute(f"SELECT {d['fulfilled']['formula']} FROM {d['fulfilled']['source']}").fetchone()[0], 3)
+
+    def test_a_file_that_is_not_readable_text_is_refused_in_words(self):
+        reader = MV.MetricViewReader()
+
+        def raw(name, data):
+            path = self.root / name
+            path.write_bytes(data)
+            return path
+
+        view = ('version: 1.1\nsource: demo.sales.orders\n' + self.COUNTED).encode()
+        for path, said in ((raw('latin.yaml', b'version: 1.1\nsource: demo.sales.caf\xe9\n'), 'is not UTF-8 text'),
+                           (raw('wide.yaml', view.decode().encode('utf-16')), 'is not UTF-8 text'),
+                           (raw('binary.json', b'\xff\xfe\x00'), 'is not UTF-8 text'),
+                           (raw('deep.json', b'[' * 100000 + b']' * 100000), 'is nested too deeply to read'),
+                           (raw('deep.yaml', b'a: ' + b'[' * 5000 + b']' * 5000), 'is nested too deeply to read'),
+                           (raw('big.yaml', view + b'#' * (1 << 20)), 'is larger than 1 MiB'),
+                           (raw('list.json', b'[1]'), 'is not a JSON object'),
+                           (raw('other.json', b'{"name": "example"}'), 'not a metric view description'),
+                           (self.root, 'is a folder that holds no metric view this reader reads with a measure')):
+            with self.subTest(path=path.name):
+                with self.assertRaises(MV.MetricViewError) as caught:
+                    MV.parse(path)
+                self.assertIn(said, str(caught.exception))
+                self.assertFalse(reader.detect(path))
+        # A byte order mark is not content.
+        for path in (raw('bom.yaml', b'\xef\xbb\xbf' + view),
+                     raw('bom.json', b'\xef\xbb\xbf' + json.dumps({'view_text': view.decode()}).encode())):
+            self.assertEqual([m['name'] for m in MV.parse(path)['measures']], ['orders'])
+            self.assertTrue(reader.detect(path))
+
+    def test_what_comes_with_a_view_in_another_shape_is_ignored_with_a_note(self):
+        text = textwrap.dedent("""
+            version: 1.1
+            source: demo.sales.orders
+            joins:
+              - name: customer
+                source: demo.sales.customer
+                on: o_custkey = c_custkey
+            dimensions:
+              - name: priority
+                expr: o_priority
+                synonyms: urgency
+                comment: {not: prose}
+              - name: no
+                expr: o_flag
+              - name: placed
+                expr: 2024-01-01
+            measures:
+              - name: orders
+                expr: COUNT(1)
+                synonyms: [order count, 7, '']
+                display_name: [Orders]
+              - name: names
+                expr: COUNT(DISTINCT customer.c_name)
+        """)
+
+        def read(name, **beside):
+            path = self.root / name
+            path.write_text(json.dumps({'metric_view': {'catalog_name': ['demo'], 'schema_name': 'sales',
+                                                        'table_name': 'v', 'table_id': {'id': 1}, 'view_text': text,
+                                                        **{k: beside.pop(k) for k in ('columns',) if k in beside}},
+                                        **beside}))
+            facts = MV.parse(path)
+            jsonschema.validate(public(facts), self.schema)
+            return facts
+
+        # One name alone is a list of one.
+        facts = read('one.json', primary_keys={'demo.sales.orders': 'o_orderkey'},
+                     source_columns={'demo.sales.orders': 'o_custkey', 'demo.sales.customer': 'c_custkey'},
+                     columns=[{'name': 'priority', 'type': {'name': 'int'}}, 7, {'name': 'orders', 'type': ['bigint']}])
+        d = self.declared(facts)
+        self.assertEqual(d['orders']['grain'], ['demo.sales.orders.o_orderkey'])
+        self.assertEqual(d['names']['formula'], 'COUNT(DISTINCT demo.sales.customer.c_name)')
+        self.assertEqual([(x['name'], x['datatype']) for x in d['orders']['dimensions']], [('Priority', 'integer')])
+        self.assertNotIn('description', d['orders']['dimensions'][0])
+        self.assertEqual(next(m for m in facts['measures'] if m['name'] == 'orders')['synonyms'], ['order count'])
+        self.assertEqual(facts['assets'][0]['vendor_id'], None)
+        self.assertEqual(facts['model_name'], 'sales.v')
+        notes = self.notes(facts)
+        for said in ("field 'priority' has `synonyms` that are not a list; they are ignored",
+                     'a field whose name is not text (YAML reads it as bool) is not read',
+                     "field 'placed' has an expression that is not text (YAML reads it as date)",
+                     '2 entries of `columns` did not name a column and its type; ignored'):
+            self.assertIn(said, notes)
+        # Anything else is left out by name, and the view is read without it.
+        facts = read('odd.json', primary_keys={'demo.sales.orders': 5}, source_columns=['o_custkey'], columns=5)
+        self.assertEqual(self.declared(facts)['orders']['grain'], [])
+        self.assertIsNone(self.declared(facts)['names'])
+        notes = self.notes(facts)
+        for said in ("`primary_keys` for 'demo.sales.orders' is not a list of column names; it is ignored",
+                     '`source_columns` is not a mapping of table to columns; it is ignored',
+                     "`columns` is not a list; no field's or measure's type is read",
+                     "join 'customer' names its columns without a table prefix"):
+            self.assertIn(said, notes)
+
+    def test_an_error_that_is_not_a_refusal_becomes_one_that_names_the_file_only(self):
+        path = self.view('version: 1.1\nsource: demo.sales.orders\n' + self.COUNTED)
+        whole = MV._read
+        self.addCleanup(setattr, MV, '_read', whole)
+        for error in (TypeError, AttributeError, KeyError, IndexError, ValueError, RecursionError):
+            def broken(src, error=error):
+                raise error('customer_secret_value')
+            MV._read = broken
+            with self.assertRaises(MV.MetricViewError) as caught:
+                MV.parse(path)
+            said = str(caught.exception)
+            self.assertIn(str(path), said)
+            self.assertIn(f'({error.__name__})', said)
+            self.assertNotIn('customer_secret_value', said)
+            self.assertIsNone(caught.exception.__cause__)
+        MV._read = whole
+        # A refusal passes through as it is, and an expression nested too deeply is one measure's refusal.
+        deep = self.read('version: 1.1\nsource: demo.sales.orders\nmeasures:\n  - name: orders\n    expr: COUNT(1)\n'
+                         '  - name: deep\n    expr: SUM(' + '+'.join(['x'] * 3000) + ')\n')
+        self.assertEqual(sorted(self.declared(deep)), ['orders'])
+        self.assertIn("measure 'deep'", self.notes(deep))
+
+    def test_a_small_file_takes_a_small_time(self):
+        def chain(kind, expr, steps=40):
+            head = 'version: 1.1\nsource: demo.sales.orders\n'
+            first = f'  - name: {kind[0]}0\n    expr: {expr}\n'
+            rest = ''.join(f'  - name: {kind[0]}{i}\n    expr: {{0}}{kind[0]}{i - 1}{{1}} + {{0}}{kind[0]}{i - 1}{{1}}\n'
+                           for i in range(1, steps + 1))
+            if kind == 'measure':
+                return head + 'measures:\n' + first + rest.format('MEASURE(', ')')
+            return head + 'dimensions:\n' + first + rest.format('', '') + self.COUNTED
+
+        started = time.perf_counter()
+        # Each measure reads the one before it twice: written out, the fortieth is a million million times the first.
+        facts = self.read(chain('measure', 'SUM(amount)'))
+        read = [m['name'] for m in facts['measures']]
+        self.assertEqual(read, [f'm{i}' for i in range(len(read))])
+        self.assertTrue(0 < len(read) < 20)
+        self.assertTrue(all(len(m['formula']) <= MV.MAX_EXPANDED for m in facts['measures']))
+        notes = self.notes(facts)
+        self.assertIn(f"measure 'm{len(read)}' is longer than 20,000 characters once the fields and measures it reads "
+                      'are written out; it is not read', notes)
+        self.assertIn(f"measure 'm{len(read) + 1}' reads MEASURE(m{len(read)}), which is not read", notes)
+        # A field names the field before it, and the shared model writes each name out: the same cap holds.
+        facts = self.read(chain('field', 'amount'))
+        self.assertIn('is longer than 20,000 characters once the fields and measures it reads are written out',
+                      self.notes(facts))
+        for found in self.declared(facts)['orders']['dimensions']:
+            self.assertLessEqual(len(found['sql']), 2 * MV.MAX_EXPANDED)
+        # A file of statements that are not metric views is recognised in one pass, and so is a hostile one.
+        reader = MV.MetricViewReader()
+        for name, text in (('dump.sql', 'CREATE VIEW demo.sales.v AS SELECT 1 FROM demo.sales.t;\n' * 15000),
+                           ('heads.sql', 'CREATE VIEW demo.sales.v ' + 'WITH METRICS ' * 60000),
+                           ('open.sql', '/* ' * 300000), ('blank.sql', ' ' * 900000 + 'x'),
+                           ('marks.sql', 'CREATE VIEW demo.sales.v WITH METRICS LANGUAGE YAML AS ' + '$ ' * 400000)):
+            path = self.root / name
+            path.write_text(text)
+            self.assertFalse(reader.detect(path))
+        self.assertLess(time.perf_counter() - started, 20)
+
+    def test_a_ddl_file_holds_one_statement(self):
+        view = 'version: 1.1\nsource: demo.sales.orders\n' + self.COUNTED
+        ddl = 'CREATE OR REPLACE VIEW demo.sales.orders_metrics\nWITH METRICS\nLANGUAGE YAML\nAS $$\n' + view + '$$'
+        commented = self.view('-- saved from the workspace\n/* CREATE VIEW demo.sales.old WITH METRICS */\n  ' + ddl + ';\n',
+                              'commented.sql')
+        self.assertEqual(MV.parse(commented)['model_name'], 'demo.sales.orders_metrics')
+        quoted = self.view(ddl.replace('demo.sales.orders_metrics', '`demo`.`sales`.`orders metrics`'), 'quoted.sql')
+        self.assertEqual(MV.parse(quoted)['model_name'], 'demo.sales.orders metrics')
+        for name, text, said in (('two.sql', ddl + ';\n' + ddl + ';\n', "holds text after the view's definition"),
+                                 ('dollar.sql', ddl.replace('COUNT(1)', "COUNT(1)\n    comment: costs $$ a lot"),
+                                  "holds text after the view's definition"),
+                                 ('open.sql', ddl[:-2], 'has no definition between `$$` and `$$`')):
+            with self.subTest(name=name):
+                self.assertIn(said, self.refused(text, name))
 
 
 @unittest.skipUnless(DEPENDENCIES, 'needs the metrics engine dependencies (sqlglot, PyYAML, jsonschema, duckdb)')
@@ -456,6 +1016,55 @@ class MetricViewInputTest(unittest.TestCase):
         view.write_text(self.VIEW)
         self.assertEqual(self.plug(bi=str(view)).bi_definitions([], self.root / 'unused'), [view])
         self.assertEqual(self.plug(bi=str(self.root)).bi_definitions([], self.root / 'unused'), [view])
+
+    def test_a_folder_gives_only_its_readable_views_and_never_stops_on_another_file(self):
+        from metrics_agent import sockets
+        folder = self.root / 'views'
+        (folder / 'nested').mkdir(parents=True)
+        (folder / '.hidden').mkdir()
+        outside = self.root / 'outside.yaml'
+        outside.write_text(self.VIEW)
+        first, second = folder / 'b_orders.yaml', folder / 'nested' / 'a_returns.json'
+        first.write_text(self.VIEW)
+        second.write_text(json.dumps({'view_text': self.VIEW}))
+        (folder / 'dimension_only.yaml').write_text('version: 1.1\nsource: demo.sales.orders\ndimensions:\n  - name: d\n    expr: d\n')
+        (folder / 'query_source.yaml').write_text(self.VIEW.replace('demo.sales.orders', 'SELECT 1'))
+        (folder / 'package.json').write_text('{"name": "example"}')
+        (folder / 'bundle.yml').write_text('bundle:\n  name: example\n')
+        (folder / 'query.sql').write_text('SELECT 1')
+        (folder / 'binary.json').write_bytes(b'\xff\xfe\x00')
+        (folder / 'notes.txt').write_text(self.VIEW)
+        (folder / '.hidden' / 'kept_out.yaml').write_text(self.VIEW)
+        try:
+            os.symlink(outside, folder / 'link.yaml')
+            os.symlink(self.root, folder / 'loop')
+            os.symlink(folder / 'missing.yaml', folder / 'dangling.yaml')
+        except (OSError, NotImplementedError):
+            pass                                          # a platform without links has none to skip
+        reader = MV.MetricViewReader()
+        expected = sorted([first, second])
+        self.assertEqual(reader.models(folder), expected)
+        self.assertEqual(reader.models(folder), expected)                  # the same order every time
+        self.assertEqual(self.plug(bi=str(folder)).bi_definitions([], self.root / 'unused'), expected)
+        self.assertEqual([MV.parse(p)['measures'][0]['name'] for p in expected], ['orders', 'orders'])
+        self.assertFalse(reader.detect(folder))
+        # Named alone, a file the folder left out is refused in words.
+        for name, said in (('dimension_only.yaml', 'the metric view declares no measure this reader reads'),
+                           ('query_source.yaml', 'its source is not a table name this reader can read'),
+                           ('binary.json', 'is not UTF-8 text'), ('package.json', 'not a metric view description')):
+            self.assertEqual(reader.models(folder / name), [folder / name])
+            with self.assertRaises(MV.MetricViewError) as refused:
+                reader.parse(folder / name)
+            self.assertIn(said, str(refused.exception))
+        # A folder with no view is refused by name, by the reader and by the connector.
+        empty = self.root / 'empty'
+        empty.mkdir()
+        (empty / 'dimension_only.yaml').write_text((folder / 'dimension_only.yaml').read_text())
+        self.assertEqual(reader.models(empty), [])
+        with self.assertRaisesRegex(MV.MetricViewError, 'is a folder that holds no metric view this reader reads'):
+            reader.parse(empty)
+        with self.assertRaisesRegex(sockets.NotSupported, 'holds no metric view this reader reads with a measure'):
+            self.plug(bi=str(empty)).bi_definitions([], self.root / 'unused')
 
     def test_without_a_file_the_connector_says_what_to_save(self):
         from metrics_agent import sockets

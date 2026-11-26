@@ -146,17 +146,65 @@ settings:
 `local-files` with `bi_vendor: databricks-metric-view` reads the same files with no
 connection.
 
+A file is UTF-8 text of at most 1 MiB, and a `.sql` file holds one statement. A folder is
+read as every file in it that is a metric view with at least one measure, in sorted order.
+Any other file in the folder is left out and never stops the run: a dimension-only view, a
+view the reader refuses, a file that is not a view, a file that is not UTF-8. Hidden folders
+and symbolic links are not read. To be told why a file was left out, name that file alone. A
+folder with no readable view is refused by name, and so is a single file with no measure.
+
 Read: YAML specification 0.1 and 1.1, `fields` or `dimensions`, many-to-one joins (nested
 too, `on` or `using`), `MEASURE()` references, and a top-level `filter`, which is written
-into every aggregate as `FILTER (WHERE ...)`. A view declares no key, so the card author
-states each metric's grain.
+into every aggregate as `FILTER (WHERE ...)`, after `WITHIN GROUP (...)` where there is one. A
+view declares no key, so the card author states each metric's grain.
 
-Not read, each named in the run's reader notes: window measures and measures built on them,
-expressions that read a `parameters` entry, wildcard fields, columns that need quoting,
-one-to-many joins, joins to a query, and a view whose own source is a query or another metric
-view. A join written without table prefixes (`on: o_custkey = c_custkey`) is read only when
+Names follow two rules, both observed on a Databricks workspace on 2026-11-26:
+
+- The view's `filter` reads the source's columns (and a joined table's through its join
+  name), never a field. With a field `status` defined as `LOWER(status)`, the filter
+  `status = 'f'` compares the column.
+- A field or a measure reads fields first: a bare name that an earlier field defines is that
+  field, and any other bare name is a column of the source.
+
+When a field redefines a column that the filter reads, the model cannot hold both under one
+name. The filter keeps the column, the field is not listed as a dimension, and a measure that
+reads the field carries its expression. A note names the field.
+
+A table name is `catalog.schema.table`, each part a plain identifier (letters, digits and
+underscores), with or without backticks. A `using` column and a key column are one plain
+identifier. A name that needs its quoting (a space, a hyphen) is refused like a column that
+needs quoting, because a name is written into SQL as it stands. The definition does not say
+whether a source is a table or another metric view, so a source that is a metric view is read
+as a table, and the run's live check is what catches it.
+
+Not read, each named in the run's reader notes:
+
+- a view whose own source is not a table name (a query, or a name that needs quoting): the
+  whole view;
+- a join whose source is not a table name, or whose `using` is not a list of plain column
+  names, with everything that reads it; a one-to-many join; a join condition that is not
+  equalities between its two tables;
+- window measures and measures built on them;
+- an expression that reads a `parameters` entry or holds a parameter marker (`:name`, `?`);
+- wildcard fields, columns that need quoting, and an expression that is more than one
+  expression or holds a query or a lambda;
+- an expression with a string literal that has a quote or a backslash in it, or two literals
+  side by side (`'it''s'`). When the view's filter is one, no measure is read;
+- under a view filter, a measure the filter cannot be shown to reach: one that calls an
+  unknown function, or reads a column outside every aggregate the reader recognises
+  (`ANY(is_late)`, `amount * 2`);
+- an ordered aggregate the SQL writer would change: `PERCENTILE_CONT` and `PERCENTILE_DISC`
+  with `WITHIN GROUP`, and `ARRAY_AGG(x ORDER BY y)`. `LISTAGG ... WITHIN GROUP` is read;
+- a field or measure longer than 20,000 characters once the fields and measures it reads are
+  written out;
+- a filter that names a field which `source_columns` shows is not a column of the source.
+  Databricks accepts no such view.
+
+A join written without table prefixes (`on: o_custkey = c_custkey`) is read only when
 the tables' columns come with the view. Wrap the description to supply them, and the source
-table's key:
+table's key. List each table's columns in full: when the view's filter names a field that
+the source's list does not hold, the reader takes it as not a column and refuses the filter.
+One column may be given as a string. A value of another shape is ignored, and a note says so:
 
 ```json
 {"metric_view": {"view_text": "..."},

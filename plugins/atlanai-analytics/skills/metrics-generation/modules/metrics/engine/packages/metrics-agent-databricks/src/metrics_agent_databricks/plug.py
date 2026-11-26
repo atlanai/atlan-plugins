@@ -135,8 +135,10 @@ class DatabricksDirect:
                               {"source": "databricks-information-schema"})
 
     def bi_definitions(self, assets, dest):
-        """The metric view files named by `bi`, read in place: one file, or every view file in
-        a folder (one model each).
+        """The metric view files named by `bi`, read in place: one file, or every file in a
+        folder that reads as a metric view with a measure (one model each). Any other file in
+        the folder is left out and never stops the run, and so are hidden folders and
+        symbolic links; a folder with no such view is refused by name.
 
         Nothing is fetched. A metric view's definition is returned by `DESCRIBE TABLE EXTENDED
         <view> AS JSON` and by Unity Catalog's table API, and by no query: the read-only gate
@@ -148,7 +150,13 @@ class DatabricksDirect:
             raise S.NotSupported("databricks-direct: set `bi` to a saved metric view definition "
                                  "(its YAML, DDL, or DESCRIBE TABLE EXTENDED ... AS JSON)")
         root = pathlib.Path(str(self.settings["bi"])).expanduser()
-        return metric_view.models(root) if root.is_dir() else [root]
+        found = metric_view.models(root)
+        if not found:
+            raise S.NotSupported(f"databricks-direct: `bi` names the folder {root}, which "
+                                 "holds no metric view this reader reads with a measure "
+                                 f"({', '.join(metric_view.SUFFIXES)}). Name one file to be "
+                                 "told why it is not read.")
+        return found
 
     def resolve_scope(self, refs):
         raise S.NotSupported("List bounded CATALOG.SCHEMA.TABLE names")

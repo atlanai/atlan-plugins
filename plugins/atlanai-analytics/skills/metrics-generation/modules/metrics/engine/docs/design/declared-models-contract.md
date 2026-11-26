@@ -201,15 +201,36 @@ contract above. Where a metric view differs from a semantic view, the reader set
   under its own name, and a nested join under its path (`customer.nation` is
   `customer__nation`). A many-to-one join is one relationship on every key column pair. A
   one-to-many join is carried and never walked.
+- **Names are checked.** A table is `catalog.schema.table`, each part a plain identifier, in
+  backticks or not; a `using` column and a key column are one plain identifier. Nothing else
+  is taken as a name, because a name is written into SQL as it stands. The definition cannot
+  tell a table from another metric view, so a source that is a metric view is read as a table,
+  and the run's live check is what catches it.
 - **Columns are bound.** A metric view writes a source column bare (`SUM(o_totalprice)`). The
   reader parses each expression in the Databricks dialect and binds every column to its role.
-  A bare name an earlier field defines is that field; any other is a column of the source.
+  In a field or a measure, a bare name an earlier field defines is that field; any other is a
+  column of the source. In the view's filter a bare name is always a column of the source,
+  never a field. Both rules were observed on a Databricks workspace on 2026-11-26.
 - **`MEASURE(x)` is replaced, and a measure is not a name.** A metric view names a measure only
   as `MEASURE(x)`, so the reader puts that measure's expression in its place and marks every
   measure `referable: false`. Without the mark, `revenue: SUM(revenue)` beside
   `avg_revenue: AVG(revenue)` compiled to `AVG(SUM(revenue))`.
 - **The view's filter is part of every measure.** `declared` has no model-wide predicate, so the
-  filter is written into each aggregate as `FILTER (WHERE ...)`. The number is the view's.
+  filter is written into each aggregate as `FILTER (WHERE ...)`, after `WITHIN GROUP (...)`
+  where there is one. The number is the view's. A measure the filter cannot be shown to reach
+  is refused: one that calls an unknown function, or reads a column outside every aggregate
+  the reader recognises. A filter that cannot be read leaves no measure read.
+- **A field that redefines a column the filter reads is not listed.** `lib/declared` reads
+  `role.name` as the field wherever it appears, so one model cannot hold a column and a field
+  of the same name. The filter keeps the column, and a measure that reads the field carries
+  its expression. Listing such a field as a dimension needs a change to `lib/declared`.
+- **String literals are plain.** `lib/declared` reads a formula as text and takes a literal to
+  end at the next quote. Databricks writes a quote inside a literal with a backslash, so an
+  expression whose literal holds a quote or a backslash is refused by name rather than
+  misread.
+- **A folder is its readable views.** `models` returns the files that read as a metric view
+  with a measure, sorted. Any other file is left out and never stops the run; hidden folders
+  and symbolic links are not read. A file is UTF-8 text of at most 1 MiB.
 - **No key.** A metric view declares none. A description can carry its source table's key
   (`primary_keys`); otherwise the grain is the card author's.
 - **A link back to the view.** The view is the model's one asset (`assets`, role
@@ -221,10 +242,20 @@ contract above. Where a metric view differs from a semantic view, the reader set
   `url`; none is ever built from a name alone.
 
 Refused by name, in the reader's notes: a window measure and every measure built on one, an
-expression that reads a `parameters` entry, a wildcard field, a column that needs quoting, a
-join to a query, a join condition that is not equalities between its two tables, and anything
-that reads a column a later field of the same name redefines. A view whose own source is a
-query or another metric view is refused whole.
+expression that reads a `parameters` entry or holds a parameter marker (`:name`, `?`), a
+wildcard field, a column that needs quoting, an expression that is not one expression or
+holds a query or a lambda, an ordered aggregate the SQL writer would change (`PERCENTILE_CONT`
+or `PERCENTILE_DISC` with `WITHIN GROUP`, `ARRAY_AGG(x ORDER BY y)`), a field or measure longer
+than 20,000 characters once what it reads is written out, a join whose source is not a table
+name or whose `using` is not plain column names, a join condition that is not equalities
+between its two tables, and anything that reads a column a later field of the same name
+redefines. A view whose own source is not a table name (a query, or a name that needs
+quoting) is refused whole, and so is a view whose filter names a field that `source_columns`
+shows is not a column of the source. Every refusal is a `ReaderRefused`: a malformed
+definition names the file and the kind of error, never a traceback.
+
+X3 copies an asset's `url` to a card only when it is `https` with no query string, fragment
+or space, whatever a reader wrote.
 
 `databricks-direct` declares the reader (`bi_vendor`) and reads the saved definition named by
 `settings.databricks-direct.bi`. It fetches nothing: see the open question below.
