@@ -1140,6 +1140,14 @@
             "string",
             "null"
           ]
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^https://[^?#\\s]+$",
+          "description": "The asset's own page in the tool it lives in, when the input says where that is: https, with no query string or fragment (either can carry a session or a filter state). Absent or null otherwise; never guessed from a name alone."
         }
       },
       "required": [
@@ -1366,6 +1374,30 @@
                 },
                 "description": "The declared dimensions (by `name` above) the example groups by."
               }
+            }
+          }
+        },
+        "parameters": {
+          "type": "array",
+          "description": "OPTIONAL. Each value the formula names as `{{name}}`, with the model's own value as its default. A reader writes a fixed date this way: Atlan keeps no fixed date in a metric's formula.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "datatype",
+              "default"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "datatype": {
+                "type": "string",
+                "minLength": 1
+              },
+              "default": {}
             }
           }
         },

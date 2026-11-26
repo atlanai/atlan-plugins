@@ -243,6 +243,11 @@ class Model:
         for ms in facts.get("measures") or []:
             if ms.get("formula_language") != "sql" or not ms.get("formula"):
                 continue
+            # A metric no formula names as `role.name` (`referable: false`, a Databricks
+            # metric view): its reader replaced every reference already, and `role.<its
+            # name>` is a column. `revenue: SUM(revenue)` must not read as SUM of itself.
+            if ms.get("referable") is False:
+                continue
             home = str(ms.get("home_table") or "").lower() or None
             m.items[(home, str(ms["name"]).lower())] = Item(
                 "measure", home, str(ms["name"]), str(ms["formula"]), home)
@@ -896,6 +901,16 @@ def complete(card: dict, decl: dict, *, dialect: str) -> tuple[dict, Counter]:
                                  d.get("synonyms") or [])
             if said != d.get("description"):
                 d["description"] = said
+
+    # PARAMETERS: a value the declared formula names as `{{name}}`, with the model's own value
+    # as its default. The model's lead: an author's parameter of the same name gives way.
+    declared_params = [dict(p) for p in decl.get("parameters") or []]
+    if declared_params:
+        taken_names = {p["name"] for p in declared_params}
+        src["parameters"] = [p for p in src.get("parameters") or []
+                             if not (isinstance(p, dict) and p.get("name") in taken_names)
+                             ] + declared_params
+        counts["parameters"] += len(declared_params)
 
     # THE FROM CLAUSE makes every join: `joins[]` only describes one, and a dimension on a
     # joined table is a cut nobody can run until its join is in the FROM clause. A join the

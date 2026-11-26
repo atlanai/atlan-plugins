@@ -2,6 +2,8 @@
 
 The maintained `databricks-direct` plug reads native query history and Unity Catalog column
 metadata and verifies SQL through the existing read-only socket. Custody is `customer`.
+The package also registers the `databricks-metric-view` BI reader: see
+[Metric views](#metric-views).
 The optional `databricks` runtime feature installs this package. The older SQL-only example
 remains separate; do not install both distributions into the same runtime.
 
@@ -110,6 +112,124 @@ observers: []
 Run preparation and advancement with a real TTY for browser sign-in. An explicit parse-only
 run does not establish warehouse execution, and example execution does not prove formula
 parity. Publication remains the host plugin's responsibility.
+
+## Metric views
+
+A metric view is a declared model. Each measure becomes one metric with the view's own
+formula, the fields it can be cut by with their comments and synonyms, and the joins that
+reach them ([declared models](../../docs/design/declared-models-contract.md)).
+
+The plug reads a saved definition and fetches none: the definition is returned by `DESCRIBE`
+and by no query, and the plug's read-only gate admits queries alone. Save one of these and
+name the file, or a folder of them, as `bi`:
+
+| File | How to get it |
+| --- | --- |
+| `.json` | the output of `DESCRIBE TABLE EXTENDED <view> AS JSON`, or of Unity Catalog's table API. It types every field and measure |
+| `.yaml`, `.yml` | the view's YAML definition |
+| `.sql` | its `CREATE VIEW ... WITH METRICS LANGUAGE YAML AS $$ ... $$` statement |
+
+```yaml
+inputs:
+  history: []
+  schema: []
+  bi: [databricks-direct]
+  sql_check: databricks-direct
+settings:
+  databricks-direct:
+    bi: /absolute/private/example_metrics.json
+    server_hostname: example.cloud.databricks.com
+    http_path: /sql/1.0/warehouses/example_warehouse
+    sign_in: unified
+```
+
+`local-files` with `bi_vendor: databricks-metric-view` reads the same files with no
+connection.
+
+A file is UTF-8 text of at most 1 MiB, and a `.sql` file holds one statement. A folder is
+read as every file in it that is a metric view with at least one measure, in sorted order.
+Any other file in the folder is left out and never stops the run: a dimension-only view, a
+view the reader refuses, a file that is not a view, a file that is not UTF-8. Hidden folders
+and symbolic links are not read. To be told why a file was left out, name that file alone. A
+folder with no readable view is refused by name, and so is a single file with no measure.
+
+Read: YAML specification 0.1 and 1.1, `fields` or `dimensions`, many-to-one joins (nested
+too, `on` or `using`), `MEASURE()` references, and a top-level `filter`, which is written
+into every aggregate as `FILTER (WHERE ...)`, after `WITHIN GROUP (...)` where there is one. A
+view declares no key, so the card author states each metric's grain.
+
+Names follow two rules, both observed on a Databricks workspace on 2026-11-26:
+
+- The view's `filter` reads the source's columns (and a joined table's through its join
+  name), never a field. With a field `status` defined as `LOWER(status)`, the filter
+  `status = 'f'` compares the column.
+- A field or a measure reads fields first: a bare name that an earlier field defines is that
+  field, and any other bare name is a column of the source.
+
+When a field redefines a column that the filter reads, the model cannot hold both under one
+name. The filter keeps the column, the field is not listed as a dimension, and a measure that
+reads the field carries its expression. A note names the field.
+
+A table name is `catalog.schema.table`, each part a plain identifier (letters, digits and
+underscores), with or without backticks. A `using` column and a key column are one plain
+identifier. A name that needs its quoting (a space, a hyphen) is refused like a column that
+needs quoting, because a name is written into SQL as it stands. The definition does not say
+whether a source is a table or another metric view, so a source that is a metric view is read
+as a table, and the run's live check is what catches it.
+
+Not read, each named in the run's reader notes:
+
+- a view whose own source is not a table name (a query, or a name that needs quoting): the
+  whole view;
+- a join whose source is not a table name, or whose `using` is not a list of plain column
+  names, with everything that reads it; a one-to-many join; a join condition that is not
+  equalities between its two tables;
+- window measures and measures built on them;
+- an expression that reads a `parameters` entry or holds a parameter marker (`:name`, `?`);
+- wildcard fields, columns that need quoting, and an expression that is more than one
+  expression or holds a query or a lambda;
+- an expression with a string literal that has a quote or a backslash in it, or two literals
+  side by side (`'it''s'`). When the view's filter is one, no measure is read;
+- under a view filter, a measure the filter cannot be shown to reach: one that calls an
+  unknown function, or reads a column outside every aggregate the reader recognises
+  (`ANY(is_late)`, `amount * 2`);
+- an ordered aggregate the SQL writer would change: `PERCENTILE_CONT` and `PERCENTILE_DISC`
+  with `WITHIN GROUP`, and `ARRAY_AGG(x ORDER BY y)`. `LISTAGG ... WITHIN GROUP` is read;
+- a field or measure longer than 20,000 characters once the fields and measures it reads are
+  written out;
+- a filter that names a field which `source_columns` shows is not a column of the source.
+  Databricks accepts no such view.
+
+A join written without table prefixes (`on: o_custkey = c_custkey`) is read only when
+the tables' columns come with the view. Wrap the description to supply them, and the source
+table's key. List each table's columns in full: when the view's filter names a field that
+the source's list does not hold, the reader takes it as not a column and refuses the filter.
+One column may be given as a string. A value of another shape is ignored, and a note says so:
+
+```json
+{"metric_view": {"view_text": "..."},
+ "source_columns": {"example_catalog.sales.orders": ["o_custkey"],
+                    "example_catalog.sales.customer": ["c_custkey"]},
+ "primary_keys": {"example_catalog.sales.orders": ["o_orderkey"]}}
+```
+
+A view's definition does not say which workspace it was read from. To give each metric a link
+back to the view, add the workspace's host beside the description:
+
+```json
+{"metric_view": {"catalog_name": "example_catalog", "schema_name": "sales",
+                 "table_name": "orders_metrics", "view_text": "..."},
+ "workspace_host": "example-workspace.cloud.databricks.com"}
+```
+
+The reader then records the view's page in Catalog Explorer
+(`https://<host>/explore/data/<catalog>/<schema>/<view>`) on the model's asset, and each
+metric built from the view carries it as a source reference (`provenance.observed_in`). Only a
+bare workspace host is taken, and only for a view with a plain three-part name; anything else
+is named in the reader notes and no link is recorded.
+
+Checked live on a Unity Catalog workspace: for 20 metric views, each declared formula over
+its base tables returned the value `MEASURE()` returns on the view.
 
 ## Connection isolation and reuse
 

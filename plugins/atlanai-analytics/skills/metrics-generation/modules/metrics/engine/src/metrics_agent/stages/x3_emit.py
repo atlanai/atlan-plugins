@@ -1130,7 +1130,9 @@ def _card_witness(cards: list[dict], run_inputs: dict, dialect: str, ctx: stage.
     out = []
     try:
         for card in cards:
-            sql = _card_sql.canonical_statement(card, dialect)
+            # A card's statement runs with each parameter at its declared default.
+            sql = _card_sql.bound(_card_sql.canonical_statement(card, dialect),
+                                  card.get("parameters"))
             if not sql:
                 continue
             name = card["name"]
@@ -1388,6 +1390,30 @@ def _repair_bundle(faults: dict, authored: dict, by_name: dict,
     }
 
 
+# An asset's page as the contract allows it: https, and no query string, fragment or space.
+_PAGE = re.compile(r"https://[^?#\s]+")
+
+
+def _asset_pages(vq_ids: list, stmts: dict) -> list[str]:
+    """WHERE A PERSON CAN OPEN THE DEFINITION: the pages of the assets a metric's statements came
+    from, as their reader recorded them (`url`). A reference only: never fetched, and empty when
+    no reader stated one. Only a page the contract allows is copied to a card, whatever a
+    reader wrote, and a statement whose provenance has another shape gives none."""
+    def held(value, key):
+        got = value.get(key) if isinstance(value, dict) else None
+        return got if isinstance(got, (dict, list)) else {}
+
+    pages = set()
+    for v in vq_ids if isinstance(vq_ids, (list, tuple)) else []:
+        stmt = stmts.get(v) if isinstance(stmts, dict) and isinstance(v, str) else None
+        assets = held(held(held(stmt, "provenance"), "bi"), "assets")
+        for a in assets if isinstance(assets, list) else []:
+            url = a.get("url") if isinstance(a, dict) else None
+            if isinstance(url, str) and _PAGE.fullmatch(url):
+                pages.add(url)
+    return sorted(pages)
+
+
 def _project(a: dict, m: dict, stmts: dict, evidence: dict, scope: str,
              dialect: str, *, policy=None, cands: dict | None = None,
              expr_of: dict | None = None) -> dict:
@@ -1434,6 +1460,7 @@ def _project(a: dict, m: dict, stmts: dict, evidence: dict, scope: str,
         {v: _bi_tags.aliases_for([m.get("expression")] + own.get(v, []),
                                  (cands or {}).get(v) or []) for v in vq_ids})
     lanes = [((stmts.get(v) or {}).get("provenance") or {}).get("lane") for v in vq_ids]
+    seen_in = _asset_pages(vq_ids, stmts)
     body_lane = next((l for l in ("merged", "bi", "history") if l in set(lanes)), None)
     tier, tier_basis = measures.tier_of(body_lane, lanes)
     return {
@@ -1509,7 +1536,8 @@ def _project(a: dict, m: dict, stmts: dict, evidence: dict, scope: str,
         "tier": tier,
         "tier_basis": tier_basis,
         "status": "",
-        "provenance": {"source": "verified-queries", "derived_from": vq_ids},
+        "provenance": {"source": "verified-queries", "derived_from": vq_ids,
+                       **({"observed_in": seen_in} if seen_in else {})},
         # The model's own other names for the metric: retrieval words, never interpreted.
         **({"synonyms": list(a["synonyms"])} if a.get("synonyms") else {}),
     }

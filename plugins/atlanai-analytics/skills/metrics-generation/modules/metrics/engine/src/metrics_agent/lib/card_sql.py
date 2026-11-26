@@ -126,6 +126,48 @@ def canonical_statement(card: dict, dialect: str | None = None) -> str:
     return "\n".join(out)
 
 
+_MARKER = re.compile(r"\{\{\s*([A-Za-z_]\w*)\s*\}\}")
+# A quoted run of any kind: a text value, or a name in double quotes or backticks.
+_QUOTED = re.compile(r"""('(?:''|\\.|[^'\\])*'|"(?:""|\\.|[^"\\])*"|`(?:``|[^`])*`)""")
+# Text that is a text value in every dialect once it stands between two single quotes: no
+# quote of any kind, no backslash (an escape in Databricks, Snowflake, BigQuery and MySQL), no
+# control character.
+_PLAIN_TEXT = re.compile(r"[^'\"`\\\x00-\x1f\x7f]*")
+
+
+def bound(sql: str, parameters: list | None) -> str:
+    """`sql` with each `{{name}}` outside a quoted run replaced by its parameter's default,
+    written as a literal. A card's statement cannot run with a marker in it, and the default
+    is the producer's own value, so this is the statement a reader gets by changing nothing.
+
+    ONLY A PLAIN VALUE IS WRITTEN IN. The result is run on a warehouse, and a default is text
+    someone wrote: a number, TRUE or FALSE, or text with no quote, backslash or control
+    character, which stays one text value in every dialect. Any other default, and a marker
+    with no declared default, is left as the marker: the statement then does not run, and
+    nothing a default says is run as SQL."""
+    defaults = {str(p.get("name")): p["default"] for p in parameters or []
+                if isinstance(p, dict) and p.get("default") is not None}
+    if not defaults or "{{" not in sql:
+        return sql
+
+    def literal(match: re.Match) -> str:
+        if match.group(1) not in defaults:
+            return match.group(0)
+        value = defaults[match.group(1)]
+        if isinstance(value, bool):
+            return "TRUE" if value else "FALSE"
+        if isinstance(value, int):
+            return str(value)
+        if isinstance(value, float):
+            return repr(value) if value == value and abs(value) != float("inf") else match.group(0)
+        if isinstance(value, str) and _PLAIN_TEXT.fullmatch(value):
+            return "'" + value + "'"
+        return match.group(0)
+
+    return "".join(part if i % 2 else _MARKER.sub(literal, part)
+                   for i, part in enumerate(_QUOTED.split(sql)))
+
+
 def aggregation_problems(sql: str, dialect: str | None) -> list[str]:
     """Reject invalid aggregation within a query scope without executing SQL.
 

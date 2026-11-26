@@ -165,6 +165,34 @@ class EarlierWorkTest(unittest.TestCase):
         self.assertFalse(a3_translate._in_native(unit, 'signal'))
         self.assertFalse(a3_translate._in_native({}, 'signal_1'))
 
+    def test_a_card_names_the_pages_its_statements_assets_state_and_no_others(self):
+        from metrics_agent.stages import x3_emit
+        page = 'https://example.cloud.databricks.com/explore/data/demo/sales/orders_metrics'
+        stmts = {'a': {'provenance': {'bi': {'assets': [
+                     {'role': 'semantic_model', 'name': 'demo.sales.orders_metrics', 'vendor_id': None, 'url': page},
+                     {'role': 'dashboard', 'name': 'Orders', 'vendor_id': None}]}}},
+                 'b': {'provenance': {'bi': {'assets': [
+                     {'role': 'semantic_model', 'name': 'demo.sales.orders_metrics', 'vendor_id': None, 'url': page},
+                     {'role': 'report', 'name': 'Other', 'vendor_id': None, 'url': None}]}}},
+                 'c': {'provenance': {'lane': 'history'}}}
+        self.assertEqual(x3_emit._asset_pages(['a', 'b', 'c', 'missing'], stmts), [page])
+        self.assertEqual(x3_emit._asset_pages(['c'], stmts), [])
+        # Only an https page with no query string, fragment or space is copied, whatever a reader wrote.
+        other = 'https://example-workspace.cloud.databricks.com/explore/data/demo/sales/returns_metrics'
+        odd = [{'url': 'javascript:alert(1)'}, {'url': 'http://example.com/page'}, {'url': page + '?o=1'},
+               {'url': page + '#top'}, {'url': 'https://example.com/a b'}, {'url': page + '\n'}, {'url': ' '},
+               {'url': 'https://'}, {'url': 5}, {'url': [page]}, 'https://example.com/text', None, {'url': other}]
+        self.assertEqual(x3_emit._asset_pages(['a'], {'a': {'provenance': {'bi': {'assets': odd}}}}), [other])
+        # A statement, provenance or asset list of another shape gives no page, and never raises.
+        for shaped in ([], [1], 'text', {'provenance': 'text'}, {'provenance': [1]}, {'provenance': {'bi': 'text'}},
+                       {'provenance': {'bi': [1]}}, {'provenance': {'bi': {'assets': {'url': page}}}},
+                       {'provenance': {'bi': {'assets': page}}}, {'provenance': {'bi': {'assets': 5}}}):
+            with self.subTest(statement=shaped):
+                self.assertEqual(x3_emit._asset_pages(['a'], {'a': shaped}), [])
+        self.assertEqual(x3_emit._asset_pages([['a'], None, 5], stmts), [])
+        self.assertEqual(x3_emit._asset_pages(None, stmts), [])
+        self.assertEqual(x3_emit._asset_pages(['a'], None), [])
+
     def test_a_card_statement_quotes_its_aliases_the_way_its_dialect_does(self):
         card = {'name': 'oee_pct', 'formula': 'AVG(oee_pct)', 'source': {'table': 'mfg.gold.oee_daily'}}
         statement = self.card_sql.canonical_statement

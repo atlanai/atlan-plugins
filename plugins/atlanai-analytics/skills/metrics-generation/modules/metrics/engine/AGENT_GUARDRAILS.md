@@ -340,6 +340,10 @@ packages/          plug packages that depend on the core, never the reverse:
                    history, semantic views as BI definitions) and the
                    `snowflake-semantic-view` BI reader (a declared model's
                    declarations too, through lib/declared.py)
+  metrics-agent-databricks/ the `databricks-direct` plug (SQL check, Unity Catalog columns,
+                   native query history, saved metric views as BI definitions) and the
+                   `databricks-metric-view` BI reader (declarations too, through
+                   lib/declared.py)
   metrics-agent-powerbi/    the `powerbi-fabric` plug (Power BI from Microsoft Fabric)
   metrics-agent-tableau/    the `tableau-cloud` plug (Tableau workbooks and their published
                    data sources, from Tableau Cloud or Tableau Server)
