@@ -86,11 +86,9 @@ gateway tool inventory; command hosts report installation without promising inpu
 or complete result access. Copilot discovers its adapter in `com.github.copilot/hooks/`.
 Other tools run no code from it.
 
-The same helper loads metrics and saved-query create batches with `items_from`, when the
-Analytics plugin prepares them from a checked publication plan. It reads one digest-bound
-JSON file in the working tree, applies the same credential checks and 256 KiB limit, and
-sends its items in the existing Atlan bulk-create call. Without the helper, the empty inline
-items list refuses the call before writing. Revisions and release checks remain unchanged.
+For metrics and saved queries, Analytics prepares native MCP requests from the approved
+plan and records released definitions and links in private local receipts. The same
+procedure works in Claude Code and Codex. See [Analytics publication](../atlanai-analytics/skills/metrics-generation/references/metrics/publish.md).
 
 | Host | File publishing and receipts |
 | --- | --- |
@@ -108,13 +106,6 @@ No helper switches accounts, adds a connection or reads credentials. Wildcard ma
 runner names never grants tool permission by itself. When a host supplies a server URL, the command
 adapter requires an Atlan HTTPS MCP endpoint before reading local files. Hosts without origin
 metadata use conventional Atlan names; ambiguous aliases retain the native fallback.
-
-Analytics can also request `receipt_dir` on guarded creates and released-definition or
-relationship reads. The helper removes that field before the Atlan call and records its
-native response in immutable private files inside the working tree. The same standard-library
-Python writer runs on all three hosts, with atomic writes and no symbolic links. Command
-hooks retain a small tool-id mapping in `.atlan-receipt-pending/` so the post-call event can
-find the destination. Receipt failure never retries an Atlan Trident write or marks a run complete.
 
 The same hook adds two notes for the agent, never for Atlan:
 

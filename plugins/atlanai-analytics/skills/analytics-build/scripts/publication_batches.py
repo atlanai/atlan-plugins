@@ -5,31 +5,61 @@ Standard library only. No Atlan Trident calls, credentials, revision writes or l
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import sys
+import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "metrics-generation"))
 from modules.workflow import Authorization
 from modules.metrics.publication import publication_identity
 from modules.metrics.holds import enforce_context
 import context_contracts
+from project import Project
 
 
 MAX_ITEMS = 25
-MAX_BYTES = 240 * 1024  # Leave room inside the publish helper's 256 KiB call limit.
+MAX_BYTES = 240 * 1024  # Leave room for the native MCP envelope.
+NATIVE_BYTES = 32 * 1024  # Keep each request small enough for both hosts' native tool calls.
 
 
 def encode(value):
     return json.dumps(value, ensure_ascii=False, allow_nan=False, separators=(',', ':')).encode('utf-8')
 
 
-def prepare(context, authorization, workspace, sources, record_receipts=False, max_bytes=MAX_BYTES):
-    root = Path(context).resolve()
+def write_once(path, data):
+    """Publish a complete private file atomically, or confirm its existing bytes."""
+    with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as temporary:
+        name = Path(temporary.name)
+        try:
+            temporary.write(data)
+            temporary.flush()
+            os.fsync(temporary.fileno())
+            temporary.close()
+            os.link(name, path)
+        except FileExistsError:
+            if path.is_symlink() or not path.is_file() or path.read_bytes() != data:
+                raise ValueError('An existing publication file changed; inspect it locally.') from None
+        finally:
+            name.unlink(missing_ok=True)
+
+
+def checked_documents(root):
     documents = {name: json.loads((root / (name + '.json')).read_text(encoding='utf-8'))
                  for name in ('plan', 'metrics', 'queries', 'links')}
     holds = enforce_context(root, documents['metrics'], documents['queries'], documents['links'])
     if holds is not None:
         documents['publication_holds'] = holds
+    return documents
+
+
+def prepare(context, authorization, workspace, sources, record_receipts=False, max_bytes=MAX_BYTES, *, native=False):
+    if native and record_receipts:
+        raise ValueError('Native batches record tool results explicitly.')
+    root = Path(context).resolve()
+    if native and root != Project(root.parent).context.resolve():
+        raise ValueError('Select the context inside the existing publication run.')
+    documents = checked_documents(root)
     plan_id, revisions = publication_identity(workspace_id=workspace, sources=sources, documents=documents)
     decision = Authorization.from_record(authorization).publication(
         workspace_id=workspace, sources=sources, plan_id=plan_id, revisions=revisions)
@@ -90,18 +120,17 @@ def prepare(context, authorization, workspace, sources, record_receipts=False, m
         data = encode(items)
         sha = hashlib.sha256(data).hexdigest()
         path = destination / (kind + '-' + sha + '.json')
-        try:
-            with path.open('xb') as stream:
-                stream.write(data)
-        except FileExistsError:
-            if path.is_symlink() or not path.is_file() or path.read_bytes() != data:
-                raise ValueError('An existing batch file changed; inspect it locally.') from None
-        calls.append({'name': 'registry__create_artifacts', 'count': len(items),
-                      'source_ids': [item['source_id'] for item in items],
-                      'arguments': {'kind': kind, 'items': [], 'workspace_id': workspace,
-                                    'items_from': str(path), 'items_sha256': sha}})
-        if record_receipts:
-            calls[-1]['arguments']['receipt_dir'] = receipt_dir
+        write_once(path, data)
+        call = {'name': 'registry__create_artifacts', 'count': len(items),
+                'source_ids': [item['source_id'] for item in items],
+                'arguments': {'kind': kind}}
+        if native:
+            call.update(items_file=path.name, sha256=sha)
+        else:
+            call['arguments'].update(items=[], workspace_id=workspace, items_from=str(path), items_sha256=sha)
+            if record_receipts:
+                call['arguments']['receipt_dir'] = receipt_dir
+        calls.append(call)
     # RUN THIS FIRST, ON THE CONNECTION THAT WILL WRITE. A host can hold two Atlan connections
     # signed in to different organizations; a refused or empty answer here means this
     # connection cannot reach the reviewed workspace, and nothing should be sent through it.
@@ -110,9 +139,15 @@ def prepare(context, authorization, workspace, sources, record_receipts=False, m
                  'arguments': {'workspace_id': workspace, 'group_by': 'kind'},
                  'expect_created': {'metric': sum(c['count'] for c in calls if c['arguments']['kind'] == 'metric'),
                                     'sql_query': sum(c['count'] for c in calls if c['arguments']['kind'] == 'sql_query')}}
-    return {'plan_id': plan_id, 'preflight': preflight, 'calls': calls, 'deferred': deferred,
-            **({'receipt_dir': receipt_dir} if record_receipts else {}),
-            'links': sum(item['ok'] for item in documents['plan']['links'])}
+    result = {'plan_id': plan_id, 'preflight': preflight, 'calls': calls, 'deferred': deferred,
+              **({'receipt_dir': receipt_dir} if record_receipts or native else {}),
+              'links': sum(item['ok'] for item in documents['plan']['links'])}
+    if native:
+        manifest = destination / f'plan-{plan_id}.json'
+        write_once(manifest, encode({'workspace_id': workspace, 'sources': sources, **result,
+                                     'receipt_dir': str(receipt_path)}))
+        result = {**result, 'manifest': str(manifest)}
+    return result
 
 
 def main():
@@ -121,15 +156,14 @@ def main():
     parser.add_argument('--authorization', type=Path, required=True)
     parser.add_argument('--workspace', required=True)
     parser.add_argument('--source', action='append', required=True)
-    parser.add_argument('--record-receipts', action='store_true')
-    parser.add_argument('--max-bytes', type=int, default=MAX_BYTES,
-                        help='cap each batch file; use a small cap (for example 60000) when the host '
-                             'cannot run the file-backed helper and the items must be sent inline')
+    parser.add_argument('--record-receipts', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--max-bytes', type=int, help='cap each batch file in UTF-8 bytes')
     args = parser.parse_args()
     try:
         authorization = json.loads(args.authorization.read_text(encoding='utf-8'))
         result = prepare(args.context, authorization, args.workspace, args.source, args.record_receipts,
-                         max_bytes=max(1, min(args.max_bytes, MAX_BYTES)))
+                         max_bytes=max(1, min(args.max_bytes or (MAX_BYTES if args.record_receipts else NATIVE_BYTES),
+                                              MAX_BYTES)), native=not args.record_receipts)
         print(json.dumps(result))
         return 0
     except (ValueError, OSError, KeyError, TypeError, context_contracts.Blocked):
