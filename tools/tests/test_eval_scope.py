@@ -239,6 +239,9 @@ class ScopeTest(unittest.TestCase):
         self.assertEqual(Path(res["set"]), self.tmp / ".atlan-analytics" / "evals" / "sets" / "revenue-check.jsonl")
         self.assertEqual(rows, [{"id": "m1", "question": "Total net revenue?", "sql": "SELECT 1",
                                  "tests": "Net Revenue", "from": "dashboard tile", "generated": True}])
+        # The set's own ids, so the chip counts the set and not a rejected draft or an unused spare.
+        self.assertEqual(json.loads((gen / "work" / "emitted.json").read_text()), ["m1"])
+        self.assertIn("1 test question", res["show_first"])
         # Written questions are an output: the chip comes with the result, and the side page lists them.
         self.assertIn("test question", res["show_first"])
         self.assertIn("show_first", res["visual"])

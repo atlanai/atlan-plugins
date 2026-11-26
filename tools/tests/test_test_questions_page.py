@@ -137,6 +137,15 @@ class TestQuestions(unittest.TestCase):
         self.assertEqual(visuals.render('questions', visuals.build_spec('questions', self.run, []), False),
                          '❝ **3 test questions written**')
 
+    def test_a_written_set_counts_its_questions_not_the_spares_drafted_beside_them(self):
+        # A Codex run, 2026-11-26: 12 drafted (8 asked for, 4 spares), 8 written to the set, and the chip said
+        # "12 test questions written". `emit` records the set's ids; the chip and the side page list those.
+        dump(self.ev / 'work' / 'emitted.json', ['c', 'a'])
+        asked = eval_runs.questions(self.ev)
+        self.assertEqual((asked['total'], [r['id'] for r in asked['rows']]), (2, ['c', 'a']))
+        self.assertTrue(visuals.render('questions', visuals.build_spec('questions', self.run, []), False)
+                        .startswith('❝ **2 test questions written**'))
+
     def test_the_result_that_loads_the_questions_hands_over_their_chip(self):
         # The dry run, 2026-11-25: chips a guide asks for went undrawn. The chip comes with the result the check reads.
         shown = check.show_questions(self.run)

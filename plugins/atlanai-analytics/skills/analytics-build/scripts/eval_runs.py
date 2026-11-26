@@ -285,13 +285,19 @@ def questions(ev: pathlib.Path):
     if not isinstance(spec, dict):
         return None
     picked = {s.get("id"): s for s in load(ev / "work" / "selection.json", []) or [] if isinstance(s, dict)}
+    records = [r for r in spec.get("records") or [] if isinstance(r, dict)]
+    # A written set lists what `emit` put in it: drafts beyond it are spares nobody will be asked.
+    emitted = load(ev / "work" / "emitted.json")
+    if isinstance(emitted, list):
+        by_id = {r.get("id"): r for r in records}
+        records = [by_id[i] for i in emitted if i in by_id]
     hill = ev / "hillclimb"
     # The newest pass with the context: a test again writes v1, v2 beside the first.
     passes = sorted((d for d in hill.glob("*") if d.is_dir() and d.name != "raw"), key=lambda d: d.stat().st_mtime)
     agent, names = (passes[-1] if passes else hill / "baseline"), hill / "raw"
     (am, ar), (nm, nr) = _scored(agent), _scored(names)
     rows = []
-    for n, r in enumerate(spec.get("records") or [], 1):
+    for n, r in enumerate(records, 1):
         case, where = r["id"], str((picked.get(r["id"]) or {}).get("from") or "")
         gold = ev / "eval" / "gold" / f"{case}.json"
         known = load(gold, {}) or {}

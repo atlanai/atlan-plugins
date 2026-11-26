@@ -266,6 +266,9 @@ def cmd_emit(a) -> dict:
     out = gen.parents[1] / "sets" / f"{name}.jsonl"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    # The questions in the set, in its order: the chip and the side page list these, not the unused spares
+    # (a Codex run, 2026-11-26, said "12 test questions written" for a set of 8).
+    dump(gen / "work" / "emitted.json", [r["id"] for r in rows])
     return {"status": "ok", "set": str(out), "questions": len(rows), "spares_unused": spare,
             "metrics": sorted({r["tests"] for r in rows if r["tests"]}), **_questions_chip(gen)}
 
