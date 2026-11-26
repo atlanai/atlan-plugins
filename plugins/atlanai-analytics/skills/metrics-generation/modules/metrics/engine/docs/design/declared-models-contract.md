@@ -223,9 +223,20 @@ contract above. Where a metric view differs from a semantic view, the reader set
   the reader recognises. A filter that cannot be read leaves no measure read.
 - **A fixed date is a parameter on the card.** A card keeps no fixed date in its formula, and
   one that does stops the whole export. The measure's formula keeps the date, so its statement
-  runs; the declaration writes it as `{{name}}` with the view's date as the default
-  (`order_date_from`, or `date_2021_01_01` where no one column names it). A date inside a longer
-  text value cannot be lifted out, and that measure is not read.
+  runs; the declaration writes it as `{{name}}` with the view's date as the default. The name
+  ends in the date (`order_date_from_2021_01_01`, or `date_2021_01_01` where no one column names
+  it), so two measures that differ only in a date differ in their formula's text and stay two
+  metrics. A text value that starts like a date and is not a plain date or timestamp cannot be
+  lifted out, and that measure is not read.
+- **What the SQL writer would change is not read.** Every expression is written back by the
+  parser's SQL writer, which renders some forms as other SQL. An expression is read only when
+  what is written reads back as the same expression and calls no function with a number of
+  arguments the text did not give it. That refuses a name in backticks where a date part
+  belongs (written out bare, as SQL), `TO_DATE` with a format, `UNIX_DATE` and two-argument
+  `DATEDIFF`. A path inside a value (`column:key`), `IDENTIFIER()`, a measure with a field's
+  name and a name used twice are refused too, each by name.
+- **A view has a size.** More than 1,000,000 characters of measures once written out, or more
+  than 100,000 pairs of a field and a measure, is refused in words before the work is done.
 - **A field that redefines a column the filter reads is not listed.** `lib/declared` reads
   `role.name` as the field wherever it appears, so one model cannot hold a column and a field
   of the same name. The filter keeps the column, and a measure that reads the field carries

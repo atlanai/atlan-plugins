@@ -209,20 +209,22 @@ class MetricViewReaderTest(unittest.TestCase):
         measure = {m['name']: m for m in facts['measures']}
         self.assertIn("source.o_orderdate >= CAST('2021-01-01' AS DATE)", measure['orders']['formula'])
         self.assertEqual(d['orders']['formula'],
-                         'COUNT(1) FILTER(WHERE demo.sales.orders.o_orderdate >= CAST({{o_orderdate_from}} AS DATE) '
-                         'AND demo.sales.customer.c_active)')
+                         'COUNT(1) FILTER(WHERE demo.sales.orders.o_orderdate >= '
+                         'CAST({{o_orderdate_from_2021_01_01}} AS DATE) AND demo.sales.customer.c_active)')
         self.assertEqual(d['orders']['parameters'],
-                         [{'name': 'o_orderdate_from', 'datatype': 'date', 'default': '2021-01-01'}])
-        # Two dates bound one column from below here, so both names carry their date.
+                         [{'name': 'o_orderdate_from_2021_01_01', 'datatype': 'date', 'default': '2021-01-01'}])
+        # A name ends in its date, so no two dates share one.
         self.assertEqual({p['name']: p['default'] for p in d['year_revenue']['parameters']},
-                         {'o_orderdate_from_2024_01_01': '2024-01-01', 'o_orderdate_to': '2024-12-31',
+                         {'o_orderdate_from_2024_01_01': '2024-01-01', 'o_orderdate_to_2024_12_31': '2024-12-31',
                           'o_orderdate_from_2021_01_01': '2021-01-01'})
         # A typed value is written as the cast it means: a marker cannot follow the keyword.
-        self.assertIn('demo.sales.orders.shipped_at > CAST({{shipped_at_from}} AS TIMESTAMP)', d['late']['formula'])
-        self.assertEqual(d['late']['parameters'][0],
-                         {'name': 'shipped_at_from', 'datatype': 'timestamp', 'default': '2024-06-30 23:59:59'})
-        # One date used two ways is named after the date, once.
-        self.assertEqual([p['name'] for p in d['both_sides']['parameters']], ['date_2022_07_01', 'o_orderdate_from'])
+        self.assertIn('demo.sales.orders.shipped_at > CAST({{shipped_at_from_2024_06_30_23_59_59}} AS TIMESTAMP)',
+                      d['late']['formula'])
+        self.assertEqual(d['late']['parameters'][0], {'name': 'shipped_at_from_2024_06_30_23_59_59',
+                                                      'datatype': 'timestamp', 'default': '2024-06-30 23:59:59'})
+        # One date used two ways is named after the date alone, once.
+        self.assertEqual([p['name'] for p in d['both_sides']['parameters']],
+                         ['date_2022_07_01', 'o_orderdate_from_2021_01_01'])
         self.assertEqual(d['both_sides']['formula'].count('{{date_2022_07_01}}'), 2)
         for name, found in d.items():
             self.assertNotRegex(found['formula'], r"'\d{4}-\d{2}-\d{2}", name)
@@ -234,35 +236,170 @@ class MetricViewReaderTest(unittest.TestCase):
         self.assertIn("CAST('2021-01-01' AS DATE)", card_sql.bound(d['orders']['formula'], d['orders']['parameters']))
         # A date inside a longer text value cannot be lifted out, so the measure is not read.
         self.assertNotIn('noted', d)
-        self.assertIn("measure 'noted' holds a fixed date inside a longer text value", self.notes(facts))
+        self.assertIn("measure 'noted' holds a text value that starts like a date and is not a plain date",
+                      self.notes(facts))
         self.assertIn("a fixed date is a parameter on the metric, with the view's date as its default",
                       self.notes(facts))
         self.assertNotIn('parameters', self.declared(self.read(ORDERS))['revenue'])
+
+    def test_two_measures_that_differ_only_in_a_date_stay_two_metrics(self):
+        # The declared formula is a metric's identity downstream. With the date lifted out, two
+        # measures over two years would read as one formula unless the name carried the date.
+        d = self.declared(self.read("""
+            version: 1.1
+            source: demo.sales.orders
+            measures:
+              - name: orders_fy23
+                expr: COUNT(CASE WHEN o_orderdate BETWEEN '2022-07-01' AND '2023-06-30' THEN 1 END)
+              - name: orders_fy24
+                expr: COUNT(CASE WHEN o_orderdate BETWEEN '2023-07-01' AND '2024-06-30' THEN 1 END)
+              - name: two_spellings
+                expr: COUNT(CASE WHEN made >= '2024-01-01 00:00' OR made >= '2024-01-01T00:00' THEN 1 END)
+              - name: zoned
+                expr: COUNT(CASE WHEN made >= '2024-01-01T00:00:00Z' AND made < TIMESTAMP'2024-02-01 00:00:00+05:30' THEN 1 END)
+              - name: other_digits
+                expr: COUNT(CASE WHEN note = '２０２４-01-01' THEN 1 END)
+        """))
+        self.assertNotEqual(d['orders_fy23']['formula'], d['orders_fy24']['formula'])
+        self.assertNotEqual(declared.identity({**d['orders_fy23'], 'model': 'm', 'metric': 'a'}),
+                            declared.identity({**d['orders_fy24'], 'model': 'm', 'metric': 'b'}))
+        self.assertIn('{{o_orderdate_from_2022_07_01}} AND {{o_orderdate_to_2023_06_30}}', d['orders_fy23']['formula'])
+        # Two spellings of one moment are two values, and each keeps its own name and default.
+        self.assertEqual({p['name']: p['default'] for p in d['two_spellings']['parameters']},
+                         {'made_from_2024_01_01_00_00': '2024-01-01 00:00',
+                          'made_from_2024_01_01t00_00': '2024-01-01T00:00'})
+        # A timestamp with a zone is a plain timestamp.
+        self.assertEqual({p['name']: (p['datatype'], p['default']) for p in d['zoned']['parameters']},
+                         {'made_from_2024_01_01t00_00_00z': ('timestamp', '2024-01-01T00:00:00Z'),
+                          'made_to_2024_02_01_00_00_00p05_30': ('timestamp', '2024-02-01 00:00:00+05:30')})
+        self.assertNotIn('other_digits', d)               # not a date this reader can lift, so not read
+
+    def test_what_the_sql_writer_would_change_is_not_read(self):
+        # The parser's SQL writer renders some forms as other SQL. Each of these would be written
+        # as an expression the view does not hold, so each is refused by name.
+        facts = self.read("""
+            version: 1.1
+            source: demo.sales.orders
+            joins:
+              - name: customer
+                source: demo.sales.customer
+                'on': source.o_custkey = customer.c_custkey
+            fields:
+              - name: revenue_usd
+                expr: revenue * fx_rate
+              - name: twice
+                expr: region
+              - name: twice
+                expr: status
+            measures:
+              - name: orders
+                expr: COUNT(1)
+              - name: leak
+                expr: MAX(EXTRACT(`YEAR FROM d) + (SELECT MAX(salary) FROM ``hr``.``private``.``people``) + EXTRACT(YEAR` FROM d))
+              - name: unit_leak
+                expr: SUM(DATEDIFF(`DAY, a, b) + (SELECT 1) + DATEDIFF(DAY`, a, b))
+              - name: parsed
+                expr: MAX(TO_DATE(shipped_text, 'yyyy-MM-dd'))
+              - name: epoch_days
+                expr: MAX(UNIX_DATE(o_orderdate))
+              - name: days_to_ship
+                expr: AVG(DATEDIFF(shipped_at, ordered_at))
+              - name: days_to_ship_stated
+                expr: AVG(DATEDIFF(DAY, ordered_at, shipped_at))
+              - name: order_year
+                expr: MAX(EXTRACT(YEAR FROM o_orderdate))
+              - name: path_total
+                expr: SUM(CAST(payload:customer.total AS DOUBLE))
+              - name: named_in_text
+                expr: COUNT(IDENTIFIER('customer.c_name'))
+              - name: revenue_usd
+                expr: SUM(revenue_usd)
+              - name: again
+                expr: SUM(revenue)
+              - name: again
+                expr: AVG(revenue)
+              - name: by_twice
+                expr: COUNT(DISTINCT twice)
+        """)
+        d = self.declared(facts)
+        self.assertEqual(sorted(d), ['days_to_ship_stated', 'order_year', 'orders'])
+        self.assertEqual(d['days_to_ship_stated']['formula'],
+                         'AVG(DATEDIFF(DAY, demo.sales.orders.ordered_at, demo.sales.orders.shipped_at))')
+        notes = self.notes(facts)
+        for said in ("measure 'leak' names a date part or unit that is not a plain word",
+                     "measure 'unit_leak' names a date part or unit that is not a plain word",
+                     "measure 'parsed' uses a form this reader's SQL writer does not write back unchanged",
+                     "measure 'epoch_days' uses a form this reader's SQL writer does not write back unchanged",
+                     "measure 'days_to_ship' calls DATEDIFF with 2 argument(s)",
+                     "measure 'path_total' reads a path inside a value",
+                     "measure 'named_in_text' uses IDENTIFIER()",
+                     "measure 'revenue_usd' has the name of a field",
+                     "measure 'again' shares its name with another measure",
+                     "field 'twice' shares its name with another field"):
+            self.assertIn(said, notes)
+        for found in d.values():
+            self.assertNotIn('SELECT', found['formula'].upper())
+            self.assertNotIn('HR', found['source'].upper().split('.'))
+        both = "version: 1.1\nsource: demo.sales.orders\nfields:\n  - name: a\n    expr: a\ndimensions:\n  - name: b\n    expr: b\n" + self.COUNTED
+        self.assertIn('lists both `fields` and `dimensions`', self.refused(both))
+
+    def test_a_view_too_large_to_read_in_a_short_time_is_refused_in_words(self):
+        fields = ''.join(f'  - name: f{i}\n    expr: c{i}\n' for i in range(400))
+        measures = ''.join(f'  - name: m{i}\n    expr: SUM(c{i})\n' for i in range(400))
+        started = time.monotonic()
+        said = self.refused(f'version: 1.1\nsource: demo.sales.orders\nfields:\n{fields}measures:\n{measures}')
+        self.assertIn('400 fields and 400 measures, more than this reader reads from one view', said)
+        # One long expression shared by a YAML alias: a small file that writes out a great deal.
+        long = ' + '.join(f'SUM(c{i})' for i in range(1500))
+        aliased = ('version: 1.1\nsource: demo.sales.orders\nmeasures:\n  - name: m0\n    expr: &e ' + long + '\n'
+                   + ''.join(f'  - name: m{i}\n    expr: *e\n' for i in range(1, 120)))
+        self.assertLess(len(aliased), 30_000)
+        self.assertIn('characters as written; it is not read', self.refused(aliased))
+        self.assertLess(time.monotonic() - started, 5)
+        # A filter every measure carries: small as written, large once it is written into each.
+        dates = ' OR '.join(f"d = '20{i % 90 + 10}-01-0{i % 9 + 1}'" for i in range(700))
+        filtered = ('version: 1.1\nsource: demo.sales.orders\nfilter: ' + dates + '\nmeasures:\n'
+                    + ''.join(f'  - name: m{i}\n    expr: COUNT(c{i})\n' for i in range(60)))
+        self.assertIn('characters once the fields, measures and filter they read are written out', self.refused(filtered))
+        self.assertLess(time.monotonic() - started, 30)
 
     def test_a_card_takes_the_declarations_parameters_and_runs_at_their_defaults(self):
         from metrics_agent.lib import card_sql
         decl = self.declared(self.read(self.DATED))['orders']
         card = {'name': 'Orders', 'formula': decl['formula'],
                 'source': {'entity': decl['entity'], 'alias': 'Orders',
-                           'parameters': [{'name': 'o_orderdate_from', 'datatype': 'date', 'default': '1999-09-09'},
+                           'parameters': [{'name': 'o_orderdate_from_2021_01_01', 'datatype': 'date',
+                                           'default': '1999-09-09'},
                                           {'name': 'kept', 'datatype': 'integer', 'default': 1}]}}
         self.assertEqual(declared.held_to(card, decl), [])
         done, counts = declared.complete(card, decl, dialect='databricks')
         # The model's value leads; a parameter of the author's own is kept.
         self.assertEqual(done['source']['parameters'],
                          [{'name': 'kept', 'datatype': 'integer', 'default': 1},
-                          {'name': 'o_orderdate_from', 'datatype': 'date', 'default': '2021-01-01'}])
+                          {'name': 'o_orderdate_from_2021_01_01', 'datatype': 'date', 'default': '2021-01-01'}])
         self.assertEqual(counts['parameters'], 1)
         statement = card_sql.canonical_statement({**done, 'dialect': 'databricks', 'output': {'alias': 'orders'}})
-        self.assertIn('{{o_orderdate_from}}', statement)
+        self.assertIn('{{o_orderdate_from_2021_01_01}}', statement)
         run = card_sql.bound(statement, done['source']['parameters'])
         self.assertIn("demo.sales.orders.o_orderdate >= CAST('2021-01-01' AS DATE)", run)
         sqlglot.parse_one(run, read='databricks')
-        # A marker inside a text value is text; one with no default stays for the reader to fill.
-        self.assertEqual(card_sql.bound("SELECT '{{a}}', {{a}}, {{n}}, {{on}}, {{b}}",
-                                        [{'name': 'a', 'default': "it's"}, {'name': 'n', 'default': 3},
+        # A marker inside a quoted run of any kind is left alone, and one with no default stays
+        # for the reader to fill.
+        self.assertEqual(card_sql.bound('SELECT \'{{a}}\', "{{a}}", `{{a}}`, {{a}}, {{n}}, {{on}}, {{b}}',
+                                        [{'name': 'a', 'default': 'plain text 1'}, {'name': 'n', 'default': 3},
                                          {'name': 'on', 'default': True}, {'name': 'b', 'default': None}]),
-                         "SELECT '{{a}}', 'it''s', 3, TRUE, {{b}}")
+                         'SELECT \'{{a}}\', "{{a}}", `{{a}}`, \'plain text 1\', 3, TRUE, {{b}}')
+        # Only a plain value is written in: the statement is run on a warehouse, and a default
+        # that could end its own text value is left as the marker, so nothing it says is run.
+        for unsafe in ("it's", "\\' OR (SELECT MAX(ssn) FROM hr.private.people) IS NOT NULL -- ", 'a"b', 'a`b',
+                       'a\\', 'line\nbreak', float('nan'), float('inf'), ['a'], {'a': 1}):
+            self.assertEqual(card_sql.bound('WHERE region = {{region}}', [{'name': 'region', 'default': unsafe}]),
+                             'WHERE region = {{region}}', repr(unsafe))
+        self.assertEqual(card_sql.bound('WHERE x = {{x}}', [{'name': 'x', 'default': 1.5}]), 'WHERE x = 1.5')
+        # An apostrophe in a quoted name does not turn the rest of the statement into text.
+        self.assertEqual(card_sql.bound('SELECT 1 AS `Customer\'s orders` WHERE d >= {{d}}',
+                                        [{'name': 'd', 'default': '2021-01-01'}]),
+                         "SELECT 1 AS `Customer's orders` WHERE d >= '2021-01-01'")
 
     def test_what_is_not_read_is_named_and_takes_what_is_built_on_it(self):
         facts = self.read('''
@@ -640,9 +777,15 @@ class MetricViewReaderTest(unittest.TestCase):
         self.assertEqual(d['first_amount']['formula'],
                          "FIRST(demo.sales.orders.amount) FILTER(WHERE demo.sales.orders.status = 'F') IGNORE NULLS")
         notes = self.notes(facts)
-        for name, column in (('any_late', 'is_late'), ('doubled', 'amount'), ('per_unit', 'units')):
+        for name, column in (('doubled', 'amount'), ('per_unit', 'units')):
             self.assertIn(f"measure {name!r} reads `{column}` outside every aggregate this reader recognises, so the "
                           "view's filter could not be applied to all of it; it is not read", notes)
+        # ANY reads no column when its argument is a constant, so it is refused as itself.
+        self.assertIn("measure 'any_late' uses ANY, SOME or ALL, which this reader does not recognise as an "
+                      "aggregate: the view's filter cannot be written into it; it is not read", notes)
+        constant = self.read("version: 1.1\nsource: demo.sales.orders\nfilter: status = 'F'\nmeasures:\n"
+                             "  - name: orders\n    expr: COUNT(1)\n  - name: any_true\n    expr: ANY(TRUE)\n")
+        self.assertNotIn('any_true', self.declared(constant))
         # Without a filter there is nothing to apply, and the same measure is read as written.
         plain = self.read('version: 1.1\nsource: demo.sales.orders\nmeasures:\n  - name: any_late\n    expr: ANY(is_late)\n')
         self.assertEqual(self.declared(plain)['any_late']['formula'], 'ANY(demo.sales.orders.is_late)')

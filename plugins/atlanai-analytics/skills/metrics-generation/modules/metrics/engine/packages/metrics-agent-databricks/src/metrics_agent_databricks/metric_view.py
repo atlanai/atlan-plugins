@@ -69,9 +69,21 @@ and one metric that holds one stops the export of every metric in the run. A vie
 often holds one (`order_date >= DATE'2021-01-01'`). The measure's own formula keeps the date,
 so the statement compiled from it runs. The declaration writes it as `{{name}}` and lists the
 parameter with the view's date as its default, so the card's number is the view's until a
-reader moves the date. A date compared with one column is named for the column and the side
-it bounds (`order_date_from`); any other is named for the date. A date inside a longer text
-value cannot be lifted out, and that measure is not read.
+reader moves the date. The name ends in the date (`order_date_from_2021_01_01`, or
+`date_2021_01_01` where the date is not compared with one column in one way), so two measures
+that differ only in a date differ in their formula's text and stay two metrics. A text value
+that starts like a date and is not a plain date or timestamp cannot be lifted out, and that
+measure is not read.
+
+**WHAT THE SQL WRITER WOULD CHANGE IS NOT READ.** Every expression is written back by the
+parser's SQL writer, and the writer renders some forms as other SQL. An expression is read
+only when what is written reads back as the same expression and calls no function with a
+number of arguments the text did not give it (`_faithful`). That refuses a name in backticks
+where a date part belongs (written out bare, as SQL), `TO_DATE` with a format (the format is
+dropped), `UNIX_DATE` (rewritten around a date of the writer's own) and two-argument
+`DATEDIFF` (written as the three-argument form, which counts whole days). A path inside a
+value (`column:key`), `IDENTIFIER()`, a measure with a field's name and a name used twice are
+not read either, each by name.
 
 **WHAT IS NOT READ, EACH SAID BY NAME** in `_reader_notes`, never dropped silently: a window
 measure and every measure built on one (its frame is applied when the view is queried), an
@@ -100,6 +112,7 @@ import json
 import os
 import pathlib
 import re
+from collections import Counter
 from typing import Any
 
 import sqlglot
@@ -118,6 +131,8 @@ SOURCE_ROLE = "source"
 VERSIONS = ("0.1", "1.1")
 MAX_BYTES = 1 << 20          # one definition file: 1 MiB, far above any real view's
 MAX_EXPANDED = 20_000        # characters of one field or measure, written out in full
+MAX_VIEW_EXPANDED = 1_000_000  # characters of every measure of one view, written out in full
+MAX_PAIRS = 100_000          # fields times measures: each measure is offered every field
 FILTER = "the view's filter"
 
 _PLAIN = re.compile(r"[A-Za-z_][A-Za-z0-9_$]*")
@@ -399,7 +414,72 @@ def _parse(sql: Any, what: str) -> exp.Expression:
         raise _Skip(f"{what} is not SQL the parser reads") from None
     if not isinstance(tree, _VALUE):                  # `a; DROP TABLE t`, `SUM(a) AS total`
         raise _Skip(f"{what} is not one SQL expression")
+    _faithful(tree, text, what)
     return tree
+
+
+# Words that can stand before `(` without being a function call.
+_NOT_CALLS = frozenset("AND OR NOT IN WHEN THEN ELSE ON WHERE AS BY OVER FILTER USING FROM BETWEEN "
+                       "LIKE IS CASE END EXISTS INTERVAL DISTINCT SELECT".split())
+_WORD = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def _calls(sql: str) -> dict[str, set[int]]:
+    """{function name: the numbers of arguments it is called with}, read from the text."""
+    try:
+        tokens = list(sqlglot.tokenize(sql, read=DIALECT))
+    except Exception:  # noqa: BLE001 - text that does not tokenize names no call
+        return {}
+    found: dict[str, set[int]] = {}
+    stack: list[list] = []                            # [name or None, commas, has an argument]
+    for i, tok in enumerate(tokens):
+        if tok.token_type == TokenType.L_PAREN:
+            prev = tokens[i - 1] if i else None
+            name = None
+            if prev is not None and prev.token_type not in _STRINGS \
+                    and _WORD.fullmatch(prev.text or "") and prev.text.upper() not in _NOT_CALLS:
+                name = prev.text.upper()
+            stack.append([name, 0, False])
+        elif tok.token_type == TokenType.R_PAREN:
+            if stack:
+                name, commas, any_arg = stack.pop()
+                if name:
+                    found.setdefault(name, set()).add(commas + 1 if any_arg else 0)
+        elif stack:
+            if tok.token_type == TokenType.COMMA:
+                stack[-1][1] += 1
+            stack[-1][2] = True
+    return found
+
+
+def _faithful(tree: exp.Expression, text: str, what: str) -> None:
+    """Raises _Skip unless this reader's SQL writer writes `tree` back as the expression it
+    read. The writer renders some forms as other SQL: a name in backticks where a date part
+    belongs is written out bare, as SQL; `TO_DATE(x, format)` loses its format; `UNIX_DATE`
+    gains a date of the writer's own; `DATEDIFF(end, start)` becomes the three-argument form,
+    which counts whole days where the two-argument form counts calendar days. Each is another
+    expression, so what is written is checked two ways: it reads back as the same tree, and no
+    function is called with a number of arguments the text did not give it. An ordered
+    aggregate is checked where the formula is written (`_written`), with its own words."""
+    for var in tree.find_all(exp.Var):
+        if not _WORD.fullmatch(str(var.name)):
+            raise _Skip(f"{what} names a date part or unit that is not a plain word")
+    if tree.find(exp.WithinGroup, exp.Order):
+        return
+    written = _sql(tree)
+    try:
+        same = sqlglot.parse_one(written, read=DIALECT) == tree
+    except Exception:  # noqa: BLE001 - text that does not parse is not the expression
+        same = False
+    if not same:
+        raise _Skip(f"{what} uses a form this reader's SQL writer does not write back "
+                    f"unchanged")
+    given, kept = _calls(text), _calls(written)
+    for name in sorted(given):
+        if name in kept and not given[name] <= kept[name]:
+            raise _Skip(f"{what} calls {name} with {min(given[name] - kept[name])} argument(s), "
+                        f"which this reader's SQL writer writes in another form whose result "
+                        f"can differ")
 
 
 def _sql(tree: exp.Expression) -> str:
@@ -624,6 +704,12 @@ class _View:
                         f"the view's tables")
         if tree.find(exp.Lambda):
             raise _Skip(f"{what} uses a lambda, whose names cannot be told from columns")
+        if tree.find(exp.JSONExtract, exp.JSONExtractScalar, exp.JSONPath):
+            raise _Skip(f"{what} reads a path inside a value (`column:key`), whose keys cannot "
+                        f"be told from the view's tables")
+        if any(str(n.name).upper() == "IDENTIFIER" for n in tree.find_all(exp.Anonymous)):
+            raise _Skip(f"{what} uses IDENTIFIER(), which names a column in text this reader "
+                        f"cannot bind")
         reads: set[str] = set()
         deps = self.deps.setdefault(what, set())
         spent = [len(_sql(tree))]
@@ -721,6 +807,9 @@ class _View:
         """`tree` with the view's filter written into every aggregate. Raises _Skip when the
         filter cannot be shown to reach all of it: an aggregate could be hidden in a function
         the parser does not know, or a column is read outside every aggregate."""
+        if tree.find(exp.Any, exp.All):
+            raise _Skip(f"{what} uses ANY, SOME or ALL, which this reader does not recognise "
+                        f"as an aggregate: the view's filter cannot be written into it")
         unknown = sorted({str(n.name).upper() for n in tree.find_all(exp.Anonymous)})
         if unknown:
             raise _Skip(f"{what} calls {', '.join(unknown)}, which may aggregate: the view's "
@@ -758,23 +847,38 @@ class _View:
 
 # ── fixed dates ──────────────────────────────────────────────────────────────────────────
 
-_DATED = re.compile(r"'(\d{4}-\d{2}-\d{2})([ T]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)?'")
+# A date or a timestamp as a text value, in ASCII digits: `2024-01-01`, `2024-01-01 09:30:00.5`,
+# `2024-01-01T09:30:00Z`, `2024-01-01 09:30:00+05:30`.
+_DATE_VALUE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}"
+                         r"(?:[ T][0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\.[0-9]{1,9})?)?)?"
+                         r"(?: ?(?:Z|UTC|[+-][0-9]{2}(?::?[0-9]{2})?))?")
+# What Atlan's own check reads as a fixed date: a text value that starts like one.
 _DATE_START = re.compile(r"'\d{4}-\d{2}-\d{2}")
 _TYPED = re.compile(r"(?i)(?<![A-Za-z0-9_$.`])(DATE|TIMESTAMP)\s*$")
 _SIDES = {exp.GTE: ("from", "to"), exp.GT: ("from", "to"), exp.LTE: ("to", "from"),
           exp.LT: ("to", "from"), exp.EQ: ("on", "on")}
 _THROUGH = (exp.Cast, exp.TryCast, exp.Paren, exp.TsOrDsToDate, exp.TsOrDsToTimestamp,
             exp.StrToDate, exp.StrToTime, exp.Date, exp.Timestamp, exp.Anonymous)
+_TAG = {"T": "t", " ": "_", ":": "_", ".": "_", "+": "p", "-": "m"}
+
+
+def _date_tag(value: str) -> str:
+    """`value` as the end of a parameter's name. Two different values give two different
+    tags: the date reads as itself, and what follows it keeps its separator, its fraction and
+    its zone (`2024-01-01T09:30Z` is `2024_01_01t09_30z`)."""
+    rest = value[10:].replace("UTC", "u").replace("Z", "z")
+    return value[:10].replace("-", "_") + "".join(_TAG.get(ch, ch) for ch in rest)
 
 
 def _date_names(formula: str, values: list[str]) -> dict[str, str]:
-    """{date: parameter name}. A date compared with one column is named after that column and
-    the side it bounds (`order_date_from`); any other is named after the date itself, and so
-    is a date the formula uses in two ways, which one such name would describe wrongly."""
+    """{date: parameter name}. The name ends in the date itself, so two formulas that differ
+    only in a date differ in their text too: nothing downstream may read them as one metric.
+    It starts with the column the date bounds and the side (`order_date_from_2024_01_01`),
+    or with `date` where the date is not compared with one column in one way."""
     said: dict[str, set[str]] = {}
     try:
         tree = sqlglot.parse_one(formula, read=DIALECT)
-    except Exception:                                 # noqa: BLE001 - names fall back to the date
+    except Exception:                                 # noqa: BLE001 - names fall back to `date`
         tree = None
     for lit in (tree.find_all(exp.Literal) if tree is not None else []):
         if not lit.is_string or lit.this not in values:
@@ -793,39 +897,33 @@ def _date_names(formula: str, values: list[str]) -> dict[str, str]:
             other = cmp_.this if right else cmp_.expression
             side = _SIDES[type(cmp_)][0 if right else 1]
         cols = {c.name for c in other.find_all(exp.Column)} if other is not None else set()
+        base = re.sub(r"[^A-Za-z0-9_]", "_", cols.pop()).lower() if len(cols) == 1 else ""
         said.setdefault(lit.this, set()).add(
-            f"{re.sub(r'[^A-Za-z0-9_]', '_', cols.pop()).lower()}_{side}"
-            if side and len(cols) == 1 else "")
-    def digits(v: str) -> str:
-        return re.sub(r"[^0-9]+", "_", v).strip("_")
-
-    bases = {}
+            f"{base}_{side}" if side and re.match(r"[a-z_]", base) else "")
+    names = {}
     for v in values:
         one = said.get(v) or set()
-        base = next(iter(one)) if len(one) == 1 else ""
-        bases[v] = base if re.match(r"[A-Za-z_]", base) else ""
-    # Two dates that bound one column on one side both carry their date, so neither name
-    # depends on which the formula writes first.
-    shared = {b for b in bases.values() if b and list(bases.values()).count(b) > 1}
-    return {v: (f"{b}_{digits(v)}" if b in shared else b) if b else f"date_{digits(v)}"
-            for v, b in bases.items()}
+        names[v] = f"{next(iter(one)) if len(one) == 1 and '' not in one else 'date'}_{_date_tag(v)}"
+    return names
 
 
 def date_parameters(formula: str) -> tuple[str, list[dict]]:
     """`formula` with every fixed date written as `{{name}}`, and the parameters that give each
     its date as the default. Atlan keeps no fixed date in a metric's formula: a date is a value
-    a reader may move. Raises _Skip for a date this cannot lift out, one inside a longer text
-    value."""
+    a reader may move. Raises _Skip for a text value that starts like a date and is not a
+    plain date or timestamp: it cannot be lifted out, and Atlan would refuse it where it is."""
     parts = _declared.outside_literals(formula)
     values = list(dict.fromkeys(
-        text[1:-1] for is_code, text in parts if not is_code and _DATED.fullmatch(text)))
-    if any(not is_code and _DATE_START.search(text) and not _DATED.fullmatch(text)
-           for is_code, text in parts):
-        raise _Skip("holds a fixed date inside a longer text value, which a saved metric "
-                    "cannot keep")
+        text[1:-1] for is_code, text in parts if not is_code and _DATE_VALUE.fullmatch(text[1:-1])))
+    for is_code, text in parts:
+        if not is_code and _DATE_START.match(text) and not _DATE_VALUE.fullmatch(text[1:-1]):
+            raise _Skip("holds a text value that starts like a date and is not a plain date or "
+                        "timestamp, which a saved metric cannot keep")
     if not values:
         return formula, []
     names = _date_names(formula, values)
+    if len(set(names.values())) != len(names):       # cannot happen while the tag tells dates apart
+        raise _Skip("holds two fixed dates this reader cannot name apart")
     out: list[str] = []
     for is_code, text in parts:
         if is_code or text[1:-1] not in names:
@@ -839,7 +937,7 @@ def date_parameters(formula: str) -> tuple[str, list[dict]]:
             out[-1] = out[-1][:typed.start()]
             marker = f"CAST({marker} AS {typed.group(1).upper()})"
         out.append(marker)
-    return "".join(out), [{"name": names[v], "datatype": "timestamp" if len(v) > 10 else "date",
+    return "".join(out), [{"name": names[v], "datatype": "date" if len(v) == 10 else "timestamp",
                            "default": v} for v in values]
 
 
@@ -888,6 +986,12 @@ def _words(item: dict, what: str, notes: list[str]) -> list[str]:
                                        *(w.lower() for w in out)}:
         out.insert(0, shown)
     return out
+
+
+def _names(items: list) -> Counter:
+    """{name, lower-cased: how many items of the list carry it}."""
+    return Counter(item["name"].strip().lower() for item in items
+                   if isinstance(item, dict) and isinstance(item.get("name"), str))
 
 
 def _name(item: dict, kind: str) -> str:
@@ -965,10 +1069,29 @@ def _read(src: pathlib.Path) -> dict[str, Any]:
                                   "view, so none is read") from None
 
     # FIELDS, in the view's order: a field may read only the ones before it.
+    if doc.get("fields") and doc.get("dimensions"):
+        raise MetricViewError(f"{src}: the metric view lists both `fields` and `dimensions`, "
+                              "two names for one list; which one its measures read cannot be "
+                              "told, so it is not read")
     fields = doc.get("fields") or doc.get("dimensions") or []
     if not isinstance(fields, list):
         view.notes.append("the view's fields are not a list; none is read")
         fields = []
+    listed = doc.get("measures") if isinstance(doc.get("measures"), list) else []
+    if sum(len(i["expr"]) for i in listed
+           if isinstance(i, dict) and isinstance(i.get("expr"), str)) > MAX_VIEW_EXPANDED:
+        raise MetricViewError(f"{src}: the view's measures come to more than "
+                              f"{MAX_VIEW_EXPANDED:,} characters as written; it is not read")
+    if len(fields) * len(listed) > MAX_PAIRS:
+        raise MetricViewError(f"{src}: the metric view lists {len(fields):,} fields and "
+                              f"{len(listed):,} measures, more than this reader reads from one "
+                              "view; it is not read")
+    # A NAME USED TWICE names two things, and nothing here can tell which one an expression
+    # means. A measure with a field's name is the same trouble: inside it Databricks reads the
+    # field, and the declaration would read a column of that name.
+    field_names = _names(fields)
+    twice_fields = {n for n, k in field_names.items() if k > 1}
+    twice_measures = {n for n, k in _names(listed).items() if k > 1}
     for item in fields:
         if not isinstance(item, dict):
             view.notes.append("a field that is not a mapping is not read")
@@ -977,6 +1100,9 @@ def _read(src: pathlib.Path) -> dict[str, Any]:
         try:
             fname = _name(item, "field")
             what = f"field {fname!r}"
+            if fname.lower() in twice_fields:
+                raise _Skip(f"{what} shares its name with another field; which one an "
+                            f"expression reads cannot be told")
             tree, reads = view.bind(item.get("expr"), what, own=fname.lower())
             formula = _written(tree, what)
         except (_Skip, RecursionError) as exc:
@@ -1043,6 +1169,7 @@ def _read(src: pathlib.Path) -> dict[str, Any]:
         view.notes.append("the view's measures are not a list; none is read")
         declared = []
     measures: list[dict] = []
+    written_out = 0
     for item in declared:
         if not isinstance(item, dict):
             view.notes.append("a measure that is not a mapping is not read")
@@ -1057,9 +1184,20 @@ def _read(src: pathlib.Path) -> dict[str, Any]:
             if item.get("window") not in (None, [], {}, ""):
                 raise _Skip(f"{what} is a window measure: its frame is applied when the view "
                             f"is queried")
+            if mname.lower() in twice_measures:
+                raise _Skip(f"{what} shares its name with another measure")
+            if mname.lower() in field_names:
+                raise _Skip(f"{what} has the name of a field: inside it that name reads the "
+                            f"field, and a formula written out would read a column")
             tree, _reads = view.bind(item.get("expr"), what, measures=True)
             final = view.filtered(tree, cond, what) if cond is not None else tree
             formula = _written(final, what)
+            written_out += len(formula)
+            if written_out > MAX_VIEW_EXPANDED:
+                raise MetricViewError(
+                    f"{src}: the view's measures come to more than {MAX_VIEW_EXPANDED:,} "
+                    f"characters once the fields, measures and filter they read are written "
+                    f"out; it is not read")
         except (_Skip, RecursionError) as exc:
             why = exc if isinstance(exc, _Skip) else f"{what} is nested too deeply to read"
             view.notes.append(f"{why}; it is not read")
@@ -1157,7 +1295,11 @@ def _read(src: pathlib.Path) -> dict[str, Any]:
     facts["assets"] = [own]
     if unlinked:
         view.notes.append(unlinked)
-    notes = _declared.attach(facts, dialect=DIALECT)
+    try:
+        notes = _declared.attach(facts, dialect=DIALECT)
+    except RecursionError:
+        raise MetricViewError(f"{src}: the view's fields build on each other more deeply than "
+                              "this reader follows; it is not read") from None
     # A FIXED DATE IS A PARAMETER ON THE CARD. The statement keeps the date as the view wrote
     # it, so it runs; the declaration names it, with the view's date as the default.
     dated: dict[str, str] = {}
