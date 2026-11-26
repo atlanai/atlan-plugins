@@ -179,7 +179,7 @@ comments, `PRIVATE` as `is_hidden`, and `declared` on every metric it can place.
 verified queries are compiled to base-table SQL by the reader (`semantic_view_queries.py`)
 and become `declared.examples`. Its measures are SQL, the core's own language, so the reader
 declares no other `languages`; they compile through the shared engine
-(`plugs/readers/bicompile.py`), which places a SQL measure by role rather than translating it.
+(`plugs/readers/bicompile/`), which places a SQL measure by role rather than translating it.
 A1 hands it, like every reader, the run's `dialect` and `policy`. A metric the reader cannot place has no `declared` and a note
 says why.
 

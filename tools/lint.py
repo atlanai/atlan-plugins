@@ -261,10 +261,7 @@ DIRECTORY_MAX_BYTES = 256 * 1024
 DIRECTORY_MAX_FILES = 512
 DIRECTORY_EXEMPT_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".woff", ".woff2", ".ttf", ".otf")
 # Each file allowed over the size limit for now, and why. An entry leaves when its file is split.
-DIRECTORY_OVERSIZE_ALLOWED = {
-    "plugins/atlanai-analytics/skills/metrics-generation/modules/metrics/engine/src/metrics_agent/plugs/readers/bicompile.py":
-        "the BI compiler; its split waits for the DAX conformance work",
-}
+DIRECTORY_OVERSIZE_ALLOWED: dict[str, str] = {}
 
 
 def lint_directory_limits(root: Path, files: list[Path] | None = None) -> list[str]:

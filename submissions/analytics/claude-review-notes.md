@@ -12,11 +12,11 @@ refuses a second submission for the same repository and path.
 
 | Finding | Was | Now |
 |---|---|---|
-| Files or downloads the validator couldn't inspect | 5 box-office files over 256 KiB, `tickets.csv` over the 1 MiB read limit, the yard `.pbit` (binary), 532 files | The data ships in parts under 240 KB and the `.pbit` as its text entries; the demo helper joins and zips them when a demo opens. 39 unused engine shims removed, and 14 contributor docs and example plugs moved to the repository's `docs/metrics-engine/`: 498 files. `bicompile.py` (639 KB) is the one file left over the limit |
+| Files or downloads the validator couldn't inspect | 5 box-office files over 256 KiB, `tickets.csv` over the 1 MiB read limit, the yard `.pbit` (binary), 532 files | The data ships in parts under 240 KB and the `.pbit` as its text entries; the demo helper joins and zips them when a demo opens. 39 unused engine shims removed, and 14 contributor docs and example plugs moved to the repository's `docs/metrics-engine/`. `bicompile.py` (639 KB) is now a package of 8 modules, the largest 196 KiB: 506 files, none over the limit |
 | Name may be confused: display name "Analytics" resembles publisher "KB Analytics" (hold) and plugin "analytics-skills" (warning) | display name `Analytics` | display name `Atlan Analytics` |
 | Front matter value may be misread (`analytics-demo/SKILL.md`) | unquoted description holding `: ` | quoted |
 
-`make check` now fails on any file over 256 KiB (but images, fonts and the named `bicompile.py`),
+`make check` now fails on any file over 256 KiB (but images and fonts),
 any binary file, or more than 512 files in a plugin folder.
 
 The portal reported "645 files" for 532 tracked files and 115 folders, so it may count folders.
@@ -98,9 +98,8 @@ install time.
 ## Still to do before submitting
 
 1. Re-validate this branch in the existing draft and update the counts above.
-2. Split `bicompile.py`, then remove its exception from `tools/lint.py`.
-3. Resolve or explain the download-and-run findings line by line.
-4. Data handling and compliance answers, and the review contact, confirmed by their owners (open
+2. Resolve or explain the download-and-run findings line by line.
+3. Data handling and compliance answers, and the review contact, confirmed by their owners (open
    questions on CTX-552).
 
 Atlan is a Verified organization (Directory → Help and appeals, 2026-11-25), so the download-and-run

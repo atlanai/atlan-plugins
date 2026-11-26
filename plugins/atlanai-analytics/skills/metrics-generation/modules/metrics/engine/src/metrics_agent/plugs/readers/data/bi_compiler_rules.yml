@@ -4,7 +4,7 @@
 # `compiler_rules` (sockets.BIReader). Another reader ships its own.
 #
 # THIS FILE IS DATA, NOT CODE, AND THAT IS THE WHOLE POINT. The engine
-# (`src/metrics_agent/plugs/readers/bicompile.py`) is human-owned Python; what it KNOWS lives here. A review pass
+# (`src/metrics_agent/plugs/readers/bicompile/`) is human-owned Python; what it KNOWS lives here. A review pass
 # may propose rows and the run may promote them automatically, because a row is
 # schema-checkable, diffable and reversible in a way that an arbitrary code patch is not.
 #

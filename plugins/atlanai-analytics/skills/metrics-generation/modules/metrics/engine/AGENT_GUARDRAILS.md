@@ -22,7 +22,7 @@ destination or a field.
    a validator that can reject it.
 
    **A3 is a COMPILER, not an LLM stage.** The reader that read a model compiles its units
-   (`compile_unit`, rule 22); the built-in readers share `plugs/readers/bicompile.py` and
+   (`compile_unit`, rule 22); the built-in readers share `plugs/readers/bicompile/` and
    `plugs/readers/data/bi_compiler_rules.yml`. The compiler writes the SQL from the rule table;
    the model REVIEWS it at A3b and proposes rule ROWS, never SQL.
    A row is data : schema-checkable, diffable, reversible; arbitrary code is none of those,
