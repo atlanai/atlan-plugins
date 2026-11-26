@@ -116,7 +116,7 @@ def snapshot():
         if any(part in ('tests', '__pycache__', 'build', 'dist', '.pytest_cache', '.venv', 'venv', '.git', '.mypy_cache', '.ruff_cache') or
                part.endswith('.egg-info') for part in relative.parts) or path.suffix in ('.pyc', '.pyo'):
             continue
-        if relative.parts[0] == 'scripts' or relative.as_posix() in ('pytest.ini', 'CONTRIBUTING.md', 'requirements-dev.txt') or relative.as_posix().startswith('examples/plugs/jsonl-trace/'):
+        if relative.parts[0] == 'scripts' or relative.as_posix() in ('pytest.ini', 'requirements-dev.txt'):
             continue
         if path.is_symlink():
             raise ValueError('Engine source must contain ordinary files.')

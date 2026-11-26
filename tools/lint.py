@@ -254,6 +254,41 @@ CORTEX_MCP = "./.mcp.json"
 CORTEX_SERVER = "atlan"
 
 
+# The Claude plugin directory holds a version for review, and can refuse an unverified publisher's,
+# when a plugin folder has a file it cannot read in full: one over 256 KiB that is not an image or
+# font, a binary file, or more than 512 files (claude.com/docs/plugins/pre-submission-checklist).
+DIRECTORY_MAX_BYTES = 256 * 1024
+DIRECTORY_MAX_FILES = 512
+DIRECTORY_EXEMPT_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".woff", ".woff2", ".ttf", ".otf")
+# Each file allowed over the size limit for now, and why. An entry leaves when its file is split.
+DIRECTORY_OVERSIZE_ALLOWED = {
+    "plugins/atlanai-analytics/skills/metrics-generation/modules/metrics/engine/src/metrics_agent/plugs/readers/bicompile.py":
+        "the BI compiler; its split waits for the DAX conformance work",
+}
+
+
+def lint_directory_limits(root: Path, files: list[Path] | None = None) -> list[str]:
+    """A plugin folder the directory reads in full: no file over 256 KiB but images and fonts, no
+    binary file, and at most 512 files."""
+    files = files if files is not None else [f for f in tracked_files() if f.is_relative_to(root)]
+    errors = []
+    for path in files:
+        if path.suffix.lower() in DIRECTORY_EXEMPT_SUFFIXES or not path.is_file():
+            continue
+        name = path.relative_to(ROOT).as_posix() if path.is_relative_to(ROOT) else str(path)
+        data = path.read_bytes()
+        if len(data) > DIRECTORY_MAX_BYTES and name not in DIRECTORY_OVERSIZE_ALLOWED:
+            errors.append(f"{name}: {len(data)} bytes; the plugin directory holds a file over 256 KiB for review. "
+                          "Split it, or ship it in parts the plugin joins when it runs.")
+        if b"\x00" in data:
+            errors.append(f"{name}: binary; the plugin directory holds any file but text, images and fonts for "
+                          "review. Ship it as text, and build the binary when the plugin runs.")
+    if len(files) > DIRECTORY_MAX_FILES:
+        errors.append(f"{root.relative_to(ROOT) if root.is_relative_to(ROOT) else root}: {len(files)} files; the plugin directory holds a plugin of more "
+                      f"than {DIRECTORY_MAX_FILES} for review.")
+    return errors
+
+
 def lint_cortex_manifest(root: Path, is_core: bool = False) -> list[str]:
     """Cortex Code runs no hooks module and no command hooks, so its manifest names none; only the
     core names a server file, `.mcp.json`, which holds the one `atlan` server."""
@@ -579,6 +614,8 @@ def main() -> int:
     for root in roots:
         errors += lint_claude_manifest(root, root == roots[0])
         errors += lint_cortex_manifest(root, root == roots[0])
+    for root in roots:
+        errors += lint_directory_limits(root)
     errors += lint_core_hooks(roots[0])
     for root in roots:
         errors += lint_command_hooks(root)
