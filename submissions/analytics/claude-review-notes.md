@@ -64,6 +64,11 @@ The validator flagged 10 files (2 skills, 3 references, 5 Python modules: `accur
 `analytics-build/scripts/source_inventory.py`, `eval_builder/sources/powerbi/dax.py`,
 `eval_builder/sources/tableau/calc.py`). The trigger is not documented. These files share no
 installer, download, pipe-to-shell or launcher pattern that the plugin's other files lack.
+Searched on 2026-11-26: none of the 10 holds `curl`, `wget`, `uvx`, `npx`, `pip install`, a pipe to a
+shell, `shell=True`, `eval(` or `exec(`, and two of them (`powerbi/dax.py`, `tableau/calc.py`) mention no
+download, install or command at all. The plugin's two real installers are elsewhere and were not
+flagged: `metrics/driver.py` (pip, `--only-binary=:all:` with `constraints.txt` pins) and
+`dashboard_runtime/scripts/setup_pbixray.py` (`uv pip sync --require-hashes --only-binary`).
 **Open:** copy the "View on GitHub" line links from the re-validation report, then reword the
 matched text or explain each one here. The plugin's local helpers are standard-library Python, or the
 pinned metrics runtime installed once with the person's consent; nothing is downloaded and run at
