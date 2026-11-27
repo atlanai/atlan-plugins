@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "atlanai-analytics",
-  "version": "0.9.102",
+  "version": "0.9.105",
   "description": "Build an agent that answers your data questions, on a demo or your own data: I extract the context in your dashboards and past queries, add detailed information to it and validate it, then you store it here or save it to Atlan Trident, ask it questions and build a dashboard.",
   "author": {
     "name": "Atlan",
