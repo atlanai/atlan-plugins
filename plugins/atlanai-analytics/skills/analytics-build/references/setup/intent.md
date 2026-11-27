@@ -253,7 +253,7 @@ that question comes only after a failure:
 
 | Tool | What to do | Say |
 | --- | --- | --- |
-| Power BI | Start the plug's one command as a background command (browser sign-in; a device code where no browser can open), as [the metrics module](../../../metrics-generation/references/metrics-engine.md#power-bi-from-a-report-link) says. Tell the person they are signed in only when the wait returns `signed_in` | "Opening Power BI sign-in in your browser. Once you're signed in, reading your report takes about a minute, and I'll show its pages here." Start the command first, then say this once and wait for it in the same turn, as [the metrics module](../../../metrics-generation/references/metrics-engine.md#power-bi-from-a-report-link) says: no other line about the same wait |
+| Power BI | Start the plug's one command as a background command (browser sign-in; a device code where no browser can open), as [the metrics module](../../../metrics-generation/references/metrics-engine.md#power-bi-from-a-report-link) says. Tell the person they are signed in only when the wait returns `signed_in` | "Opening Power BI sign-in in your browser. Once you're signed in, reading your report takes a few minutes, and I'll show its pages here." Start the command first, then say this once and wait for it in the same turn, as [the metrics module](../../../metrics-generation/references/metrics-engine.md#power-bi-from-a-report-link) says: no other line about the same wait |
 | Another tool whose route can start a sign-in | Start it the same way | The same line, with the tool's name |
 | Tableau, or any tool with no sign-in a tool can start | Ask the one question below | |
 

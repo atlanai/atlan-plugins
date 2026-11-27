@@ -153,7 +153,7 @@ def wait_task(output, after=0, timeout=540, interval=2.0):
             if line.strip() == 'Signed in.':
                 # The person just finished in their browser: say so now, not a minute later when the report is read.
                 return {'status': 'signed_in', 'after': past,
-                        'say': "You're signed in. Reading your report now, about a minute.",
+                        'say': "You're signed in. Reading your report now, a few minutes.",
                         'next': 'Write `say` word for word, then run this command again with --after, in this same turn.'}
             if re.search(r'devicelogin|enter the code|use a web browser to open', line, re.I):
                 return {'status': 'sign_in', 'line': line.strip()[:300], 'after': past,
