@@ -88,7 +88,9 @@ def _three(row, model, flow):
     engine = model.get('engine') if isinstance(model.get('engine'), dict) else {}
     done, counts = set(engine.get('done') or []), engine.get('counts') if isinstance(engine.get('counts'), dict) else {}
     totals = model.get('counts') or {}
-    made = {'draft': _count(counts, 'x1_ingest', 'proposals'), 'merge': _count(counts, 'x2_ingest', 'metrics_out')}
+    # Each metric found once, as the draft step's chip counts them; the engine's count is of drafts, one per source.
+    found = engine.get('found') if type(engine.get('found')) is int else None
+    made = {'draft': found or _count(counts, 'x1_ingest', 'proposals'), 'merge': _count(counts, 'x2_ingest', 'metrics_out')}
     phase = model.get('phase') or {}
     # Authoring ends when the run moves on to its checks: the detailed information is added, the validation is under way.
     written = phase.get('code') in STAGES and STAGES.index(phase['code']) >= STAGES.index('check')

@@ -58,7 +58,7 @@ class Chips(unittest.TestCase):
         self.assertEqual(first('group'), '» **2 questions your team asks** · found in 2 of your 3 past queries')
         self.assertEqual(first('tiles'), '▦ **2 tiles read** · each written as a question with SQL')
         # Each count says where it came from, so 110, 95, 24, 30, 25 and 8 read as one story.
-        self.assertEqual(first('described'), '❝ **4 saved queries written** · from your 2 questions and 2 dashboard tiles')
+        self.assertEqual(first('described'), '❝ **4 saved queries written** · from your 2 past queries and 2 dashboard tiles')
         self.assertEqual(first('metrics'), '◆ **2 metrics** · 1 duplicate merged')
         self.assertEqual(first('rules'), '= **Detailed information added to 2 metrics** · what each counts and leaves out')
         self.assertEqual(self.show('links'), '⋈ **1 link between metrics** · e.g. Gross margin uses Rework cost')
@@ -78,12 +78,37 @@ class Chips(unittest.TestCase):
         # Live (h2), the chat went 3.4 minutes from the queries described to the merge with nothing new: the draft step
         # had no chip of its own.
         self.drafted()
-        self.assertEqual(self.show('drafted').split('\n')[0], '◆ **5 metrics found** · in 3 of those 4 questions')
-        self.assertIn('<b style="font-weight:400">Gross margin</b><span>in 3 questions</span>', self.show('drafted', widget=True))
+        self.assertEqual(self.show('drafted').split('\n')[0], '◆ **3 metrics found** · in 3 of your 4 past queries')
+        self.assertIn('<b style="font-weight:400">Gross margin</b><span>in 3 past queries</span>', self.show('drafted', widget=True))
         import side_view
         due = side_view.due(self.run)
         self.assertLess(due.index('drafted'), due.index('metrics'))
         self.assertLess(due.index('described'), due.index('drafted'))
+
+    def test_metrics_found_counts_the_metrics_it_lists_and_names_its_sources(self):
+        # The Fixit run, 2026-11-27: "27 metrics found · in 25 of those 30 questions" over a list of 8 and "2 more". The
+        # count was drafts, one per source, and "questions" named past queries and tiles before the person asked anything.
+        self.drafted()
+        write(self.run / 'engine' / 'metric_proposals.json', {
+            'verdicts': {'bi-q1': 'metrics', 'bi-q2': 'none', 'h-1': 'metrics', 'h-2': 'metrics', 'h-3': 'metrics'},
+            'proposals': [{'proposal_id': pid, 'vq_id': pid.split('#')[0], 'name': name} for pid, name in (
+                ('bi-q1#0', 'Gross Margin'), ('h-1#0', 'Gross Margin'), ('h-1#1', 'gross margin'), ('h-2#0', 'Gross Margin'),
+                ('h-2#1', 'Rework Cost'), ('h-3#0', 'Rework Cost'), ('bi-q1#1', 'Job Count'))]})
+        chip = self.show('drafted')
+        self.assertEqual(chip.split('\n')[0], '◆ **3 metrics found** · in 3 of your 4 past queries and dashboard tiles')
+        html = self.show('drafted', widget=True)
+        self.assertIn('<b style="font-weight:400">Gross margin</b><span>in 1 tile and 2 past queries</span>', html)
+        self.assertIn('<b style="font-weight:400">Rework cost</b><span>in 2 past queries</span>', html)
+        self.assertIn('<b style="font-weight:400">Job count</b><span>in 1 tile</span>', html)
+        self.assertIn('A metric is a number you track, such as gross margin or rework cost. The same one often turns up in '
+                      'several past queries and tiles.', html)
+        self.assertNotRegex(chip + html, r'\bquestions?\b')
+        # Merging starts from the metrics this chip listed: 3 found, then 2 metrics with 1 duplicate merged.
+        self.assertEqual(self.show('metrics').split('\n')[0], '◆ **2 metrics** · 1 duplicate merged')
+        # Past queries alone are named alone.
+        write(self.run / 'engine' / 'metric_proposals.json', {'verdicts': {'h-1': 'metrics', 'h-2': 'none'}, 'proposals': [
+            {'proposal_id': 'h-1#0', 'vq_id': 'h-1', 'name': 'Rework Cost'}]})
+        self.assertEqual(self.show('drafted').split('\n')[0], '◆ **1 metric found** · in 3 of your 4 past queries')
 
     def test_each_metric_step_names_its_task_list_step_and_what_comes_next(self):
         # Team review: the chips show how the steps connect (draft, merge, write), with no progress bar.

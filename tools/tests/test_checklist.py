@@ -410,6 +410,13 @@ class ThreeSteps(unittest.TestCase):
         self.assertEqual(dashboard[5]['content'], 'Add detailed information to each metric and saved query')
         self.assertEqual([len(build), len(dashboard), len(checklist.initial('demo'))], [10, 11, 8])
 
+    def test_the_draft_step_counts_each_metric_found_once(self):
+        # The Fixit run, 2026-11-27: the engine's 27 drafts were 10 metrics, as the step's chip lists them.
+        model = self.model(('m2_ingest', 'x1_ingest'), {'x1_ingest': {'proposals': 27}})
+        model['engine']['found'] = 10
+        rows = {r['id']: r for r in checklist.build(model)['steps']}
+        self.assertEqual(rows['draft']['content'], 'Build your context: 10 metrics found')
+
     def test_each_step_ticks_as_the_engine_finishes_it_with_its_count_and_estimate(self):
         counts = {'m2_emit': {'queries': 30}, 'x1_ingest': {'proposals': 26}}
         start = {r['id']: r for r in checklist.build(self.model((), counts))['steps']}

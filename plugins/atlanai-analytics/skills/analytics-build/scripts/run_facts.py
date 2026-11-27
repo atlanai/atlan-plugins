@@ -240,6 +240,18 @@ def from_dashboard(source_id):
     return str(source_id).startswith('bi-')
 
 
+def metrics_found(proposals):
+    """Each metric the drafts name, once, with the tiles and past queries it was found in, by their ids: the same metric
+    drafted from 7 past queries is one metric found, so the count agrees with the list ("27 metrics found" over a list of
+    10, the Fixit run, 2026-11-27)."""
+    found = {}
+    for p in proposals or []:
+        if isinstance(p, dict) and p.get('name'):
+            name = sentence(str(p['name']))
+            found.setdefault(name.lower(), (name, set()))[1].add(str(p.get('vq_id') or str(p.get('proposal_id') or '').split('#')[0]))
+    return dict(found.values())
+
+
 def _verdict(entry):
     """Whether an item's check has given its verdict. The structural pass marks every item `schema_checked` before
     anything runs."""

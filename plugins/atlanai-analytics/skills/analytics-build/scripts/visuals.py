@@ -12,7 +12,7 @@ from pathlib import Path
 import re
 
 import visual_kit as k
-from run_facts import RunFacts, agent_name, count, first_question, from_dashboard, number, read_json, report_name, sentence, table_name, their, whole  # noqa: F401 (re-exported)
+from run_facts import RunFacts, agent_name, count, first_question, from_dashboard, metrics_found, number, read_json, report_name, sentence, table_name, their, whole  # noqa: F401 (re-exported)
 
 KINDS = ('connect', 'found', 'sources', 'group', 'tiles', 'described', 'drafted', 'metrics', 'rules', 'links', 'build', 'context',
          'saved', 'answer', 'edit', 'questions', 'agent')
@@ -328,22 +328,23 @@ def collect(kind, facts):
     if kind == 'described' and 'm2_ingest' in facts.stages:
         return _described(facts)
     if kind == 'drafted' and 'x1_ingest' in facts.stages and facts.stage('x1_ingest', 'proposals'):
-        # The draft step's end: every metric a query works out, each name once with how many queries it came from, and
-        # the tiles and past queries the metrics came from.
-        names, found_in = {}, set()
-        for p in facts.engine_file('metric_proposals.json').get('proposals') or []:
-            if isinstance(p, dict) and p.get('name'):
-                names.setdefault(sentence(str(p['name'])), set()).add(p.get('vq_id') or p.get('proposal_id'))
-                found_in.add(str(p.get('vq_id') or str(p.get('proposal_id') or '').split('#')[0]))
+        # The draft step's end: every metric a tile or past query works out, each name once with the tiles and past
+        # queries it turns up in, and which of those the step read.
+        proposals = facts.engine_file('metric_proposals.json')
+        names = metrics_found(proposals.get('proposals'))
+        found_in = set().union(*names.values()) if names else set()
         read, none = facts.stage('x1_ingest', 'answered'), facts.stage('x1_ingest', 'no_metric') or 0
-        rows = [[n, count(len(q), 'question').replace('1 question', 'in 1 question') if len(q) == 1 else 'in ' + count(len(q), 'question')]
-                for n, q in sorted(names.items(), key=lambda kv: -len(kv[1]))]
-        tiles = sum(1 for v in found_in if from_dashboard(v))
-        return {'drafted': facts.stage('x1_ingest', 'proposals'), 'read': read, 'with': read - none if read else None, 'rows': rows,
-                'from': {'tiles': tiles, 'queries': len(found_in) - tiles}}
+        rows = [[n, _from(_split(ids), 'in')] for n, ids in sorted(names.items(), key=lambda kv: -len(kv[1]))]
+        # What was read, by kind, from the step's own verdicts (one per tile or past query); else from where metrics were found.
+        verdicts = proposals.get('verdicts')
+        return {'drafted': facts.stage('x1_ingest', 'proposals'), 'found': len(names), 'read': read,
+                'with': read - none if read else None, 'rows': rows, 'from': _split(found_in),
+                'sources': _split(verdicts if isinstance(verdicts, dict) and verdicts else found_in)}
     if kind == 'metrics' and 'x2_ingest' in facts.stages and facts.merged:
+        # Duplicates merged out of the metrics the draft step's card listed, so 10 found reads as 9 after merging.
+        found = len(metrics_found(facts.engine_file('metric_proposals.json').get('proposals')))
         return {'metrics': [m['name'] for m in facts.merged], 'rows': [[m['name'], _from(m)] for m in facts.merged],
-                'drafts': facts.stage('x2_ingest', 'proposals_in') or facts.stage('x1_ingest', 'proposals')}
+                'drafts': found or facts.stage('x2_ingest', 'proposals_in') or facts.stage('x1_ingest', 'proposals')}
     if kind == 'rules' and 'x3_ingest' in facts.stages:
         rows = [[m['name'], '', d] for m in facts.merged for d in [_definition(facts, m['name'])] if d]
         return {'defined': len(facts.merged), 'rows': rows} if rows else {}
@@ -725,7 +726,7 @@ FOUND_MARKS = {'dashboard': 'dashboard', 'database': 'database', 'query history'
 # Where each metric step's own chip sits, in the task list's own step names (Build your context: metrics and saved
 # queries, Merge duplicate metrics, Add detailed information to each metric and saved query), and what comes next: one set of names
 # in the chat, with no progress bar and no second numbering. The person's words, 2026-11-18: draft, merge, rule and check were the build's.
-FLOW = {'described': 'Questions written. Next: the metrics behind each one.',
+FLOW = {'described': 'Saved queries written. Next: the metrics behind each one.',
         'drafted': 'Metrics found. Next: merging duplicates.',
         'metrics': 'Duplicates merged. Next: adding detailed information to each metric.',
         'rules': 'Information added. Next: validating each one on the data.'}
@@ -854,21 +855,28 @@ def _outcome(kind, s):
         # Saved queries, as the build card counts them: "questions written" read as the accuracy check's test questions.
         o = {'mark': 'described', 'bold': count(s['described'], 'saved query', 'saved queries') + ' written',
              # From one source the count would only repeat itself ("5 questions written · from your 5 questions").
-             'tail': ('from %s %s and %s' % (their(s.get('firm')), count(s['past'], 'question'), count(s['tiles'], 'dashboard tile'))
+             'tail': ('from %s %s and %s' % (their(s.get('firm')), count(s['past'], 'past query', 'past queries'),
+                                               count(s['tiles'], 'dashboard tile'))
                       if s.get('past') and s.get('tiles') else 'from %s dashboard\'s tiles' % their(s.get('firm')) if s.get('tiles')
                       else 'in %s words' % their(s.get('firm'))),
              'rows': s.get('rows'),
              'what': 'When you ask one of these, your agent finds the question that matches and uses its SQL.',
              **({'sub': s['sub']} if s.get('sub') else {})}
     elif kind == 'drafted' and s.get('drafted'):
-        # Of the questions just written, how many work out a metric: "found in 3 of those 4 questions", so this count
-        # follows the one before it (a count of source ids read "from 5 past queries" after "4 questions written").
-        found_in = ('in %d of those %s' % (s['with'], count(s['read'], 'question'))
-                    if s.get('read') and s.get('with') is not None else _from(s.get('from')))
-        o = {'mark': 'metrics', 'bold': count(s['drafted'], 'metric') + ' found', 'tail': found_in,
+        # Of the tiles and past queries read, how many work out a metric, named by what they are: "in 25 of Fixit's 30
+        # past queries". The count is the metrics listed below it, each once: drafts of the same metric from several
+        # sources read "27 metrics found" over a list of 10 (the Fixit run, 2026-11-27).
+        kinds = s.get('sources') or s.get('from') or {}
+        found_in = ('in %d of %s %s' % (s['with'], their(s.get('firm')), _sources(s['read'], kinds))
+                    if s.get('read') and s.get('with') is not None else _from(s.get('from'), 'in'))
+        named = [_mid(r[0]) for r in (s.get('rows') or [])[:2]]
+        where = ('past queries and tiles' if kinds.get('tiles') and kinds.get('queries')
+                 else 'dashboard tiles' if kinds.get('tiles') else 'past queries')
+        o = {'mark': 'metrics', 'bold': count(s.get('found') or s['drafted'], 'metric') + ' found', 'tail': found_in,
              'rows': s.get('rows'),
-             'what': ('A metric is a total, count or rate that one of %s questions works out. The same metric often turns up '
-                      'in several questions.' % their(s.get('firm')))}
+             'what': 'A metric is a number %s, %s. The same one often turns up in several %s.' % (
+                 '%s tracks' % s['firm'] if s.get('firm') else 'you track',
+                 'such as ' + ' or '.join(named) if named else 'such as a total, count or rate', where)}
     elif kind == 'metrics' and s.get('metrics'):
         merged = s['drafts'] - len(s['metrics']) if s.get('drafts') else None
         o = {'mark': 'metrics', 'bold': count(len(s['metrics']), 'metric'),
@@ -994,11 +1002,30 @@ def _source_line(f, report=''):
     return 'From ' + ' and '.join(parts) if parts else ''
 
 
-def _from(e):
-    """Where a metric came from, in words: 'from 2 dashboard tiles and 4 past queries'."""
+def _from(e, word='from'):
+    """Where a metric came from, in words: 'from 2 tiles and 4 past queries', or 'in 7 past queries'."""
     parts = [x for x in (count(e['tiles'], 'tile') if e and e.get('tiles') else '',
                          count(e['queries'], 'past query', 'past queries') if e and e.get('queries') else '') if x]
-    return 'from ' + ' and '.join(parts) if parts else ''
+    return word + ' ' + ' and '.join(parts) if parts else ''
+
+
+def _mid(name):
+    """A metric's name inside a sentence: 'Rework cost' reads as 'rework cost'; 'MRR' and 'NPS score' stay."""
+    return name[:1].lower() + name[1:] if name[1:2].islower() else name
+
+
+def _split(ids):
+    """Source ids as how many are dashboard tiles and how many past queries."""
+    tiles = sum(1 for v in ids if from_dashboard(v))
+    return {'tiles': tiles, 'queries': len(ids) - tiles}
+
+
+def _sources(n, kinds):
+    """N sources named by what they are, never "questions": the person has asked nothing yet, and test questions come
+    later (the Fixit run's "in 25 of those 30 questions", 2026-11-27)."""
+    if kinds.get('tiles') and kinds.get('queries'):
+        return '%s past queries and dashboard tiles' % '{:,}'.format(n)
+    return count(n, 'dashboard tile') if kinds.get('tiles') else count(n, 'past query', 'past queries')
 
 
 def _by_source(names, evidence):

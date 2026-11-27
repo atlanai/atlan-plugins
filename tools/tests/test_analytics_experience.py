@@ -151,6 +151,13 @@ class AnalyticsExperience(unittest.TestCase):
         self.write('engine/module.json', {'module': 'metrics', 'status': 'paused'})
         return layer, proposals, manifest
 
+    def test_the_engine_counts_each_metric_found_once(self):
+        # The task list said "27 metrics found" beside a chip listing 10: drafts of one metric from several sources.
+        _, proposals, _ = self.engine()
+        proposals['proposals'] += [dict(proposals['proposals'][0], proposal_id='proposal_2', name='Total Cost')]
+        self.write('engine/metric_proposals.json', proposals)
+        self.assertEqual(experience.snapshot(self.run, 'engine')['engine']['found'], 1)
+
     def test_partial_engine_sample_is_evidenced_but_never_exported_or_published(self):
         self.engine()
         before = self.files()
