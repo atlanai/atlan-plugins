@@ -54,6 +54,7 @@ Two fictional companies, with made-up data, ship with the plugin. Each sample bu
 | Skill | Use it to | Try |
 |---|---|---|
 | `analytics-demo` | Build your agent on made-up data, step by step | *"Show me how this works on a sample use case."* |
+| `analytics-readiness` | Check you are ready to build, and get a report of what to fix first | *"Check whether this machine and my data are ready to build an agent with Atlan Analytics."* |
 | `analytics-build` | Build your agent on your own data, step by step | *"Set up this project so I can ask questions about its data."* |
 | `source-survey` | See what data, dashboards and past queries you can build from | *"Tell me what this folder's dashboards and past queries cover."* |
 | `metrics-generation` | Turn dashboards and past queries into metrics your agent answers from | *"Build metrics from our warehouse's past queries."* |

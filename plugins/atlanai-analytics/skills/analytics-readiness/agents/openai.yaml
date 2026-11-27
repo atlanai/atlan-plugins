@@ -1,0 +1,11 @@
+interface:
+  display_name: "Readiness Check"
+  short_description: "Check you are ready to build, and get a report of what to fix first"
+  default_prompt: "Use $analytics-readiness to check whether this machine and my data are ready to build an agent with Atlan Analytics."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"

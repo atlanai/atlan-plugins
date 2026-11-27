@@ -1042,6 +1042,66 @@
    "measured": null
   },
   {
+   "id": "analytics-readiness-report",
+   "plugin": "atlanai-analytics",
+   "skill": "analytics-readiness",
+   "title": "Assess whether a person is ready to build, and write the readiness report",
+   "route": "Probe the machine with the skill's own script, read Atlan's workspaces, check the warehouse route and whether past queries can be read, then write the report",
+   "calls": {
+    "cold": [
+     {
+      "tool": "mcp__search_tools",
+      "runner": "direct",
+      "args": {
+       "query": "run a read-only SQL query on the data warehouse"
+      }
+     },
+     {
+      "tool": "registry__list_workspaces",
+      "runner": "call_read_tool",
+      "args": {}
+     },
+     {
+      "tool": "warehouse.query",
+      "runner": "warehouse",
+      "args": {
+       "sql": "<check statement with current_user()>"
+      }
+     },
+     {
+      "tool": "warehouse.query",
+      "runner": "warehouse",
+      "args": {
+       "sql": "<past-queries statement, count from at most one row>"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "warehouse.query",
+      "runner": "warehouse",
+      "args": {
+       "sql": "<check statement with current_user()>"
+      }
+     },
+     {
+      "tool": "warehouse.query",
+      "runner": "warehouse",
+      "args": {
+       "sql": "<past-queries statement, count from at most one row>"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 4,
+    "warm": 2
+   },
+   "mode": "connect",
+   "targets": null,
+   "measured": null
+  },
+  {
    "id": "analytics-bootstrap-metrics",
    "plugin": "atlanai-analytics",
    "skill": "metrics-generation",
