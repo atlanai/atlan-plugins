@@ -15,13 +15,19 @@ caller only where the warehouse cannot settle it.
 Return the warehouse connections this machine has, without reading any data:
 
 1. A warehouse record a saved run or this conversation already holds.
-2. SQL tools behind Atlan, then the host's own connectors, then an installed vendor CLI with
-   a saved connection, as [warehouse discovery](connect.md) steps 1 to 3 find them.
+2. SQL tools behind Atlan, then the host's own connectors, as [warehouse discovery](connect.md)
+   steps 1 and 2 find them.
+3. Where there is a shell, the Snowflake and Databricks CLI connections:
+   `READY connections --check --names --kind snowflake --kind databricks` (`READY` as
+   [the survey](survey.md) defines it). It reads each CLI's own listing, keeps the names and
+   drops the account, user and host beside them, and runs one sign-in check per connection
+   that starts no compute.
 
 For each, return the product, how it is reached, and whether its check statement answered,
 as one line: "<Product> · through <Atlan / this app / the CLI> · answered" (or "didn't answer").
-A connector that only offers sign-in is returned as "needs sign-in". Run at most one check
-statement per connection. Never open a credential or connection config file.
+A connector that only offers sign-in is returned as "needs sign-in", and so is a CLI connection
+whose `answer` is `needs sign-in`. Run at most one check statement per connection. Never open a
+credential or connection config file.
 
 ## `discover`: suggest the tables
 
@@ -46,8 +52,9 @@ dashboard or existing metrics come with it. Existing metrics are reused, never r
 `PROJECT survey` on the file, or the host's tools for a link. The tables it reads are the
 first suggestions, and its measures are the numbers people ask for. Check that those tables
 exist in the chosen warehouse with one metadata statement. A report whose data is packed
-inside the file adds nothing to build from: say "This dashboard's data is inside the file, so it
-adds no tables to build from." and continue from the warehouse.
+inside the file (`inside_file` true from `READY dashboard "<absolute-path>"`) adds nothing to
+build from: say "This dashboard's data is inside the file, so it adds no tables to build from."
+and continue from the warehouse.
 
 ### 2. Find the schemas in use
 
@@ -160,10 +167,11 @@ which shows how this works on made-up data." (the demo is `analytics-demo`).
 For the dashboard branch and the known-tables branch: the person named the sources, so
 nothing is searched for or suggested. Check only that each can be read, and report.
 
-1. **Each dashboard**: `PROJECT survey` on a file; the host's tools for a link. Record
-   whether it opened, whether it needs sign-in, its page and measure counts, and the tables
-   it reads. A dashboard whose data is packed inside the file reads no warehouse table: say
-   "This dashboard's data is inside the file, with no warehouse table behind it."
+1. **Each dashboard**: for a file, `READY dashboard "<absolute-path>"` and `PROJECT survey` on
+   it; the host's tools for a link. Record whether it opened, whether it needs sign-in, its
+   page and measure counts, and the tables it reads. A dashboard whose data is packed inside
+   the file (`inside_file` true, the same rule the readiness check uses) reads no warehouse
+   table: say "This dashboard's data is inside the file, with no warehouse table behind it."
 2. **Each table**, named by the person or read by a dashboard: one metadata statement for
    all of them on the chosen warehouse. Record which exist and can be read, and which
    cannot.

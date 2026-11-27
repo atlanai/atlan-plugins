@@ -119,5 +119,6 @@ It stays on this machine: never send it or its contents anywhere. The person sha
 whoever they choose.
 
 Close with `6/6 report · <verdict> · .atlan-analytics/readiness/report.md` and the report's start
-prompt as the one next step. A suggestion they want done now (installing the Snowflake CLI, say) is
-theirs to run: show its command, and run the readiness check again afterwards.
+prompt as the one next step. A build started in this folder reads these answers and does not ask
+them again: say so in one line. A suggestion they want done now (installing the Snowflake CLI,
+say) is theirs to run: show its command, and run the readiness check again afterwards.

@@ -9,13 +9,21 @@
     readiness.py [--workspace DIR] record CHECK --status STATUS [--set KEY=VALUE ...]
     readiness.py [--workspace DIR] report
 
+The build's steps call three more, which write nothing:
+
+    readiness.py [--workspace DIR] connections [--kind KIND ...] [--check] [--names]
+    readiness.py [--workspace DIR] dashboard FILE
+    readiness.py [--workspace DIR] handoff [--names]
+
 Everything it runs is read-only: version commands, each tool's own listing of its connection,
 profile or MCP server names, and one check statement for a route the person said yes to. It never
 opens a CLI's or an agent's configuration file, never installs, signs in or changes anything, and
 keeps names only: a name that looks like an account identifier becomes a label such as
 `snowflake connection 2`, and error text loses hosts, addresses and token-like strings. What the
 person has to do (install a CLI, sign in, add a connection) becomes a suggestion in the report,
-with the command for them to run.
+with the command for them to run. Only `--names` prints a connection's real name beside its label:
+the build records that name in its own run and runs its CLI with it. The readiness check never
+passes it.
 
 State and the report live in <workspace>/.atlan-analytics/readiness/. Standard library only, and
 written for any Python 3.7+, because it runs before the Python Atlan Analytics needs (3.11 or later)
@@ -468,12 +476,21 @@ LISTERS = {  # binary: (lister, kind word, noun)
 }
 
 
-def listed(binary, path):
+def listing(binary, path):
+    """(label, name, default) for each connection or profile one CLI lists, or (None, problem). The probe, the
+    checks and the build's `connections` step all read this one listing, so a label means the same everywhere."""
     lister, kind, noun = LISTERS[binary]
     names, problem = lister(path)
     if names is None:
         return None, problem
-    return [{'label': label(kind, noun, i, n), 'default': d} for i, (n, d) in enumerate(names, 1)], None
+    return [(label(kind, noun, i, n), n, d) for i, (n, d) in enumerate(names, 1)], None
+
+
+def listed(binary, path):
+    rows, problem = listing(binary, path)
+    if rows is None:
+        return None, problem
+    return [{'label': shown, 'default': default} for shown, _, default in rows], None
 
 
 def clis():
@@ -592,13 +609,16 @@ def scan(top, depth, limit=20000):
             yield Path(here) / name
 
 
+INSPECTED = ('.twb', '.twbx', '.tds', '.tdsx', '.pbit', '.pbix', '.bim')
+
+
 def dashboards_here(workspace):
     found = []
     for path in scan(workspace, 3):
         suffix = path.suffix.lower()
         if suffix in BI_FILES and len(found) < 50:
             item = {'file': str(path.relative_to(workspace)), 'tool': BI_FILES[suffix]}
-            if len(found) < 10 and suffix in ('.twb', '.twbx', '.tds', '.tdsx', '.pbit', '.pbix', '.bim'):
+            if len(found) < 10 and suffix in INSPECTED:
                 item.update({k: v for k, v in inspect_dashboard(path).items() if v is not None})
             found.append(item)
     return found
@@ -793,9 +813,7 @@ def check_redshift(args):
     code, out, err = run([aws, 'sts', 'get-caller-identity', '--query', 'Arn', '--output', 'text'] + base, 60)
     if code != 0:
         return failure(record, err, code is None)
-    arn = out.strip()
-    # The role name only: the account number in the ARN is never kept.
-    role = arn.split(':assumed-role/', 1)[1].split('/')[0] if ':assumed-role/' in arn else arn.rsplit('/', 1)[-1]
+    role = aws_role(out)
     record.update({'role': role, 'admin': 'yes' if 'admin' in role.lower() else 'no'})
     if not args.database or not (args.workgroup or args.cluster):
         record['reason'] = 'signed in; the workgroup or cluster and the database are needed to run the check'
@@ -812,6 +830,12 @@ def check_redshift(args):
     record['_history'] = ('verified', {'kind': 'redshift', 'scope': 'your own'}) if status == 'FINISHED' else \
         ('failed', {'kind': 'redshift', 'error': classify(err)[1] if err else 'the statement was refused'})
     return 'verified', record
+
+
+def aws_role(arn):
+    """The role name only: the account number in the ARN is never kept."""
+    arn = arn.strip()
+    return arn.split(':assumed-role/', 1)[1].split('/')[0] if ':assumed-role/' in arn else arn.rsplit('/', 1)[-1]
 
 
 def redshift_sql(aws, options, database, sql, timeout):
@@ -1455,6 +1479,142 @@ def plugin_version():
     return None
 
 
+# ---------------------------------------------------------------- the build's steps: one listing, one file check, the hand-off
+
+CLI_OF = {'snowflake': 'snow', 'databricks': 'databricks', 'bigquery': 'gcloud', 'redshift': 'aws'}
+SIGN_IN_FAILED = ('sign-in needed or expired', 'the sign-in did not finish in time')
+STALE_DAYS = 30  # older than this, the build asks its own questions again
+
+
+def cli_path(binary):
+    return find_snow() if binary == 'snow' else shutil.which(binary)
+
+
+def sign_in(kind, path, name, timeout):
+    """One check that a connection signs in, starting no compute: no SQL warehouse is woken and no data is
+    read. (answer, details): `answered`, `needs sign-in` or `didn't answer`."""
+    code, out, err = None, '', ''
+    if kind == 'snowflake':
+        code, out, err = run([path, 'sql', '--connection', name, '--format', 'JSON', '-q',
+                              'select current_role() as role_name'], timeout)
+        row = first_row(json_of(out)) if code == 0 else None
+        if row is not None:
+            role = str(row.get('role_name') or '')
+            return 'answered', {'role': role, 'admin': 'yes' if role.upper() in ADMIN_ROLES else 'no'}
+    elif kind == 'databricks':
+        profile = [] if name == 'environment' else ['--profile', name]
+        code, out, err = run([path, 'current-user', 'me', '--output', 'json'] + profile, timeout)
+        me = json_of(out) if code == 0 else None
+        if isinstance(me, dict):
+            groups = [g.get('display') for g in me.get('groups') or [] if isinstance(g, dict)]
+            return 'answered', {'admin': 'yes' if 'admins' in groups else 'no'}
+    elif kind == 'bigquery':
+        code, out, err = run([path, 'auth', 'list', '--format=json'], timeout,
+                             dict(os.environ, CLOUDSDK_ACTIVE_CONFIG_NAME=name))
+        accounts = [a for a in (json_of(out) if code == 0 else None) or [] if isinstance(a, dict)]
+        if any(a.get('status') == 'ACTIVE' for a in accounts):
+            return 'answered', {}
+        if code == 0:
+            return 'needs sign-in', {}
+    else:  # an AWS profile, for Redshift
+        code, out, err = run([path, 'sts', 'get-caller-identity', '--query', 'Arn', '--output', 'text',
+                              '--profile', name], timeout)
+        if code == 0 and out.strip():
+            role = aws_role(out)
+            return 'answered', {'role': role, 'admin': 'yes' if 'admin' in role.lower() else 'no'}
+    _, reason = classify(err, code is None and err == 'timeout')
+    return ('needs sign-in', {}) if reason in SIGN_IN_FAILED else ("didn't answer", {'reason': reason})
+
+
+def connections(kinds=(), check=False, names=False, timeout=30):
+    """The build's `connections` step: each warehouse CLI's connections or profiles, from the same listing the
+    probe reads, with `check` one sign-in check each. Names only, as labels; `names` adds the real name for
+    the build, which records it in its own run and runs its CLI with it. A name of None is the CLI's own
+    environment settings: run it with no profile."""
+    found, unlisted = [], []
+    for kind, binary in WAREHOUSE_CLIS:
+        path = cli_path(binary) if binary in LISTERS and (not kinds or kind in kinds) else None
+        if not path:
+            continue
+        rows, problem = listing(binary, path)
+        if rows is None:
+            unlisted.append({'kind': kind, 'cli': binary, 'note': problem})
+            continue
+        for shown, name, default in rows:
+            item = {'kind': kind, 'cli': binary, 'label': shown, 'default': default}
+            if names:
+                item['name'] = None if name == 'environment' else name
+            found.append((item, path, name))
+    if check and found:
+        def one(entry):
+            item, path, name = entry
+            answer, details = sign_in(item['kind'], path, name, timeout)
+            item.update(details, answer=answer)
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            list(pool.map(one, found))
+    return [item for item, _, _ in found], unlisted
+
+
+def dashboard(path):
+    """One dashboard file, opened the way the probe opens them. The build's `access` and `discover` steps take
+    whether its data is inside the file from here, so both flows settle that by one rule."""
+    path = Path(path).expanduser().resolve()
+    suffix = path.suffix.lower()
+    if not path.is_file() or suffix not in BI_FILES:
+        raise ReadinessError('Name a dashboard file (%s).' % ', '.join(sorted(BI_FILES)))
+    found = {'file': path.name, 'tool': BI_FILES[suffix]}
+    if suffix in INSPECTED:
+        found.update({k: v for k, v in inspect_dashboard(path).items() if v is not None})
+    found['opened'] = 'error' not in found
+    return found
+
+
+def newest(state):
+    stamps = [r.get('when') for r in list(state['checks'].values()) + state['warehouse']]
+    stamps.append((state.get('probe') or {}).get('when'))
+    try:
+        return max(datetime.datetime.strptime(s, '%Y-%m-%d %H:%M UTC').replace(tzinfo=datetime.timezone.utc)
+                   for s in stamps if s)
+    except ValueError:
+        return None
+
+
+def handoff(state, names=False):
+    """What the readiness check settled in this folder, for the build to start from instead of asking again:
+    the use case, the warehouse route that worked, past queries, and the starting dashboard. `none` when it
+    never ran here; `stale` when its newest answer is older than STALE_DAYS. The participant stays out."""
+    when = newest(state)
+    if when is None or not (state['checks'] or state['warehouse']):
+        return {'status': 'none'}
+    stamp = when.strftime('%Y-%m-%d %H:%M UTC')
+    if (datetime.datetime.now(datetime.timezone.utc) - when).days > STALE_DAYS:
+        return {'status': 'stale', 'when': stamp}
+    out = {'status': 'ok', 'when': stamp, 'verdict': verdict(state)[0]}
+    if field(state, 'use-case', 'text'):
+        out['use_case'] = field(state, 'use-case', 'text')
+    route = next((w for w in reversed(state['warehouse']) if w['status'] == 'verified'), None)
+    if route:
+        keys = ('kind', 'via', 'server', 'connection', 'role', 'admin')
+        warehouse = {k: route['fields'][k] for k in keys if route['fields'].get(k)}
+        binary = CLI_OF.get(warehouse.get('kind')) if warehouse.get('via') == 'cli' else None
+        if names and binary and warehouse.get('connection'):
+            path = cli_path(binary)
+            rows = listing(binary, path)[0] if path else None
+            match = next((n for shown, n, _ in rows or [] if warehouse['connection'] in (shown, n)), None)
+            if match:
+                warehouse['name'] = None if match == 'environment' else match
+            else:
+                warehouse['gone'] = True  # removed or renamed since: the build asks which connection
+        out['warehouse'] = warehouse
+    if status_of(state, 'history') == 'verified':
+        out['past_queries'] = field(state, 'history', 'scope')
+    keys = ('tool', 'dashboard', 'file', 'pages', 'measures', 'inside_file', 'tables_known', 'tables')
+    bi = {k: field(state, 'bi', k) for k in keys if field(state, 'bi', k) not in (None, '')}
+    if bi:
+        out['bi'] = bi
+    return out
+
+
 # ---------------------------------------------------------------- command line
 
 def summary_of(state):
@@ -1497,6 +1657,19 @@ def main(argv=None):
     rec.add_argument('--status', required=True, choices=STATUSES)
     rec.add_argument('--set', action='append', default=[], metavar='KEY=VALUE')
     sub.add_parser('report', help='Write the report and print the verdict and suggestions')
+    cn = sub.add_parser('connections', help="The build's `connections` step: each warehouse CLI's connections or "
+                        'profiles, from the listing the probe reads. Writes nothing')
+    cn.add_argument('--kind', action='append', choices=tuple(CLI_OF), help='Only this warehouse; repeat for more')
+    cn.add_argument('--check', action='store_true', help='One sign-in check per connection; it starts no compute')
+    cn.add_argument('--names', action='store_true', help='Each real name beside its label, for the build, which records '
+                    'it and runs its CLI with it. The readiness check never passes it')
+    cn.add_argument('--timeout', type=int, default=30, help='Seconds per sign-in check')
+    db = sub.add_parser('dashboard', help='One dashboard file, opened read-only by pattern: pages, measures, the '
+                        'warehouse it reads, and whether its data is inside the file. Writes nothing')
+    db.add_argument('file')
+    ho = sub.add_parser('handoff', help='What the readiness check settled in this folder, for the build to start '
+                        'from. Writes nothing')
+    ho.add_argument('--names', action='store_true', help="A CLI route's real connection name, for the build")
     args = p.parse_args(argv)
     if not args.command:
         p.print_help()
@@ -1505,6 +1678,21 @@ def main(argv=None):
         workspace = Path(args.workspace).expanduser().resolve()
         if not workspace.is_dir():
             raise ReadinessError('%s is not a folder.' % args.workspace)
+        if args.command == 'connections':
+            items, unlisted = connections(tuple(args.kind or ()), args.check, args.names,
+                                          max(5, min(args.timeout, 300)))
+            print(json.dumps({'status': 'ok', 'connections': items, 'not_listed': unlisted}, ensure_ascii=False))
+            return 0
+        if args.command == 'dashboard':
+            print(json.dumps({'status': 'ok', **dashboard(args.file)}, ensure_ascii=False))
+            return 0
+        if args.command == 'handoff':
+            try:
+                state = load(workspace)
+            except ReadinessError:
+                state = empty()  # from another version: the build asks its own questions
+            print(json.dumps(handoff(state, args.names), ensure_ascii=False))
+            return 0
         if args.command == 'probe':
             state = empty() if args.fresh else load(workspace)
             state['probe'] = probe(workspace)

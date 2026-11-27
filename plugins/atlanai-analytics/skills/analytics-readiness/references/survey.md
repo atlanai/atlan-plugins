@@ -11,6 +11,13 @@ read-only SQL and status reporting apply. `PROJECT` means
 `analytics-build` skill's directory beside this skill's (`${CLAUDE_PLUGIN_ROOT}/skills/analytics-build`
 in Claude Code). Pass separate argv entries; zsh does not split a scalar holding a command.
 
+`READY` means `python3 "<skill-dir>/scripts/readiness.py" --workspace "<working-directory>"`, where
+`<skill-dir>` is this skill's folder. It is the script the readiness check runs, so the warehouse
+CLI listing, the test of whether a dashboard's data is inside its file and the readiness result
+exist once, for both flows. Its `connections`, `dashboard` and `handoff` commands each print one
+line of JSON and write nothing. Only these steps pass `--names`, which adds a connection's real
+name beside its label: the run records that name and the CLI runs with it.
+
 ## Who is calling
 
 - **A flow called it** (demo, build or ask named the operation and the run): ask the person
@@ -69,7 +76,8 @@ answering, with a failed read following
 **Buildable is settled before any question.** A report can be
 built from only when the tables it reads exist somewhere a rule can run: a reachable
 warehouse, or a bound local database. A report whose data is packed inside the file (an
-extract or an embedded sheet) with no table behind it is `none` for building: say "This
+extract or an embedded sheet, `inside_file` from `READY dashboard`) with no table behind it is
+`none` for building: say "This
 dashboard's data is inside the file, so I can't build from it. Name the warehouse table
 that holds the same data." A caller never
 asks a use-case question about a source that cannot be built.

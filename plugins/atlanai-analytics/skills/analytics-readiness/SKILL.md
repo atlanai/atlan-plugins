@@ -18,7 +18,8 @@ A question about named sources (a folder, these dashboards, these tables) is the
 when it asks whether they can be used. A question about the person's whole setup before a build
 is the readiness check. The readiness check uses only its own file,
 [warehouse checks](references/warehouse-checks.md) and `scripts/readiness.py`: no step below and
-no build helper, so it runs on any Python 3.
+no build helper, so it runs on any Python 3. The steps share that script for the warehouse CLI
+listing and the dashboard-file check, and the build reads the readiness result through it.
 
 ## Steps
 

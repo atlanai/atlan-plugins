@@ -355,6 +355,85 @@ class Report(Sandbox):
         self.assertIn('Python 3.11 or later is missing', out['why'])
 
 
+class BuildSteps(Sandbox):
+    """The build's `connections`, `access` and hand-off run on this script too, so each check exists once."""
+
+    def assertWritesNothing(self):
+        self.assertFalse((self.workspace / '.atlan-analytics').exists())
+
+    def test_connections_are_labels_unless_the_build_asks_for_names(self):
+        for name, text in (('snow', SNOW), ('databricks', DATABRICKS), ('gcloud', GCLOUD), ('aws', AWS)):
+            self.tool(name, text)
+        _, out = self.cli('connections')
+        self.assertEqual([(c['kind'], c['label']) for c in out['connections']],
+                         [('snowflake', 'snowflake connection 1'), ('snowflake', 'work'),
+                          ('databricks', 'databricks profile 1'), ('bigquery', 'default'), ('redshift', 'analytics')])
+        for leaked in ('ab12345', 'JANE@', 'orgsecret', 'adb-1234567890', 'acme-prod-123', '"name"'):
+            self.assertNotIn(leaked, json.dumps(out))
+        _, out = self.cli('connections', '--names', '--kind', 'snowflake', '--kind', 'databricks')
+        self.assertEqual([(c['label'], c['name'], c['default']) for c in out['connections']],
+                         [('snowflake connection 1', 'ab12345', True), ('work', 'work', False),
+                          ('databricks profile 1', 'adb-1234567890', False)])
+        for leaked in ('JANE@', 'orgsecret', 'snowflakecomputing', 'azuredatabricks'):
+            self.assertNotIn(leaked, json.dumps(out))
+        self.assertWritesNothing()
+
+    def test_each_connection_gets_one_sign_in_check(self):
+        self.tool('snow', SNOW)
+        self.tool('databricks', DATABRICKS)
+        _, out = self.cli('connections', '--check')
+        self.assertEqual([(c['label'], c['answer']) for c in out['connections']],
+                         [('snowflake connection 1', 'answered'), ('work', 'answered'),
+                          ('databricks profile 1', 'answered')])
+        self.assertEqual(out['connections'][0]['role'], 'ANALYST')
+        with mock.patch.dict(os.environ, {'FAKE_SNOW': 'expired'}):
+            _, out = self.cli('connections', '--check', '--kind', 'snowflake')
+        self.assertEqual({c['answer'] for c in out['connections']}, {'needs sign-in'})
+        self.assertNotIn('snowflakecomputing', json.dumps(out))
+        self.assertWritesNothing()
+
+    def test_a_dashboard_file_is_checked_by_the_probes_rule(self):
+        path = self.workspace / 'sales.twbx'
+        with zipfile.ZipFile(path, 'w') as archive:
+            archive.writestr('sales.twb', "<workbook><connection class='hyper' /><worksheet name='Sheet 1' /></workbook>")
+            archive.writestr('Data/Extracts/sales.hyper', b'\x00')
+        _, out = self.cli('dashboard', str(path))
+        self.assertEqual((out['tool'], out['opened'], out['inside_file'], out['pages']), ('Tableau', True, True, 1))
+        code, out = self.cli('dashboard', str(self.workspace / 'notes.txt'))
+        self.assertEqual((code, out['status']), (2, 'blocked'))
+        self.assertWritesNothing()
+
+    def test_the_handoff_carries_what_the_readiness_check_settled(self):
+        self.tool('snow', SNOW)
+        self.assertEqual(self.cli('handoff')[1], {'status': 'none'})
+        self.cli('probe', '--fresh')
+        self.cli('record', 'use-case', '--status', 'answered', '--set', 'text=Pipeline by stage')
+        self.cli('check', 'snowflake', '--connection', 'snowflake connection 1')
+        self.cli('record', 'participant', '--status', 'answered', '--set', 'name=Jane Doe', '--set', 'email=j@x.io')
+        self.cli('record', 'bi', '--status', 'verified', '--set', 'tool=Tableau', '--set', 'dashboard=Pipeline',
+                 '--set', 'file=reports/pipeline.twb', '--set', 'tables_known=yes', '--set', 'tables=SALES.OPPS')
+        _, out = self.cli('handoff')
+        self.assertEqual((out['status'], out['use_case'], out['past_queries']), ('ok', 'Pipeline by stage', 'everyone'))
+        self.assertEqual(out['warehouse'], {'kind': 'snowflake', 'via': 'cli', 'connection': 'snowflake connection 1',
+                                            'role': 'ANALYST', 'admin': 'no'})
+        self.assertEqual((out['bi']['file'], out['bi']['tables']), ('reports/pipeline.twb', 'SALES.OPPS'))
+        self.assertNotIn('Jane', json.dumps(out))
+        self.assertNotIn('ab12345', json.dumps(out))
+        _, out = self.cli('handoff', '--names')
+        self.assertEqual(out['warehouse']['name'], 'ab12345')
+        self.assertNotIn('ab12345', self.saved())
+
+    def test_an_old_or_unreadable_readiness_result_hands_over_nothing(self):
+        self.cli('record', 'use-case', '--status', 'answered', '--set', 'text=Churn')
+        path = self.workspace / '.atlan-analytics/readiness/state.json'
+        state = json.loads(path.read_text())
+        state['checks']['use-case']['when'] = '2020-01-01 09:00 UTC'
+        path.write_text(json.dumps(state))
+        self.assertEqual(self.cli('handoff')[1], {'status': 'stale', 'when': '2020-01-01 09:00 UTC'})
+        path.write_text('{"schema": 1}')
+        self.assertEqual(self.cli('handoff')[1], {'status': 'none'})
+
+
 class Dashboards(unittest.TestCase):
     """Dashboard files are opened read-only, by pattern: pages, measures, the warehouse they read."""
 
@@ -412,6 +491,22 @@ class SelfContained(unittest.TestCase):
             text = path.read_text()
             for outside in ('PROJECT', 'project.py', 'analytics-build', 'atlan-share', '../'):
                 self.assertNotIn(outside, text, '%s names %s' % (path.relative_to(folder), outside))
+        for path in (folder / 'references' / 'readiness.md', folder / 'references' / 'warehouse-checks.md'):
+            self.assertNotIn('--names', path.read_text(), 'the readiness check keeps labels: %s' % path.name)
+
+    def test_the_build_calls_the_shared_script(self):
+        """The CLI listing, the dashboard-file check and the hand-off exist once, in the script."""
+        skills = SCRIPT.parents[2]
+        uses = {'analytics-readiness/references/discovery.md': ('READY connections', 'READY dashboard'),
+                'analytics-readiness/references/connect.md': ('READY connections',),
+                'analytics-build/references/setup/intent.md': ('READY handoff',)}
+        for name, commands in uses.items():
+            text = (skills / name).read_text()
+            for command in commands:
+                self.assertTrue(command in text, '%s does not run %s' % (name, command))
+        for name in ('analytics-readiness/references/connect.md', 'analytics-readiness/references/discovery.md'):
+            for listing in ('snow connection list', '`databricks auth profiles`'):
+                self.assertFalse(listing in (skills / name).read_text(), '%s lists connections itself' % name)
 
     def test_nothing_names_the_skill_it_replaced(self):
         """source-survey's flows live in this skill now: a leftover name would load nothing."""

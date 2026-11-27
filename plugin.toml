@@ -148,7 +148,8 @@ the coding agents and their MCP servers, Atlan Trident, a way to run SQL on your
 can be read, your dashboard files and the Python the plugin needs. It ends with
 `.atlan-analytics/readiness/report.md`: **Ready** or **Needs attention**, and each step that would
 speed up your build, with who takes it and the command. It installs, signs in to and changes
-nothing, and the report stays on your machine for you to share.
+nothing, and the report stays on your machine for you to share. A build you then start in the same
+folder starts from your answers and does not ask them again.
 """
 starts = [
   ["Learn how it works on a sample", "analytics-demo", "Show me how this works on a sample use case"],
@@ -179,7 +180,8 @@ This plugin has no hooks and ships no executable binaries.
 - **Checks readiness, read-only:** version and listing commands of the coding agents and warehouse
   CLIs on this machine (connection, profile and MCP server names only, never their configuration
   files), one check statement per warehouse route you approve, and the dashboard files in your
-  project and their counts in Desktop, Documents and Downloads (counts only, never names).
+  project and their counts in Desktop, Documents and Downloads (counts only, never names). The
+  build reads the same connection listing, keeping names only.
 - **Writes:** working files in one folder in your project, `.atlan-analytics/`: each run, the
   metrics runtime, test questions (`evals/`), a demo's data (`demo/`) and the readiness report
   (`readiness/`). Add it to `.gitignore`.

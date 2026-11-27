@@ -14,12 +14,14 @@ confirmation: [the dashboard branch](dashboard-flow.md) has them.
 
 A question the request already answered is not asked: a named warehouse skips the first; a
 named dashboard file or link is the dashboard branch with step 1 done; a use case named
-with its tables is the third branch with step 1 done. Nothing is preselected, and free text
-is always accepted.
+with its tables is the third branch with step 1 done. A readiness check run in this folder
+answers questions the same way ([when a readiness check already ran](#when-a-readiness-check-already-ran)).
+Nothing is preselected, and free text is always accepted.
 
 ## Contents
 
 - Before card 1: see what is already connected, silently
+- When a readiness check already ran
 - Card 1: two questions
 - Arriving from the demo
 - After card 1: the warehouse must answer
@@ -32,11 +34,14 @@ is always accepted.
 
 ## Before card 1: see what is already connected, silently
 
-Two quick looks, so the choices offered are the person's own. Neither reads data.
+Three quick looks, so the choices offered are the person's own. None reads data.
 
 - `analytics-readiness` `connections`: the warehouse connections this machine already has.
 - `PROJECT discover --workspace "<working-directory>"`: BI files in the working folder, by
   name only. Demo files are never listed.
+- `READY handoff --names`: what a readiness check in this folder already settled. `READY` is the
+  `analytics-readiness` script, as [the survey](../../../analytics-readiness/references/survey.md)
+  defines it.
 
 **Say nothing about these looks.** No `**Doing:**` or `**Why:**`, no "checking what's
 connected", no "before the first question", and no explanation of where the options came
@@ -44,6 +49,25 @@ from. If the host shows a line while tools run, that line is exactly "Getting se
 once, and nothing more. The person's first sight of this skill is the opening and the first question. How the options
 were found, that a check ran, and which tool answered are internal and never appear in the
 card, an option or its description.
+
+## When a readiness check already ran
+
+The person answered the readiness check's questions before the build, so the build does not
+ask them again. With `status` `ok` from `READY handoff --names` (a check in this folder, in the
+last 30 days), its answers count as answers the request gave:
+
+| It returns | Then |
+| --- | --- |
+| A `warehouse` that `connections` still shows answering | Card 1 does not ask where the data lives. A CLI route uses that connection's `name` with no question about which; with `gone`, ask which as usual |
+| `bi.file`, a dashboard file in this folder, and `bi.inside_file` not `yes` | The dashboard branch, step 2, on that file |
+| `bi.tables_known` `yes` with `bi.tables` | The known-tables branch with the use case and those tables, through the access check |
+| `use_case` | The use case in the person's words: the domain for discovery, and `PROJECT journey domain` |
+
+What the request says wins over the readiness result. When card 1 still asks what to build
+from, its last line says what was kept: "Your readiness check found <Product>, so I'll use it.
+What do you want your agent to do?" in place of "First, where does your data live, and what do
+you want your agent to do?" When both of card 1's questions are answered, there is no card 1,
+and the build's start line ends "From your readiness check." `none` or `stale` changes nothing.
 
 ## Card 1: two questions
 

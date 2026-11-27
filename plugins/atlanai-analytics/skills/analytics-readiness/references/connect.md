@@ -63,9 +63,10 @@ If a tool is found, go to step 5.
 ## 3. A vendor CLI, where there is a shell
 
 Only when this harness runs shell commands (Claude Code, Codex, Cursor's agent, VS Code agent
-mode) and the CLI is already installed and configured: `snow --version` with a connection in
-`snow connection list`, or `databricks --version` with a profile in
-`databricks auth profiles`. Never install a CLI, and never open its config files: they can
+mode) and the CLI is already installed and configured: a connection or profile in
+`READY connections --names --kind <snowflake|databricks>` (`READY` as [the survey](survey.md)
+defines it), which reads the CLI's own listing and keeps the names only: record and run its
+`name`. Never install a CLI, and never open its config files: they can
 hold secrets. When there are several connections or profiles, ask "Which <snow / databricks> CLI connection
 should I use?"
 
