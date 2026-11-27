@@ -13,6 +13,11 @@ person can call it directly; `analytics-demo`, `analytics-build` and `analytics-
 Read [shared conventions](../analytics-build/references/conventions.md) first: task
 authorization, privacy, read-only SQL and status reporting apply.
 
+A helper or `ENGINE` result with `show_first` carries a chip or card the build has reached: show it
+before any other words or call, and do what its `side view` line says. It is the update on that
+step: add no words of your own about it. Run each helper command on its own and read all it
+returns: a script or filter of yours drops its chip. Between calls, write nothing of your own: no working notes, no line about a card before or after it, and never a file path or a step's, gate's or helper's own name.
+
 Paths:
 - `<metrics-dir>` is this skill's directory (`${CLAUDE_PLUGIN_ROOT}/skills/metrics-generation`
   in Claude Code). `ENGINE` means `python3 "<metrics-dir>/scripts/analytics_agent.py" metrics

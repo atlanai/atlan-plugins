@@ -255,6 +255,8 @@ class RouteMoments(unittest.TestCase):
         step = json.loads(out.split('side view: ')[-1])['next']
         self.assertRegex(step, r'(silently|without a word|without announcing)')
         self.assertIn('read_me', step)
+        # "Got the number. Showing the answer card now." came before the draw: the line said nothing of before (2026-11-27).
+        self.assertIn('before or after', step)
 
 
 class AccuracyMoment(unittest.TestCase):
@@ -348,6 +350,8 @@ class SavedQueryRoutes(unittest.TestCase):
         write(export, [self.query])
         write(layer, {'objects': [{'vq_id': 'h-work', 'sql': self.query['definition']['sql']}]})
         done = edit_metric.edit_metric(self.run, self.change)
+        # The rule change's reply named the old version's file (2026-11-27): the result says to keep it out.
+        self.assertIn('never its file', done['next'])
         self.assertEqual(done['status'], 'ok')
         self.assertIn('Definition changed', done['show_first'])
         self.assertIn('34.8', done['show_first'])

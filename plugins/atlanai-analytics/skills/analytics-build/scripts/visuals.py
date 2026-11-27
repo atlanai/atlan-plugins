@@ -355,6 +355,31 @@ def collect(kind, facts):
     return {}
 
 
+def metrics_end(kind, facts):
+    """The completed engine's cards and SQL checks, available before export or any setup checks."""
+    receipt = facts.engine_file('module.json')
+    if receipt.get('status') != 'complete':
+        return {}
+    cards_file = facts.engine_file('metric_cards.json')
+    cards = cards_file.get('metrics', cards_file.get('cards'))
+    queries = facts.engine_file('verified_queries.json').get('objects')
+    if not isinstance(cards, list) or not isinstance(queries, list):
+        return {}
+    if kind == 'context':
+        # A resumed export may already have the full context checks for these exact outputs.
+        source = facts.file('context', 'metrics-source.json')
+        if receipt.get('outputs') and source.get('outputs') == receipt['outputs'] and facts.checks_over:
+            return collect('context', facts)
+        # Parsing or explaining a statement does not run it on the data.
+        witnesses = [q.get('witness') for q in queries if isinstance(q, dict)]
+        ran = sum(1 for w in witnesses if isinstance(w, dict) and w.get('mode') == 'execute'
+                  and w.get('result') in ('pass', 'empty'))
+        return {'saved_queries': len(queries), 'executed_queries': ran}
+    names = [sentence(c['name']) for c in cards if isinstance(c, dict) and c.get('name')]
+    return {'metrics_only': True, 'funnel': dict(facts.funnel, metrics=len(names)), 'merged': names,
+            'evidence': facts.merged, 'saved_queries': len(queries), 'took': _took(facts)}
+
+
 def _checked(facts):
     """Whether the checks are behind the build: every verdict in, the person chose to skip them, or the flow moved on
     past them, as it does on a warehouse, whose verdicts arrive only as each tool result is recorded. A skip drew no
@@ -871,6 +896,10 @@ def _outcome(kind, s):
                              '%d from past queries' % s['queries'] if s.get('queries') else '') if x]
         o = {'mark': 'described', 'bold': count(s['questions'], 'test question') + ' written',
              'tail': ', '.join(where) or ('from your set %s' % s['set'] if s.get('set') else '')}
+    elif kind == 'context' and 'executed_queries' in s:
+        tail = ('%d of %s ran on the data' % (s['executed_queries'], count(s['saved_queries'], 'saved query', 'saved queries'))
+                if s['saved_queries'] else 'No saved queries to run')
+        o = {'mark': 'ok', 'bold': 'Build complete', 'tail': tail}
     elif kind == 'context' and s.get('total'):
         where = 'on %s data' % their(s.get('firm')) if s.get('firm') or not s.get('warehouse') else 'on your %s data' % s['warehouse']
         review = lambda n: '%d %s your review' % (n, 'needs' if n == 1 else 'need')
@@ -996,7 +1025,7 @@ def _where(s):
 
 def _parts(kind, s):
     """What a mini card shows, in the same order for HTML and text. None when the run has nothing true to show."""
-    if kind == 'build' and (s.get('funnel') or {}).get('metrics'):
+    if kind == 'build' and ((s.get('funnel') or {}).get('metrics') or s.get('metrics_only')):
         f = s['funnel']
         tiles, asked = f.get('tiles', 0), f.get('questions', 0) - f.get('tiles', 0)
         evidence = s.get('evidence') or []
@@ -1005,7 +1034,7 @@ def _parts(kind, s):
         held = ' and '.join(x for x in (count(held['metrics'], 'metric') if held.get('metrics') else '',
                                         count(held['queries'], 'saved query', 'saved queries') if held.get('queries') else '') if x)
         # The counts carry the headline; the dashboard's name goes in the source line (the person's words, 2026-11-23).
-        return {'icon': 'metric', 'title': 'Your agent is built',
+        return {'icon': 'metric', 'title': 'Metrics built' if s.get('metrics_only') else 'Your agent is built',
                 # How the person got here: a build started from their question says so first.
                 'pre': 'Built to answer: ' + s['question'] if s.get('question') else '',
                 'why': s.get('aside', ''),
@@ -1021,7 +1050,8 @@ def _parts(kind, s):
                                        ('ft', '%d from dashboard tiles' % tiles) if tiles else None) if x] if asked > 0 and tiles else [],
                 'most': ['Found most often', most['name'], _from(most)] if most and most['tiles'] + most['queries'] > 1 else None,
                 'names': s.get('merged') or [], 'groups': _by_source(s.get('merged') or [], evidence),
-                'more': ['Every metric and how it\'s worked out', s.get('page')]}
+                'more': ['Every metric and how it\'s worked out', s.get('page')]
+                if s.get('page') or not s.get('metrics_only') else None}
     if kind == 'saved' and (s.get('metrics') or s.get('queries')) and not s.get('local'):
         featured = s.get('featured')
         metrics = s.get('metrics') or []

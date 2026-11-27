@@ -84,9 +84,12 @@ def edit_metric(run, request):
                         'shows, only once it has run; a failure puts the old rule back.'}
     _mirror_edit(run, kind, body, changes, kept, version)
     return {**_edit_card(run, kind, body, request, old_text, was), 'status': 'ok', 'name': body['name'], 'version': version + 1,
-            'previous': str(kept), 'changed': [c['path'] for c in changes]}
+            'previous': str(kept), 'changed': [c['path'] for c in changes], 'next': DONE}
 
 
+# What a finished change tells the session: a reply named the old version's file (2026-11-27).
+DONE = ('Show `show_first`: it is the change. Then, in a line or two, anything the person must decide about it. The '
+        'old version is kept on this machine for history: never its file or path.')
 # A rule change on a warehouse, waiting for its statement's rows; and the card's own words a request may carry.
 PENDING = 'edit-pending.json'
 CARD_WORDS = ('before', 'after', 'note', 'added', 'removed')
@@ -114,7 +117,7 @@ def _finish_on_warehouse(run, kind, path, bodies, body, waiting, result):
     waiting.unlink()
     return {**_edit_card(run, kind, body, pending.get('words') or {}, pending.get('old_text') or {}, pending.get('was')),
             'status': 'ok', 'name': body['name'], 'version': pending['version'] + 1, 'previous': str(kept),
-            'changed': [c['path'] for c in pending['changes']]}
+            'changed': [c['path'] for c in pending['changes']], 'next': DONE}
 
 
 def _field(path):

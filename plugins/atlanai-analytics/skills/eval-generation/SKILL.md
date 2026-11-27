@@ -42,7 +42,8 @@ Paths. Pass each command as separate argv entries; zsh does not split a string h
 ## `generate`: use case first, metric aware
 
 A helper result with `show_first` carries a chip the run has reached: show it before any other
-words or call.
+words or call. Between calls, write nothing of your own: no working notes, no line about a card before or after it,
+and never a file path or a step's, gate's or helper's own name.
 
 1. **Scope.** `SCOPE inputs --project <project>`. It finds the built run, opens the drafting
    folder, reads the use case and focus metric, and writes the pool: every dashboard tile and

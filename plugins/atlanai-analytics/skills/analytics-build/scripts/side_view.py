@@ -135,14 +135,18 @@ def _shows(kind, run, engine_dir):
 STEPS = ('found', 'sources', 'group', 'tiles', 'described', 'drafted', 'metrics', 'rules', 'links')
 
 
+def _remaining(run, engine_dir):
+    done = set(seen(run, engine_dir))
+    late = 'build' in done
+    return [kind for kind in MIDWAY if kind not in done and not (late and kind in STEPS)]
+
+
 def due(run, engine_dir=None):
     """The moments the run's files can show but the side view has not recorded, in order."""
     run = Path(run)
     if not (run / 'run.json').is_file():
         return []
-    done = set(seen(run, engine_dir))
-    late = 'build' in done
-    return [kind for kind in MIDWAY if kind not in done and not (late and kind in STEPS) and _shows(kind, run, engine_dir)]
+    return [kind for kind in _remaining(run, engine_dir) if _shows(kind, run, engine_dir)]
 
 
 # A wait that marked itself this recently is following the build: it looks every few seconds, and a session acts on
@@ -267,6 +271,46 @@ def show_due(run, engine_dir=None, limit=4):
     return '\n\n'.join(shown)
 
 
+def show_metrics_due(run, engine_dir):
+    """Draw every due engine step in this result. Metrics mode has no survey, foreground wait or save question."""
+    import side_page
+    import visuals
+    facts = RunFacts(run, engine_dir)
+    if not facts.metrics_only:
+        return ''
+    widget = widget_mode(run)
+    shown = []
+    # The page server selects its own engine from the folder. Only offer a page for the build we are showing.
+    page_matches = facts.engine == RunFacts(run).engine
+    page = side_page.running(run) if page_matches else None
+    for kind in _remaining(run, engine_dir):
+        if kind == 'found' or (kind == 'sources' and facts.inputs is None):
+            continue
+        try:
+            if kind == 'connect':
+                if not page_matches or not side_page.has_output(facts):
+                    continue
+                opened = side_page.open_page(run)
+                page = opened.get('url')
+                moment = output('', [side_page.instruction(opened, widget, run)])
+            else:
+                spec = (visuals.metrics_end(kind, facts) if kind in ('build', 'context')
+                        else visuals.collect(kind, facts))
+                if page:
+                    spec['page'] = page
+                drawing = visuals.render(kind, spec, widget)
+                if not drawing:
+                    continue
+                title = visuals.title_of(kind, spec) if widget else None
+                moment = output(drawing, [display_step(widget, title, rerun=False)])
+            recorded = note(run, kind, engine_dir=engine_dir, shown=moment, widget=widget, once=True)
+            if recorded:
+                shown.append(recorded)
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            continue  # A partial file or unavailable side page leaves the other chips deliverable.
+    return '\n\n'.join(shown)
+
+
 def _rows(run, flow, kinds, engine_dir):
     """The flow's own task list with each step's saved state, as the host's task list shows it, and the run's state
     (running, paused, blocked, access_needed or done)."""
@@ -319,10 +363,12 @@ def _with_welcome(run, state, moment, spec, shown, widget, plain):
     return visual_kit.with_welcome(welcome, shown) if widget else welcome + '\n' + shown
 
 
-def note(run, kind, spec=None, engine_dir=None, *, shown='', widget=False, plain=False):
+def note(run, kind, spec=None, engine_dir=None, *, shown='', widget=False, plain=False, once=False):
     """Record a moment, including the welcome at the start of its text or HTML when due."""
     import visuals
     with _locked(run):
+        if once and kind in seen(run, engine_dir):
+            return ''
         state = _state(run)
         at = _now()
         if widget and not visuals.desktop():
@@ -350,7 +396,7 @@ def display_step(widget, title, asked=None, rerun=True):
     if widget:
         return ("Draw it now: pass the HTML above, as printed and never through a file, to `show_widget` with the title "
                 "`%s`. Use your tool search silently to load it if deferred and run its `read_me` the first time, before "
-                "your next question or reply. Never put it in a question's text. Add no line of your own about it." % title)
+                "your next question or reply. Never put it in a question's text. Write no line of your own about it, before or after." % title)
     if asked:
         text = ("Put the lines above, as they are, in %s: a question's own text is always shown, while text "
                 "written just before it folds. They are counted from the run's files, so never reword them or "

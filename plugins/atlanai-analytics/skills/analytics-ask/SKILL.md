@@ -7,7 +7,8 @@ description: "Atlan Analytics: answer data questions from metrics and saved quer
 
 Read [shared conventions](../analytics-build/references/conventions.md) first; its **Source of
 truth**, read-only SQL and safety rules apply. Answer here without a new project,
-eval, agent or Atlan Trident write. It needs no subagent.
+eval, agent or Atlan Trident write. It needs no subagent. Between calls, write nothing of your own: no working notes, no line about a card before or after it,
+no file path.
 
 If a setup run was selected, or this folder holds one kept local, follow
 [setup retrieval](references/retrieval.md) and return. Otherwise continue
@@ -25,16 +26,14 @@ you meant something else."
 ## 2. Find the definitions
 
 1. Open a session as **Atlan Trident calls** in the conventions describes, with the question
-   as the `objective`. Its first call is step 2's search; send nothing else until it returns the
-   session id.
+   as the `objective`. Its first call is step 2's search; send nothing else until it returns.
 2. Search released metrics in every workspace at once: call
    `extension__metric__search_metrics` with the measure and its business nouns as `query`,
    `semantic: true`, `include_definition: true`, `definition_view: "compact"`,
    `definition_limit: 1` (2 when the top two names both fit the measure) and no
-   `workspace_id`. Each item names its workspace and carries its release receipt; the first
-   carries its definition, which compact cuts to the calculation. If the call refuses
-   `definition_view` or `semantic` by name, send it again without that argument for the rest of
-   the session. Semantic search can drop a released metric whose name the query lacks: an
+   `workspace_id`. Each item names its workspace and release receipt; the first carries its
+   definition, cut to the calculation. If the call refuses
+   `definition_view` or `semantic` by name, drop that argument for the session. Semantic search can drop a released metric whose name the query lacks: an
    empty result proves nothing.
 
    **A hit is a candidate, not an answer.** The right metric can rank low. Keep the hit
@@ -113,11 +112,11 @@ Apply [explanation checks](references/answer-checks.md) to numerical claims.
 3. Before answering, check the result:
    - the window is complete, or the answer says it is partial (this week so far);
    - a rate has a non-zero denominator, and segment shares add up to the total;
-   - a join did not multiply rows: compare the count before and after when in doubt;
+   - a join did not multiply rows (compare the counts when in doubt);
    - the number is plausible against the definition (no all-NULL or zero where a count is
-     expected). If not, re-check the filters against the definition before answering.
-4. For an explanation, break the change down along the definition's dimensions, one at a time,
-   and report the largest contributors with their share of the change. Say "associated with",
+     expected). If not, re-check the filters before answering.
+4. For an explanation, break the change down by the definition's dimensions, one at a time,
+   and report the largest contributors and their shares. Say "associated with",
    not "caused", unless an experiment shows it.
 
 ## 5. Answer

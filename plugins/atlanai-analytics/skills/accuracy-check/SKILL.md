@@ -34,7 +34,8 @@ command as separate argv entries; zsh does not split a string holding one.
 ## Run a set
 
 A helper result with `show_first` carries a chip or card the run has reached: show it before
-any other words or call.
+any other words or call. Between calls, write nothing of your own: no working notes, no line about a card before or after it,
+and never a file path or a step's, gate's or helper's own name.
 
 1. **Find the run.** `CHECK start --project <project>` returns the built run, `context_saved_to`
    (where the context lives; `null` means this machine only), `execution` (where its SQL runs)
