@@ -113,7 +113,7 @@ def cmd_inputs(a) -> dict:
         or execution(run).get("kind")
     return {"status": "ok", "run": str(run), "gen": str(ev), "use_case": intent, "focus": names.get(focus_ref) or None,
             "pool": len(rows), "tiles": sum(1 for p in pool.values() if p["source"] == "tile"),
-            "dialect": dialect, "tables": tables, "src": str(src)}
+            "dialect": dialect, "tables": tables, "src": str(src), "runtime": str(layout.evals(project) / "runtime")}
 
 
 def _words(text: str) -> set:
