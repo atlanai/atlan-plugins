@@ -1035,7 +1035,13 @@ def open_page(run, host=None, explicit=True):
     if explicit:
         # Asking for the page undoes a deliberate stop.
         (run / 'view' / 'stopped.json').unlink(missing_ok=True)
-    started = moved = False
+    host = host or os.environ.get('CLAUDE_CODE_ENTRYPOINT') or ''
+    if not host and os.environ.get('CODEX_THREAD_ID'):
+        # Codex also sets a thread ID for its desktop and editor sessions.
+        originator = os.environ.get('CODEX_INTERNAL_ORIGINATOR_OVERRIDE') or 'codex_cli_rs'
+        if originator == 'codex_cli_rs':
+            host = 'codex-cli'
+    started = moved = opened = False
     failed = run / 'view' / 'start-failed.json'
     with _one_at_a_time(run):
         url = running(run)
@@ -1065,19 +1071,16 @@ def open_page(run, host=None, explicit=True):
             _write(failed, json.dumps({'at': time.time()}))
             return {'error': 'The side page could not start on this machine.'}
         failed.unlink(missing_ok=True)
-    host = host or os.environ.get('CLAUDE_CODE_ENTRYPOINT') or ''
-    opened = False
-    record = read_json(run / 'view' / 'address.json', dict, {})
-    # A terminal has no pane of its own: the helper opens the page in the system browser, once per run, however
-    # often the page restarts.
-    if host == 'cli' and not record.get('opened') and not (run / 'view' / 'seen.json').is_file():
-        import webbrowser
-        try:
-            opened = bool(webbrowser.open(url))
-        except Exception:  # noqa: BLE001 - no browser leaves the address to print
-            opened = False
-        if opened:
-            _write(run / 'view' / 'address.json', json.dumps({**record, 'opened': _now()}))
+        # Keep the browser launch under the same lock so concurrent calls open one tab per run.
+        record = read_json(run / 'view' / 'address.json', dict, {})
+        if host in ('cli', 'codex-cli') and not record.get('opened') and not (run / 'view' / 'seen.json').is_file():
+            import webbrowser
+            try:
+                opened = bool(webbrowser.open(url))
+            except Exception:  # noqa: BLE001 - no browser leaves the address to print
+                opened = False
+            if opened:
+                _write(run / 'view' / 'address.json', json.dumps({**record, 'opened': _now()}))
     return {'url': url, 'started': started, 'opened': opened, 'moved': moved, 'host': host}
 
 
@@ -1128,6 +1131,8 @@ def instruction(opened, widget=False, run=None):
         return ('The side page opened in the person\'s browser at %s. Say once, in one short line: "%s" Nothing more '
                 'about it now: the next chip in a question names it. %s'
                 % (url, opened_line(run).replace('beside this chat', 'in your browser'), follows))
+    if opened.get('host') == 'codex-cli':
+        return 'Show the person the side page address now, %s. %s' % (url, follows)
     return ('Say nothing about the side page now: the next chip in a question names its address, %s. %s' % (url, follows))
 
 

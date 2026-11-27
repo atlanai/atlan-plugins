@@ -107,8 +107,9 @@ If the page cannot start, its `next` gives the one line to tell the person. Othe
   is among the open panes, and show it again if not: a page in a closed pane still reports itself
   visible, so only the layout can tell. Do it right away; helper results name it again
   (`side_page`) until the page has been opened.
-- **A terminal:** the helper opens the address in the person's browser, and the next chip that
-  goes in a question names it, so the person can open it again.
+- **Claude Code and Codex CLI:** the helper opens the address in the person's browser, and the
+  next chip that goes in a question names it, so the person can open it again. In Codex CLI, if
+  the browser cannot open, show the address as soon as the page starts.
 - **Anywhere else:** the next chip that goes in a question names the address the same way.
 
 The page shows what the build made, in every flow: the metrics, each in its state (Found,
