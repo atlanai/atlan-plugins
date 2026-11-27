@@ -40,7 +40,8 @@ came at the build's end; when it did not, draw both with one call, `PROJECT visu
 one native question with the `header`, the `question` text and the `options` it prints, exactly
 as given. Without widgets the text says in sentences what the build card and the checks chip
 would, each fact once and with no bars: what was built and in how long, what it answers from,
-its validation, then the side page's address and the question. No "Next:" line goes before it. Every count is true: when some did not pass their check, the text says so, and the
+its validation (the result, then what each check was, one line each, only the checks that ran;
+never a bare "all passed"), one metric as an example, then the side page's address and the question. No "Next:" line goes before it. Every count is true: when some did not pass their check, the text says so, and the
 celebration still stands. If it answers that items still wait for their sample check, do what
 it says, then run it again; never ask this question without its text.
 

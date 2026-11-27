@@ -542,7 +542,7 @@ class Helper(unittest.TestCase):
         self.assertTrue(checked.startswith('side view: '), 'the lines are part of the save question, printed there once')
         self.assertIn('PROJECT question save', self.side(checked)['next'])
         asked = json.loads(self.project('question', 'save'))['question']
-        self.assertEqual(asked.count('Validated on your data: all passed.'), 1)
+        self.assertEqual(asked.count('I checked them on your data: all passed.'), 1)
         self.assertIn('context', [m['kind'] for m in json.loads((self.run / 'view' / 'state.json').read_text(encoding='utf-8'))['moments']])
         saved = self.project('visual', 'saved', '--input', '-', stdin=json.dumps({'workspace': 'Personal'}))
         self.assertTrue(saved.startswith('side view: '))
@@ -572,7 +572,7 @@ class Helper(unittest.TestCase):
         # 0.9.75: the card and chip drawn in the question's proportional font broke their bars. The text says it in
         # sentences, with no banner before it (the copy budget, 2026-11-19 and 2026-11-22).
         self.assertTrue(shown.startswith('Your agent for Job margin is built.\nIt answers from 2 metrics and 2 saved queries, '
-                                         'built from your Power BI dashboard and 3 past queries.\nValidated on your data: all passed.\n'),
+                                         'built from your Power BI dashboard and 3 past queries.\nI checked them on your data: all passed.\n'),
                         shown[:200])
         url = json.loads((self.run / 'view' / 'server.json').read_text(encoding='utf-8'))['url']
         self.assertIn("\n\nEvery metric and how it's calculated: " + url, shown)

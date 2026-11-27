@@ -310,7 +310,7 @@ settled is done again.
 ## 6. Choose where to store your context
 
 `PROJECT question save --widget` composes the save question for this branch: what was built,
-whether it ran on the data, what was held back and why, and the tiles that could not be built,
+the checks' result and what each check was, what was held back and why, and the tiles that could not be built,
 one line each. Ask exactly that text, with its options. Add nothing to it: the side page holds
 every detail.
 
