@@ -1672,10 +1672,11 @@ def cmd_before_after(a) -> dict:
     try:
         run = eval_runs.run_of(pr.dir.resolve())
         on_page = run and eval_runs.questions_folder(run) == pr.dir.resolve() and side_page.running(run)
+        held = eval_runs.questions(pr.dir.resolve()) or {}
     except (OSError, ValueError):
-        run, on_page = None, False
+        run, on_page, held = None, False, {}
     widget = _before_after_widget(ids, number, text, ma, mb, (ka, kb), (secs(ca), secs(cb)), only_after, only_before,
-                                  bool(on_page))
+                                  bool(on_page), {r["id"]: r for r in held.get("rows") or []})
     report = "\n".join(lines)
     use_widget = side_view.widget_mode(run)
     card = side_view.card_result(run, 'accuracy', widget if use_widget else report, use_widget, 'accuracy')
@@ -1702,30 +1703,71 @@ WIDGET_CSS = ('<style>.st{display:grid;grid-template-columns:112px repeat(var(--
               '.mc .st i.y svg{stroke:var(--sx)}.mc .st i.n svg{stroke:var(--cx)}'
               '.ls{display:grid;font-size:13px;line-height:18px}.ls div{display:grid;grid-template-columns:minmax(0,1fr) auto;'
               'gap:12px;border-top:.5px solid var(--bd);padding:5px 0}.ls b{font-weight:500;font-size:12px}'
-              '.ls b.vy{color:var(--ts)}.ls b.vn{color:var(--cx)}.st i.go{cursor:pointer}.st i.go:hover{outline:1px solid var(--bd)}</style>')
-# Where the host runs scripts, a mark asks for its question in the chat; elsewhere the card draws the same, unclickable.
-OPEN_QUESTION = ("<script>if (typeof sendPrompt === 'function') document.querySelectorAll('.mc [data-n]').forEach(function (m) {"
-                 "m.classList.add('go'); m.setAttribute('role', 'button'); m.tabIndex = 0;"
-                 "var go = function () { sendPrompt('Show question ' + m.dataset.n + ' of the accuracy check'); };"
-                 "m.addEventListener('click', go); m.addEventListener('keydown', function (e) {"
-                 "if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });</script>")
+              '.ls b.vy{color:var(--ts)}.ls b.vn{color:var(--cx)}</style>')
+OPENED_CSS = ('<style>.mc [hidden]{display:none}.mc .st i.go{cursor:pointer}.mc .st i.go:hover{outline:1px solid var(--bh)}'
+              '.mc .st i.on{outline:1.5px solid var(--bt);outline-offset:1px}'
+              '.qd{border-top:.5px solid var(--bd);padding:10px 0 4px;display:grid;gap:6px;font-size:13px;line-height:18px}'
+              '.qd .qh{font-size:14px;line-height:20px}.qd .qm,.mc .qf{color:var(--ts)}.mc .qf{font-size:12px;padding-bottom:4px}'
+              '.qd .qg{display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:4px 14px;align-items:baseline}'
+              '.qd .qg span{color:var(--ts)}.qd .qg b{font-weight:500}.qd .qg i{font-style:normal;color:var(--cx)}'
+              '.qd .qg i.y{color:var(--sx)}</style>')
+# A mark opens its question below the grid and closes it again; another mark moves to its own. It stays inside the card:
+# the desktop app takes text from a card into the message box once, and after that text is cleared it refuses every
+# later click (2026-11-27). Where scripts do not run, the first miss stays open.
+OPEN_IN_CARD = ("<script>document.querySelectorAll('.mc .st i[data-q]').forEach(function (m) {"
+                "m.classList.add('go'); m.setAttribute('role', 'button'); m.tabIndex = 0;"
+                "var go = function () { var q = m.dataset.q, open = document.querySelector('.mc .qd:not([hidden])'),"
+                " shut = !!open && open.dataset.q === q;"
+                "document.querySelectorAll('.mc .qd').forEach(function (d) { d.hidden = shut || d.dataset.q !== q; });"
+                "document.querySelectorAll('.mc .st i[data-q]').forEach(function (x) {"
+                " x.classList.toggle('on', !shut && x.dataset.q === q); });"
+                "document.querySelectorAll('.mc .qf').forEach(function (f) { f.hidden = shut; }); };"
+                "m.addEventListener('click', go); m.addEventListener('keydown', function (e) {"
+                "if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });</script>")
 
 
-def _before_after_widget(ids, number, text, ma, mb, right, times, only_after, only_before, on_page=False) -> str:
+def _opened(row, num, before, after) -> str:
+    """One question as it opens in the card, from the side page's own record of it: what it tests, the known answer
+    beside each pass's, and why a miss missed. A table answer reads as its row count; its rows are on the side page."""
+    import visual_kit as k
+    e = k.e
+    short = lambda v: re.sub(r"^(\d+ rows?)\b.*$", r"\1", str(v)) if v else "No result"  # noqa: E731
+
+    def said(p, mark):
+        if mark == 1:
+            return '<i class="y">Right</i>'
+        shown = str(((p or {}).get("cause") or {}).get("shown") or "")
+        return "<i>%s</i>" % e("Missed: " + shown[:1].lower() + shown[1:] if shown else "Missed")
+    a, nm = row.get("agent") or {}, row.get("names") or {}
+    why = str((a.get("cause") or {}).get("detail") or "") if after != 1 else ""
+    return ('<div class="qh"><b>%d.</b> %s</div>' % (num, e(row.get("question") or ""))
+            + ('<div class="qm">Tests %s</div>' % e(row["metric"]) if row.get("metric") else "")
+            + '<div class="qg"><span>Known answer</span><b>%s</b><em></em><span>Your agent</span><b>%s</b>%s'
+              '<span>Column names only</span><b>%s</b>%s</div>'
+            % (e(short(row.get("known"))), e(short(a.get("value"))), said(a, after), e(short(nm.get("value"))),
+               said(nm, before))
+            + ("<div>%s</div>" % e(why) if why else ""))
+
+
+def _before_after_widget(ids, number, text, ma, mb, right, times, only_after, only_before, on_page=False,
+                         details=None) -> str:
     """The before-and-after card for a host that draws widgets: both scores, every question as a mark in each pass, and
-    the questions that changed, from the same numbers as the text card. It draws in any widget host; where the host runs
-    scripts, each mark asks for its question, which no mark did (2026-11-26). With the side page open, the page lists
-    those questions with both answers, so the card counts them instead."""
+    the questions that changed, from the same numbers as the text card. With `details`, the side page's records by
+    question id, a mark opens its question inside the card, the first miss open to begin with. With the side page
+    open, the page lists the questions that changed with both answers, so the card counts them instead."""
     import visual_kit as k
     e, n = k.e, len(ids)
+    details = {i: details[i] for i in ids if i in (details or {})} if n <= 30 else {}
+    first = next((i for i in ids if mb[i] != 1 and i in details), None)
     rows = [("Column names only", right[0], times[0]), ("Your agent", right[1], times[1])]
     ba = ''.join('<span>%s</span><b%s>%d%%</b><span>%d of %d right%s</span>'
                  % (e(label), ' class="now"' if label != "Column names only" else '', whole_percent(kk, n), kk, n,
                     ', ' + e(t) if t else '') for label, kk, t in rows)
     strip = ''
     if n <= 30:
-        marks = lambda m: ''.join('<i class="%s" data-n="%d">%s</i>' % ('y' if m[i] == 1 else 'n', number[i],
-                                                                         TICK if m[i] == 1 else CROSS)
+        marks = lambda m: ''.join('<i class="%s%s"%s>%s</i>' % ('y' if m[i] == 1 else 'n', ' on' if i == first else '',
+                                                               ' data-q="%d"' % number[i] if i in details else '',
+                                                               TICK if m[i] == 1 else CROSS)
                                   for i in ids)  # noqa: E731
         strip = ('<div class="st" style="--n:%d"><span></span>%s<span>Column names only</span>%s<span>Your agent</span>%s</div>'
                  % (n, ''.join('<span class="hd">%d</span>' % number[i] for i in ids), marks(ma), marks(mb)))
@@ -1741,10 +1783,16 @@ def _before_after_widget(ids, number, text, ma, mb, right, times, only_after, on
         listed = ('<div class="mt">What changed</div><div class="ls">%s</div>' % ''.join(
             '<div><span>%d. %s</span><b class="%s">%s</b></div>' % (number[i], e(text.get(i, '')), c, e(v)) for i, v, c in changed)
                   if changed else '<div class="mt">No question changed between the two.</div>')
-    body = (WIDGET_CSS + '<div class="mh">%s<b>Accuracy: your agent against column names only</b></div><div class="ba">%s</div>%s%s'
-            % (k.icon('check-circle'), ba, strip, listed))
+    opened = ''.join('<div class="qd" data-q="%d"%s>%s</div>' % (number[i], '' if i == first else ' hidden',
+                                                                 _opened(details[i], number[i], ma[i], mb[i]))
+                     for i in ids if i in details)
+    if opened and on_page:
+        opened += '<div class="qf"%s>Both answers in full, with their SQL, are on the side page.</div>' % ('' if first else ' hidden')
+    body = (WIDGET_CSS + (OPENED_CSS if opened else '')
+            + '<div class="mh">%s<b>Accuracy: your agent against column names only</b></div><div class="ba">%s</div>%s%s%s'
+            % (k.icon('check-circle'), ba, strip, opened, listed))
     return k.card(body, 'Your agent got %d of %d right, against %d of %d from column names only.'
-                  % (right[1], n, right[0], n)) + (OPEN_QUESTION if strip else '')
+                  % (right[1], n, right[0], n)) + (OPEN_IN_CARD if opened else '')
 
 
 # ====================================================================== publishing (registry MCP)
@@ -3020,7 +3068,7 @@ def _selftest_inputs(ok) -> None:
         w = ba.get("widget") or ""
         ok("the desktop widget draws the same card: both scores, a mark per question, what changed",
            'class="a mc"' in w and "0 of 2" in w and "1 of 2" in w and w.count('class="y"') + w.count('class="n"') == 4
-           and "Now right with your agent" in w and w.count('data-n="2"') == 2 and "typeof sendPrompt" in w)
+           and "Now right with your agent" in w and "sendPrompt" not in w)
         summ = summarize(Proj(d), "ctx")
         ok("the summary says how many answers the judge decided",
            summ["graded_by"] == {"script": 1, "judge": 2} and summ["judge_passed"] == 1)

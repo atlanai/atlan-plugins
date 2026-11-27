@@ -338,7 +338,9 @@ class TestQuestionView(unittest.TestCase):
 
 
 class AccuracyCardOpensAQuestion(unittest.TestCase):
-    """The accuracy card's marks were never clickable: a person who saw question 5 missed had to find it on the page."""
+    """A question of the check opens on the side page, or by asking for it. The card's marks once sent "Show question N"
+    into the chat; the desktop app takes text from a card once, and after that text is cleared it refuses every later
+    click with "Nothing was added to the message box. Try again in a few seconds", minutes on (2026-11-27)."""
 
     def card(self):
         import analytics_eval
@@ -346,12 +348,57 @@ class AccuracyCardOpensAQuestion(unittest.TestCase):
         return analytics_eval._before_after_widget(ids, {'a': 1, 'b': 2}, {'a': 'A?', 'b': 'B?'}, {'a': 0, 'b': 0},
                                                    {'a': 1, 'b': 0}, (0, 1), ('', ''), ['a'], [])
 
-    def test_each_mark_asks_for_its_question_where_the_host_runs_scripts(self):
+    def test_the_card_draws_each_mark_and_sends_nothing(self):
         w = self.card()
-        self.assertEqual(w.count('data-n="1"'), 2, 'both passes of question 1')
-        self.assertEqual(w.count('data-n="2"'), 2)
-        self.assertIn("sendPrompt('Show question ' + ", w)
-        self.assertIn("typeof sendPrompt === 'function'", w, 'a host without it keeps a card that draws, unclickable')
+        self.assertEqual(w.count('class="y"') + w.count('class="n"'), 4, 'both passes of both questions')
+        self.assertNotIn('sendPrompt', w)
+        self.assertNotIn('<script', w)
+        self.assertNotIn('data-n=', w)
+
+    DETAILS = {'a': {'n': 1, 'question': 'A?', 'metric': 'Gross Sales', 'known': '1,550,066.18',
+                     'agent': {'value': '1,550,066.18', 'right': True, 'cause': None},
+                     'names': {'value': '1,557,930.77', 'right': False, 'cause': None}},
+               'b': {'n': 2, 'question': 'B?', 'metric': 'Paid Sell-Through', 'known': '36 rows, starting Grumpy, 700, …',
+                     'agent': {'value': '35 rows, starting E001, 90, …', 'right': False,
+                               'cause': {'shown': 'Different definition', 'detail': 'It used Sell-Through.'}},
+                     'names': {'value': None, 'right': False, 'cause': None}}}
+
+    def opened(self, on_page=False, mb=None):
+        import analytics_eval
+        return analytics_eval._before_after_widget(['a', 'b'], {'a': 1, 'b': 2}, {'a': 'A?', 'b': 'B?'}, {'a': 0, 'b': 0},
+                                                   mb or {'a': 1, 'b': 0}, (0, 1), ('', ''), ['a'], [], on_page,
+                                                   self.DETAILS)
+
+    def test_a_question_opens_inside_the_card_the_first_miss_first(self):
+        # Opening a question stays inside the card, so it never meets the message box or its limit (2026-11-27).
+        w = self.opened()
+        self.assertNotIn('sendPrompt', w)
+        self.assertIn('<div class="qd" data-q="2">', w, 'the first miss is open, even where no script runs')
+        self.assertIn('<div class="qd" data-q="1" hidden>', w)
+        self.assertEqual(w.count(' on" data-q="2"'), 2, 'its column, marked in both passes')
+        for said in ('Tests Paid Sell-Through', 'Known answer', '>36 rows<', '>35 rows<', 'Missed: different definition',
+                     'It used Sell-Through.', 'No result', 'Tests Gross Sales', '1,557,930.77', '>Right<'):
+            self.assertIn(said, w)
+        self.assertNotIn('Grumpy', w, 'a table answer reads as its row count; its rows are on the side page')
+        self.assertIn("addEventListener('click'", w)
+        self.assertIn('.mc [hidden]{display:none}', w, 'the details grid set display, which showed every closed one')
+
+    def test_the_side_page_is_named_only_while_it_is_open(self):
+        line = 'Both answers in full, with their SQL, are on the side page.'
+        self.assertNotIn(line, self.opened())
+        self.assertEqual(self.opened(on_page=True).count(line), 1, 'once, under whichever question is open')
+
+    def test_with_every_answer_right_no_question_starts_open(self):
+        w = self.opened(mb={'a': 1, 'b': 1})
+        self.assertEqual(w.count('class="qd"'), 2)
+        self.assertEqual(w.count('class="qd" data-q="1" hidden'), 1)
+        self.assertEqual(w.count('class="qd" data-q="2" hidden'), 1)
+
+    def test_the_guide_opens_a_question_the_person_asks_for(self):
+        run = (SCRIPTS.parents[1] / 'accuracy-check' / 'references' / 'run.md').read_text()
+        self.assertNotIn('each mark sends', run)
+        self.assertIn('"show question 5"', run)
+        self.assertIn('CHECK question --evals <evals-run> --n <N>', run)
 
     def test_a_question_opens_on_the_page_or_comes_back_whole(self):
         sys.path.insert(0, str(SCRIPTS.parents[1] / 'accuracy-check' / 'scripts'))

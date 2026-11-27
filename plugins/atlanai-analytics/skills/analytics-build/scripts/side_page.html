@@ -749,10 +749,9 @@ function missesBy(S, UI) {
 }
 /* A question's second line: what to know about it at a glance, never its raw values. */
 function subOf(S, r) {
-  const s = tstateOf(r), was = arr(r.earlier).find(obj), used = obj(r.agent) ? arr(r.agent.used).map(txt).filter(Boolean) : [];
-  const usedSaid = used.length ? 'Used ' + used[0] + (used.length > 1 ? ` and ${used.length - 1} more` : '') : '';
+  const s = tstateOf(r), was = arr(r.earlier).find(obj);
   if (s === 'missed') return causeOfRow(r) + (was && was.right ? ` · right on ${was.when}` : '');
-  if (s === 'right') return (usedSaid || 'Matches the known answer') + (was && !was.right ? ` · missed on ${was.when}` : '');
+  if (s === 'right') return (txt(r.metric) ? 'Tests ' + txt(r.metric) : 'Matches the known answer') + (was && !was.right ? ` · missed on ${was.when}` : '');
   if (s === 'answered') return 'Answered, being scored';
   return txt(S.tests.state) === 'ready' ? (txt(r.known) ? 'Known answer: ' + txt(r.known) : 'Known answer worked out when tested') : 'Waiting for your agent’s answer';
 }
@@ -781,18 +780,24 @@ function outcomeOf(r) {
   if (a.right === true) return ['Right: it matches the known answer.' + earlier, 'ok'];
   return ['Answered, being scored.', ''];
 }
+const andList = xs => xs.length > 1 ? xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1] : xs.join('');
+/* The metric a question tests is the one source of what it should use. What the agent drew on is its own report, so it
+   sits under its answer; "Tests Gross Sales" beside "Your agent used Gross Sales, a saved query" read as two sources
+   that disagreed (2026-11-27). A miss that left the tested metric out says so, the likeliest cause. */
 function testView(S, UI, n) {
   const r = findTest(S, n);
   if (!r) return `<div class="card empty">${ic('query', 's')}<span>This question is no longer in the check.</span></div>`;
   const from = r.from === 'tile' ? 'From a dashboard tile' : r.from === 'query' ? 'From a past query' : r.from === 'set' ? 'From your set' : '';
   const a = obj(r.agent) ? r.agent : null, [said, tone] = outcomeOf(r);
   const used = a ? arr(a.used).map(txt).filter(Boolean) : [];
-  const why = a && (obj(a.cause) && txt(a.cause.detail) || txt(a.why) || used.length)
+  const without = a && a.right === false && used.length && txt(r.metric) && !used.some(u => lc(u) === lc(r.metric));
+  const why = a && (obj(a.cause) && txt(a.cause.detail) || txt(a.why) || without)
     ? (obj(a.cause) && txt(a.cause.detail) ? `<p class="pdsc">${esc(a.cause.detail)}</p>` : '')
-      + (used.length ? `<div class="pnote">Your agent used ${esc(used.join(', '))}.</div>` : '')
+      + (without ? `<div class="pnote">It answered from ${esc(andList(used))}, not from ${esc(r.metric)}.</div>` : '')
       + (txt(a.why) ? `<div class="pnote">How it was graded: ${esc(a.why)}</div>` : '') : '';
   const mine = a ? (answerOf(a) ? `<div class="tval">${esc(answerOf(a))}</div>` : '') + (obj(a.rows) ? rowsTable(a.rows, r.known_rows) : '')
-    + answerText(UI, 'a' + r.n, a.answer) + code(a.sql, 'sql:a' + r.n, UI, 'the SQL') : '';
+    + answerText(UI, 'a' + r.n, a.answer) + (used.length && !without ? `<div class="pnote">What it drew on: ${esc(andList(used))}.</div>` : '')
+    + code(a.sql, 'sql:a' + r.n, UI, 'the SQL') : '';
   const known = (txt(r.known) ? `<div class="tval">${esc(r.known)}</div>` : '') + (obj(r.known_rows) ? rowsTable(r.known_rows) : '');
   const names = obj(r.names) ? `<div class="tval">${PASS_SAYS[String(r.names.right)] ? marker(...PASS_SAYS[String(r.names.right)]) : ''} ${esc(answerOf(r.names) || 'No answer')}</div>` + passBody(UI, 'n' + r.n, r.names) : '';
   return `<div class="prof">${crumb('Test questions', 'Question ' + r.n)}<h1 class="ptitle">${esc(r.question)}</h1>`

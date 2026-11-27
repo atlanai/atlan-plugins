@@ -210,10 +210,10 @@ With the side page open, the card counts the
 questions that changed and the page lists each one with both answers, under the same numbers:
 never list them in the chat as well.
 
-**A question from the card.** Where the host runs the card's script, each mark sends "Show
-question <N> of the accuracy check". Run `CHECK question --evals <evals-run> --n <N>`. With
-`page`, in the desktop app, open it in the browser pane (your browser tool's navigate call) and
-show the pane, with no words. Otherwise answer in three lines from `question`: the question,
+**One question.** When the person asks for a question of the check by its number
+("show question 5"), run `CHECK question --evals <evals-run> --n <N>`. With `page`, in the
+desktop app, open it in the browser pane (your browser tool's navigate call) and show the pane,
+with no words. Otherwise answer in three lines from `question`: the question,
 the known answer beside your agent's, and, for a miss, its `cause` in plain words.
 
 **What it holds, in this order.** The script computes every number; you write the words.

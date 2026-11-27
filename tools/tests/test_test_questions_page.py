@@ -195,10 +195,15 @@ class TestQuestions(unittest.TestCase):
         self.assertIn('Question a?', off)
         with mock.patch.object(side_page, 'running', return_value='http://127.0.0.1:1/key/'):
             on = analytics_eval.cmd_before_after(args)['widget']
-        self.assertNotIn('Question a?', on)
+        # It counts the questions that changed rather than listing them; each opens in the card only when clicked
+        # (2026-11-27), from the page's own records.
+        self.assertNotIn('What changed', on)
+        self.assertIn('<div class="qd" data-q="1" hidden><div class="qh"><b>1.</b> Question a?', on)
+        self.assertIn('Tests Gross Sales', on)
         self.assertIn('3 questions right only with your agent', on)
         self.assertIn('side page', on)
-        self.assertEqual(on.count('<i class="y">'), off.count('<i class="y">'))
+        self.assertEqual(on.count('<i class="y" data-q='), 3)
+        self.assertEqual(on.count('<i class="y" data-q='), off.count('<i class="y" data-q='))
 
 
 class OnThePage(unittest.TestCase):
