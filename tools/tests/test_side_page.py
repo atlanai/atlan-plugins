@@ -454,7 +454,7 @@ class Questions(unittest.TestCase):
         asked = questions.save(run, data=[facts()])
         for word in DEMO_WORDS:
             self.assertNotIn(word, asked['question'], 'a demo facts file passed on own data is ignored')
-        self.assertIn('Validated on your data: all passed.', asked['question'])
+        self.assertIn('I checked them on your data: all passed.', asked['question'])
         self.assertTrue(asked['question'].endswith('Where do you want to store your context?'), 'the question comes last')
         # The task list numbers the steps (ten on own data, eight in a demo): a second numbering in the header disagreed.
         self.assertEqual(asked['header'], 'Save')
@@ -463,8 +463,8 @@ class Questions(unittest.TestCase):
     def test_the_save_question_carries_the_review(self):
         # A live own-data run wrote the review as a reply and ended its turn, leaving the save question unasked.
         text = questions.save(make_run(self.root, saved=False))['question']
-        self.assertIn('One metric in full: Gross margin, £118,681 on your data', text)
-        self.assertLess(text.index('One metric in full'), text.index('Where do you want to store your context?'),
+        self.assertIn('For example, gross margin: £118,681', text)
+        self.assertLess(text.index('For example'), text.index('Where do you want to store your context?'),
                         'the question comes last')
 
     def test_the_save_question_carries_the_page_address_only_in_a_terminal(self):
@@ -594,8 +594,7 @@ class Questions(unittest.TestCase):
                       'the way on when a check cannot run')
         at(run, 'preview', 'running')
         text = questions.save(run)['question']
-        self.assertIn('Validated on your data', text)
-        self.assertIn('4 need your review', text)
+        self.assertIn('I checked them on your data: none passed yet, 4 need your review.', text)
 
     def test_the_ready_question_waits_for_where_the_context_lives(self):
         # A live run kept its context on this machine without recording it: the ready question could not say where it lives.
@@ -672,13 +671,75 @@ class Questions(unittest.TestCase):
         with mock.patch.object(side_page, 'details', leaving(['Facility fees are excluded (they belong to the venue).',
                                                               'Test events are left out.'])):
             text = ' '.join(questions.save(run)['question'].split())
-        self.assertIn('Leaves out: Facility fees are excluded (they belong to the venue); Test events are left out', text)
+        self.assertIn('Leaves out: Facility fees are excluded (they belong to the venue); Test events From', text)
         with mock.patch.object(side_page, 'details', leaving(['Facility fees are excluded (they belong to the venue).', long])):
             asked = questions.save(run)['question']
-        review = asked[asked.index('One metric in full'):]
+        review = asked[asked.index('For example'):]
         self.assertNotIn('…', review, 'an item is shown whole or not at all')
         self.assertNotIn('Refunds issued', review, 'the side page holds what does not fit')
         self.assertTrue(all(len(x) <= 76 for x in review.splitlines()))
+
+    def checked(self, run, figure='118681.0', gates=('bi-q1', 'bi-q2'), failed=()):
+        # Gross margin made from the Gross margin tile, whose own query returned `figure`, and the engine's gates on
+        # the SQL of `gates`, as verify_report.json records them.
+        metrics = json.loads((run / 'context' / 'metrics.json').read_text(encoding='utf-8'))
+        metrics[0]['definition']['provenance']['derived_from'] = ['bi-q1', 'h-1']
+        (run / 'context' / 'metrics.json').write_text(json.dumps(metrics), encoding='utf-8')
+        bi = json.loads((run / 'engine' / 'verified_queries.bi.json').read_text(encoding='utf-8'))
+        bi['objects'][0]['witness'] = {'result': 'pass', 'rows': 1, 'columns': ['gross_margin'], 'sample': [[figure]]}
+        (run / 'engine' / 'verified_queries.bi.json').write_text(json.dumps(bi), encoding='utf-8')
+        report = {'checks': [{'gate': g, 'object': o, 'status': 'fail' if (g, o) in failed else 'pass'} for o in gates
+                             for g in ('shape', 'column_grounding', 'literal_grounding', 'faithfulness')]}
+        (run / 'engine' / 'verify_report.json').write_text(json.dumps(report), encoding='utf-8')
+
+    def test_the_save_question_says_what_each_check_was(self):
+        # A tester, 2026-11-27, of "Validated on Fixit's data: all passed.": "it doesn't help understand what was
+        # validated and how". Each check the run ran is named, one line each: the run on the data, the number beside
+        # the tile's own formula (the dashboard file holds the formula, not the number it shows), and the engine's gates.
+        run = make_run(self.root, saved=False, demo=True)
+        self.checked(run)
+        text = questions.save(run, widget=True, data=[facts()])['question']
+        self.assertTrue(text.startswith("I checked your agent on Fixit's data: 2 metrics and 2 saved queries, all passed.\n\n"
+                                        "What I checked:\n"
+                                        "  • each one runs on Fixit's data and returns an answer\n"
+                                        "  • the dashboard metric gives the same number as its tile's formula\n"
+                                        "  • the SQL behind the dashboard's 2 tiles uses only columns and values\n"
+                                        "    found in Fixit's tables\n"
+                                        "  • the descriptions of those 2 say what their SQL actually counts\n\n"
+                                        "For example, gross margin: £118,681"), text)
+        self.assertNotIn('Validated on', text)
+        self.assertNotIn('One metric in full', text)
+        self.assertTrue(all(len(x) <= 76 for x in text[text.index('What I checked'):].splitlines()),
+                        "the list's lines are short, in a proportional font")
+
+    def test_the_save_question_names_only_the_checks_that_ran(self):
+        # No tile beside a metric and no engine gates (a build from past queries alone): only the run on the data.
+        text = questions.save(make_run(self.root, saved=False, dashboard=False), widget=True)['question']
+        listed = [x for x in text.splitlines() if x.startswith('  • ')]
+        self.assertEqual(listed, ['  • each one runs on your data and returns an answer'])
+        for gone in ("formula", 'columns and values', 'descriptions'):
+            self.assertNotIn(gone, text)
+
+    def test_a_gate_that_failed_is_counted_and_a_differing_tile_is_said_beside_the_result(self):
+        run = make_run(self.root, saved=False)
+        self.checked(run, figure='117000.0', gates=('bi-q1', 'bi-q2', 'h-1'), failed={('literal_grounding', 'h-1')})
+        text = questions.save(run, widget=True)['question']
+        self.assertIn('all passed. 0 of 1 match the dashboard; Gross margin differs.', text)
+        self.assertIn('the SQL behind 3 saved queries uses only columns and values found in your tables (2 of 3 do)',
+                      ' '.join(text.split()), 'gates over more than the tiles are counted as saved queries')
+
+    def test_left_out_values_read_as_words_not_data(self):
+        # A live Fixit run read "Leaves out: Every task type other than rework (build, dig, haul, lift, mix, roll,
+        # supervise, tea_break, yard_tidy and the rest) is excluded".
+        self.assertEqual(questions._plain('Every task type other than rework (build, dig, haul, lift, mix, roll, supervise, '
+                                          'tea_break, yard_tidy and the rest) is excluded'),
+                         'Every task type other than rework (build, dig, haul and more)')
+        self.assertEqual(questions._plain('Statuses (open, on_hold, closed, void, draft) are excluded.'),
+                         'Statuses (open, on hold, closed and 2 more)')
+        self.assertEqual(questions._plain('Work logged to no job (yard time such as yard_tidy) is excluded'),
+                         'Work logged to no job (yard time such as yard tidy)')
+        self.assertEqual(questions._plain('Rows of site.work_logs with no crew_id are left out of the count.'),
+                         'Rows of site.work_logs with no crew id are left out of the count', 'a table name stays whole')
 
     def test_the_save_question_on_a_demo_names_its_firm(self):
         run = make_run(self.root, saved=False, demo=True)
@@ -694,18 +755,20 @@ class Questions(unittest.TestCase):
             text = questions.save(make_run(self.root / str(widget), saved=False, demo=True), widget=widget, data=[facts()])['question']
             for gone in ('CONTEXT BUILT', 'You turned', 'hard part'):
                 self.assertNotIn(gone, text)
-            self.assertIn('One metric in full', text)
+            self.assertIn('For example, gross margin: £118,681', text)
             self.assertTrue(text.endswith('Where do you want to store your context?'))
             if widget:
-                self.assertTrue(text.startswith("Validated on Fixit's data: all passed."), text[:80])
+                self.assertTrue(text.startswith("I checked your agent on Fixit's data: 2 metrics and 2 saved queries, all "
+                                                "passed."), text[:80])
             else:
                 self.assertTrue(text.startswith("Your job profit agent is built.\nIt answers from 2 metrics and 2 saved queries, "
                                                 "built from Fixit's Power BI dashboard and 3 past queries.\n"
-                                                "Validated on Fixit's data: all passed."), text[:200])
+                                                "I checked them on Fixit's data: all passed."), text[:200])
 
     def test_a_widget_host_leaves_what_was_built_to_the_card(self):
         asked = questions.save(make_run(self.root, saved=False), widget=True)
-        self.assertTrue(asked['question'].startswith('Validated on your data: all passed.'), asked['question'][:80])
+        self.assertTrue(asked['question'].startswith('I checked your agent on your data: 2 metrics and 2 saved queries, '
+                                                     'all passed.'), asked['question'][:80])
         for gone in ('is built', 'answers from', "how it's calculated"):
             self.assertNotIn(gone, asked['question'], 'the card is drawn as a widget instead')
         self.assertEqual(asked['shown'], [])
@@ -748,7 +811,7 @@ class Questions(unittest.TestCase):
                 widget = kwargs.pop('widget', False)
                 run = make_run(self.root / name, **kwargs)
                 text = questions.ready(run, widget=widget)['question']
-                for said in ('is built', 'is ready', 'It answers from', 'Validated on', 'passed their tests'):
+                for said in ('is built', 'is ready', 'It answers from', 'Validated on', 'I checked', 'passed their tests'):
                     self.assertNotIn(said, text)
                 recap = questions.ready(run, widget=widget, recap=True)['question']
                 self.assertIn('Your agent for Job margin is ready.', recap)

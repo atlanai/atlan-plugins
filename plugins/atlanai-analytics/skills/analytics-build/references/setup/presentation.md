@@ -33,9 +33,9 @@ worked examples remain available on request. If reconciliation changes the defin
 show its changed rule and check status again.
 
 In the dashboard branch the build's card carries that representative metric, drawn right before
-the save question, so the save question itself holds only counts and what was kept back: with the
-checks run, "One metric in full" with its value; with them skipped, the most merged metric and
-where it came from, its rule one click away on the side page.
+the save question, so the save question itself holds only the checks' result, what each check
+was (one line each, only the checks that ran) and what was kept back; with the checks skipped,
+the most merged metric and where it came from, its rule one click away on the side page.
 
 Scope still comes from the person. Demos use their preset focus and source choice; own
 data uses [intent](intent.md) for missing business focus and purpose. Details-only,

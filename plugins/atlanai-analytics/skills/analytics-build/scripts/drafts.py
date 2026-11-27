@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 
 from context_state import ordinary
+from run_facts import from_dashboard, metrics_found
 
 MAX_BYTES = 4_000_000
 MAX_FILES = 200
@@ -79,9 +80,14 @@ def _propose(engine, files):
     total = sum(len(t['queries']) for t in engine.json(engine.dir / 'x1_prompt.json').get('tasks', [])
                 if isinstance(t, dict) and isinstance(t.get('queries'), list))
     drafted = sum(len(r['metrics']) for r in statements if isinstance(r.get('metrics'), list))
-    # The queries that held a number, as the step's own chip counts them ("found in 25 of those 30 queries").
+    # Each metric once, as the step's chip counts them: one metric drafted from 7 past queries is one metric found.
+    found = len(metrics_found([m for r in statements if isinstance(r.get('metrics'), list) for m in r['metrics']]))
+    # The queries that held a number, as the step's own chip counts them ("in 25 of Fixit's 30 past queries").
     held = len({r.get('vq_id') for r in statements if isinstance(r.get('vq_id'), str) and r.get('metrics')})
-    return {'queries_read': read, 'queries_total': total, 'queries_with': held, 'drafts': drafted}
+    ids = asked or {r.get('vq_id') for r in statements if isinstance(r.get('vq_id'), str)}
+    tiles = sum(1 for v in ids if from_dashboard(v))
+    return {'queries_read': read, 'queries_total': total, 'queries_with': held, 'drafts': drafted, 'found': found,
+            'kinds': {'tiles': tiles, 'queries': len(ids) - tiles}}
 
 
 def _merge(engine, files):
@@ -227,11 +233,15 @@ def _live(engine, under, with_left=True):
     # follows the step's own pace since it started, so it moves as the work does (the person's call, 2026-11-23).
     if gate == 'm2':
         done, total = c.get('described') or 0, c.get('total')
-        said = 'writing questions: %d of %d' % (done, total) if total else 'writing questions: %d' % done
+        said = 'writing saved queries: %d of %d' % (done, total) if total else 'writing saved queries: %d' % done
     elif gate == 'x1':
-        done, total = c.get('queries_read') or 0, c.get('queries_total')
-        said = 'finding metrics: %s in %s' % (_plural(c.get('drafts') or 0, 'metric'),
-                                              '%d of %d questions' % (done, total) if total else _plural(done, 'question'))
+        # The sources named by what they are: the person has asked no question yet (the Fixit run, 2026-11-27).
+        done, total, kinds = c.get('queries_read') or 0, c.get('queries_total'), c.get('kinds') or {}
+        one = (total or done) == 1
+        noun = ('past queries and tiles' if kinds.get('tiles') and kinds.get('queries') else
+                ('tile' if one else 'tiles') if kinds.get('tiles') else 'past query' if one else 'past queries')
+        said = 'finding metrics: %s in %s' % (_plural(c.get('found', c.get('drafts')) or 0, 'metric'),
+                                              '%d of %d %s' % (done, total, noun) if total else '%d %s' % (done, noun))
     elif gate == 'x2':
         # How many metrics the drafts make is only known once they are all combined: no count until then.
         return 'combining duplicates'

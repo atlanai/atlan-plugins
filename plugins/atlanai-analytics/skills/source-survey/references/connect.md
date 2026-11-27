@@ -16,8 +16,9 @@ recorded interpreter. The local executor is a connection and takes precedence ov
 discovery. Rebind if its schema changed; never silently select another database or server.
 
 If `state.json` has `warehouse.tool`, run that warehouse's check statement once. If it works,
-say "<Kind> is connected through <route>.", where the route is Atlan (`via` `atlan`), this app
-(`host`) or the <kind> CLI (`cli`), and return. If it fails, continue at step 1.
+say "<Kind> is connected through <route>.", where the route is Atlan (`via` `atlan`), the
+connector's own display name (`host`, such as "your Sales connector") or the <kind> CLI (`cli`),
+and return. If it fails, continue at step 1.
 
 A setup run does not require DuckDB. `PROJECT answer` reads this same warehouse record and
 returns a validated plan with `execute_in_host`. Use its SQL and separate native bindings
@@ -63,7 +64,11 @@ If a tool is found, go to step 5.
 ## 3. A vendor CLI, where there is a shell
 
 Only when this harness runs shell commands (Claude Code, Codex, Cursor's agent, VS Code agent
-mode) and the CLI is already installed and configured: `snow --version` with a connection in
+mode) and the CLI is already installed and configured. See which are installed with one command
+that succeeds whether or not a tool is there:
+`for t in snow databricks; do command -v "$t" || echo "$t: not installed"; done`. Never probe with
+`which a b c`: it exits non-zero when any one is missing, and the host shows a failed command.
+Then check the installed one is configured: `snow --version` with a connection in
 `snow connection list`, or `databricks --version` with a profile in
 `databricks auth profiles`. Never install a CLI, and never open its config files: they can
 hold secrets. When there are several connections or profiles, ask "Which <snow / databricks> CLI connection
