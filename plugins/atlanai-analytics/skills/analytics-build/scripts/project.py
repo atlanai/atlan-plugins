@@ -1420,7 +1420,10 @@ def main():
                                 if args.kind == 'ready' else
                                 ' This run\'s sample checks ran with the warehouse\'s own tool and none of their results is in '
                                 'the run\'s files: add one line before its last, how many passed and how many need a look from '
-                                'those results, and nothing else.' if results else ' Add nothing to it.'))
+                                'those results, and nothing else.' if results else ' Add nothing to it.')
+                             + (' Ask it alone, with no other question in the same card: the workspace question follows only '
+                                'a "Save to Atlan Trident" answer, and "Keep it on this machine" never gets one.'
+                                if args.kind == 'save' else ''))
             print(json.dumps(asked, ensure_ascii=False))
             return 0
         if args.command == 'view':
