@@ -342,6 +342,40 @@ class Page(unittest.TestCase):
             side_page.open_page(run)
         self.assertEqual(browser.call_count, 1, 'a page that restarts never opens another browser tab')
 
+    def test_codex_cli_opens_the_progress_page_once(self):
+        run = make_run(self.root)
+        url = 'http://127.0.0.1:1/progress/'
+        with mock.patch.dict(os.environ, {'CODEX_THREAD_ID': 'test-thread'}, clear=True), \
+                mock.patch.object(side_page, 'running', return_value=url), \
+                mock.patch('webbrowser.open', return_value=True) as browser:
+            first = side_page.open_page(run)
+            side_page.open_page(run)
+        self.assertTrue(first['opened'])
+        browser.assert_called_once_with(url)
+
+    def test_codex_cli_shows_the_address_if_the_browser_cannot_open(self):
+        run = make_run(self.root)
+        url = 'http://127.0.0.1:1/progress/'
+        env = {'CODEX_THREAD_ID': 'test-thread', 'CODEX_INTERNAL_ORIGINATOR_OVERRIDE': 'codex_cli_rs'}
+        with mock.patch.dict(os.environ, env, clear=True), \
+                mock.patch.object(side_page, 'running', return_value=url), \
+                mock.patch('webbrowser.open', return_value=False) as browser:
+            result = side_page.open_page(run)
+        browser.assert_called_once_with(url)
+        self.assertIn('Show the person the side page address now, ' + url, side_page.instruction(result))
+
+    def test_codex_desktop_and_ide_do_not_launch_the_system_browser(self):
+        run = make_run(self.root)
+        url = 'http://127.0.0.1:1/progress/'
+        for originator in ('Codex Desktop', 'codex_vscode'):
+            with self.subTest(originator=originator):
+                env = {'CODEX_THREAD_ID': 'test-thread', 'CODEX_INTERNAL_ORIGINATOR_OVERRIDE': originator}
+                with mock.patch.dict(os.environ, env, clear=True), \
+                        mock.patch.object(side_page, 'running', return_value=url), \
+                        mock.patch('webbrowser.open') as browser:
+                    self.assertFalse(side_page.open_page(run)['opened'])
+                browser.assert_not_called()
+
     def test_a_metric_with_no_sources_never_breaks_the_page(self):
         run = make_run(self.root)
         merged = json.loads((run / 'engine' / 'merged_metrics.json').read_text(encoding='utf-8'))
