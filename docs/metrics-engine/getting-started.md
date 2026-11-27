@@ -996,7 +996,7 @@ conversion grade with its reason (`quality`):
 
 | Grade | Meaning |
 |---|---|
-| `exact` | a complete translation that names no difference from the BI formula, and the warehouse accepted it |
+| `exact` | a complete translation that names no difference from the BI formula, and it ran on the data |
 | `equivalent_with_gotcha` | the same number under a condition the agent names (a parameter at its default, the viewing user's rows) |
 | `approximate` | part of the formula has no SQL form, and the grade names it: the number can differ |
 | `unverified` | no warehouse checked the statement (parse only, no warehouse, an access limit), and why |

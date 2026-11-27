@@ -599,7 +599,7 @@ def details(f):
 def _work(f):
     """The piece of the build under way, from the engine's own record of the stages it has passed."""
     passed = [s for s in f.stages if s in GROUP_OF]
-    if f.context:
+    if f.context or (f.metrics_only and f.engine_file('module.json').get('status') == 'complete'):
         return 'check'
     return GROUP_OF[passed[-1]] if passed else None
 
@@ -639,7 +639,8 @@ def snapshot(run, engine_dir=None):
         **({'others': others} if others else {}),
         **({'dashboard': {'built': True}} if f.interaction.get('dashboard_result') == 'built' else {}),
         'v': 1, 'flow': flow, 'updated': _now(),
-        'title': facts.get('title') or (f.use_case and f.use_case[:1].upper() + f.use_case[1:]) or 'Your agent',
+        'title': facts.get('title') or (f.use_case and f.use_case[:1].upper() + f.use_case[1:]) or (
+            'Your metrics' if f.metrics_only else 'Your agent'),
         'subtitle': facts.get('tagline') or f.purpose or None,
         'firm': facts.get('firm'),
         **({'agent': agent} if isinstance(agent, str) and agent.strip() else {}),
@@ -850,9 +851,13 @@ class _Server(ThreadingHTTPServer):
         self.lock = threading.Lock()
 
     def seen(self):
-        """The first time the page is open, so the helper can stop asking for it."""
+        """Each time the page is open, at most once a minute, so a later sitting can tell it was not seen there."""
         path = self.run / 'view' / 'seen.json'
-        if not path.is_file():
+        try:
+            fresh = time.time() - path.stat().st_mtime < 60
+        except OSError:
+            fresh = False
+        if not fresh:
             _write(path, json.dumps({'at': _now()}))
 
 
@@ -1103,6 +1108,7 @@ def instruction(opened, widget=False, run=None):
         return ('The side page could not start on this machine: carry on. Tell the person once, in your next message, in '
                 "one short line: \"The side page couldn't open here, so you'll see progress in the chat only.\" "
                 'The chips and cards still show each moment.')
+    metrics_only = run is not None and RunFacts(run).metrics_only
     follows = 'It follows the run by itself from the run\'s own files: never reload, rebuild or push to it.'
     if opened.get('host') == 'claude-desktop' or widget:
         return ('Open the side page now in the app\'s browser pane: your browser tool\'s preview or navigate call with url '
@@ -1113,9 +1119,11 @@ def instruction(opened, widget=False, run=None):
                 'layout can tell. If the app cannot show it because its window is not on screen, say nothing, and never '
                 'its address: it is there when the person opens the window. %s Once it shows, say once, in one short '
                 'line: "%s" Nothing more about it after that; the cards point to it.%s'
-                % (url, follows, opened_line(run), '' if _built(run) else
+                % (url, follows, opened_line(run), '' if metrics_only or _built(run) else
                    ' From here the page carries each metric step and the task list carries the build: follow the build '
                    'with `PROJECT drafts --wait` in the foreground, as progress says.'))
+    if metrics_only:
+        return 'Show the person the side page address, %s. %s' % (url, follows)
     if opened.get('opened'):
         return ('The side page opened in the person\'s browser at %s. Say once, in one short line: "%s" Nothing more '
                 'about it now: the next chip in a question names it. %s'
@@ -1123,10 +1131,24 @@ def instruction(opened, widget=False, run=None):
     return ('Say nothing about the side page now: the next chip in a question names its address, %s. %s' % (url, follows))
 
 
-def reminder(run, start=True):
+# A sitting, as the accuracy check counts one: a page last seen longer ago than this was seen in another chat, whose
+# pane is gone. A new chat restarted the page at its old address and was never told to open it (2026-11-26).
+SITTING = 3 * 3600
+
+
+def seen_lately(run):
+    """Whether the page was open in this sitting."""
+    try:
+        return time.time() - (Path(run) / 'view' / 'seen.json').stat().st_mtime < SITTING
+    except OSError:
+        return False
+
+
+def reminder(run, start=True, tab=None):
     """One line for the next helper result when the page needs the agent: it stopped and came back at a new address,
-    or, in the desktop app, nobody has opened it yet. None once all is well, or before the run first opened it. Only a
-    moment starts a page that stopped (start): any other helper call would wait for it and undo its idle stop."""
+    or, in the desktop app, nobody has opened it in this sitting. None once all is well, or before the run first opened
+    it. Only a moment starts a page that stopped (start): any other helper call would wait for it and undo its idle
+    stop. `tab` names the list the page opens on: tests, metrics or queries."""
     run = Path(run)
     moments = read_json(run / 'view' / 'state.json', dict, {}).get('moments') or []
     if not any(isinstance(m, dict) and m.get('kind') == 'connect' for m in moments) or (run / 'view' / 'stopped.json').is_file():
@@ -1139,9 +1161,11 @@ def reminder(run, start=True):
         if not opened.get('url'):
             return None
     host = os.environ.get('CLAUDE_CODE_ENTRYPOINT') or ''
+    if tab:
+        opened = {**opened, 'url': opened['url'] + '#l=' + tab}
     if opened.get('moved'):
         return 'The side page restarted at a new address. ' + instruction(opened, run=run)
-    if host == 'claude-desktop' and not (run / 'view' / 'seen.json').is_file():
+    if host == 'claude-desktop' and not seen_lately(run):
         return instruction({**opened, 'host': host}, run=run)
     return None
 

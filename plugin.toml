@@ -106,7 +106,7 @@ default_prompts = [
 [[addons]]
 name = "atlanai-analytics"
 display_name = "Atlan Analytics"
-version = "0.9.99"
+version = "0.9.100"
 # Where the add-on's helpers raise usage events of their own (usage_events.py there). The build
 # writes the core's sender, the events list and this add-on's telemetry config beside them, so
 # the same `[telemetry]` key, list and switches hold. Plugin-relative.

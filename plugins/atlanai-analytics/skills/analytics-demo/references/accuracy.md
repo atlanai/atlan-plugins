@@ -55,9 +55,10 @@ Run `CHECK start` at the start of every check, even a later one in the same sess
 context lives can change, so never reuse an earlier answer. `CHECK start --project <project> --questions 8` returns the built run, `context_saved_to`, `execution`, the project's
 `sets` and, when there is a set, `ask`: the native question to put as it is (its `question`,
 `text` and `options`). Add `--run <run-dir>`, here and on `CHECK load` and `SCOPE inputs`,
-whenever the run is known: the demo's own run, or the build's. With no sets, or the person asking for new questions, generate. Otherwise,
-unless the request named a set, put `ask` as one native question, as it is, even when the folder
-holds only one set.
+whenever the run is known: the demo's own run, or the build's. With no sets, or the person asking for new questions, generate. With
+`next` `load`, the folder's only set is the one written for this agent: `CHECK load` the file
+`load` names, with no question. Otherwise, unless the request named a set, put `ask` as one
+native question, as it is, even when the folder holds only one set.
 
 Nothing else goes in it or before it: not a set's notes or expected answers, where its questions
 came from, or what the test is likely to find. A brought set runs as it is; only generated
@@ -82,7 +83,9 @@ question's text, where a list this long wraps and breaks.
 every question under the number it keeps in the score, with the metric it tests and its known
 answer. During the check the page fills each row with your agent's answer as it comes back, and
 marks it once scored. Show the chip as its `side view` line says, and add no line of your own
-about the questions or the page.
+about the questions or the page. When that result has `run_now` true, the page lists them and
+the person already chose to check: go straight to step 3, with no question. A reword or a drop
+the person asks for after that is a new check.
 
 **Only when that line says the side page is not open**, the questions go in the chat instead.
 `CHECK show --evals <evals-run>` prints the set as one markdown table: the number each question
@@ -104,7 +107,7 @@ tile on <firm>'s dashboard or a past query its analysts wrote. The known answer 
 or past query returns." and "It is answered twice from a clean start: once with your agent's
 metrics, and once with column names only." Never rebuild the table, add SQL, or shorten it.
 
-**Then, in the same turn, one native question**: `CHECK show`'s `ask`, its `question` and
+**Without `run_now`, then, in the same turn, one native question**: `CHECK show`'s `ask`, its `question` and
 `options` as they are. Its text is the question alone. For several questions:
 
 | Option | Description |
@@ -144,7 +147,7 @@ context pass. With every question right, go to step 5: the result carries the co
 **With misses, the turn ends on the score, in the chat.** It is the turn's last message, which
 always prints whole, with no native question after it: text written just before a question can
 be cut to a short note. Write it from `ACC result --evals <evals-run>` (add `--generated` when
-`CHECK load` returned `generated: true`, and `--widget` where you have `show_widget`) as
+`CHECK load` returned `generated: true`) as
 accuracy-check's [show the score](../../accuracy-check/references/run.md#show-the-score) describes,
 its card drawn first where there is one, then this last line. Send one message, filled in, with
 nothing before it but the card and nothing after it:
@@ -267,8 +270,7 @@ when `CHECK load` returned `generated: true`) computes every number: `banner` wh
 is right (shown only where no card is drawn), `accuracy`, `baseline`, `lift`, `outcome`, `questions`, `misses`, `lines` (the number
 lines, worded once, with `fixed`, "Up from <p>% before the fix.", after a fix) and `source`. Write
 the result from them as accuracy-check's
-[show the score](../../accuracy-check/references/run.md#show-the-score) describes, card first where
-you have `show_widget`; after a fix, its line on what made the difference names the rule it
+[show the score](../../accuracy-check/references/run.md#show-the-score) describes, card first; after a fix, its line on what made the difference names the rule it
 changed, in plain words. Then one
 line per version a fix released: "<metric> version <v> is released in <workspace>." No other
 line: not a significance test, a note on saved queries or past queries that still follow the old
@@ -276,7 +278,7 @@ rule, or an offer to change a saved query, another metric or the set.
 
 **Then ask for more, in the same turn.** `CHECK next --evals <evals-run> --run <run>` returns
 the question, as accuracy-check's [ask for more](../../accuracy-check/references/run.md#ask-for-more)
-describes. Draw the result's card first where you have `show_widget` (`ACC result --evals <evals-run> --widget`), then ask one
+describes. Show the result's card first (`ACC result --evals <evals-run>` hands it over in `show_first`), then ask one
 native question whose text is the result, a blank line and its `lead`, as plain lines with no
 Markdown, as [show the score](../../accuracy-check/references/run.md#show-the-score) says. When the person just replied "keep" to a score message, they have seen the score: the
 text is the released lines, if any, and the `lead`. On a demo, its options are Add questions of

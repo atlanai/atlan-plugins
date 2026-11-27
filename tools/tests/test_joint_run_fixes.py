@@ -198,6 +198,29 @@ class AfterAnAnswer(unittest.TestCase):
         check = next(o for o in questions.ready(self.run, accuracy=True)['options'] if o['label'] == 'Check how accurate it is')
         self.assertIn('About %d minutes.' % min(20, max(queries, 1)), check['description'])
 
+    def test_in_a_terminal_what_comes_next_is_the_answer_s_last_line(self):
+        # Text just before a native question folds in a terminal: the answer itself would be hidden behind it.
+        import os
+        import subprocess
+        out = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(self.run), 'question', 'next',
+                              '--accuracy'], capture_output=True, text=True, env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': 'cli'})
+        asked = json.loads(out.stdout)
+        self.assertNotIn('options', asked)
+        self.assertTrue(asked['text'].startswith('Next: '))
+        self.assertIn('check how accurate it is', asked['text'])
+
+    def test_the_next_question_never_offers_the_one_just_answered(self):
+        # A live session answered gross sales, then offered "How much did fans pay in total ... (gross sales or GMV)?"
+        # as the next question (2026-11-27).
+        before = [o for o in questions.after_answer(self.run)['options'] if o.get('description')]
+        self.assertTrue(before, 'the fixture offers a question first')
+        first = before[0]
+        metric = first['description'].split(' · ')[0]
+        (self.run / 'answer.json').write_text(json.dumps({'question': first['label'], 'proof': [{'name': metric}],
+                                                          'headline': metric + ': 1'}))
+        after = [o['label'] for o in questions.after_answer(self.run)['options']]
+        self.assertNotIn(first['label'], after)
+
     def test_the_check_option_reads_the_same_after_an_answer_as_at_the_ready_question(self):
         ready = next(o for o in questions.ready(self.run, accuracy=True)['options'] if o['label'] == 'Check how accurate it is')
         after = next(o for o in questions.after_answer(self.run, accuracy=True)['options'] if o['label'] == 'Check how accurate it is')
