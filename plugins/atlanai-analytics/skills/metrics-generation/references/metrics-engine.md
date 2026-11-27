@@ -267,7 +267,9 @@ Tableau's native routes (personal access token, connected-app JWT, supplied JWT/
 configured environment variables and do not need a terminal. For a Tableau link the order is:
 the person's browser download first (no token; staged with `ENGINE stage-input` and read by
 `local-files` with `bi_vendor: tableau`), then the `tableau-cloud` plug with a Personal Access
-Token, then the plug with a user name and password. The person keeps a token's secret out of
+Token, then the plug with a user name and password. A published data source whose download is
+refused is located by a `<data source>.lineage.json` beside the staged workbook, from its lineage
+page, before any of the later routes ([dashboard routes](dashboard-agent.md)). The person keeps a token's secret out of
 chat and out of files: one way is the system keychain, read into the plug's process
 environment for that command only. The MCP capture alternative keeps using its existing host
 tools.

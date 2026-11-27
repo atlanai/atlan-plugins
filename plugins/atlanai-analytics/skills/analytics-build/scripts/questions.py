@@ -101,15 +101,84 @@ def _tested(f, c, demo):
 STORE = 'Where do you want to store your context?'
 
 
-def _validated(f, c, demo, by_tool=False, skipped=False):
-    """The validation's result as one sentence: all passed, some need your review, read-only, or skipped."""
+def _validated(f, c, demo, by_tool=False, skipped=False, counted=False):
+    """The validation as lines: what was checked and its result (all passed, some need your review), then what each
+    check was, one line each and only the checks this run ran. Read-only or skipped stay one sentence. "Validated on
+    Fixit's data: all passed." told a tester neither what was validated nor how (2026-11-27). `counted`: the line
+    before already says how many metrics and saved queries there are, so this one does not again."""
     where = _where(f, demo)
     if skipped:
-        return 'Not validated yet on %s: you skipped the tests.' % where
+        return ['Not validated yet on %s: you skipped the tests.' % where]
     if by_tool:
-        return 'Validated on %s, read-only.' % where
-    return 'Validated on %s: %s.' % (where, 'all passed' if not c['need_look'] else '%d passed, %s' % (
-        c['passed'], _review(c['need_look'])) if c['passed'] else 'none passed yet, %s' % _review(c['need_look']))
+        return ['Validated on %s, read-only.' % where]
+    items = ' and '.join(x for x in (count(len(c['metrics']), 'metric') if c['metrics'] else '',
+                                     count(c['queries'], 'saved query', 'saved queries') if c['queries'] else '') if x)
+    look = c['need_look']
+    result = ('all passed' if c['total'] > 1 else 'it passed') if not look else '%d passed, %s' % (
+        c['passed'], _review(look)) if c['passed'] else 'none passed yet, %s' % _review(look)
+    head = 'I checked them on %s: %s.' % (where, result) if counted else \
+        'I checked your agent on %s: %s, %s.' % (where, items, result)
+    return [head, ''] + _checks(f, c, where)
+
+
+def _checks(f, c, where):
+    """What each check was, from the run's own records: every item ran on the data; each metric made from a tile was
+    set beside the number the tile's own formula gives on the same data (a dashboard file holds the formula, not the
+    number it shows); and the engine's gates on the SQL it translated or mined, when they ran."""
+    said = ['What I checked:', 'each one runs on %s and returns an answer' % where]
+    tiles = [m for m in c['metrics'] if m.get('tile')]
+    if tiles:
+        said.append('the dashboard metric gives the same number as its tile\'s formula' if len(tiles) == 1 else
+                     'the %d dashboard metrics give the same number as their tiles\' formulas' % len(tiles))
+    gates = {}
+    for x in f.engine_file('verify_report.json').get('checks') or []:
+        if isinstance(x, dict) and x.get('object'):
+            gates.setdefault(x.get('gate'), {}).setdefault(str(x['object']), []).append(x.get('status') == 'pass')
+    tables = where[:-len(' data')] + ' tables' if where.endswith(' data') else 'the tables'
+    bi = {str(o.get('vq_id')) for o in f.engine_file('verified_queries.bi.json').get('objects') or [] if isinstance(o, dict)}
+
+    def which(objects):
+        n = len(objects)
+        if objects <= bi:
+            return "the dashboard's tile" if n == 1 else "the dashboard's %d tiles" % n
+        return count(n, 'saved query', 'saved queries')
+
+    def passing(names):
+        objects = set.intersection(*(set(gates[g]) for g in names)) if all(g in gates for g in names) else set()
+        return objects, sum(all(all(gates[g][o]) for g in names) for o in objects)
+
+    grounded, ok = passing(('column_grounding', 'literal_grounding'))
+    if grounded:
+        said.append('the SQL behind %s uses only columns and values found in %s%s' % (
+            which(grounded), tables, '' if ok == len(grounded) else ' (%d of %d do)' % (ok, len(grounded))))
+    faithful, ok = passing(('faithfulness',))
+    if faithful:
+        said.append(('its description says what that SQL actually counts' if faithful == grounded and len(faithful) == 1 else
+                     'the descriptions of those %d say what their SQL actually counts' % len(faithful) if faithful == grounded else
+                     'the descriptions of %s say what their SQL actually counts' % which(faithful))
+                    + ('' if ok == len(faithful) else ' (%d of %d do)' % (ok, len(faithful))))
+    # A question's text is set in a proportional font: each line short, a long one carried on under its bullet.
+    out = [said[0]]
+    for line in said[1:]:
+        out += [('  • ' if i == 0 else '    ') + x for i, x in enumerate(visuals._wrap(line, 72))]
+    return out
+
+
+def _plain(text):
+    """A card's exclusion in a person's words: a data value's underscores read as spaces, and a long list of values
+    in brackets cut to its first three ("build, dig, haul and more"). Nothing is reworded: the side page holds it all."""
+    text = re.sub(r'(?<![\w.])([a-z]+(?:_[a-z]+)+)(?![\w.])', lambda m: m.group(1).replace('_', ' '), str(text))
+
+    def short(m):
+        items = [x.strip() for x in re.split(r',\s*|\s+and\s+', m.group(1)) if x.strip()]
+        rest = items and items[-1].lower().rstrip('.') in ('the rest', 'others', 'more', 'so on', 'etc')
+        values = items[:-1] if rest else items
+        if len(values) <= 3:
+            return m.group(0)
+        return '(%s and %s)' % (', '.join(values[:3]), 'more' if rest else '%d more' % (len(values) - 3))
+    text = re.sub(r'\(([^()]*,[^()]*)\)', short, text).strip().rstrip('.')
+    # After "Leaves out:", a closing "is excluded" says it twice.
+    return re.sub(r'\s+(?:is|are) (?:excluded|left out|not counted)$', '', text)
 
 
 def _built(run, f, demo, widget, data, engine_dir, source):
@@ -147,11 +216,11 @@ def save(run, widget=False, data=None, engine_dir=None):
             if waiting else ''))
     # The copy budget (the team, 2026-11-22): each fact once, no bars, and no "Next:" line before the question.
     head, link = _built(run, f, demo, widget, data, engine_dir, _sources(f, demo))
-    lines = head + [_validated(f, c, demo, by_tool=by_tool)]
+    checked = _validated(f, c, demo, by_tool=by_tool, counted=bool(head))
     # A metric whose number differs from its tile's is said beside "all passed", never hidden by it.
     if visuals.mismatch(c['metrics']):
-        lines[-1] += ' ' + visuals.mismatch(c['metrics']) + '.'
-    lines += _one_metric(run, f, demo, widget) + ([''] + link if link else []) + ['', STORE]
+        checked[0] += ' ' + visuals.mismatch(c['metrics']) + '.'
+    lines = head + checked + _one_metric(run, f, demo, widget) + ([''] + link if link else []) + ['', STORE]
     # The task list numbers the steps, so the header names this one: a second numbering disagreed with the list.
     return {'header': 'Save', 'question': '\n'.join(lines), 'options': _save_options(f),
             # Without widgets the text says what the build and checks cards would: they are not drawn again.
@@ -159,7 +228,7 @@ def save(run, widget=False, data=None, engine_dir=None):
 
 
 def _dashboard_save(run, f, widget, data, engine_dir):
-    """The dashboard branch's save question: what was built, whether it ran on the data, what was kept back and why,
+    """The dashboard branch's save question: what was built, what each check was and its result, what was kept back and why,
     and the tiles that could not be built, one line each. The side page holds every detail."""
     import side_page
     c = f.context
@@ -175,17 +244,20 @@ def _dashboard_save(run, f, widget, data, engine_dir):
     report = report_name(f.report) or 'your dashboard'
     tiles = (f.funnel or {}).get('tiles')
     head, link = _built(run, f, {}, widget, data, engine_dir, '%s on %s' % (count(tiles, 'tile'), report) if tiles else report)
-    lines = head + [_validated(f, c, {}, by_tool=by_tool, skipped=skipped)]
-    match = '' if skipped else _matched(c)
-    if match:
-        lines.append(match[:1].upper() + match[1:] + '.')
+    checked = _validated(f, c, {}, by_tool=by_tool, skipped=skipped, counted=bool(head))
+    # The tiles' formulas are one of the checks listed; a number that differs is said beside the result.
+    if not (skipped or by_tool) and visuals.mismatch(c['metrics']):
+        checked[0] += ' ' + visuals.mismatch(c['metrics']) + '.'
+    after = []
     kept, n_kept = _kept(f)
     if kept:
-        lines.append('Held back: %s. No answer uses %s.' % (kept, 'it' if n_kept == 1 else 'these'))
-        lines.append('Fixing %s takes a rebuild.' % ('it' if n_kept == 1 else 'them'))
+        after.append('Held back: %s. No answer uses %s.' % (kept, 'it' if n_kept == 1 else 'these'))
+        after.append('Fixing %s takes a rebuild.' % ('it' if n_kept == 1 else 'them'))
     cant = side_page.cant_build(f)
     if cant:
-        lines.append("%s stayed out. The side page says why." % count(len(cant), 'tile'))
+        after.append("%s stayed out. The side page says why." % count(len(cant), 'tile'))
+    # Below the checks' list, a line of its own: run on under the last bullet, it read as one more check.
+    lines = head + checked + ([''] if after and len(checked) > 1 else []) + after
     lines += ([''] + link if link else []) + ['', STORE]
     return {'header': 'Save', 'question': '\n'.join(lines), 'options': _save_options(f),
             'shown': [] if widget else ['build'], 'results': by_tool}
@@ -196,17 +268,6 @@ def _compared(c):
     tiles = [m for m in (c or {}).get('metrics') or [] if m.get('tile')]
     same = sum(1 for m in tiles if m['tile'].get('same'))
     return same, len(tiles) - same
-
-
-def _matched(c):
-    """'3 match the dashboard's own formulas, 1 differs', or '' when no number was set beside a tile."""
-    same, differ = _compared(c)
-    if same and differ:
-        return '%d %s the dashboard\'s own formulas, %d %s' % (same, 'matches' if same == 1 else 'match', differ,
-                                                               'differs' if differ == 1 else 'differ')
-    if same:
-        return '%d %s the dashboard\'s own formulas' % (same, 'matches' if same == 1 else 'match')
-    return '%d %s from the dashboard\'s own formulas' % (differ, 'differs' if differ == 1 else 'differ') if differ else ''
 
 
 def _kept(f):
@@ -237,16 +298,19 @@ def _one_metric(run, f, demo, widget=False):
     if not m:
         return []
     came = visuals._from({'tiles': sum(s['kind'] == 'tile' for s in (m.get('sources') or [])), 'queries': sum(s['kind'] == 'query' for s in (m.get('sources') or []))})
-    lines = ['', 'One metric in full: %s, %s on %s' % (m['name'], m.get('value') or 'tested', _where(f, demo))]
+    # Named as in a sentence ("rework cost"), an acronym kept ("MRR"); the data it ran on is the line above's.
+    name = str(m['name'])
+    name = name[:1].lower() + name[1:] if name[1:2].islower() else name
+    lines = ['', 'For example, %s%s' % (name, ': %s' % m['value'] if m.get('value') else '')]
     # Its first sentence, what it leaves out, and where it came from, each kept short: the side page holds the rest.
     first = re.split(r'(?<=[.!?])\s', str(m.get('description') or '').strip(), maxsplit=1)[0]
     lines += ['  ' + x for x in visuals._wrap(visuals._fit(first, 150), 74)]
     if m.get('leaves_out'):
         # Whole items only, on two lines at most: an item cut short reads as broken.
-        out = 'Leaves out: ' + str(m['leaves_out'][0]).rstrip('.')
+        out = 'Leaves out: ' + _plain(m['leaves_out'][0])
         for x in m['leaves_out'][1:2]:
-            if len(out) + 2 + len(str(x).rstrip('.')) <= 140:
-                out += '; ' + str(x).rstrip('.')
+            if len(out) + 2 + len(_plain(x)) <= 140:
+                out += '; ' + _plain(x)
         lines += [('    ' if i else '  ') + x for i, x in enumerate(visuals._wrap(visuals._fit(out, 140), 72))]
     # A terminal opens the address; in the desktop app a link opens an outside browser, not the page beside the chat.
     page = None if widget else visuals.page_link(run, 'edit', {'metric': m['name']})

@@ -40,7 +40,8 @@ came at the build's end; when it did not, draw both with one call, `PROJECT visu
 one native question with the `header`, the `question` text and the `options` it prints, exactly
 as given. Without widgets the text says in sentences what the build card and the checks chip
 would, each fact once and with no bars: what was built and in how long, what it answers from,
-its validation, then the side page's address and the question. No "Next:" line goes before it. Every count is true: when some did not pass their check, the text says so, and the
+its validation (the result, then what each check was, one line each, only the checks that ran;
+never a bare "all passed"), one metric as an example, then the side page's address and the question. No "Next:" line goes before it. Every count is true: when some did not pass their check, the text says so, and the
 celebration still stands. If it answers that items still wait for their sample check, do what
 it says, then run it again; never ask this question without its text.
 
@@ -64,8 +65,12 @@ the check and then opens the question step.
 nothing is saved until you pick a workspace." After sign-in, name the
 tenant the result shows, never a guess.
 
-**Workspace.** Ask one native question, "Which workspace should hold your agent's metrics?". List
-the person's own workspace first (the `user_default` one from the workspace read):
+**Workspace: a follow-up to "Save to Atlan Trident" only.** Ask it after the person picks
+"Save to Atlan Trident" and signs in, never in the save question's card or before its answer:
+until then nobody has chosen Atlan, and after "Keep it on this machine" a workspace means
+nothing, so that answer never gets this question. Skip it too when the person already named a
+workspace the read returns. Ask one native question, "Which workspace should hold your agent's
+metrics?". List the person's own workspace first (the `user_default` one from the workspace read):
 
 | Option | Description |
 | --- | --- |

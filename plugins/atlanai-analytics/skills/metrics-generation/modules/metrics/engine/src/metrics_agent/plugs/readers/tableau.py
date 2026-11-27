@@ -39,6 +39,12 @@ AND THE INPUTS AROUND A WORKBOOK, each of which also parsed "cleanly" into nothi
   * PUBLISHED CHAINS. A published datasource's own file may itself be a sqlproxy to another
     published datasource. The chain is walked to the physical connection, at any depth;
     a link missing after the first, or a cycle, is refused naming the chain.
+  * A PUBLISHED DATASOURCE WHOSE FILE CANNOT BE HAD. A workbook keeps its own copy of the
+    published datasource's model: its logical tables (the object graph), the relationships
+    between them and the table each field comes from. Only where those tables live is missing.
+    A `<datasource>.lineage.json` beside the workbook says it, as the site's lineage page
+    shows it (connection, database, schema, tables), and the workbook's copy is rebuilt as
+    that datasource. A .tds beside the workbook always wins.
   * VIRTUAL CONNECTIONS. A datasource on one (`class='publishedConnection'`) names only the
     virtual connection's tables, as `[<table id>].[NAME]`; its `.tvcx` beside the input (the
     JSON `.tvc` Tableau saves) says which warehouse object each is.
@@ -51,6 +57,7 @@ AND THE INPUTS AROUND A WORKBOOK, each of which also parsed "cleanly" into nothi
 """
 from __future__ import annotations
 
+import copy
 import json
 import pathlib
 import sys
@@ -107,6 +114,148 @@ PULSE_SUFFIX = ".pulse.json"
 
 def _is_pulse(p: pathlib.Path) -> bool:
     return p.name.lower().endswith(PULSE_SUFFIX)
+
+
+# Where a PUBLISHED datasource's tables live, when its own file could not be downloaded:
+# `<datasource>.lineage.json` beside the workbook, written from the site's lineage page.
+LINEAGE_SUFFIX = ".lineage.json"
+MAX_LINEAGE_BYTES = 64 * 1024
+# A warehouse name the rebuilt datasource puts in SQL: a plain identifier, never a quote, a
+# bracket or a statement separator.
+_PLAIN_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]*$")
+_CONNECTION_CLASS = re.compile(r"^[a-z][a-z0-9_\-]*$")
+# A logical table's object id: `<caption> (<qualifier>.<table>)_<32 hex>`.
+_OBJECT_ID = re.compile(r"^(?P<caption>.*?) \((?P<qual>[^()]*)\)_[0-9A-Fa-f]{32}$")
+
+
+def _lineage_files(path: pathlib.Path) -> list[pathlib.Path]:
+    """The lineage files this input carries: under a directory, or beside a file."""
+    where = path if path.is_dir() else path.parent
+    walk = where.rglob("*") if path.is_dir() else where.iterdir()
+    return sorted(p for p in walk if p.is_file() and p.name.lower().endswith(LINEAGE_SUFFIX))
+
+
+def _read_location(f: pathlib.Path) -> dict[str, Any]:
+    """A lineage file, checked: the datasource it is for, its connection class, database and
+    schema, the tables the lineage page lists, and where that was read. Refused by name when
+    any of it is missing or is not a plain warehouse name."""
+    if f.stat().st_size > MAX_LINEAGE_BYTES:
+        raise TableauError(f"{f.name} is over the {MAX_LINEAGE_BYTES} byte cap. Refused.")
+    try:
+        doc = json.loads(f.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise TableauError(f"{f.name} is not a JSON object ({exc}).") from None
+    if not isinstance(doc, dict):
+        raise TableauError(f"{f.name} is not a JSON object.")
+
+    def text(key: str, pattern: re.Pattern | None = None) -> str:
+        v = doc.get(key)
+        if not isinstance(v, str) or not v.strip() or (pattern and not pattern.match(v)):
+            raise TableauError(f"{f.name}: `{key}` must be "
+                               + ("a plain name (letters, digits, _ or $)." if pattern
+                                  else "a non-empty string."))
+        return v.strip()
+    out = {"datasource": text("datasource"), "connection": text("connection", _CONNECTION_CLASS),
+           "database": text("database", _PLAIN_NAME), "schema": text("schema", _PLAIN_NAME),
+           "source": text("source")}
+    tables = doc.get("tables")
+    if not isinstance(tables, list) or not tables:
+        raise TableauError(f"{f.name}: `tables` must list the datasource's upstream tables.")
+    listed: dict[str, tuple[str, str]] = {}
+    for t in tables:
+        parts = t.split(".") if isinstance(t, str) else []
+        if not 1 <= len(parts) <= 2 or not all(_PLAIN_NAME.match(p) for p in parts):
+            raise TableauError(f"{f.name}: table {t!r} must be `TABLE` or `SCHEMA.TABLE`, "
+                               f"each a plain name.")
+        listed[parts[-1].lower()] = (parts[0] if len(parts) == 2 else out["schema"], parts[-1])
+    out["tables"] = listed
+    return out
+
+
+def _rebuilt_published(ds: ET.Element, loc: dict[str, Any], label: str) -> ET.Element:
+    """The published datasource a workbook references, rebuilt from the workbook's own copy
+    of its model and the warehouse location a lineage file gives.
+
+    The workbook's copy names the datasource's logical tables (its object graph), the
+    relationships between them and, on each field's metadata record, the table it comes
+    from (`object-id`) under the name the datasource gives it: a column two tables share is
+    suffixed with its table, `CUSTOMERID (FACT_ORDERS)`, and the suffix is not part of the
+    warehouse column. What it does not hold is where the tables live: the lineage file says.
+    Every logical table must be one the lineage file lists, or the rebuild is refused.
+
+    THE FIRST TABLE IS THE ONE THE RELATIONSHIPS MEET AT. The first relation is the data
+    source's primary table, where its calculated fields live. The copy lists its tables in
+    name order, not the order they were added, so the first one listed made `DIM_CUSTOMER`
+    the home of `SUM([UNITPRICE] * [QUANTITY])` and compiled it against a table without those
+    columns (seen live). The table in the most relationships (a star's fact) comes first; a
+    tie goes to the one with the most measure fields, then to the order listed."""
+    caption = ds.get("caption") or ds.get("formatted-name") or ""
+    graph = ds.find("object-graph")
+    objects = [o for o in (graph.iter("object") if graph is not None else []) if o.get("id")]
+    ends: dict[str, int] = {}
+    for rel in (graph.iter("relationship") if graph is not None else ()):
+        for end in ("first-end-point", "second-end-point"):
+            e = rel.find(end)
+            if e is not None and e.get("object-id"):
+                ends[e.get("object-id")] = ends.get(e.get("object-id"), 0) + 1
+    src = ds.find("connection")
+    measures: dict[str, int] = {}
+    for rec in (src.iter("metadata-record") if src is not None else ()):
+        if rec.get("class") == "measure":
+            oid = (rec.findtext("object-id") or "").strip().strip("[]")
+            measures[oid] = measures.get(oid, 0) + 1
+    objects = [o for _i, o in sorted(enumerate(objects), key=lambda io: (
+        -ends.get(io[1].get("id"), 0), -measures.get(io[1].get("id"), 0), io[0]))]
+    if not objects:
+        raise TableauError(
+            f"{label}: the workbook's copy of {caption!r} names no tables (no object graph), "
+            f"so it cannot be rebuilt. Put the datasource's .tds/.tdsx beside the workbook.")
+    synth = ET.Element("datasource", {k: v for k in ("caption", "formatted-name")
+                                      if (v := ds.get(k))})
+    rl = ds.find("repository-location")
+    if rl is not None:
+        synth.append(copy.deepcopy(rl))
+    conn = ET.SubElement(synth, "connection", {"class": loc["connection"],
+                                               "dbname": loc["database"],
+                                               "schema": loc["schema"]})
+    holder = ET.SubElement(conn, "relation", {"type": "collection"}) if len(objects) > 1 else conn
+    relation_of: dict[str, dict[str, str]] = {}
+    for o in objects:
+        m = _OBJECT_ID.match(o.get("id") or "")
+        name = o.get("caption") or (m.group("caption") if m else "")
+        table = m.group("qual").split(".")[-1] if m else name
+        hit = loc["tables"].get(table.lower())
+        if hit is None:
+            raise TableauError(
+                f"{label}: the workbook's copy of {caption!r} reads the table {table!r}, which "
+                f"the lineage file does not list ({', '.join(t for _s, t in loc['tables'].values())}). "
+                f"List every upstream table the lineage page shows.")
+        attrs = {"name": name, "table": f"[{hit[0]}].[{hit[1]}]", "type": "table"}
+        ET.SubElement(holder, "relation", attrs)
+        relation_of[o.get("id")] = attrs
+    records = ET.SubElement(conn, "metadata-records")
+    for rec in (src.iter("metadata-record") if src is not None else ()):
+        oid = (rec.findtext("object-id") or "").strip().strip("[]")
+        local = (rec.findtext("local-name") or "").strip()
+        if rec.get("class") not in ("column", "measure") or not local or oid not in relation_of:
+            continue
+        family = (rec.findtext("family") or relation_of[oid]["name"]).strip()
+        remote = (rec.findtext("remote-name") or local.strip("[]")).strip()
+        if remote.lower().endswith(f" ({family.lower()})"):
+            remote = remote[:-len(family) - 3]
+        new = ET.SubElement(records, "metadata-record", {"class": "column"})
+        for tag, value in (("remote-name", remote), ("local-name", local),
+                           ("parent-name", f"[{oid}]"),
+                           ("local-type", rec.findtext("local-type") or "")):
+            ET.SubElement(new, tag).text = value
+    graph = copy.deepcopy(graph)
+    for o in graph.iter("object"):
+        rel = o.find("properties/relation")
+        if rel is not None and o.get("id") in relation_of:
+            rel.attrib.clear()
+            rel.attrib.update(relation_of[o.get("id")])
+    synth.append(graph)
+    return synth
 
 
 def _tableau_files(directory: pathlib.Path) -> list[pathlib.Path]:
@@ -1802,14 +1951,57 @@ def _date_formula(kind: str, part: str, field: str) -> str:
     return f"DATEPART('{part}', [{field}])"
 
 
+# Tableau writes a paragraph break in formatted text as its own run holding this character
+# and a newline ("Æ\n"). It is markup, never text the author wrote.
+_PARAGRAPH_RUN = "Æ"
+# The tokens Tableau's title editor inserts (Insert > Sheet Name, Workbook Name). Tableau
+# Desktop gives every new title `<Sheet Name>`, and on a dashboard the same token shows the
+# dashboard's name. Field and parameter tokens (`<[ds].[field]>`) show data and stay as written.
+_SHEET_NAME = re.compile(r"<\s*sheet name\s*>", re.IGNORECASE)
+_WORKBOOK_NAME = re.compile(r"<\s*workbook name\s*>", re.IGNORECASE)
+
+
+def _paragraphs_of(node: ET.Element | None) -> list[str]:
+    """A formatted-text block's paragraphs, each its runs joined, the break runs dropped."""
+    if node is None:
+        return []
+    paras: list[list[str]] = [[]]
+    for r in node.findall(".//run"):
+        text = (r.text or "").strip()
+        if text == _PARAGRAPH_RUN:
+            paras.append([])
+        elif text:
+            paras[-1].append(text)
+    out = [" ".join(p) for p in paras if p]
+    if not out and node.text and node.text.strip():
+        out = [node.text.strip()]
+    return out
+
+
 def _text_of(node: ET.Element | None) -> str | None:
     """Concatenate a Tableau formatted-text block. Titles, tooltips and captions all use it."""
-    if node is None:
-        return None
-    runs = [r.text.strip() for r in node.findall(".//run") if r.text and r.text.strip()]
-    if not runs and node.text and node.text.strip():
-        runs = [node.text.strip()]
-    return " ".join(runs) or None
+    return " ".join(_paragraphs_of(node)) or None
+
+
+def _resolve_title_tokens(text: str, sheet: str, workbook: str | None = None) -> str:
+    """The text Tableau shows for a title: its sheet and workbook tokens replaced by the names."""
+    text = _SHEET_NAME.sub(lambda _m: sheet, text)
+    if workbook:
+        text = _WORKBOOK_NAME.sub(lambda _m: workbook, text)
+    return " ".join(text.split())
+
+
+def _title_of(el: ET.Element, name: str, workbook: str | None = None) -> str:
+    """A worksheet's or dashboard's own title as Tableau shows it, or its name when it has none.
+
+    The title is `layout-options/title`, the element's own: a `.//title` search also reaches
+    axis titles on a worksheet and the titles of the sheets placed on a dashboard. Only the
+    first paragraph is the title; Tableau shows the rest beneath it, as a subtitle.
+    """
+    own = el.find("./layout-options/title")
+    paras = _paragraphs_of(own if own is not None else el.find("./title"))
+    title = _resolve_title_tokens(paras[0], name, workbook) if paras else ""
+    return title or name
 
 
 def _number_format(ws: ET.Element, col_index: dict[str, dict]) -> str | None:
@@ -1871,7 +2063,7 @@ def _conditional_formatting(ws: ET.Element) -> list[dict]:
     return out
 
 
-def _dashboards_of(root: ET.Element) -> dict[str, list[dict]]:
+def _dashboards_of(root: ET.Element, workbook: str | None = None) -> dict[str, list[dict]]:
     """Which dashboards each worksheet appears on. Zones reference sheets by name.
 
     This is the container envelope's backbone — and `n_dashboards` is the BI lane's ranking
@@ -1880,8 +2072,7 @@ def _dashboards_of(root: ET.Element) -> dict[str, list[dict]]:
     out: dict[str, list[dict]] = {}
     for i, dash in enumerate(root.findall("./dashboards/dashboard")):
         dname = dash.get("name") or f"dashboard-{i}"
-        title_el = dash.find(".//title//run")
-        dtitle = (title_el.text if title_el is not None else "") or dname
+        dtitle = _title_of(dash, dname, workbook)
         for pos, zone in enumerate(dash.findall(".//zone")):
             sheet = zone.get("name")
             if sheet:
@@ -1906,19 +2097,25 @@ def _asset(role: str, name: str | None, el: ET.Element | None = None) -> dict[st
             "catalog_id": None, "catalog_qualified_name": None}
 
 
-def _dashboard_prose(root: ET.Element) -> dict[str, list[str]]:
+def _dashboard_prose(root: ET.Element, workbook: str | None = None) -> dict[str, list[str]]:
     """Author-written text on each dashboard — text zones, titles, captions.
 
     This is where an author most often writes down, in plain English, what the dashboard is
     for. It is PROSE: it may ground a naming claim at C3 and can never authorise a filter.
+    Paragraph-break runs are markup and are dropped, title tokens read as Tableau shows them,
+    and a text repeated (the same title kept for each device layout) is kept once.
     """
     out: dict[str, list[str]] = {}
     for i, dash in enumerate(root.findall("./dashboards/dashboard")):
         dname = dash.get("name") or f"dashboard-{i}"
         texts: list[str] = []
         for run in dash.findall(".//run"):
-            if run.text and run.text.strip():
-                texts.append(run.text.strip())
+            text = (run.text or "").strip()
+            if not text or text == _PARAGRAPH_RUN:
+                continue
+            text = _resolve_title_tokens(text, dname, workbook)
+            if text and text not in texts:
+                texts.append(text)
         out[dname] = texts
     return out
 
@@ -2537,8 +2734,12 @@ def parse(path: pathlib.Path, *, dialect: str = "") -> dict[str, Any]:
     model_name = (path.name[:-len(PULSE_SUFFIX)] if _is_pulse(path) else path.stem)
 
     wb_root = next((r for name, r in roots if name.lower().endswith(".twb")), roots[0][1])
-    dash_of = _dashboards_of(wb_root)
-    prose_of = _dashboard_prose(wb_root)
+    # What `<Workbook Name>` shows: the name Tableau Server keeps for the workbook, since a
+    # staged download's file name is a content key rather than the workbook's own name.
+    wb_repo = wb_root.find("./repository-location")
+    wb_name = (wb_repo.get("id") if wb_repo is not None else None) or model_name
+    dash_of = _dashboards_of(wb_root, wb_name)
+    prose_of = _dashboard_prose(wb_root, wb_name)
     dash_el = {d.get("name"): d for d in wb_root.findall("./dashboards/dashboard")}
     assets: list[dict] = []
     if wb_root.tag == "workbook":
@@ -2639,6 +2840,33 @@ def parse(path: pathlib.Path, *, dialect: str = "") -> dict[str, Any]:
             if not _lineage(e[0], e[1])["published_datasource"]:
                 return chain, e
             keys = _target_keys(e[1], e[0], e[2])
+
+    # A published reference no file resolves, and a lineage file says where its tables live:
+    # the workbook's own copy, rebuilt as that datasource, ends the reference. A .tds beside
+    # the workbook resolves it first and wins.
+    for loc_file in _lineage_files(path):
+        loc = _read_location(loc_file)
+        key = _ds_name_key(loc["datasource"])
+        used = False
+        for n, ds, is_file, own in entries:
+            if not own or is_file or not _is_proxy(ds) or key not in _published_keys(ds, n):
+                continue
+            used = True
+            if any(k in by_key for k in _target_keys(ds, n, is_file)):
+                continue
+            synth = _rebuilt_published(ds, loc, loc_file.name)
+            entry = (loc_file.name, synth, True, False)
+            for k in _published_keys(synth):
+                by_key.setdefault(k, []).append(entry)
+            notes.append(
+                f"published datasource {loc['datasource']!r}: no .tds beside the workbook, so "
+                f"it is rebuilt from the workbook's own copy (its tables, relationships and "
+                f"fields), located at {loc['database']}.{loc['schema']} by {loc_file.name} "
+                f"({loc['source']}). Filters saved on the published datasource itself are in "
+                f"its .tds only, and are not applied.")
+        if not used:
+            notes.append(f"{loc_file.name} names the datasource {loc['datasource']!r}, which "
+                         f"no workbook in this input references: not read.")
 
     # Resolve each reference first, so a .tds it adopted is not ALSO emitted as a table of its
     # own: it is the same object, and two copies would give every measure two homes.
@@ -2951,8 +3179,7 @@ def parse(path: pathlib.Path, *, dialect: str = "") -> dict[str, Any]:
                                    (ends[1][0], ends[1][1].strip("[]"))))
     for ws in wb_root.findall("./worksheets/worksheet"):
         wname = ws.get("name") or "worksheet"
-        title_el = ws.find(".//title//run")
-        title = (title_el.text if title_el is not None else "") or wname
+        title = _title_of(ws, wname, wb_name)
 
         ws_measures: list[str] = []
         ws_cols: list[str] = []

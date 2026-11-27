@@ -34,6 +34,26 @@ native chat. No additional MCP server is installed.
      Server, or a Tableau Cloud user without single sign-on or multi-factor authentication.
      A connected app or a supplied JWT already set in the environment is used as it is.
      Either way, take the workbook and every published data source it reads.
+   - **A published data source that will not download** (its Download greyed out or refused)
+     does not stop the build, and asks nothing yet. The workbook keeps its own copy of that
+     data source's tables, joins and fields; only where the tables live is missing. Read it
+     from the data source's page in the same browser: **Lineage**, then **Tables and Objects**
+     lists each upstream table with its database. Find each table's schema on the warehouse
+     with one metadata statement, then write `<data source name>.lineage.json` beside the
+     staged workbook:
+
+     ```json
+     {"datasource": "<its name>", "connection": "snowflake", "database": "<DB>",
+      "schema": "<SCHEMA>", "tables": ["<TABLE>", "<OTHER_SCHEMA>.<TABLE>"],
+      "source": "Tableau lineage page, upstream tables, checked on the warehouse"}
+     ```
+
+     The reader rebuilds the data source from the workbook's copy and says so in its notes.
+     Write only tables the lineage page lists and the warehouse reads. Ask the person only
+     when there is no lineage page (the site has no Data Management) or a listed table does
+     not read: then offer the token route, the data source's file from its owner, or building
+     from the tables. Name what is missing, never the person's account, while another route
+     still works.
 
    The existing dashboard helper may identify or inventory a Power BI download, and retain
    capture evidence. Its retired translator and card exporter are unavailable. A missing

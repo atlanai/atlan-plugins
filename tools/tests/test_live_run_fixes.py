@@ -157,7 +157,7 @@ class SignInRunFixes(unittest.TestCase):
         source = (SCRIPTS.parents[1] / 'metrics-generation' / 'modules' / 'metrics' / 'engine' / 'packages'
                   / 'metrics-agent-powerbi' / 'src' / 'metrics_agent_powerbi' / 'pbi_definition_extract.py').read_text()
         self.assertIn('Go back to your', source)
-        self.assertIn('about a minute', source)
+        self.assertIn('a few minutes', source)
 
 
 if __name__ == '__main__':

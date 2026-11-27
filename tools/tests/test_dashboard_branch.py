@@ -112,6 +112,21 @@ class DashboardBranch(unittest.TestCase):
         write(self.run / 'engine' / 'manifest.json', {'stages': [s for s in manifest['stages'] if s['stage'] != 'a3_translate']})
         self.assertEqual(side_page.tiles_by_page(RunFacts(self.run))['status'], 'not_translated', 'never a guess')
 
+    def test_the_dashboard_save_question_says_what_each_check_was(self):
+        # The same checks' list as the save question on every other route, then what was held back, apart from it.
+        self.interaction(flow='dashboard', report='Sales: Overview')
+        write(self.run / 'engine' / 'verify_report.json', {'checks': [
+            {'gate': g, 'object': o, 'status': 'pass'} for o in ('bi-q1', 'bi-q2')
+            for g in ('column_grounding', 'literal_grounding', 'faithfulness')]})
+        write(self.run / 'context' / 'publication-holds.json', {'metrics': [
+            {'source_id': 's1', 'name': 'Rework Cost', 'status': 'held', 'reason': 'dashboard_parity_failed'}]})
+        text = questions.save(self.run, widget=True)['question']
+        self.assertTrue(text.startswith('I checked your agent on your data: 2 metrics and 2 saved queries, all passed.\n\n'
+                                        'What I checked:\n  • each one runs on your data and returns an answer\n'
+                                        "  • the SQL behind the dashboard's 2 tiles uses only columns and values\n"), text)
+        self.assertIn('  • the descriptions of those 2 say what their SQL actually counts\n\nHeld back: 1 metric', text)
+        self.assertIn('1 tile stayed out', text)
+
     def test_the_dashboard_save_question_waits_for_checks_or_the_persons_skip(self):
         self.interaction(flow='dashboard', report='Sales: Overview')
         structural = json.loads((self.run / 'context' / 'candidate-checks.json').read_text(encoding='utf-8'))

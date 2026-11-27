@@ -71,13 +71,21 @@ that they can pick one and carry on.
 
 | Option label | Description | When to offer it |
 | --- | --- | --- |
-| `<Product>` | "Connected and ready to use." Add how only when two connections share a product: "Connected and ready to use, through the Snowflake CLI." | One per connection that works. List these first. With exactly one, its label is `<Product> (Recommended)` |
+| `<Product>` | "Connected and ready to use." | One per connection that works. List these first. With exactly one, its label is `<Product> (Recommended)` |
 | `<Product>` (needs sign-in) | "Set up here. You'll sign in once before I start." | One per connection that is configured and did not answer |
 | Another warehouse? | "Tell me which, and I'll help you connect it." | Always, as one option, never one option per product |
 | No warehouse | "Build from a dashboard file alone, or try the demo." | Always, last |
 
 Say each status in those words: "Connected and ready to use." in the description, "(needs
 sign-in)" in the label. Never "it answered a check", "detected", "found" or a tool's name.
+
+Every label is unique from the first ask: the question is rejected when two match. When two
+connections share a product, add the name the person knows each by, in brackets after the
+product: a connector's own display name as the host lists it, `Snowflake CLI` or
+`Databricks CLI` for a CLI (or its connection name when there are several), and `through Atlan`
+for one reached through Atlan, such as `Snowflake (Sales)` and `Snowflake (Snowflake CLI)`.
+Never "this app", "this harness", "host" or a tool's name. A status follows the name:
+`Snowflake (Sales) (needs sign-in)`.
 
 ### What should I build your agent from?
 
@@ -253,7 +261,7 @@ that question comes only after a failure:
 
 | Tool | What to do | Say |
 | --- | --- | --- |
-| Power BI | Start the plug's one command as a background command (browser sign-in; a device code where no browser can open), as [the metrics module](../../../metrics-generation/references/metrics-engine.md#power-bi-from-a-report-link) says. Tell the person they are signed in only when the wait returns `signed_in` | "Opening Power BI sign-in in your browser. Once you're signed in, reading your report takes about a minute, and I'll show its pages here." Start the command first, then say this once and wait for it in the same turn, as [the metrics module](../../../metrics-generation/references/metrics-engine.md#power-bi-from-a-report-link) says: no other line about the same wait |
+| Power BI | Start the plug's one command as a background command (browser sign-in; a device code where no browser can open), as [the metrics module](../../../metrics-generation/references/metrics-engine.md#power-bi-from-a-report-link) says. Tell the person they are signed in only when the wait returns `signed_in` | "Opening Power BI sign-in in your browser. Once you're signed in, reading your report takes a few minutes, and I'll show its pages here." Start the command first, then say this once and wait for it in the same turn, as [the metrics module](../../../metrics-generation/references/metrics-engine.md#power-bi-from-a-report-link) says: no other line about the same wait |
 | Another tool whose route can start a sign-in | Start it the same way | The same line, with the tool's name |
 | Tableau, or any tool with no sign-in a tool can start | Ask the one question below | |
 
@@ -270,6 +278,11 @@ tool's routes as the options:
 | Suggest from your warehouse | "Skip the dashboard." |
 
 A sign-in that fails or is cancelled falls back to that same question, once.
+
+A Tableau workbook that downloads but reads a published data source that will not is not a
+failure: locate that data source from its lineage page, as
+[the dashboard routes](../../../metrics-generation/references/dashboard-agent.md) say, and carry on.
+Ask only when that fails too, naming what is missing rather than the person's account.
 
 ### When something still cannot be read
 

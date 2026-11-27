@@ -84,7 +84,10 @@ class PowerBIWait(unittest.TestCase):
         self.assertEqual(got['status'], 'done')
         self.assertEqual(got['result']['sign_in'], 'signed_in')
         self.out.write_text('Signed in.\n')
-        self.assertEqual(self.wait()['status'], 'signed_in')
+        got = self.wait()
+        self.assertEqual(got['status'], 'signed_in')
+        # A 50-tile report took 4m 30s against a promised "about a minute" (live run, 2026-11-27).
+        self.assertIn('a few minutes', got['say'])
 
 
 class Wording(unittest.TestCase):

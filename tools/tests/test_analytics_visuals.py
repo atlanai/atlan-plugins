@@ -542,7 +542,7 @@ class Helper(unittest.TestCase):
         self.assertTrue(checked.startswith('side view: '), 'the lines are part of the save question, printed there once')
         self.assertIn('PROJECT question save', self.side(checked)['next'])
         asked = json.loads(self.project('question', 'save'))['question']
-        self.assertEqual(asked.count('Validated on your data: all passed.'), 1)
+        self.assertEqual(asked.count('I checked them on your data: all passed.'), 1)
         self.assertIn('context', [m['kind'] for m in json.loads((self.run / 'view' / 'state.json').read_text(encoding='utf-8'))['moments']])
         saved = self.project('visual', 'saved', '--input', '-', stdin=json.dumps({'workspace': 'Personal'}))
         self.assertTrue(saved.startswith('side view: '))
@@ -556,7 +556,8 @@ class Helper(unittest.TestCase):
         self.assertIsNone(side_page.running(self.run))
 
     def test_in_a_terminal_the_save_question_says_the_build_and_checks_in_sentences(self):
-        for kind in ('connect', 'sources'):
+        # The build's steps already shown: called by name, the card brings any step not yet shown first.
+        for kind in ('connect', 'sources', 'group', 'tiles', 'described', 'drafted', 'metrics', 'rules', 'links'):
             self.project('visual', kind)
         built = self.project('visual', 'build')
         self.assertTrue(built.startswith('side view: '), 'mid-build a terminal reply reaches no one; the card waits for the question')
@@ -572,7 +573,7 @@ class Helper(unittest.TestCase):
         # 0.9.75: the card and chip drawn in the question's proportional font broke their bars. The text says it in
         # sentences, with no banner before it (the copy budget, 2026-11-19 and 2026-11-22).
         self.assertTrue(shown.startswith('Your agent for Job margin is built.\nIt answers from 2 metrics and 2 saved queries, '
-                                         'built from your Power BI dashboard and 3 past queries.\nValidated on your data: all passed.\n'),
+                                         'built from your Power BI dashboard and 3 past queries.\nI checked them on your data: all passed.\n'),
                         shown[:200])
         url = json.loads((self.run / 'view' / 'server.json').read_text(encoding='utf-8'))['url']
         self.assertIn("\n\nEvery metric and how it's calculated: " + url, shown)
@@ -580,6 +581,10 @@ class Helper(unittest.TestCase):
             self.assertNotIn(gone, shown, "a question's text shows no bars, marks or Markdown")
         self.assertIn('never reword or shorten it', asked['next'],
                       'a live run added "7 need a look" from another step to a line that said every check passed')
+        # 2026-11-27: a live run put the workspace question in the save question's card, so a person who kept the
+        # context on this machine was still asked which workspace should hold it.
+        self.assertIn('Ask it alone, with no other question in the same card', asked['next'])
+        self.assertIn('"Keep it on this machine" never gets one', asked['next'])
         widget = self.project('visual', 'build', '--widget')
         self.assertTrue(widget.startswith('<style>'), 'a widget host draws the card as it happens')
 

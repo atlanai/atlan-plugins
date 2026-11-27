@@ -53,7 +53,7 @@ class Drafts(unittest.TestCase):
         self.assertEqual(first['event'], 'batch')
         under = [r for r in first['task_list'] if r['status'] == 'in_progress']
         self.assertEqual(len(under), 1, first['task_list'])
-        self.assertIn('Build your context: metrics and saved queries · finding metrics: 1 metric in 2 of 4 questions', under[0]['content'])
+        self.assertIn('Build your context: metrics and saved queries · finding metrics: 1 metric in 2 of 4 past queries', under[0]['content'])
         self.assertIn('drafts --wait', first['next'], 'the next wait goes in the same message, so the turn goes on')
         self.assertIn('no words of your own', first['next'].lower())
         # d7 got 13 of these and never set its list: the task-list tool was deferred and never loaded.
@@ -62,9 +62,12 @@ class Drafts(unittest.TestCase):
         self.assertIn("nor the list's rows", first['next'])
         self.assertEqual(self.wait()['event'], 'quiet', 'nothing new: it says so after a quiet spell, and never repeats a batch')
         self.answer('x1', '02.json', {'statements': [
-            {'vq_id': 'q3', 'verdict': 'metrics', 'metrics': [{'name': 'Win %'}, {'name': 'Pipeline'}]}]})
+            {'vq_id': 'q3', 'verdict': 'metrics', 'metrics': [{'name': 'Win %'}, {'name': 'Pipeline'}]},
+            {'vq_id': 'q4', 'verdict': 'metrics', 'metrics': [{'name': 'Win Rate'}]}]})
         second = [r for r in self.wait()['task_list'] if r['status'] == 'in_progress'][0]['content']
-        self.assertIn('finding metrics: 3 metrics in 3 of 4 questions', second)
+        # Each metric once, its sources named by what they are: the person has asked no question yet (the Fixit run,
+        # 2026-11-27, read "27 metrics found" over a list of 10, "in 25 of those 30 questions").
+        self.assertIn('finding metrics: 3 metrics in 4 of 4 past queries', second)
         self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': 'x1_ingest', 'verdict': 'ok'}]})
         ended = self.wait()
         self.assertEqual(ended['event'], 'step')
@@ -175,9 +178,9 @@ class Drafts(unittest.TestCase):
         engine = drafts._Engine(self.run.root, 'engine')
         under = drafts._under_way(engine)
         self.assertEqual((under[0], under[3]), ('m2', []))
-        self.assertEqual(drafts._live(engine, under), 'writing questions: 0 of 2')
+        self.assertEqual(drafts._live(engine, under), 'writing saved queries: 0 of 2')
         self.answer('m2', '01.json', {'queries': [{'vq_id': 'q1'}]})
-        self.assertTrue(drafts._live(engine, drafts._under_way(engine)).startswith('writing questions: 1 of 2'))
+        self.assertTrue(drafts._live(engine, drafts._under_way(engine)).startswith('writing saved queries: 1 of 2'))
 
     def test_a_step_end_names_the_next_step_whose_helper_must_start(self):
         # Told only "a step ended", a session went back to waiting with the next step's prompt unanswered, twice in a run.
