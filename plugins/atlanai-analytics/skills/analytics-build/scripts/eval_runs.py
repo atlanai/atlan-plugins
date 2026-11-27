@@ -463,18 +463,24 @@ def questions(ev: pathlib.Path):
     if not isinstance(spec, dict):
         return None
     picked = {s.get("id"): s for s in load(ev / "work" / "selection.json", []) or [] if isinstance(s, dict)}
+    records = [r for r in spec.get("records") or [] if isinstance(r, dict)]
+    # A written set lists what `emit` put in it: drafts beyond it are spares nobody will be asked.
+    emitted = load(ev / "work" / "emitted.json")
+    if isinstance(emitted, list):
+        by_id = {r.get("id"): r for r in records}
+        records = [by_id[i] for i in emitted if i in by_id]
     passes, names = _context_passes(ev), ev / "hillclimb" / "raw"
     scored, said = {vd: _scored(vd) for vd in passes}, {vd: _said_by(vd) for vd in passes}
     # Each question's newest pass that tests it: one tested again alone showed beside every other question waiting.
     tested_in = {r["id"]: next((vd for vd in passes if _covers(vd, r["id"])), passes[0])
-                 for r in spec.get("records") or []}
+                 for r in records}
     nm, nr = _scored(names)
     run = run_of(ev) if ev.parent.name != "gen" else next(
         (r for r in built_runs(ev.parents[3]) if r.name == ev.name), None)
     called, gold_sql, earlier = _names(run), _gold_sql(ev), _earlier(ev, run)
     nsaid = _said_by(names)
     rows = []
-    for n, r in enumerate(spec.get("records") or [], 1):
+    for n, r in enumerate(records, 1):
         case, where = r["id"], str((picked.get(r["id"]) or {}).get("from") or "")
         gold = ev / "eval" / "gold" / f"{case}.json"
         known = load(gold, {}) or {}
