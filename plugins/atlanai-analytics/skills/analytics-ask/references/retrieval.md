@@ -4,7 +4,7 @@
 
 A run is selected when the caller passed its directory, or when the person refers to their
 setup. It is also selected without being named when all of these hold: the working folder has
-exactly one run (`PROJECT location --workspace "<working-directory>"`), `PROJECT journey
+exactly one run (the `existing` list of `PROJECT location --workspace "<working-directory>"`), `PROJECT journey
 status` shows it was kept on this machine or saved to Atlan Trident, and one of its metrics or
 queries measures the question. A run saved to Atlan Trident still answers from the released
 definitions, as below; selecting it gives the answer its card and its next question. Check this before writing any SQL of your own: the same question must not get one

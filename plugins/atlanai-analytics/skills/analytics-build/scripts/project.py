@@ -1133,8 +1133,12 @@ def main():
         return 0
     try:
         if args.command == 'location':
+            import eval_runs
+            # `run_dir` is where a new run would go; `existing` the runs already built here, which the ask route selects
+            # from: told to find "the one run" with this, a session never found it (2026-11-27).
             print(json.dumps({'run_dir': str(resolve_run(args.workspace, args.run_dir, args.permitted_cache, args.home_permitted)),
-                              'created': False}))
+                              'created': False,
+                              'existing': [str(r) for r in eval_runs.built_runs(safe_path(args.workspace))]}))
             return 0
         if args.command == 'pages':
             print(json.dumps({'pages': page_scope.list_pages(safe_path(args.folder))}))

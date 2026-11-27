@@ -57,6 +57,18 @@ class RouteMoments(unittest.TestCase):
         self.terminal.start()
         self.addCleanup(self.terminal.stop)
 
+    def test_location_lists_the_runs_already_in_the_folder(self):
+        # A live session asked `location` for "the one run in this folder", as retrieval.md says: it only ever names a new
+        # run's folder, so the existing setup was never found (2026-11-27).
+        folder = self.root / 'project'
+        run = make_run(folder / '.atlan-analytics', saved=False)
+        out = json.loads(cli('location', '--workspace', folder))
+        self.assertEqual(out['existing'], [str(run)])
+        self.assertNotEqual(out['run_dir'], str(run))
+        empty = self.root / 'empty'
+        empty.mkdir()
+        self.assertEqual(json.loads(cli('location', '--workspace', empty))['existing'], [])
+
     def test_direct_edit_is_one_widget_with_its_own_page_instruction(self):
         with patch.object(side_page, 'reminder', side_effect=lambda run, tab: 'Open the page at #l=' + tab):
             shown = cli(*self.args, 'visual', 'edit', '--widget', '--input', '-',
