@@ -289,7 +289,7 @@ def run_of(ev: pathlib.Path):
     ev = pathlib.Path(ev)
     # A check is <project>/.atlan-analytics/evals/<run name>, or -2, -3 for a later one: an earlier check still
     # belongs to its run, for the questions it shares with the newest.
-    if ev.parent != layout.root(ev.parents[2]) / layout.EVALS or not (ev / "work" / "spec.json").is_file():
+    if len(ev.parents) < 3 or ev.parent != layout.root(ev.parents[2]) / layout.EVALS or not (ev / "work" / "spec.json").is_file():
         return None
     matches = [r for r in built_runs(ev.parents[2]) if re.fullmatch(re.escape(r.name) + r"(-\d+)?", ev.name)]
     return matches[0] if len(matches) == 1 else None

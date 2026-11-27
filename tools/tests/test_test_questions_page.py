@@ -121,6 +121,12 @@ class TestQuestions(unittest.TestCase):
         self.assertEqual(eval_runs.check_folder(other), self.root / '.atlan-analytics' / 'evals' / 'box-office-pulse')
         self.assertIsNone(eval_runs.check_folder(self.root / '.atlan-analytics' / 'never-checked'))
 
+    def test_a_folder_too_shallow_to_be_a_check_belongs_to_no_run(self):
+        # The score's self-test runs in a temporary folder, /tmp/<name> on Linux, which has no grandparent: the lookup
+        # raised IndexError there and failed CI, while macOS's deeper temporary folders passed (2026-11-27).
+        self.assertIsNone(eval_runs.run_of(Path('/tmp/check')))
+        self.assertIsNone(eval_runs.run_of(Path('/check')))
+
     def test_a_question_set_still_being_loaded_is_not_shown(self):
         (self.ev / 'work' / 'spec.json').unlink()
         self.assertIsNone(eval_runs.check_folder(self.run))
