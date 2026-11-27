@@ -43,6 +43,22 @@ unconfirmed. There is no service code and no stored credential here; sign-in is 
   on a gateway that predates the move) with inline `file.content` is held to the same `SECRETS`: a match denies the call and names the kind, line and column, never
   the value. The scan reads only the call's own text, and a fault sends the call as it was:
   `outputRefusal` in `register.ts`, `output_refusal` in `publish_hook.py`.
+- **Telemetry is a closed list.** Usage events are built only from
+  `plugins/atlanai/command-hooks/telemetry_events.json`: `compose` in `command-hooks/telemetry.py`
+  and `claude-hooks/telemetry.ts` drops an event that is not listed and any value that is not a
+  boolean, a version, a member of a fixed list, one of this repository's own skill or command
+  names, or a gateway session id of the gateway's own shape. A call site cannot widen it, so no
+  path, prompt, argument, result or error text can leave. The one destination is `[telemetry]
+  endpoint` in `plugin.toml`, HTTPS only (`validate` in `tools/build.py`): Segment's batch API,
+  as the dashboard uses, on whenever `write_key` is set (`is_on`, `isOn`). The write key is a
+  Segment source's public address and can only write events; it is the one key-shaped value this
+  repository holds, and it lives in `plugin.toml` alone. An add-on's helpers send through a
+  generated copy of the same sender (`usage_sender.py`, with `emit`), and report a run's stage,
+  choices and counts from the one place each is written (`usage_events.py` in Analytics): never
+  the business area or purpose as typed, a metric's or source's name, a question or SQL. The run
+  folder's path leaves only as a hash salted with the install id. Every opt-out is checked
+  before anything is read, stored or sent, and the batch leaves after the hook has answered: a
+  timer in Claude Code, a detached child elsewhere.
 - **Bounded, no-follow reads.** 128 files, 256 KiB and depth 8 (`MAX_FILES`, `MAX_BYTES`,
   `MAX_DEPTH` in `check_bundle.py` and `bundle.ts`), checked before anything is read (`walk` in
   `publish_hook.py`); files open with `O_NOFOLLOW`, so a file swapped for a link fails.

@@ -1,0 +1,36 @@
+{
+  "endpoint": "https://api.segment.io/v1/batch",
+  "write_key": "",
+  "plugin": "atlanai",
+  "version": "0.5.66",
+  "mcp_url": "https://api.atlan.com/mcp",
+  "skills": [
+    "atlanai:atlan-author-agents",
+    "atlanai:atlan-author-knowledge",
+    "atlanai:atlan-author-skills",
+    "atlanai:atlan-connect-repo",
+    "atlanai:atlan-content",
+    "atlanai:atlan-continue",
+    "atlanai:atlan-find-artifacts",
+    "atlanai:atlan-get-started",
+    "atlanai:atlan-manage-artifacts",
+    "atlanai:atlan-share",
+    "atlanai:atlan-troubleshoot",
+    "atlanai:atlan-use-mcp-servers",
+    "atlanai:atlan-use-skill",
+    "atlanai-analytics:accuracy-check",
+    "atlanai-analytics:analytics-ask",
+    "atlanai-analytics:analytics-build",
+    "atlanai-analytics:analytics-demo",
+    "atlanai-analytics:eval-generation",
+    "atlanai-analytics:metrics-generation",
+    "atlanai-analytics:source-survey"
+  ],
+  "commands": [
+    "atlanai:continue",
+    "atlanai:feedback",
+    "atlanai:get-started",
+    "atlanai:share",
+    "atlanai:use-skill"
+  ]
+}

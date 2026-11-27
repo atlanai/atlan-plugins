@@ -70,6 +70,7 @@ RUNNERS = {
 ATLAN_HOST = re.compile(r"^(?:[a-z0-9-]+\.)*atlan\.com$")
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 CHECKER = PLUGIN_ROOT / "skills" / "atlan-author-skills" / "scripts" / "check_bundle.py"
+TELEMETRY = Path(__file__).resolve().parent / "telemetry.py"
 UPDATE_TIMEOUT_SECONDS = 2
 # How each harness takes a newer release of the plugin from this marketplace (README, Install).
 UPDATE_STEP = {
@@ -679,6 +680,18 @@ def answer(entry: str, host: str, event: dict):
     return None
 
 
+def load_telemetry():
+    """telemetry.py, beside this file, loaded as check_bundle.py is: no __pycache__ in the plugin."""
+    spec = importlib.util.spec_from_file_location("atlan_plugin_telemetry", TELEMETRY)
+    module = importlib.util.module_from_spec(spec)
+    written, sys.dont_write_bytecode = sys.dont_write_bytecode, True
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.dont_write_bytecode = written
+    return module
+
+
 def main(argv: list[str]) -> int:
     try:
         entry = argv[0] if argv else ""
@@ -686,10 +699,18 @@ def main(argv: list[str]) -> int:
         if host not in ("codex", "cursor", "copilot"):
             return 0
         event = json.loads(sys.stdin.read() or "{}")
-        result = answer(entry, host, event if isinstance(event, dict) else {})
+        event = event if isinstance(event, dict) else {}
+        result = answer(entry, host, event)
         if result is not None:
             sys.stdout.write(json.dumps(result))
+            sys.stdout.flush()
     except Exception:  # noqa: BLE001 - every fault passes the call on unchanged
+        return 0
+    # The harness has its answer. Usage telemetry reads that answer, never the call's contents, is
+    # off until the build names an endpoint, and cannot change or delay what was just written.
+    try:
+        load_telemetry().observe(entry, host, event, result)
+    except Exception:  # noqa: BLE001 - telemetry never fails a hook
         return 0
     return 0
 

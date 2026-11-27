@@ -1537,6 +1537,11 @@ def summarize(pr: Proj, variant: str, final: bool = False) -> dict:
 
 def cmd_summary(a) -> dict:
     out = summarize(Proj(a.dir), a.variant, a.final)
+    try:  # A usage event: how many questions and the share correct, never a question or an answer.
+        import usage_events
+        usage_events.accuracy_scored(out, a.final)
+    except Exception:  # noqa: BLE001
+        pass
     if getattr(a, "require_isolation", False) and out["isolation_unverified"]:
         # A host that keeps each answering agent's transcript can prove no answer saw the eval.
         raise Blocked(f"{out['isolation_unverified']} row(s) have no answering-agent transcript, so isolation is unverified.",

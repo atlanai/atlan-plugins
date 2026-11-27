@@ -14,7 +14,7 @@
 name = "atlanai"
 display_name = "Atlan Trident"
 # Bump on every release: Claude Code holds users on the version they installed.
-version = "0.5.65"
+version = "0.5.66"
 description = "Your organization's skills, agents, knowledge and MCP servers, from Atlan Trident. One sign-in, no API key."
 short_description = "Skills, agents and tools"
 long_description = "Connect your coding agent to Atlan Trident with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install an Atlan Trident skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with Atlan Trident's own authoring recipes."
@@ -68,6 +68,22 @@ url = "https://api.atlan.com/mcp"
 # mcp-2026-10-30-session-records-the-install-surface).
 client = "atlan-plugin"
 
+[telemetry]
+# Anonymous usage events from the hooks (claude-hooks/telemetry.ts, command-hooks/telemetry.py)
+# and from an add-on's helpers where it names a `telemetry_dir`: which of this repository's skills
+# and commands run, what the publish helper refused, a daily-active ping, and how far an Analytics
+# run gets. command-hooks/telemetry_events.json lists every event and property, and
+# nothing outside it is sent. It works as the dashboard's analytics do (frontend,
+# apps/dashboard/src/lib/observability/analytics.ts): events go straight to Segment, which
+# forwards them to Mixpanel, and they are collected by default whenever a write key is set. The
+# key is the switch and the environment both: with `write_key` empty no request is made and
+# nothing is written to disk, and the key set here is the production source's, since this
+# repository serves production only. A Segment write key is a source's public address, as in the
+# dashboard's bundle, and it can only write events. Changing either line needs the security
+# review AGENTS.md asks for.
+endpoint = "https://api.segment.io/v1/batch"
+write_key = ""
+
 [codex]
 capabilities = ["Interactive", "Write"]
 # The skill Codex offers to run right after install: it checks the sign-in and shows what the
@@ -97,6 +113,10 @@ long_description = "The analytics workload on Atlan Trident, as seven skills. an
 keywords = ["atlan", "analytics", "metrics", "text-to-sql", "talk-to-data", "snowflake", "databricks", "dashboards"]
 category = "Data & Analytics"
 claude_category = "data"
+# Where the add-on's helpers raise usage events of their own (usage_events.py there). The build
+# writes the core's sender, the events list and this add-on's telemetry config beside them, so
+# the same `[telemetry]` key, list and switches hold. Plugin-relative.
+telemetry_dir = "skills/analytics-build/scripts"
 install_note = """
 **Build progress in Claude Code.** In the terminal, a build's progress shows in Claude Code's own task list. Some models have the task list on
 by default. If yours shows no task list, add this to the `env` in your Claude Code settings

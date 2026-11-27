@@ -272,6 +272,11 @@ def cmd_emit(a) -> dict:
     scope = load(gen / "scope.json", {}) or {}
     scope["emitted"] = {**question_counts(name, [r["from"] for r in rows]), "set_key": set_key(out, rows)}
     dump(gen / "scope.json", scope)
+    try:  # A usage event: how many questions, never the questions.
+        import usage_events
+        usage_events.evals_generated(len(rows))
+    except Exception:  # noqa: BLE001
+        pass
     return {"status": "ok", "set": str(out), "questions": len(rows), "spares_unused": spare,
             "metrics": sorted({r["tests"] for r in rows if r["tests"]}), **_questions_chip(gen, scope.get("run"))}
 

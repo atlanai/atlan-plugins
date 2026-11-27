@@ -136,3 +136,65 @@ fitting Atlan Trident skill is named beside your request. This plugin works the 
 Requests to Atlan carry your sign-in and one header, `X-Atlan-Client: atlan-plugin/<version>`,
 which tells Atlan the session came from this plugin. See Atlan's
 [privacy notice](https://atlan.com/privacy-policy/).
+
+## Usage telemetry
+
+On by default, as in the Atlan dashboard, and through the same pipeline: the hook sends usage
+events to Segment (`api.segment.io`), which forwards them to Atlan's Mixpanel. They say which of
+this marketplace's own skills and commands run, where the publish helper holds a call back, and
+how far an Analytics run gets. These are all of them. `command-hooks/telemetry_events.json` lists
+every property, and anything that file does not allow is dropped before it is sent.
+
+From this plugin's hook:
+
+| Event | Sent when | Properties |
+|---|---|---|
+| `claude_plugin_install_active` | The plugin loads in a session, at most once per UTC day | `first_seen`, and in Claude Code `surface` and `interactive` |
+| `claude_plugin_skill_invoked` | The agent loads one of this marketplace's own skills (Claude Code) | `skill` |
+| `claude_plugin_command_run` | You run one of its own slash commands (Claude Code) | `command` |
+| `claude_plugin_publish_prepared` | The publish helper checked a folder or batch and sent the call on | `operation`, `mcp_session_id` |
+| `claude_plugin_publish_refused` | The publish helper held a call back | `operation`, `mcp_session_id`, and `reason`: the name of the check that failed |
+| `claude_plugin_tool_call_failed` | An Atlan tool call came back as an error (Claude Code) | `runner`, `namespace`, `mcp_session_id`, and `reason`: a kind such as `auth` or `timeout` |
+| `claude_plugin_update_prompted` | The agent was told a newer release is out | `from_version`, `to_version`, `forced` |
+| `claude_plugin_feedback_offered` | The agent was asked to offer a feedback draft (Claude Code) | `trigger` |
+
+From the Analytics add-on (`atlanai-analytics`), which has no hook: its helpers raise these as a
+run moves, in every tool, and send them the same way.
+
+| Event | Sent when | Properties |
+|---|---|---|
+| `claude_plugin_analytics_run_started` | A run records its first step | `flow`: `build`, `demo` or `dashboard` |
+| `claude_plugin_analytics_stage_reached` | A run moves to a new stage (`inspect`, `scope`, `build`, `check`, `preview`, `publish`, `ready`) or a new status of one | `stage`, `status`, `flow`, and six counts: `sources`, `metrics`, `queries`, `checked`, `held`, `released` |
+| `claude_plugin_analytics_flow_chosen` | You pick the demo, or make a dashboard agentic | `flow` |
+| `claude_plugin_analytics_intent_recorded` | You answer which business area, or what to accomplish | `topic`: which question, never your answer |
+| `claude_plugin_analytics_checks_chosen` | You choose to run the warehouse checks or skip them | `choice` |
+| `claude_plugin_analytics_question_asked` | A chosen question is answered from the run's metrics | `flow` |
+| `claude_plugin_analytics_dashboard_finished` | The dashboard step ends | `result`: `built` or `declined` |
+| `claude_plugin_analytics_run_mode_changed` | You pause, resume, or keep the work local | `mode` |
+| `claude_plugin_analytics_evals_generated` | An eval set is written | `questions`: how many |
+| `claude_plugin_analytics_accuracy_scored` | An accuracy check is scored | `questions`, `pass_percent`, `final` |
+
+Every event is named `claude_plugin_…` in whichever tool it runs, and also carries the name and
+version of the plugin that raised it, that tool (`claude_code`, `codex`, `cursor` or `copilot`,
+or `unknown` when an Analytics helper cannot tell), the operating system's family, and a random
+install id. A hook's event adds a session key: 16 characters of a hash of that id and the tool's
+session id. An Analytics event adds a run key: the same kind of hash of the run folder's path.
+
+The hooks never see who you are, so no event carries your name, email, user or organization.
+Three events carry `mcp_session_id`, the id Atlan's gateway gave the session a call ran in. Atlan
+keeps that id with the call's user and organization, as it does for every call it records, so
+Atlan can tell whose call an event was about.
+
+Never sent: a prompt or a reply; a file's name, path or contents; a tool's arguments or results;
+an error's text; the name of any skill, command or tool that is not this repository's own; a
+metric's or a source's name, a question, an answer or a SQL statement. Each
+event names `0.0.0.0` in place of your IP address. Events wait in memory and leave from a
+background step with a 3 second limit, so no hook waits on them, and a failed send is dropped.
+
+To turn it off, set `ATLAN_PLUGIN_TELEMETRY=0`, `DO_NOT_TRACK=1` or `DISABLE_TELEMETRY=1`, or
+create the empty file `~/.config/atlan-plugin/telemetry-off`, for apps that start hooks without
+your shell's environment. It is also off under `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`,
+when `CI` is set, and in any copy of the plugin that is not this release talking to Atlan's
+production server. The install id lives in Claude Code's own store for the plugin and, for the
+other tools, in `~/.config/atlan-plugin/`, beside the last day each tool was reported active.
+Delete that folder to start over with a new id.

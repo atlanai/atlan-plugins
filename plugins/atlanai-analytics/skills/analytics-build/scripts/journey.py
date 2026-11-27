@@ -274,6 +274,11 @@ def advance(run, action='status', focus=None, host=None, server=None, answer=Non
                 progress.update(run, 'preview', checkpoint['status'])
     if action not in ('status', 'details'):
         run.write(path, saved)
+        try:  # A usage event for which choice was recorded, never the words chosen, and never able to fail it.
+            import usage_events
+            usage_events.choice(run, action, saved, host)
+        except Exception:  # noqa: BLE001
+            pass
     model = experience.snapshot(run, host=host, server=server)
     # A step the person just saw happen gets no summary back: the joint run of 2026-11-25 passed the whole run on after
     # an answer, as three sections nobody asked for.

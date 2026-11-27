@@ -139,6 +139,9 @@ This plugin has no hooks and ships no executable binaries.
   to remove the Power BI sign-in, Snowflake profiles and the PBIXRay environment. Unset the
   variables listed under Credentials to stop it reaching those systems.
 
+Its helpers report usage events to Segment, as `atlanai` does and under the same switches: which stage a run
+reached, which choices were made, and counts. Never a metric's or source's name, a question, an answer or SQL.
+`ATLAN_PLUGIN_TELEMETRY=0` or `DO_NOT_TRACK=1` turns it off, and the [`atlanai` README](../atlanai/README.md#usage-telemetry) lists every event.
 See Atlan's [privacy notice](https://atlan.com/privacy-policy/).
 
 ## Source
