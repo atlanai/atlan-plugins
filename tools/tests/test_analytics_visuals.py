@@ -556,7 +556,8 @@ class Helper(unittest.TestCase):
         self.assertIsNone(side_page.running(self.run))
 
     def test_in_a_terminal_the_save_question_says_the_build_and_checks_in_sentences(self):
-        for kind in ('connect', 'sources'):
+        # The build's steps already shown: called by name, the card brings any step not yet shown first.
+        for kind in ('connect', 'sources', 'group', 'tiles', 'described', 'drafted', 'metrics', 'rules', 'links'):
             self.project('visual', kind)
         built = self.project('visual', 'build')
         self.assertTrue(built.startswith('side view: '), 'mid-build a terminal reply reaches no one; the card waits for the question')

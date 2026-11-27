@@ -477,10 +477,9 @@ def _described(facts):
     tiles = [[q, 'dashboard tile'] for vid, q in asked if from_dashboard(vid)]
     past = sorted(([q, _ran(runs(vid)), runs(vid)] for vid, q in asked if not from_dashboard(vid)), key=lambda r: -r[2])
     shown = sum(from_dashboard(vid) for vid, _ in words)
-    if shown and shown == len(words) and facts.engine_file('verified_queries.bi.json').get('objects'):
-        # Every question came from a tile, and the tiles chip just showed each with its question: a second chip with
-        # the same count read as a repeat ("50 tiles read", then "50 questions written", 2026-11-23).
-        return {}
+    # A dashboard-only run shows it too, as the demo does: the saved queries are what the agent answers from, not the
+    # tiles read. Held back when every query came from a tile, the dashboard route never said its saved queries were
+    # written (live dashboard run, 2026-11-27).
     # With the descriptions written beside the metric steps (the engine's default), they land after the metrics: the
     # chip says so instead of announcing a step already done (walk 3, 2026-11-23).
     late = 'x1_ingest' in facts.stages

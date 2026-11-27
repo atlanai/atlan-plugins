@@ -418,3 +418,72 @@ class SavedMoment(unittest.TestCase):
         self.assertNotIn('Your agent:', result['show_first'])
         self.assertIn('show_first', result['visual'])
         self.assertEqual(side_view.seen(case.run), ['saved'])
+
+
+class DashboardRouteMoments(unittest.TestCase):
+    """The dashboard route tells the demo's story: the same step chips, by the same functions, wherever the run has
+    the facts (live dashboard run, 2026-11-27: no saved queries, details or links chip before the build card)."""
+
+    STEPS = ['described', 'drafted', 'metrics', 'rules', 'links']
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name).resolve()
+        self.addCleanup(stop_pages, root)
+        self.run = make_run(root / 'dash', history=False, saved=False)
+        interaction = json.loads((self.run / 'interaction.json').read_text())
+        write(self.run / 'interaction.json', {**interaction, 'flow': 'dashboard'})
+        # Every saved query is a tile's: the dashboard route reads no past queries before its build.
+        write(self.run / 'engine' / 'sql_descriptions.json', {'descriptions': {
+            'bi-q1': {'question': 'What is the gross margin in pounds?'}, 'bi-q2': {'question': 'What is the margin of each job?'}}})
+        for kind in ('connect', 'found', 'sources', 'tiles'):
+            side_view.note(self.run, kind)
+
+    def visual(self, *args):
+        done = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(self.run), 'visual', *args, '--widget'],
+                              capture_output=True, text=True, encoding='utf-8', timeout=120,
+                              env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': '', 'BROWSER': 'true'})
+        self.assertEqual(done.returncode, 0, done.stderr)
+        return done.stdout
+
+    def labels(self, out):
+        import html
+        import re
+        return [html.unescape(x) for x in re.findall(r'aria-label="([^"]*)"', out)]
+
+    def test_visual_next_hands_over_saved_queries_details_and_links_before_the_build(self):
+        shown, said = [], []
+        for _ in range(10):
+            out = self.visual('next')
+            if 'Nothing new to show yet' in out:
+                break
+            shown.append(side_view.seen(self.run)[-1])
+            said += self.labels(out)
+            self.assertEqual(len(self.labels(out)), 1, 'one moment per call')
+        self.assertEqual(shown, self.STEPS + ['build', 'context'])
+        # In the demo's own words: the same function draws both routes.
+        self.assertTrue(said[0].startswith("2 saved queries written from your dashboard's tiles"), said[0])
+        self.assertTrue(said[3].startswith('Detailed information added to 2 metrics'), said[3])
+        self.assertTrue(said[4].startswith('1 link between metrics'), said[4])
+
+    def test_each_moment_is_handed_over_once(self):
+        for _ in range(10):
+            if 'Nothing new to show yet' in self.visual('next'):
+                break
+        seen = side_view.seen(self.run)
+        self.assertEqual(len(seen), len(set(seen)), seen)
+        self.assertIn('Nothing new to show yet', self.visual('next'))
+
+    def test_the_build_card_called_by_name_brings_the_steps_not_yet_shown_first(self):
+        for kind in ('described', 'drafted', 'metrics'):
+            side_view.note(self.run, kind)
+        out = self.visual('build')
+        labels = self.labels(out)
+        self.assertEqual(len(labels), 3, labels)
+        self.assertTrue(labels[0].startswith('Detailed information added to 2 metrics'), labels)
+        self.assertTrue(labels[1].startswith('1 link between metrics'), labels)
+        self.assertTrue(labels[2].startswith('Your agent is built'), labels)
+        self.assertEqual(out.count('side view: '), 3, 'each moment ends at its own line')
+        self.assertEqual(side_view.seen(self.run)[-3:], ['rules', 'links', 'build'])
+        self.assertEqual([k for k in side_view.due(self.run) if k in side_view.STEPS], [])

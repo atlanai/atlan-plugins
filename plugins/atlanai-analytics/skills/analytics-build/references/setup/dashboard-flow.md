@@ -247,8 +247,12 @@ a skip they did not choose, and never say "as you asked" about anything they did
   with the rest of its share.
 - **Skip**: item 7 reads "skipped, as you chose"; go straight on.
 
-The build's card comes before this question, as the build's last moment: `PROJECT visual build
---widget` once `PROJECT check` has run, so the build closes on a result the person can see. After
+The build's card comes before this question, as the build's last moment, after the chips of the
+steps not yet shown, as in the demo: the saved queries written, each metric's detailed information
+and the links between metrics. The result that ends the build (`PROJECT use-engine`, `PROJECT
+check`) hands them over in `show_first`: draw each, in order. When none did, run `PROJECT visual
+next --widget` once `PROJECT check` has run, and again while it says more is due, so the build
+closes on a result the person can see. Never draw a moment a second time. After
 the tests, the checks chip comes before the next question, as [save](save.md) says; a skip has
 no chip. When anything is held back, say once with the card: "Held back means it stays out of your
 agent, so no answer uses it. To fix one, tell me here and I'll rebuild it."
@@ -302,8 +306,8 @@ settled is done again.
    ran keeps its result.
 5. Export it as the first build was exported. Its files replace the dashboard-only ones in the
    context.
-6. Record `PROJECT journey history --answer added`, draw `PROJECT visual build --widget` again,
-   and go on to item 9.
+6. Record `PROJECT journey history --answer added`, show this build's chips and card
+   as the first build's came, with `--engine-dir engine-history`, and go on to item 9.
 
 **Skip**: go straight to item 9. The save has the dashboard's metrics and queries only.
 

@@ -1184,6 +1184,15 @@ def main():
             print(json.dumps({'status': 'ok', 'warehouse': record,
                               'next': 'Recorded: the tests, answers, side page and ready block now read this warehouse.'}))
             return 0
+        if args.command == 'visual' and args.kind == 'build' and not args.input and args.run_dir:
+            # The build's card closes its steps: once it is shown, a step not yet shown never is. Called by name while
+            # steps are due (the dashboard route's own instruction), it lost "N saved queries written" and the rest
+            # (live dashboard run, 2026-11-27), so the due steps come first, in order, in this one call.
+            import side_view
+            run = safe_path(args.run_dir)
+            earlier = [k for k in side_view.due(run, args.engine_dir) if k in side_view.STEPS] if (run / 'run.json').is_file() else []
+            if earlier:
+                args.kind, args.also = earlier[0], earlier[1:] + ['build'] + list(args.also)
         if args.command == 'visual' and args.also:
             # Two moments in a row each ran as their own call, and sessions joined them with a shell separator (which zsh
             # refuses) or cut them apart with a script, three live runs in a row (2026-11-23). One call prints both.

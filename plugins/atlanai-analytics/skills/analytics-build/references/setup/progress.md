@@ -109,8 +109,9 @@ page shows each batch as it lands; the chat shows each step's end:
    - **A quiet spell**: check that each subagent is working, write its `say` line word for word when
      it gives one, then wait again.
    - **Done**: export the build into the run and run `PROJECT check`, then draw the build's card
-     (`PROJECT visual build`, with `--widget` where widgets are drawn) before any question: it closes the build, before the
-     question about testing it.
+     before any question: it closes the build, before the question about testing it. Those results hand
+     it over in `show_first`, after any step's chip not yet shown; when none did, run `PROJECT visual next`
+     (with `--widget` where widgets are drawn) while it says more is due. Never draw it a second time.
 
    Add no words of your own between these, as [when to talk](#when-to-talk) says: a step's own
    chip or line names the step that starts, and the engine's results, counts and tooling are
