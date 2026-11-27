@@ -148,6 +148,8 @@ class ScopeTest(unittest.TestCase):
         self.ev = Path(res["gen"])
         self.assertEqual((res["focus"], res["pool"], res["tiles"]), ("Net Revenue", 6, 1))
         self.assertEqual(res["run"], str(self.run))
+        # The eval engine's environment sits with the sets, outside the run and the metrics runtime.
+        self.assertEqual(Path(res["runtime"]), Path(res["gen"]).parents[1] / "runtime")
         rows = [json.loads(l) for l in (self.ev / "src" / "pool.jsonl").read_text().splitlines()]
         self.assertEqual({r["id"]: r["exec"] for r in rows}["h-head"], 90)
 
