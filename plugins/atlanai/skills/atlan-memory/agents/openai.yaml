@@ -1,0 +1,11 @@
+interface:
+  display_name: "Your Memory"
+  short_description: "Remember and recall across every AI tool you use"
+  default_prompt: "Use $atlan-memory to remember that I prefer short answers with the result first."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"
