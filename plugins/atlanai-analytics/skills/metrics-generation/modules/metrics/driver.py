@@ -547,19 +547,8 @@ def main(argv=None):
         result, code = {'status': 'BLOCKED', 'reason': str(exc),
                         'fix': getattr(exc, 'fix', None)
                         or 'This needs fixing before the build can go on.'}, 2
-    if args.command in ('prepare', 'advance', 'export', 'powerbi-report') and code in (0, 3) \
-            and _in_setup_run(args.run):
-        # A setup run shows what each step produced as it finishes; the gate the agent answers next is the moment to.
-        # The dry run, 2026-11-25: told here to run `visual next`, the session never did. The wait hands the chip over,
-        # and keeps the turn going; a helper, which runs no wait, leaves the chip for the session.
-        shown, show = _hand_over(args.run)
-        result['visual'] = ((show + ' Then, ' if shown else '') +
-                            "In the session that talks to the person (a helper ignores this): run `PROJECT drafts --wait` "
-                            "now, in this same turn. It hands over what this step made, as the chip to show, and names the "
-                            "next helper to start. The chip is the update: add no words of your own about the step, the "
-                            "engine or its files.")
-        if shown:
-            result['show_first'] = shown
+    if args.command in ('prepare', 'advance', 'export', 'powerbi-report') and code in (0, 3):
+        result.update(_hand_over(args.run, args.command))
     print(json.dumps(result, ensure_ascii=False))
     if result.get('show_first'):
         # A session filtered this result to a few keys and lost the step it was told (validation run G, 2026-11-25).
@@ -572,24 +561,31 @@ def main(argv=None):
     return code
 
 
-def _hand_over(run):
-    """The chips the build has reached, drawn and marked shown, when no build wait is following it: the session is then
-    driving the engine itself, so this result is the one it reads. With a wait running, the wait hands them over."""
-    build = Path(__file__).resolve().parents[3] / 'analytics-build' / 'scripts'
-    sys.path.insert(0, str(build))
+def _hand_over(run, command):
+    """Metrics mode follows the engine directly. A guided build hands its chips to the foreground wait when running."""
+    fields = {}
     try:
+        engine = Path(run).resolve()
+        folder = engine.parent
+        guided = (folder / 'run.json').is_file()
+        if guided:
+            wait = ("In the session that talks to the person (a helper ignores this): run `PROJECT drafts --wait` "
+                    "now, in this same turn. It hands over what this step made, as the chip to show, and names the "
+                    "next helper to start. The chip is the update: add no words of your own about the step, the "
+                    "engine or its files.")
+            fields['visual'] = wait
+        elif command == 'powerbi-report' or not (folder / 'state.json').is_file():
+            return fields
+
+        build = Path(__file__).resolve().parents[3] / 'analytics-build' / 'scripts'
+        sys.path.insert(0, str(build))
         import side_view
-        setup = Path(run).resolve().parent
-        if side_view.waiting(setup):
-            return '', ''
-        return side_view.show_due(setup, run), side_view.SHOW_FIRST
-    except Exception:  # noqa: BLE001 - the chips stay due for the wait or the next helper result
-        return '', ''
-
-
-def _in_setup_run(run):
-    """Whether an engine run sits inside a setup run, whose helper draws each step's result."""
-    try:
-        return (Path(run).resolve().parent / 'run.json').is_file()
-    except (OSError, RuntimeError):
-        return False
+        if not guided:
+            return side_view.handed(side_view.show_metrics_due(folder, engine))
+        if not side_view.waiting(folder):
+            shown = side_view.show_due(folder, run)
+            if shown:
+                fields.update(show_first=shown, visual=side_view.SHOW_FIRST + ' Then, ' + wait)
+    except Exception:  # noqa: BLE001 - an unreadable moment never blocks the engine
+        pass
+    return fields

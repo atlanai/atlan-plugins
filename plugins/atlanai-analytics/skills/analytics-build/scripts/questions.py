@@ -5,6 +5,7 @@ The agent asks exactly what this prints. Every count comes from the run; a demo'
 and only on a run the journey records as a demo, so they never reach the person's own data. Without widgets the
 text says, in sentences, what a card would: no bars, since a question's text is set in a proportional font.
 """
+import os
 from pathlib import Path
 import re
 
@@ -258,11 +259,13 @@ def _one_metric(run, f, demo, widget=False):
 LONGEST = 120
 
 
-def _supported(made, limit=3):
+def _supported(made, limit=3, answered=None):
     """Questions the checked context answers, in the words the build wrote for each: the dashboard's tiles first,
-    then the past queries asked most, each only when its metric passed its check."""
-    passed = [m for m in made['metrics'] if m.get('status') == 'checked']
-    picked, seen = [], set()
+    then the past queries asked most, each only when its metric passed its check. Not the metrics or the question the
+    answer just used: after gross sales, the next offer was gross sales again (2026-11-27)."""
+    used, asked = answered or (set(), '')
+    passed = [m for m in made['metrics'] if m.get('status') == 'checked' and str(m.get('name') or '').lower() not in used]
+    picked, seen = [], {asked} if asked else set()
     for m in passed:
         # Its dashboard tile's wording first, else the shortest a past query has: an option reads at a glance.
         # A question in words only: an engine label such as "sum:amount:ok" is not one.
@@ -286,6 +289,14 @@ def _supported(made, limit=3):
             seen.add(text.lower())
             picked.append({'label': text, 'description': '%s · a saved query' % q['name']})
     return picked
+
+
+def _answered(run):
+    """The metrics and question of the answer just given, as the run's answer card recorded them."""
+    last = read_json(Path(run) / 'answer.json', dict, {})
+    used = {str(p.get('name') or '').lower() for p in last.get('proof') or [] if isinstance(p, dict)}
+    used |= {str(n).lower() for n in last.get('metrics') or [] if isinstance(n, str)}
+    return used - {''}, str(last.get('question') or '').strip().lower()
 
 
 def _split(saved_items, f, run, data, engine_dir):
@@ -354,7 +365,14 @@ def after_answer(run, widget=False, data=None, engine_dir=None, accuracy=False):
     f = RunFacts(run, engine_dir)
     import side_page
     check, board, done = _after_asking(f, accuracy)
-    suggested = _supported(side_page.details(f), limit=4 - 1 - len(check) - len(board))
+    suggested = _supported(side_page.details(f), limit=4 - 1 - len(check) - len(board), answered=_answered(run))
+    if os.environ.get('CLAUDE_CODE_ENTRYPOINT') == 'cli':
+        # In a terminal, text just before a native question folds, and the answer is that text: what comes next is its
+        # last line instead.
+        parts = ['ask another question' + (', such as "%s"' % suggested[0]['label'] if suggested else '')]
+        parts += ['check how accurate it is'] if check else []
+        parts += ["build a dashboard from your agent's answers"] if board else []
+        return {'text': 'Next: ' + (', '.join(parts[:-1]) + ', or ' + parts[-1] if len(parts) > 1 else parts[0]) + '.'}
     options = suggested[:1] + check + suggested[1:] + board + [done]
     return {'header': 'Next', 'question': 'What next? Pick one, or type another question in Other.', 'options': options}
 

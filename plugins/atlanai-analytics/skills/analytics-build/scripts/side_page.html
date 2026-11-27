@@ -267,6 +267,21 @@ button.sech { cursor: pointer; }
 .pnode.kid { margin-left: 13px; padding-left: 22px; border-left: 1px solid var(--border-default); }
 .pbox { width: 28px; height: 28px; border-radius: 7px; border: 0.5px solid var(--border-control); display: grid; place-items: center; flex: none; }
 .pnote { font-size: 12px; line-height: 17px; color: var(--text-subtle); }
+.tcause { font-size: 14px; line-height: 20px; margin: 0 0 12px; }
+.tcause b { font-weight: 500; }
+.prw { overflow-x: auto; }
+.prt { min-width: 100%; border-collapse: collapse; font: 12px/16px "Geist Mono", ui-monospace, monospace; }
+.prt th { text-align: left; font-weight: 500; color: var(--text-subtle); padding: 2px 6px; border-bottom: 1px solid var(--border-default); white-space: nowrap; }
+.prt td { padding: 2px 6px; border-bottom: 1px solid var(--border-default); max-width: 28ch; overflow-wrap: anywhere; }
+.prt td.d { background: var(--bg-warning-subtle); color: var(--text-warning); }
+.tverd { font-size: 14px; line-height: 20px; margin: 0 2px 4px; } .tverd b { font-weight: 500; }
+.tcmp { font-size: 12px; line-height: 16px; margin: 0 2px 6px; color: var(--text-subtle); }
+.tcmp.warn { color: var(--text-warning); } .tcmp.ok { color: var(--text-success); }
+.tsec { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--text-subtle); margin: 14px 2px 6px; }
+.tout { font-size: 14px; line-height: 20px; margin: 4px 0 12px; font-weight: 500; }
+.tout.warn { color: var(--text-warning); } .tout.ok { color: var(--text-success); }
+.tval { font-size: 14px; line-height: 20px; margin: 0 0 8px; }
+.tearly { display: grid; gap: 4px; font-size: 12px; line-height: 16px; }
 /* Metric Studio's motion: a profile's content slides in 16 px and fades; a part a link went to is marked. A card's
    height and chevron move in script (PANEL). */
 @keyframes pslide { from { opacity: 0; transform: translateX(16px); } }
@@ -474,20 +489,9 @@ const onlyAgent = r => obj(r.agent) && r.agent.right === true && obj(r.names) &&
 const TLABEL = {right: ['Right', 'ok'], missed: ['Missed', 'warn'], answered: ['Answered', ''], wait: ['Waiting', 'idle']};
 const tbadge = (S, r) => { const s = tstateOf(r); return badgeOf(s === 'wait' && txt(S.tests.state) === 'ready' ? 'Not tested yet' : TLABEL[s][0], TLABEL[s][1]); };
 const answerOf = p => obj(p) ? txt(p.value) || (txt(p.answer) ? 'Answered without a result' : '') : '';
-function testsList(S, UI) {
-  const ts = testsOf(S);
-  if (!ts.length) return [0, ''];
-  const counts = {right: 0, missed: 0, only: 0};
-  ts.forEach(r => { const s = tstateOf(r); if (s in counts) counts[s] += 1; if (onlyAgent(r)) counts.only += 1; });
-  const keep = r => !UI.tfilter || (UI.tfilter === 'only' ? onlyAgent(r) : tstateOf(r) === UI.tfilter);
-  // Right and missed show once anything is scored; "right only with your agent" once the column-names pass is too.
-  const tabs = counts.right || counts.missed ? pills('tflt', 'Show', [['all', 'All', ts.length], ['right', 'Right', counts.right],
-    ['missed', 'Missed', counts.missed], ...(ts.some(r => obj(r.names) && r.names.right != null) ? [['only', 'Right only with your agent', counts.only]] : [])], UI.tfilter || 'all') : '';
-  const rows = ts.filter(keep).map(r => `<button type="button" class="row tr${String(UI.test) === String(r.n) ? ' sel' : ''}" data-act="t" data-t="${esc(r.n)}" data-k="t:${esc(r.n)}" data-f="t:${esc(r.n)}" data-s="${tstateOf(r)}">`
-    + `<span class="tn num">${esc(r.n)}</span>${named(r.question, '', (txt(r.known) ? 'Known: ' + txt(r.known) : 'Known answer worked out when tested') + (answerOf(r.agent) ? ' · Your agent: ' + answerOf(r.agent) : ''), 'cl2')}${tbadge(S, r)}</button>`);
-  const order = '<div class="lgd">Each known answer comes from your dashboard or a past query. Your agent answers every question from a clean start, and so does one with column names only.</div>';
-  return [ts.length, tabs + order + `<div class="lst">${rows.join('')}</div>`];
-}
+/* What the tab says before its list: the score once scored, how many answers are in while a check runs, and a change
+   to the metrics since. The score sat only in a line for screen readers (2026-11-26). */
+const dayOf = s => { const d = new Date(s); return isNaN(d) ? '' : d.toLocaleDateString(undefined, {day: 'numeric', month: 'short'}); };
 /* Before any metric the page opens on the queries in plain words, until a metric lands or the person picks a list. Once
    an accuracy check has written its questions, it opens on those: they are the newest output. */
 function listOf(S, UI) {
@@ -628,8 +632,16 @@ function metricView(S, UI, name) {
     + prow(UI, 'split', 'How it can be split', arr(m.dimensions).length, pchips(m.dimensions, 'pdim'), false)
     + prow(UI, 'from', 'Where it came from', srcs.length || null, srcs.map((x, j) => source(S, x, lc(m.name) + ':' + j)).join('') + why, false)
     + prow(UI, 'related', 'Related metrics', rel.length, rel.map(r => `<div>${esc(r[0])} <button type="button" class="lnk" data-act="m" data-m="${esc(r[1])}" data-k="rel:${esc(r[1])}">${esc(r[1])}</button></div>`).join(''), false)
+    + prow(UI, 'tested', 'Tested by', null, testedBy(S, m), false)
     + prow(UI, 'details', 'Details', null, details, false)
     + '</div></div>';
+}
+/* The test questions that test this metric, each opening to its question. */
+function testedBy(S, m) {
+  const ts = testsOf(S).filter(r => lc(r.metric) === lc(m.name) || lc(r.metric) === lc(m.display_name));
+  if (!ts.length) return '';
+  const missed = ts.filter(r => obj(r.agent) && r.agent.right === false).length;
+  return `<div>${ts.map(r => `<button type="button" class="lnk" data-act="t" data-t="${esc(r.n)}" data-k="mt:${esc(r.n)}">Question ${esc(r.n)}</button>`).join(', ')}${missed ? ` <span class="sub">· ${missed} missed</span>` : ''}</div>`;
 }
 function draftView(S, UI, id) {
   const d = findDraft(S, id);
@@ -669,29 +681,136 @@ function queryView(S, UI, id) {
     + prow(UI, 'cols', 'Columns, tables and filters', null, pkv('table', 'Tables', pchips(q.tables, 'psc')), false)
     + '</div></div>';
 }
-/* A test question's own view: its known answer beside each pass's, then what each answered, with its SQL and, when a
-   judge decided it, why. */
+/* A test question's own view, as the dashboard's Improve tests open one: how it came out, why, then your agent's answer
+   over the known one. */
 const PASS_SAYS = {true: ['Right', 'ok'], false: ['Missed', 'warn']};
-function passCell(S, label, p) {
-  if (!obj(p)) return pcell(label, marker(txt(S.tests.state) === 'ready' ? 'Not tested yet' : 'Waiting', 'idle'), '');
-  const m = PASS_SAYS[String(p.right)];
-  return pcell(label, esc(answerOf(p) || 'No answer'), m ? marker(m[0], m[1]) : esc('Being scored'));
+/* An answer that lists every row runs to a page: its first lines, and the rest on request. */
+const ANSWER_SHOWN = 600;
+function answerText(UI, key, t) {
+  t = txt(t);
+  if (t.length <= ANSWER_SHOWN) return t ? `<p class="pdsc">${esc(t)}</p>` : '';
+  const k = 'ans:' + key, open = UI.tog.has(k), cut = t.lastIndexOf(' ', ANSWER_SHOWN);
+  return `<p class="pdsc">${esc(open ? t : t.slice(0, cut > 0 ? cut : ANSWER_SHOWN) + '…')}</p><button type="button" class="fold" data-tog="${k}" data-k="t:${k}" aria-expanded="${open}">${ic('chev', 'xs')}${esc(open ? 'Show less' : 'Show the whole answer')}</button>`;
 }
 function passBody(UI, key, p) {
   if (!obj(p)) return '';
-  return (txt(p.answer) ? `<p class="pdsc">${esc(p.answer)}</p>` : '') + (txt(p.why) ? `<div class="pnote">${esc(p.why)}</div>` : '')
+  return answerText(UI, key, p.answer) + (txt(p.why) ? `<div class="pnote">How it was graded: ${esc(p.why)}</div>` : '')
     + code(p.sql, 'sql:' + key, UI, 'the SQL');
 }
+/* A column as a reader names it: a dashboard's "sum:tickets_issued:qk" is "tickets issued". */
+function colWords(c) {
+  const m = /^(?:[a-z]+:)?([^:]+?)(?::[a-z]{2})?$/i.exec(txt(c)), w = m ? m[1] : txt(c);
+  return (/^[A-Z0-9_]+$/.test(w) ? w.toLowerCase() : w).replace(/_/g, ' ');
+}
+/* The known answer's first rows over your agent's, a cell that differs marked. Side by side, two tables of a few
+   columns each ran past a side pane and over each other (2026-11-26). */
+function rowsTable(t, other) {
+  if (!obj(t) || !arr(t.rows).length) return '<span class="sub">No rows</span>';
+  const o = obj(other) ? arr(other.rows) : [], head = arr(t.columns).length ? `<tr>${arr(t.columns).map(c => `<th>${esc(colWords(c))}</th>`).join('')}</tr>` : '';
+  return `<div class="prw"><table class="prt">${head}${arr(t.rows).map((r, i) => `<tr>${arr(r).map((v, j) => `<td${o.length && (!arr(o[i]).length || String(arr(o[i])[j]) !== String(v)) ? ' class="d"' : ''}>${esc(v == null ? '' : v)}</td>`).join('')}</tr>`).join('')}</table></div>`;
+}
+/* How this known answer did in earlier checks of the same agent, matched by its SQL, not its number or wording. */
+function earlierOf(r) {
+  const e = arr(r.earlier).filter(obj);
+  if (!e.length) return '';
+  return `<div class="tearly">${e.map(x => `<div>${x.right ? marker('Right', 'ok') : marker('Missed', 'warn')} <span class="sub">${esc(txt(x.when))}${txt(x.question) && txt(x.question) !== txt(r.question) ? ', asked as “' + esc(txt(x.question)) + '”' : ''}</span></div>`).join('')}</div>`;
+}
+/* What the check found, as one sentence first, then what moved against the check before it on the same questions:
+   the dashboard's Improve tests open the same way. */
+function testsVerdict(S) {
+  const t = S.tests, ts = testsOf(S), sc = obj(t.score) ? t.score : null;
+  if (txt(t.state) === 'running') return `<div class="tverd">${esc(t.answered)} of ${esc(t.total)} answered so far</div>`;
+  if (!obj(sc) || arr(sc.agent).length !== 2) return '';
+  const names = arr(sc.names).length === 2 && sc.names[1] ? sc.names : null;
+  const head = `<div class="tverd"><b>Your agent got ${esc(sc.agent[0])} of ${esc(sc.agent[1])} right.</b>${names ? ` <span class="sub">With column names only, ${esc(names[0])} of ${esc(names[1])}.</span>` : ''}</div>`;
+  const was = ts.filter(r => obj(r.agent) && r.agent.right != null && obj(arr(r.earlier)[0]));
+  const worse = was.filter(r => r.earlier[0].right && r.agent.right === false).length;
+  const better = was.filter(r => !r.earlier[0].right && r.agent.right === true).length;
+  const when = was.length ? txt(was[0].earlier[0].when) : '';
+  const q = c => c === 1 ? '1 question' : c + ' questions';
+  const moved = !was.length ? null : worse && better ? [`${q(better)} got better and ${q(worse)} got worse since the check on ${when}.`, 'warn']
+    : worse ? [`${q(worse)} got worse since the check on ${when}, and none got better.`, 'warn']
+    : better ? [`${q(better)} got better since the check on ${when}, and none got worse.`, 'ok'] : [`Nothing moved since the check on ${when}.`, ''];
+  return head + (moved ? `<div class="tcmp ${moved[1]}">${esc(moved[0])}</div>` : '')
+    + (t.changed_after ? '<div class="tcmp warn">Your agent’s metrics changed after this check. Test again to see how it does now.</div>' : '');
+}
+const causeOfRow = r => obj(r.agent) && obj(r.agent.cause) && txt(r.agent.cause.shown) || 'No reason recorded';
+/* The misses by what caused them, each a filter: what to fix comes before which question. */
+function missesBy(S, UI) {
+  const ms = testsOf(S).filter(r => obj(r.agent) && r.agent.right === false);
+  if (!ms.length) return '';
+  const by = {};
+  ms.forEach(r => { (by[causeOfRow(r)] = by[causeOfRow(r)] || []).push(r.n); });
+  const rows = Object.entries(by).sort((a, b) => b[1].length - a[1].length).map(([c, ns]) => {
+    const on = UI.tfilter === 'c:' + c;
+    return `<button type="button" class="row tg${on ? ' sel' : ''}" data-act="tflt" data-v="${on ? 'all' : 'c:' + esc(c)}" data-k="tflt:c:${esc(c)}" aria-pressed="${on}">${named(c, '', (ns.length === 1 ? 'Question ' : 'Questions ') + ns.join(', '))}<span class="v num">${esc(ns.length)}</span></button>`;
+  });
+  return `<div class="tsec">Why ${ms.length === 1 ? '1 was' : ms.length + ' were'} missed</div><div class="card lst">${rows.join('')}</div>`;
+}
+/* A question's second line: what to know about it at a glance, never its raw values. */
+function subOf(S, r) {
+  const s = tstateOf(r), was = arr(r.earlier).find(obj);
+  if (s === 'missed') return causeOfRow(r) + (was && was.right ? ` · right on ${was.when}` : '');
+  if (s === 'right') return (txt(r.metric) ? 'Tests ' + txt(r.metric) : 'Matches the known answer') + (was && !was.right ? ` · missed on ${was.when}` : '');
+  if (s === 'answered') return 'Answered, being scored';
+  return txt(S.tests.state) === 'ready' ? (txt(r.known) ? 'Known answer: ' + txt(r.known) : 'Known answer worked out when tested') : 'Waiting for your agent’s answer';
+}
+const TORDER = {missed: 0, answered: 1, wait: 2, right: 3};
+function testsList(S, UI) {
+  const ts = testsOf(S);
+  if (!ts.length) return [0, ''];
+  const scored = ts.some(r => obj(r.agent) && r.agent.right != null), f = UI.tfilter || 'all';
+  const keep = r => f === 'all' || (f.startsWith('c:') ? obj(r.agent) && r.agent.right === false && causeOfRow(r) === f.slice(2) : tstateOf(r) === f);
+  const counts = {right: 0, missed: 0};
+  ts.forEach(r => { const s = tstateOf(r); if (s in counts) counts[s] += 1; });
+  const tabs = scored ? pills('tflt', 'Show', [['all', 'All', ts.length], ['missed', 'Missed', counts.missed], ['right', 'Right', counts.right]], f.startsWith('c:') ? '' : f) : '';
+  const rows = ts.slice().sort((a, b) => TORDER[tstateOf(a)] - TORDER[tstateOf(b)] || a.n - b.n).filter(keep).map(r =>
+    `<button type="button" class="row tr${String(UI.test) === String(r.n) ? ' sel' : ''}" data-act="t" data-t="${esc(r.n)}" data-k="t:${esc(r.n)}" data-f="t:${esc(r.n)}" data-s="${tstateOf(r)}">`
+    + `<span class="tn num">${esc(r.n)}</span>${named(r.question, '', subOf(S, r), 'cl2')}${tbadge(S, r)}</button>`);
+  const head = `<div class="tsec">${scored && f === 'all' ? 'Questions, missed first' : f.startsWith('c:') ? f.slice(2) : 'Questions'}</div>`;
+  const foot = `<div class="lgd">${esc(ts.length)} questions, each answered from a clean start: once with your agent’s metrics and once with column names only. Each known answer comes from your dashboard or a past query.</div>`;
+  return [ts.length, testsVerdict(S) + missesBy(S, UI) + head + tabs + `<div class="lst">${rows.join('')}</div>` + foot];
+}
+/* How a question came out, as the first line of its view. */
+function outcomeOf(r) {
+  const a = r.agent, was = arr(r.earlier).find(obj);
+  const earlier = was ? ` It was ${was.right ? 'right' : 'missed'} in the check on ${was.when}.` : '';
+  if (!obj(a)) return ['Not answered yet.', ''];
+  if (a.right === false) return ['Missed' + (obj(a.cause) && txt(a.cause.shown) ? ': ' + lc(txt(a.cause.shown)) : '') + '.' + earlier, 'warn'];
+  if (a.right === true) return ['Right: it matches the known answer.' + earlier, 'ok'];
+  return ['Answered, being scored.', ''];
+}
+const andList = xs => xs.length > 1 ? xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1] : xs.join('');
+/* The metric a question tests is the one source of what it should use. What the agent drew on is its own report, so it
+   sits under its answer; "Tests Gross Sales" beside "Your agent used Gross Sales, a saved query" read as two sources
+   that disagreed (2026-11-27). A miss that left the tested metric out says so, the likeliest cause. */
 function testView(S, UI, n) {
   const r = findTest(S, n);
   if (!r) return `<div class="card empty">${ic('query', 's')}<span>This question is no longer in the check.</span></div>`;
   const from = r.from === 'tile' ? 'From a dashboard tile' : r.from === 'query' ? 'From a past query' : r.from === 'set' ? 'From your set' : '';
+  const a = obj(r.agent) ? r.agent : null, [said, tone] = outcomeOf(r);
+  const used = a ? arr(a.used).map(txt).filter(Boolean) : [];
+  const without = a && a.right === false && used.length && txt(r.metric) && !used.some(u => lc(u) === lc(r.metric));
+  const why = a && (obj(a.cause) && txt(a.cause.detail) || txt(a.why) || without)
+    ? (obj(a.cause) && txt(a.cause.detail) ? `<p class="pdsc">${esc(a.cause.detail)}</p>` : '')
+      + (without ? `<div class="pnote">It answered from ${esc(andList(used))}, not from ${esc(r.metric)}.</div>` : '')
+      + (txt(a.why) ? `<div class="pnote">How it was graded: ${esc(a.why)}</div>` : '') : '';
+  const mine = a ? (answerOf(a) ? `<div class="tval">${esc(answerOf(a))}</div>` : '') + (obj(a.rows) ? rowsTable(a.rows, r.known_rows) : '')
+    + answerText(UI, 'a' + r.n, a.answer) + (used.length && !without ? `<div class="pnote">What it drew on: ${esc(andList(used))}.</div>` : '')
+    + code(a.sql, 'sql:a' + r.n, UI, 'the SQL') : '';
+  const known = (txt(r.known) ? `<div class="tval">${esc(r.known)}</div>` : '') + (obj(r.known_rows) ? rowsTable(r.known_rows) : '');
+  const names = obj(r.names) ? `<div class="tval">${PASS_SAYS[String(r.names.right)] ? marker(...PASS_SAYS[String(r.names.right)]) : ''} ${esc(answerOf(r.names) || 'No answer')}</div>` + passBody(UI, 'n' + r.n, r.names) : '';
   return `<div class="prof">${crumb('Test questions', 'Question ' + r.n)}<h1 class="ptitle">${esc(r.question)}</h1>`
-    + pmeta(S, ['Question ' + r.n, txt(r.metric) ? 'Tests ' + txt(r.metric) : '', from])
-    + pstrip([pcell('Known answer', esc(txt(r.known) || 'Worked out when tested'), ''), passCell(S, 'Your agent', r.agent), passCell(S, 'Column names only', r.names)])
-    + '<div class="xpl">A test question has a known answer. Your agent answers it from a clean start, and its result is compared with the known answer. So does an agent that sees only column names, to show what your agent adds.</div>'
-    + `<div class="ppanel">${prow(UI, 'tagent', 'Your agent’s answer', null, passBody(UI, 'a' + r.n, r.agent))}${prow(UI, 'tnames', 'With column names only', null, passBody(UI, 'n' + r.n, r.names), false)}</div></div>`;
+    + pmeta(S, ['Question ' + r.n, from])
+    + (txt(r.metric) ? `<div class="tcause">Tests <button type="button" class="lnk" data-act="m" data-m="${esc(r.metric)}" data-k="tm:${esc(r.n)}">${esc(r.metric)}</button></div>` : '')
+    + `<div class="tout ${tone}">${esc(said)}</div>`
+    + `<div class="ppanel">${prow(UI, 'twhy', a && a.right === false ? 'Why it was missed' : 'How it was checked', null, why)}`
+    + prow(UI, 'tagent', 'Your agent’s answer', null, mine)
+    + prow(UI, 'tknown', 'The known answer', null, known)
+    + prow(UI, 'tnames', 'With column names only', null, names, false)
+    + prow(UI, 'tearly', 'Earlier checks', arr(r.earlier).length || null, earlierOf(r), false) + '</div></div>';
 }
+
 function detailOf(S, UI) {
   if (UI.metric) return metricView(S, UI, UI.metric);
   if (UI.draft) return draftView(S, UI, UI.draft);
@@ -733,6 +852,8 @@ function readHash() {
   UI.query = p.get('q') || null;
   UI.draft = p.get('d') || null;
   UI.test = p.get('t') || null;
+  const l = p.get('l');
+  if (l === 'tests' || l === 'metrics' || l === 'queries') UI.list = l;
 }
 function writeHash() {
   const p = new URLSearchParams();
@@ -740,6 +861,7 @@ function writeHash() {
   if (UI.query) p.set('q', UI.query);
   if (UI.draft) p.set('d', UI.draft);
   if (UI.test) p.set('t', UI.test);
+  if (UI.list) p.set('l', UI.list);
   const want = p.toString() ? '#' + p.toString() : '';
   if (location.hash === want) return;
   try { history.replaceState(null, '', location.pathname + location.search + want); } catch (e) { /* the address is a convenience */ }
@@ -934,7 +1056,7 @@ document.addEventListener('click', e => {
     UI.tfilter = a.dataset.v === 'all' ? null : a.dataset.v;
     paint();
   } else if (act === 't') {
-    UI.test = a.dataset.t; UI.metric = null; UI.query = null; UI.draft = null; UI.from = null;
+    UI.test = a.dataset.t; UI.list = 'tests'; UI.metric = null; UI.query = null; UI.draft = null; UI.from = null;
     paint();
     if (!UI.wide) window.scrollTo(0, 0);
     else { const wr = app.querySelector('.wr'); if (wr) wr.scrollTop = 0; }

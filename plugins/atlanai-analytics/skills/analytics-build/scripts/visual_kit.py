@@ -220,3 +220,8 @@ def card(body, summary):
     """A mini card with only the tokens its rules and markup use."""
     names = sorted({t for t in re.findall(r'var\(--(\w\w)\)', CARD + body) if t in TOKENS})
     return '<style>%s%s</style><div class="a mc" role="group" aria-label="%s">%s</div>' % (themes(names), CARD, e(summary), body)
+
+
+def with_welcome(welcome, moment):
+    """Keep the welcome above the moment inside one widget."""
+    return '<style>.aw{display:grid;gap:8px}</style><div class="aw"><div>%s</div>%s</div>' % (welcome, moment)

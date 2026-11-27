@@ -282,6 +282,10 @@ class RunFacts:
         return self.file('run.json')
 
     @cached_property
+    def metrics_only(self):
+        return not (self.dir / 'run.json').is_file() and self.file('state.json').get('mode') == 'metrics'
+
+    @cached_property
     def interaction(self):
         return self.file('interaction.json')
 

@@ -551,7 +551,9 @@ class CardGuides(unittest.TestCase):
     def test_the_ask_skill_puts_the_answer_on_the_query_that_answers(self):
         ask = self.text('analytics-ask/SKILL.md')
         self.assertIn('"answer": {"question":', ask)
-        self.assertIn('PROJECT visual answer --input -', ask, 'a warehouse answer: one call after the result')
+        # A warehouse plan's result names its one call after the rows (test_route_moments); with no run, the skill names it.
+        self.assertIn("a warehouse plan's `next` names the follow-up", ask)
+        self.assertIn('visual answer --input -', ask, 'an answer with no run here: one call after the result')
         self.assertNotIn('record its `answer` moment', ask)
 
     def test_a_run_on_this_machine_is_queried_only_through_the_helper(self):
@@ -642,9 +644,34 @@ class WholeResults(unittest.TestCase):
     """Validation run H, 2026-11-25: the session ran the checks through a script of its own that printed only the task
     list, and read the build's result through another that kept only the card: the checks chip and the links chip were
     handed over and never seen."""
+    def test_each_direct_route_keeps_its_own_working_notes_out_of_the_chat(self):
+        # Probes on the direct routes (2026-11-26): "Kept locally. Let me find the gross sales metric.", "Now the m2 gate",
+        # "Showing the answer card now". The conventions said so, 137 lines in; the skills' own opening is read first.
+        skills = SCRIPTS.parent.parent
+        for name in ('analytics-ask/SKILL.md', 'metrics-generation/SKILL.md', 'accuracy-check/SKILL.md', 'eval-generation/SKILL.md'):
+            text = ' '.join((skills / name).read_text().split())
+            self.assertIn('Between calls, write nothing of your own', text, name)
+
+    def test_the_engine_says_data_where_it_means_a_local_file_too(self):
+        # A rule change on a local SQLite run said the new rule "ran on the warehouse": the grade's reason says so for
+        # every source, and an internal stage name rode along (2026-11-27).
+        policy = (SCRIPTS.parent.parent / 'metrics-generation/modules/metrics/engine/src/metrics_agent/data/agent_policy.yml').read_text()
+        wording = policy.split('  wording:', 1)[1].split('\n\n', 1)[0]
+        self.assertNotIn('warehouse', wording)
+        self.assertNotIn('A4', wording)
+
+    def test_metrics_generation_checks_a_setup_run_with_the_setups_own_checks(self):
+        # Run directly, metrics generation tested each metric with a script of its own: no check was recorded, and the
+        # links chip, the build card and the checks chip never came (2026-11-26).
+        text = ' '.join((SCRIPTS.parent.parent / 'metrics-generation/references/metrics.md').read_text().split())
+        self.assertIn('`PROJECT check-all` on local data', text)
+        self.assertIn('a script of your own records nothing and shows none of them', text)
+
     def test_the_build_guides_say_to_read_each_helper_result_whole(self):
         skills = SCRIPTS.parent.parent
-        for name in ('analytics-build/SKILL.md', 'analytics-demo/SKILL.md'):
+        # Metrics generation run directly answered its own engine gates and drew 1 of 4 handed-over chips: its skill
+        # was the only one without the rule (2026-11-26).
+        for name in ('analytics-build/SKILL.md', 'analytics-demo/SKILL.md', 'metrics-generation/SKILL.md'):
             text = ' '.join((skills / name).read_text().split())
             self.assertIn('Run each helper command on its own and read all it returns: a script or filter of yours drops its chip.',
                           text, name)

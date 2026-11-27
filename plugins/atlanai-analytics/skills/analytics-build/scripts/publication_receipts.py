@@ -10,7 +10,7 @@ from pathlib import Path
 import stat
 
 import context_contracts
-from project import Project
+from project import Project, _saved_card
 from retrieval import releases
 
 MAX_BYTES = 256 * 1024
@@ -171,7 +171,7 @@ def assemble(run_dir, receipt_dir, workspace, finalize=False):
             {'id': a['id'], 'kind': a['kind'], 'name': a['name'], 'source_id': a['source_id'],
              'release_id': a['release']['release_id'], 'version_id': a['release']['version_id']}
             for a in artifacts.values()])
-        result.update(recorded=True, artifacts=len(receipt['artifacts']))
+        result.update(recorded=True, artifacts=len(receipt['artifacts']), **_saved_card(run, payload))
     return result
 
 
