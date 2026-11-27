@@ -71,13 +71,21 @@ that they can pick one and carry on.
 
 | Option label | Description | When to offer it |
 | --- | --- | --- |
-| `<Product>` | "Connected and ready to use." Add how only when two connections share a product: "Connected and ready to use, through the Snowflake CLI." | One per connection that works. List these first. With exactly one, its label is `<Product> (Recommended)` |
+| `<Product>` | "Connected and ready to use." | One per connection that works. List these first. With exactly one, its label is `<Product> (Recommended)` |
 | `<Product>` (needs sign-in) | "Set up here. You'll sign in once before I start." | One per connection that is configured and did not answer |
 | Another warehouse? | "Tell me which, and I'll help you connect it." | Always, as one option, never one option per product |
 | No warehouse | "Build from a dashboard file alone, or try the demo." | Always, last |
 
 Say each status in those words: "Connected and ready to use." in the description, "(needs
 sign-in)" in the label. Never "it answered a check", "detected", "found" or a tool's name.
+
+Every label is unique from the first ask: the question is rejected when two match. When two
+connections share a product, add the name the person knows each by, in brackets after the
+product: a connector's own display name as the host lists it, `Snowflake CLI` or
+`Databricks CLI` for a CLI (or its connection name when there are several), and `through Atlan`
+for one reached through Atlan, such as `Snowflake (Sales)` and `Snowflake (Snowflake CLI)`.
+Never "this app", "this harness", "host" or a tool's name. A status follows the name:
+`Snowflake (Sales) (needs sign-in)`.
 
 ### What should I build your agent from?
 

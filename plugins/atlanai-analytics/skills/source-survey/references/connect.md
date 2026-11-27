@@ -16,8 +16,9 @@ recorded interpreter. The local executor is a connection and takes precedence ov
 discovery. Rebind if its schema changed; never silently select another database or server.
 
 If `state.json` has `warehouse.tool`, run that warehouse's check statement once. If it works,
-say "<Kind> is connected through <route>.", where the route is Atlan (`via` `atlan`), this app
-(`host`) or the <kind> CLI (`cli`), and return. If it fails, continue at step 1.
+say "<Kind> is connected through <route>.", where the route is Atlan (`via` `atlan`), the
+connector's own display name (`host`, such as "your Sales connector") or the <kind> CLI (`cli`),
+and return. If it fails, continue at step 1.
 
 A setup run does not require DuckDB. `PROJECT answer` reads this same warehouse record and
 returns a validated plan with `execute_in_host`. Use its SQL and separate native bindings
