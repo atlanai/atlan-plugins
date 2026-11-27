@@ -1951,14 +1951,57 @@ def _date_formula(kind: str, part: str, field: str) -> str:
     return f"DATEPART('{part}', [{field}])"
 
 
+# Tableau writes a paragraph break in formatted text as its own run holding this character
+# and a newline ("Æ\n"). It is markup, never text the author wrote.
+_PARAGRAPH_RUN = "Æ"
+# The tokens Tableau's title editor inserts (Insert > Sheet Name, Workbook Name). Tableau
+# Desktop gives every new title `<Sheet Name>`, and on a dashboard the same token shows the
+# dashboard's name. Field and parameter tokens (`<[ds].[field]>`) show data and stay as written.
+_SHEET_NAME = re.compile(r"<\s*sheet name\s*>", re.IGNORECASE)
+_WORKBOOK_NAME = re.compile(r"<\s*workbook name\s*>", re.IGNORECASE)
+
+
+def _paragraphs_of(node: ET.Element | None) -> list[str]:
+    """A formatted-text block's paragraphs, each its runs joined, the break runs dropped."""
+    if node is None:
+        return []
+    paras: list[list[str]] = [[]]
+    for r in node.findall(".//run"):
+        text = (r.text or "").strip()
+        if text == _PARAGRAPH_RUN:
+            paras.append([])
+        elif text:
+            paras[-1].append(text)
+    out = [" ".join(p) for p in paras if p]
+    if not out and node.text and node.text.strip():
+        out = [node.text.strip()]
+    return out
+
+
 def _text_of(node: ET.Element | None) -> str | None:
     """Concatenate a Tableau formatted-text block. Titles, tooltips and captions all use it."""
-    if node is None:
-        return None
-    runs = [r.text.strip() for r in node.findall(".//run") if r.text and r.text.strip()]
-    if not runs and node.text and node.text.strip():
-        runs = [node.text.strip()]
-    return " ".join(runs) or None
+    return " ".join(_paragraphs_of(node)) or None
+
+
+def _resolve_title_tokens(text: str, sheet: str, workbook: str | None = None) -> str:
+    """The text Tableau shows for a title: its sheet and workbook tokens replaced by the names."""
+    text = _SHEET_NAME.sub(lambda _m: sheet, text)
+    if workbook:
+        text = _WORKBOOK_NAME.sub(lambda _m: workbook, text)
+    return " ".join(text.split())
+
+
+def _title_of(el: ET.Element, name: str, workbook: str | None = None) -> str:
+    """A worksheet's or dashboard's own title as Tableau shows it, or its name when it has none.
+
+    The title is `layout-options/title`, the element's own: a `.//title` search also reaches
+    axis titles on a worksheet and the titles of the sheets placed on a dashboard. Only the
+    first paragraph is the title; Tableau shows the rest beneath it, as a subtitle.
+    """
+    own = el.find("./layout-options/title")
+    paras = _paragraphs_of(own if own is not None else el.find("./title"))
+    title = _resolve_title_tokens(paras[0], name, workbook) if paras else ""
+    return title or name
 
 
 def _number_format(ws: ET.Element, col_index: dict[str, dict]) -> str | None:
@@ -2020,7 +2063,7 @@ def _conditional_formatting(ws: ET.Element) -> list[dict]:
     return out
 
 
-def _dashboards_of(root: ET.Element) -> dict[str, list[dict]]:
+def _dashboards_of(root: ET.Element, workbook: str | None = None) -> dict[str, list[dict]]:
     """Which dashboards each worksheet appears on. Zones reference sheets by name.
 
     This is the container envelope's backbone — and `n_dashboards` is the BI lane's ranking
@@ -2029,8 +2072,7 @@ def _dashboards_of(root: ET.Element) -> dict[str, list[dict]]:
     out: dict[str, list[dict]] = {}
     for i, dash in enumerate(root.findall("./dashboards/dashboard")):
         dname = dash.get("name") or f"dashboard-{i}"
-        title_el = dash.find(".//title//run")
-        dtitle = (title_el.text if title_el is not None else "") or dname
+        dtitle = _title_of(dash, dname, workbook)
         for pos, zone in enumerate(dash.findall(".//zone")):
             sheet = zone.get("name")
             if sheet:
@@ -2055,19 +2097,25 @@ def _asset(role: str, name: str | None, el: ET.Element | None = None) -> dict[st
             "catalog_id": None, "catalog_qualified_name": None}
 
 
-def _dashboard_prose(root: ET.Element) -> dict[str, list[str]]:
+def _dashboard_prose(root: ET.Element, workbook: str | None = None) -> dict[str, list[str]]:
     """Author-written text on each dashboard — text zones, titles, captions.
 
     This is where an author most often writes down, in plain English, what the dashboard is
     for. It is PROSE: it may ground a naming claim at C3 and can never authorise a filter.
+    Paragraph-break runs are markup and are dropped, title tokens read as Tableau shows them,
+    and a text repeated (the same title kept for each device layout) is kept once.
     """
     out: dict[str, list[str]] = {}
     for i, dash in enumerate(root.findall("./dashboards/dashboard")):
         dname = dash.get("name") or f"dashboard-{i}"
         texts: list[str] = []
         for run in dash.findall(".//run"):
-            if run.text and run.text.strip():
-                texts.append(run.text.strip())
+            text = (run.text or "").strip()
+            if not text or text == _PARAGRAPH_RUN:
+                continue
+            text = _resolve_title_tokens(text, dname, workbook)
+            if text and text not in texts:
+                texts.append(text)
         out[dname] = texts
     return out
 
@@ -2686,8 +2734,12 @@ def parse(path: pathlib.Path, *, dialect: str = "") -> dict[str, Any]:
     model_name = (path.name[:-len(PULSE_SUFFIX)] if _is_pulse(path) else path.stem)
 
     wb_root = next((r for name, r in roots if name.lower().endswith(".twb")), roots[0][1])
-    dash_of = _dashboards_of(wb_root)
-    prose_of = _dashboard_prose(wb_root)
+    # What `<Workbook Name>` shows: the name Tableau Server keeps for the workbook, since a
+    # staged download's file name is a content key rather than the workbook's own name.
+    wb_repo = wb_root.find("./repository-location")
+    wb_name = (wb_repo.get("id") if wb_repo is not None else None) or model_name
+    dash_of = _dashboards_of(wb_root, wb_name)
+    prose_of = _dashboard_prose(wb_root, wb_name)
     dash_el = {d.get("name"): d for d in wb_root.findall("./dashboards/dashboard")}
     assets: list[dict] = []
     if wb_root.tag == "workbook":
@@ -3127,8 +3179,7 @@ def parse(path: pathlib.Path, *, dialect: str = "") -> dict[str, Any]:
                                    (ends[1][0], ends[1][1].strip("[]"))))
     for ws in wb_root.findall("./worksheets/worksheet"):
         wname = ws.get("name") or "worksheet"
-        title_el = ws.find(".//title//run")
-        title = (title_el.text if title_el is not None else "") or wname
+        title = _title_of(ws, wname, wb_name)
 
         ws_measures: list[str] = []
         ws_cols: list[str] = []
