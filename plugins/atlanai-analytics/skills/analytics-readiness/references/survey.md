@@ -12,11 +12,13 @@ read-only SQL and status reporting apply. `PROJECT` means
 in Claude Code). Pass separate argv entries; zsh does not split a scalar holding a command.
 
 `READY` means `python3 "<skill-dir>/scripts/readiness.py" --workspace "<working-directory>"`, where
-`<skill-dir>` is this skill's folder. It is the script the readiness check runs, so the warehouse
-CLI listing, the test of whether a dashboard's data is inside its file and the readiness result
-exist once, for both flows. Its `connections`, `dashboard` and `handoff` commands each print one
-line of JSON and write nothing. Only these steps pass `--names`, which adds a connection's real
-name beside its label: the run records that name and the CLI runs with it.
+`<skill-dir>` is this skill's folder. It is the script the readiness check runs, so these checks
+exist once. Only the steps that name a command run it: `connections` and `connect` run
+`READY connections`, and `discover`, `access` and `buildable` run `READY dashboard` on a dashboard
+file. Each prints one line of JSON and writes nothing. A survey a person asked for checks no
+warehouse connection: whether the numbers run is a separate step, and the reply says so. Only the
+steps pass `--names`, which adds a connection's real name beside its label: the run records that
+name and the CLI runs with it.
 
 ## Who is calling
 
@@ -31,6 +33,9 @@ name beside its label: the run records that name and the CLI runs with it.
 ## Steps run from here
 
 ### `inventory`
+
+A person asking what a folder, file or dashboard holds gets this step. Its procedure is
+[inspect and scope](inspect-scope.md) section 1: read it first. The two lines below are its outline.
 
 1. Resolve the run with `PROJECT location --workspace "<working-directory>"`, unless a run
    directory was supplied. The resolver creates nothing.

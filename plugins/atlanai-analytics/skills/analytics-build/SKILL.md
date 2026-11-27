@@ -39,8 +39,8 @@ concrete plan. Respect explicit draft or review requests.
 3. **The go-ahead.** Picking a use case, or naming tables that all read, starts the build, with
    one line of what it builds and any choices made. A table that can't be read is asked about first.
 
-A question the request or a readiness check answers is not asked. Before card 1, look silently
-at what is connected (`analytics-readiness` `connections`, `READY handoff`) and at BI file names
+A question the request already answers is not asked. Before card 1, look silently at what is
+already connected (`analytics-readiness` `connections`) and at BI file names in the working folder
 (`PROJECT discover`). Say nothing about that look or where the options came from (at most
 "Getting set up.", once), and read no data before the answers. The person's first sight is the card, whose own text is the
 opening:
