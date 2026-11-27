@@ -271,6 +271,11 @@ tool's routes as the options:
 
 A sign-in that fails or is cancelled falls back to that same question, once.
 
+A Tableau workbook that downloads but reads a published data source that will not is not a
+failure: locate that data source from its lineage page, as
+[the dashboard routes](../../../metrics-generation/references/dashboard-agent.md) say, and carry on.
+Ask only when that fails too, naming what is missing rather than the person's account.
+
 ### When something still cannot be read
 
 Ask one question that names it and offers the ways forward:
