@@ -222,6 +222,7 @@ def cmd_result(a) -> dict:
            "source": SOURCE if a.generated else ""}
     if len(runs) > 1:
         out["lines"] = {**out["lines"], "fixed": f"Up from {first['pct']}% before the fix."}
+    out.update({k: compared[k] for k in ("show_first", "visual") if k in compared})
     if a.widget:
         out["widget"] = compared.get("widget") or ""
     return out

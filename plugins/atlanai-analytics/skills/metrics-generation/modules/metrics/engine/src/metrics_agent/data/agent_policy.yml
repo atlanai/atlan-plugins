@@ -316,9 +316,9 @@ quality:
   max_reason_chars: 400
   # The sentence each grade's reason starts with.
   wording:
-    compiled_exact: "The SQL is a complete translation that names no difference from the BI tool's formula; A4 checks it against the warehouse."
-    exact: "The SQL is a complete translation that names no difference from the BI tool's formula, and the warehouse accepted it."
+    compiled_exact: "The SQL is a complete translation that names no difference from the BI tool's formula; it is run on the data next."
+    exact: "The SQL is a complete translation that names no difference from the BI tool's formula, and it ran on the data."
     equivalent_with_gotcha: "The SQL computes the same number under a condition it names."
     approximate: "The SQL leaves out part of the formula, by name: the number can differ."
-    unverified: "The SQL was not checked by the warehouse."
+    unverified: "The SQL was not run on the data."
     refused: "No SQL: the compiler refused the widget, by name."

@@ -1,6 +1,6 @@
 ---
 name: accuracy-check
-description: "Atlan Analytics: test your agent on an eval set, a list of questions with known answers, score it and explain each wrong answer. Use when asked to test or score accuracy. Not for writing evals (eval-generation)."
+description: "Atlan Analytics: test your agent on an eval set, a list of questions with known answers, score it and explain each wrong answer. Use when asked to test or score accuracy, or to show a question of a check. Not for writing evals (eval-generation)."
 ---
 
 # Run and score an eval set
@@ -34,13 +34,15 @@ command as separate argv entries; zsh does not split a string holding one.
 ## Run a set
 
 A helper result with `show_first` carries a chip or card the run has reached: show it before
-any other words or call.
+any other words or call. Between calls, write nothing of your own: no working notes, no line about a card before or after it,
+and never a file path or a step's, gate's or helper's own name.
 
 1. **Find the run.** `CHECK start --project <project>` returns the built run, `context_saved_to`
    (where the context lives; `null` means this machine only), `execution` (where its SQL runs)
    and the project's sets, and `before_after`, always true. A caller that knows the run passes
    `--run <run-dir>` here and to `load`. With several built runs and none named, the reply lists
-   them: ask which one once.
+   them: ask which one once. With `next` `load`, the only set is the one written for this agent:
+   load the file `load` names, with no question.
    With no set in the project, or the person asking for new questions, generate one: run
    `eval-generation` `generate` with its default of 20 questions, then load the set it wrote. A
    caller that wants another size passes `--questions <n>` here and `--limit <n>` to its
@@ -60,7 +62,8 @@ any other words or call.
    demo's [generated questions](../analytics-demo/references/accuracy.md#2-generated-questions-show-them-then-ask-to-run-them)
    step words it. The questions never go in the question's text. `CHECK edit` rewords a question
    and `CHECK drop` takes questions out. This holds when a person calls this skill directly too.
-   A set the person brought and picked runs as it is.
+   When `CHECK load` (or `CHECK gold`) returns `run_now` true, the side page lists the questions:
+   show its chip and run them, with no question. A set the person brought and picked runs as it is.
 4. **Run and score it** as [run it](references/run.md#run-it) describes, with the raw-source
    pass of [before and after](references/run.md#before-and-after) on every check, started with
    the context pass, whatever the size of the set and whoever started the check,

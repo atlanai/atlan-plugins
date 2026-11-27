@@ -123,7 +123,12 @@ and reconciled, but generation or changes require a new engine run from their so
    items that passed. After three rounds, hold what is still refused and report it: "<N>
    metrics still failed Atlan's format check after three tries, so I held them back: <names>.
    To fix one, tell me here and I'll rebuild it."
-4. **Test against the warehouse** when a query tool is recorded. For each metric, run one read
+4. **In a setup run** (its folder has `run.json`, as `PROJECT location` makes one), test with the
+   setup's own checks, as [build and check](../../analytics-build/references/setup/build-check.md#4-check-the-actual-revisions)
+   section 4 says: `PROJECT check-all` on local data, `check-metric` and `check-query` on a
+   warehouse. They record each result and hand over the build's last chips and its card; a
+   script of your own records nothing and shows none of them.
+   Otherwise, **test against the warehouse** when a query tool is recorded. For each metric, run one read
    with the parameters at their defaults:
    `SELECT <formula> AS value FROM <source.table or source.sql> WHERE <mandatory filters>`.
    Record the outcome as `extensions.atlan_analytics.check`: `ok`, `failed` with the

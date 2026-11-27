@@ -190,8 +190,11 @@ def shown_beside(result: dict, known: dict) -> str:
     nearest to it, as the comparison finds the value among extra columns; otherwise the result as `expected` reads it."""
     rows, gold = result.get("rows") or [], known.get("rows") or []
     target = _number(gold[0][0]) if len(gold) == 1 and len(gold[0]) == 1 else None
-    near = [(abs(n - target), v) for v in (rows[0] if len(rows) == 1 else []) for n in [_number(v)] if n is not None] \
-        if target is not None else []
+    near = [(min(abs(n - target), abs(n / 100 - target) if abs(target) <= 1 else abs(n - target)), v)
+            for v in (rows[0] if len(rows) == 1 else []) for n in [_number(v)] if n is not None] if target is not None else []
+    # Only a cell near the known value stands for the answer, a share written as a percent included: the nearest, however
+    # far, showed a ticket count beside a known 81.5% (2026-11-26).
+    near = [x for x in near if x[0] <= 0.5 * max(abs(target), 1e-9)]
     return cell(min(near, key=lambda x: x[0])[1]) if near else expected(result)
 
 
@@ -221,8 +224,43 @@ def written_folder(run: pathlib.Path):
 
 
 def questions_folder(run: pathlib.Path):
-    """The folder whose questions the side page lists: the newest check, else a set written but not tested yet."""
-    return check_folder(run) or written_folder(run)
+    """The folder whose questions the side page lists: the newest check, unless a set was written after it and not
+    tested yet. Written after a check, a new set showed as the old check's questions (2026-11-26)."""
+    checked, written = check_folder(run), written_folder(run)
+    if not (checked and written):
+        return checked or written
+    try:
+        newer = (written / "work" / "spec.json").stat().st_mtime > (checked / "work" / "spec.json").stat().st_mtime
+    except OSError:
+        return checked
+    return written if newer else checked
+
+
+def set_key(file, rows):
+    """Two files may hold the same questions, and a file may be rewritten between checks."""
+    from context_state import digest
+    return digest([str(pathlib.Path(file).resolve()), rows])
+
+
+def question_counts(name, origins):
+    if not origins:
+        return {}
+    origins = [str(origin or "") for origin in origins]
+    return {"questions": len(origins), "tiles": origins.count("dashboard tile"),
+            "queries": sum(o.startswith("past query") for o in origins),
+            **({"set": name} if name and all(o.startswith("eval set") for o in origins) else {})}
+
+
+def questions_chip(ev):
+    """The questions actually emitted or loaded for this check, including the identity recorded with their chip."""
+    if ev.parent.name == "gen":
+        emitted = (load(ev / "scope.json", {}) or {}).get("emitted")
+        if emitted:
+            return emitted
+    spec = load(ev / "work" / "spec.json", {}) or {}
+    picked = {s.get("id"): s.get("from") or "" for s in load(ev / "work" / "selection.json", []) or [] if isinstance(s, dict)}
+    counts = question_counts(spec.get("name"), [picked.get(r["id"], "") for r in spec.get("records") or []])
+    return {**counts, "set_key": spec.get("set_key") or str(ev.resolve())} if counts else {}
 
 
 def others(run: pathlib.Path) -> list:
@@ -249,12 +287,17 @@ def others(run: pathlib.Path) -> list:
 def run_of(ev: pathlib.Path):
     """The built run a check belongs to, or None."""
     ev = pathlib.Path(ev)
-    # A check is <project>/.atlan-analytics/evals/<run name>.
-    return next((r for r in built_runs(ev.parents[2]) if check_folder(r) == ev), None)
+    # A check is <project>/.atlan-analytics/evals/<run name>, or -2, -3 for a later one: an earlier check still
+    # belongs to its run, for the questions it shares with the newest.
+    if len(ev.parents) < 3 or ev.parent != layout.root(ev.parents[2]) / layout.EVALS or not (ev / "work" / "spec.json").is_file():
+        return None
+    matches = [r for r in built_runs(ev.parents[2]) if re.fullmatch(re.escape(r.name) + r"(-\d+)?", ev.name)]
+    return matches[0] if len(matches) == 1 else None
 
 
-def _pass(vd: pathlib.Path, case: str, marks: dict, reasons: dict, known: dict):
-    """What one pass did with one question: its answer as soon as the answer lands, its mark once it is scored."""
+def _pass(vd: pathlib.Path, case: str, marks: dict, reasons: dict, known: dict, said_by: dict = None, names: dict = None):
+    """What one pass did with one question: its answer as soon as the answer lands, its mark once it is scored, why a
+    miss missed in plain words (the why file the report reads), and the metrics and saved queries the answer used."""
     said = vd / "answers" / f"{case}_rep0.json"
     if not said.is_file():
         return None
@@ -263,23 +306,158 @@ def _pass(vd: pathlib.Path, case: str, marks: dict, reasons: dict, known: dict):
         answer = {"answer": said.read_text(errors="replace")[:2000]}
     result = load(vd / "agent_results" / f"{case}_rep0.json", {}) or {}
     reason = str(reasons.get(case) or "")
-    return {"value": shown_beside(result, known) if isinstance(result, dict) and result.get("rows") else None,
+    right = (marks[case] == 1) if case in marks else None
+    whys = load(vd / "why.json", {}) or {}
+    why = whys.get(case) if isinstance(whys, dict) and isinstance(whys.get(case), dict) and right is False else None
+    ids = (said_by or {}).get(case) or []
+    used = [(names or {}).get(i) for i in ids if not str(i).startswith("vq:")]
+    queries = len({i for i in ids if str(i).startswith("vq:")})
+    rows = result.get("rows") if isinstance(result, dict) and isinstance(result.get("rows"), list) else None
+    return {"value": shown_beside(result, known) if rows else None,
             "answer": str(answer.get("answer") or "").strip(), "sql": str(answer.get("sql") or "").strip(),
-            "right": (marks[case] == 1) if case in marks else None,
-            "why": reason if reason != "match" else ""}
+            "right": right, "why": reason if reason != "match" else "",
+            "cause": {"shown": WHY_SHOWN.get(str(why.get("why")), str(why.get("why") or "")),
+                      "detail": str(why.get("detail") or "")} if why else None,
+            # Metrics by name; saved queries counted, since a saved query's name is its whole question.
+            "used": [n for k, n in enumerate(used) if n and n not in used[:k]]
+            + ([("a saved query" if queries == 1 else f"{queries} saved queries")] if queries else []),
+            "rows": _first_rows(result) if rows is not None else None}
+
+
+# A miss's cause as the report shows it: the why file names it in the report's own words.
+WHY_SHOWN = {"Different rule": "Different definition", "No definition": "No metric fit", "Query failed": "Its SQL failed"}
+# The rows a question shows of each side, known and answered.
+FIRST_ROWS = 5
+
+
+def _first_rows(result: dict) -> dict:
+    cols = [c.get("name") if isinstance(c, dict) else c for c in result.get("columns") or []]
+    return {"columns": cols, "rows": [list(r) for r in (result.get("rows") or [])[:FIRST_ROWS] if isinstance(r, list)]}
+
+
+def _results(vd: pathlib.Path) -> list:
+    import analytics_eval
+    return analytics_eval.read_results(vd / "results.jsonl") if (vd / "results.jsonl").is_file() else []
 
 
 def _scored(vd: pathlib.Path):
     """Each question's mark in a pass, as the accuracy card reads them, and the reason each was graded so."""
     import analytics_eval
-    rows = analytics_eval.read_results(vd / "results.jsonl") if (vd / "results.jsonl").is_file() else []
+    rows = _results(vd)
     return analytics_eval.case_means(rows), {r["prompt_id"]: r.get("reason") for r in rows if r.get("rep") in (0, "0")}
+
+
+def _said_by(vd: pathlib.Path) -> dict:
+    """The metric and saved query ids each answer used, as its row records them."""
+    return {r["prompt_id"]: [str(i) for i in r.get("used_context_ids") or []] for r in _results(vd)}
+
+
+def _names(run) -> dict:
+    """Each metric's and saved query's name by the id an answer records."""
+    if run is None:
+        return {}
+    out = {}
+    for file in ("metrics.json", "queries.json"):
+        for b in load(pathlib.Path(run) / "context" / file, []) or []:
+            if isinstance(b, dict) and b.get("source_id"):
+                out[str(b["source_id"])] = str(b.get("display_name") or b.get("name") or "")
+    return out
+
+
+def _digest(sql: str) -> str:
+    """A known answer's SQL, the same however it is spaced or cased: a check that rewords its questions keeps it."""
+    import hashlib
+    return hashlib.sha256(" ".join(str(sql or "").lower().split()).encode()).hexdigest()[:16]
+
+
+def _gold_sql(ev: pathlib.Path) -> dict:
+    out = {}
+    try:
+        lines = (ev / "eval" / "answers.jsonl").read_text().splitlines()
+    except OSError:
+        return out
+    for line in lines:
+        try:
+            r = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(r, dict) and r.get("gold_sql"):
+            out[str(r.get("case_id"))] = str(r["gold_sql"])
+    return out
+
+
+def _context_passes(ev: pathlib.Path) -> list:
+    """The passes with the context, newest first: a test again writes v1, v2 beside the first."""
+    hill = ev / "hillclimb"
+    passes = sorted((d for d in hill.glob("*") if d.is_dir() and d.name != "raw"), key=lambda d: d.stat().st_mtime,
+                    reverse=True)
+    return passes or [hill / "baseline"]
+
+
+def _context_pass(ev: pathlib.Path) -> pathlib.Path:
+    return _context_passes(ev)[0]
+
+
+def _covers(vd: pathlib.Path, case: str) -> bool:
+    """Whether a pass tests this question: one that tested a few again names them (`EVAL todo --questions`), and leaves
+    the rest to the passes before it."""
+    only = load(vd / "questions.json")
+    return not isinstance(only, list) or case in only
+
+
+def _day(stamp) -> str:
+    import datetime
+    try:
+        t = datetime.datetime.fromisoformat(str(stamp))
+    except ValueError:
+        return ""
+    return "%d %s" % (t.day, t.strftime("%b"))
+
+
+def _earlier(ev: pathlib.Path, run) -> dict:
+    """How each known answer did in this run's earlier checks, newest first, by its SQL's digest: a check numbers and
+    words its questions afresh, and 11 then 8 of 11 on the same questions read as a regression (2026-11-26)."""
+    if run is None:
+        return {}
+    run = pathlib.Path(run)
+    project = run.parent.parent if run.parent.name in ROOTS else run.parent
+    pattern = re.compile(re.escape(run.name) + r"(-\d+)?")
+    root = layout.root(project) / layout.EVALS
+    try:
+        mine = (ev / "work" / "spec.json").stat().st_mtime
+        others = sorted((root / n for n in os.listdir(root) if pattern.fullmatch(n) and (root / n).resolve() != ev.resolve()
+                         and (root / n / "work" / "spec.json").is_file()
+                         and (root / n / "work" / "spec.json").stat().st_mtime < mine),
+                        key=lambda d: -(d / "work" / "spec.json").stat().st_mtime)
+    except OSError:
+        return {}
+    out: dict = {}
+    for other in others:
+        spec = load(other / "work" / "spec.json", {}) or {}
+        asked = {str(r.get("id")): str(r.get("question") or "") for r in spec.get("records") or [] if isinstance(r, dict)}
+        marks, _ = _scored(_context_pass(other))
+        when = _day((load(_context_pass(other) / "summary.json", {}) or {}).get("scored_at"))
+        for case, sql in _gold_sql(other).items():
+            if case in marks:
+                out.setdefault(_digest(sql), []).append({"when": when, "right": marks[case] == 1, "question": asked.get(case, "")})
+    return out
+
+
+def _changed_after(run, scored_at) -> bool:
+    """Whether the run's metrics changed after the check scored them: its marks are then for the old rules."""
+    import datetime
+    try:
+        at = datetime.datetime.fromisoformat(str(scored_at)).timestamp()
+        return run is not None and (pathlib.Path(run) / "context" / "metrics.json").stat().st_mtime > at + 60
+    except (OSError, ValueError, TypeError):
+        return False
 
 
 def questions(ev: pathlib.Path):
     """Every question of a check, numbered as every report numbers it, with the metric it tests, its known answer,
-    and what each pass has answered and scored so far: `agent` with the context, `names` with column names only.
-    The side page reads it live; `check.py show` writes its table from it. None before a set is loaded."""
+    and what each pass has answered and scored so far: `agent` with the context, `names` with column names only;
+    its score, how each question did in earlier checks, and whether the metrics changed after it. The side page reads
+    it live; `check.py show` writes its table from it. None before a set is loaded."""
     ev = pathlib.Path(ev)
     spec = load(ev / "work" / "spec.json")
     if not isinstance(spec, dict):
@@ -291,11 +469,16 @@ def questions(ev: pathlib.Path):
     if isinstance(emitted, list):
         by_id = {r.get("id"): r for r in records}
         records = [by_id[i] for i in emitted if i in by_id]
-    hill = ev / "hillclimb"
-    # The newest pass with the context: a test again writes v1, v2 beside the first.
-    passes = sorted((d for d in hill.glob("*") if d.is_dir() and d.name != "raw"), key=lambda d: d.stat().st_mtime)
-    agent, names = (passes[-1] if passes else hill / "baseline"), hill / "raw"
-    (am, ar), (nm, nr) = _scored(agent), _scored(names)
+    passes, names = _context_passes(ev), ev / "hillclimb" / "raw"
+    scored, said = {vd: _scored(vd) for vd in passes}, {vd: _said_by(vd) for vd in passes}
+    # Each question's newest pass that tests it: one tested again alone showed beside every other question waiting.
+    tested_in = {r["id"]: next((vd for vd in passes if _covers(vd, r["id"])), passes[0])
+                 for r in records}
+    nm, nr = _scored(names)
+    run = run_of(ev) if ev.parent.name != "gen" else next(
+        (r for r in built_runs(ev.parents[3]) if r.name == ev.name), None)
+    called, gold_sql, earlier = _names(run), _gold_sql(ev), _earlier(ev, run)
+    nsaid = _said_by(names)
     rows = []
     for n, r in enumerate(records, 1):
         case, where = r["id"], str((picked.get(r["id"]) or {}).get("from") or "")
@@ -307,9 +490,21 @@ def questions(ev: pathlib.Path):
                      else "set" if where.startswith("eval set") else "",
                      # Written but not yet tested: its known answer is worked out when a check loads it.
                      "known": expected(known) if gold.is_file() else "",
-                     "agent": _pass(agent, case, am, ar, known), "names": _pass(names, case, nm, nr, known)})
+                     "known_rows": _first_rows(known) if gold.is_file() and isinstance(known, dict) else None,
+                     "agent": _pass(tested_in[case], case, *scored[tested_in[case]], known, said[tested_in[case]], called),
+                     "names": _pass(names, case, nm, nr, known, nsaid, called),
+                     "earlier": earlier.get(_digest(gold_sql[case]), []) if case in gold_sql else []})
     answered = sum(1 for r in rows if r["agent"])
     # Scored once every question has its row in each pass that ran, a row that counts for nothing included.
-    done = bool(rows) and all(r["id"] in ar for r in rows) and (not names.is_dir() or all(r["id"] in nr for r in rows))
+    done = bool(rows) and all(r["id"] in scored[tested_in[r["id"]]][1] for r in rows) and (
+        not names.is_dir() or all(r["id"] in nr for r in rows))
+    ar = {k: v for vd in passes for k, v in scored[vd][1].items()}
+    scored_at = next((s for s in ((load(vd / "summary.json", {}) or {}).get("scored_at") for vd in passes) if s), None)
+
+    def tally(key):
+        return [sum(1 for r in rows if (r[key] or {}).get("right") is True),
+                sum(1 for r in rows if (r[key] or {}).get("right") is not None)]
     return {"total": len(rows), "answered": answered, "rows": rows, "name": str(spec.get("name") or ""),
-            "state": "scored" if done else "running" if answered or any(r["names"] for r in rows) else "ready"}
+            "state": "scored" if done else "running" if answered or any(r["names"] for r in rows) else "ready",
+            "score": {"agent": tally("agent"), "names": tally("names"), "scored_at": scored_at} if ar else None,
+            "changed_after": _changed_after(run, scored_at)}

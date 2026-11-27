@@ -60,14 +60,15 @@ before going on. While the engine builds, its result after each gate says so too
 | The build ends: its context is in the run and its structural check has run | `build` | Mini card, before any question: it closes the build, before the question about testing it. In a terminal it waits for the save question, which says it in sentences | |
 | Every check has run, after the build card | `context` | Chip: what ran, and what needs your review; without widgets, a sentence in the save question | |
 | Saved to Atlan Trident | `saved` | Mini card before the ready question; nothing when kept on this machine, which the person has just chosen | with `PROJECT publication` |
-| A question answered | `answer` | Mini card the first time, then a chip | with the query that answers |
+| A question answered | `answer` | Mini card for a chat's first answer, then a chip | with the query that answers; on a warehouse or with no run, with `visual answer` |
 | A rule changed | `edit` | Mini card | with `EDIT` |
 | Test questions written or loaded for a check | `questions` | Chip: how many, and where they came from; the side page lists each one | |
-| A session starts a check on an agent built earlier | `agent` | Chip: what the agent holds, and when it was built | |
+| A new chat's first moment, on an agent built earlier | `agent` | Chip: what the agent holds, and when it was built; inside that moment's own card, or alone when a check starts or a run resumes | |
+| A check scored | `accuracy` | Card: both scores and every question's mark | with `EVAL before-after` or `ACC result` |
 
 These moments come with the results you read: a helper result, the build's wait, `CHECK start`,
 `CHECK load`, `SCOPE emit`, the query that answers the person, the save's receipt
-(`PROJECT publication`) and a rule change (`EDIT`) hand each one over in `show_first`, drawn and
+(`PROJECT publication`), a rule change (`EDIT`) and a scored check (`EVAL before-after`) hand each one over in `show_first`, drawn and
 marked shown. Show it
 before any other words or call; never draw one of them a second time.
 
@@ -113,7 +114,8 @@ If the page cannot start, its `next` gives the one line to tell the person. Othe
 The page shows what the build made, in every flow: the metrics, each in its state (Found,
 Defined, Tested, Not tested, Needs your review), then the queries, then the tiles that could not be built. A click
 opens a metric's definition, formula and where it was found. The build's steps, the survey, the
-choices, the save, the answers and the dashboard are the chat's and never appear on it. The page reads the run's files itself: never reload,
+choices, the save, the answers and the dashboard are the chat's and never appear on it; an
+accuracy check's questions do, on their own list, each with its known answer and your agent's. The page reads the run's files itself: never reload,
 rebuild or push to it, and never describe what it shows beyond the one line its `next` gives when it first opens. Nothing on it leaves this machine, so
 it shows the metrics, their sources and values on own data as on a demo. A card's last line points to it for the detail. If
 the page stops while nobody looks at it, the next `visual` call, `visual next` included,
@@ -142,4 +144,6 @@ from the result that produced them; leave out a field you do not have, never fil
 - A rule change: `EDIT`'s request takes `before` and `after`, each rule in plain words, and its
   result hands the card over with the metric's checked value before and after. Add `added` and
   `removed` as lists of short labels for the re-asked question, and `note` when a dashboard was
-  built before the change: it still shows the old rule until it is rebuilt.
+  built before the change: it still shows the old rule until it is rebuilt. On a warehouse, `EDIT`
+  first returns `run_on_warehouse` with the new rule's `sql`; its card comes when `EDIT` gets the
+  metric's `name` and the `result` that statement returned.

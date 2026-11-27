@@ -42,7 +42,8 @@ Paths. Pass each command as separate argv entries; zsh does not split a string h
 ## `generate`: use case first, metric aware
 
 A helper result with `show_first` carries a chip the run has reached: show it before any other
-words or call.
+words or call. Between calls, write nothing of your own: no working notes, no line about a card before or after it,
+and never a file path or a step's, gate's or helper's own name.
 
 1. **Scope.** `SCOPE inputs --project <project>`. It finds the built run, opens the drafting
    folder, reads the use case and focus metric, and writes the pool: every dashboard tile and
@@ -97,4 +98,8 @@ was saved to, else the person's personal workspace (`registry__list_workspaces`,
 
 A result, as [conventions](../analytics-build/references/conventions.md) describes: how many
 questions the set holds, the metrics it covers, where each came from, and where the set lives.
-Each question in a plain line with the metric it tests.
+The questions chip and the side page list each question; only where the chip's lines say no page
+is open, each question in a plain line with the metric it tests. When a person asked for the
+questions themselves, end on one native question, "Test your agent on these <N> questions?"
+(Test them (Recommended), Not now), its text holding the chip's lines in a terminal; on Test them,
+`accuracy-check` runs the set as it is. A skill that called this one asks its own question instead.
