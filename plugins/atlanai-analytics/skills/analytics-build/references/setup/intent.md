@@ -1,6 +1,6 @@
 # The interview: warehouse, what to do, then one of three branches
 
-The interview belongs to `analytics-build`. `source-survey` reads and reports and never asks
+The interview belongs to `analytics-build`. The `analytics-readiness` steps read and report and never ask
 the person anything. This file is every question asked before metric generation starts.
 
 ```
@@ -34,7 +34,7 @@ is always accepted.
 
 Two quick looks, so the choices offered are the person's own. Neither reads data.
 
-- `source-survey` `connections`: the warehouse connections this machine already has.
+- `analytics-readiness` `connections`: the warehouse connections this machine already has.
 - `PROJECT discover --workspace "<working-directory>"`: BI files in the working folder, by
   name only. Demo files are never listed.
 
@@ -127,14 +127,14 @@ database, files, intent and approvals never carry over.
 ## After card 1: the warehouse must answer
 
 A chosen warehouse that needs sign-in, or is not connected yet, is connected now, in every
-branch, as [warehouse discovery](../../../source-survey/references/connect.md) describes:
+branch, as [warehouse discovery](../../../analytics-readiness/references/connect.md) describes:
 discovery and the access checks both need it. Say what the person has to do in one line and
 continue when its check answers. With "No warehouse", only branch B can run, from a
 file; say so if they chose A or C, and mention `analytics-demo`.
 
 ## Branch A: Suggest from your warehouse
 
-1. **Discover.** No question. `source-survey` `discover` on the chosen warehouse, with the
+1. **Discover.** No question. `analytics-readiness` `discover` on the chosen warehouse, with the
    discovery Doing and Why lines.
 2. **What should your agent answer?** [The use cases](names.md): up to three, each one line with its
    tables, then "Add a dashboard". More than one can be picked. Picking the dashboard
@@ -235,7 +235,7 @@ already picked "Add a dashboard" in the menu, and on a resume that is past this 
    | Suggest from your warehouse | Branch A from its start |
    | Start from a dashboard | Branch B from its start |
 
-2. **Access check.** `source-survey` `access` on each table and dashboard they named.
+2. **Access check.** `analytics-readiness` `access` on each table and dashboard they named.
 3. **Build**, as [starting the build](#starting-the-build-discovery-and-known-tables) says.
 
 ## The access check, in branches B and C

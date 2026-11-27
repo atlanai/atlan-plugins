@@ -7,7 +7,7 @@ description: "Atlan Analytics: set up, resume or hand off metrics on your data. 
 
 An orchestrator: it owns the conversation, intent, the tracker and approvals, and turns a
 person's dashboards, folders, BI exports and past queries into checked metrics to question. It calls the capability skills without letting them ask the person anything:
-`source-survey`, `metrics-generation` and `analytics-ask`. Before the first helper call, and
+`analytics-readiness`, `metrics-generation` and `analytics-ask`. Before the first helper call, and
 on every resume, read [shared setup](references/setup.md): it defines `PROJECT`, the stage
 files and the review rule. This file sets their order and what the person sees.
 Read plugin files one per call. Run one helper per command and use what it prints as it is: no separators (zsh
@@ -32,15 +32,15 @@ concrete plan. Respect explicit draft or review requests.
 
    | They chose | Then |
    | --- | --- |
-   | Suggest from your warehouse | `source-survey` `discover`, then "What should your agent answer?" over up to three use cases with their tables plus "Add a dashboard". After the build, one offer to add a dashboard |
+   | Suggest from your warehouse | `analytics-readiness` `discover`, then "What should your agent answer?" over up to three use cases with their tables plus "Add a dashboard". After the build, one offer to add a dashboard |
    | Start from a dashboard | One card for the dashboard: files in the folder as options, a link or path as free text. Then [the dashboard branch](references/setup/dashboard-flow.md), which replaces the steps below |
-   | Start from tables | One card asking for the use case and tables as free text, with a skip to discovery, then `source-survey` `access` on them |
+   | Start from tables | One card asking for the use case and tables as free text, with a skip to discovery, then `analytics-readiness` `access` on them |
 
 3. **The go-ahead.** Picking a use case, or naming tables that all read, starts the build, with
    one line of what it builds and any choices made. A table that can't be read is asked about first.
 
 A question the request already answers is not asked. Before card 1, look silently at what is
-already connected (`source-survey` `connections`) and at BI file names in the working folder
+already connected (`analytics-readiness` `connections`) and at BI file names in the working folder
 (`PROJECT discover`). Say nothing about that look or where the options came from (at most
 "Getting set up.", once), and read no data before the answers. The person's first sight is the card, whose own text is the
 opening:
@@ -53,7 +53,7 @@ to it and validate it on your data.
 
 First, where does your data live, and what do you want your agent to do?"
 
-The interview is this skill's own: `source-survey` never asks the person anything. Honor
+The interview is this skill's own: the survey steps never ask the person anything. Honor
 existing choices. Survey-only requests stop after the survey; detail-only ones get only that
 evidence.
 
@@ -76,8 +76,8 @@ the first survey on, as [visuals](references/setup/visuals.md) says. A helper re
 
 1. **Choose what your agent answers.** [The interview](references/setup/intent.md)'s card 1, and the
    branch's own ask. Skip what the request already said.
-2. **Find your sources.** By branch: `source-survey` `discover` through
-   [discovery](../source-survey/references/discovery.md), or `access` on the dashboard and
+2. **Find your sources.** By branch: `analytics-readiness` `discover` through
+   [discovery](../analytics-readiness/references/discovery.md), or `access` on the dashboard and
    tables the person named. The side page opens as the first saved queries are drafted,
    when `PROJECT visual next` names `connect`.
 3. **Pick tables and dashboards.** In the discovery branch,
@@ -118,7 +118,7 @@ These routes are reached only by name; the guided flow never offers them.
   as scope. Metrics Studio sends `/atlanai-analytics:analytics-build metrics`, so this
   hand-off stays. If the first argument is exactly `metrics`, no guided step runs.
 - `dashboard` or `propose`: load the `metrics-generation` skill with that argument.
-- `connect`: load the `source-survey` skill with that argument.
+- `connect`: load the `analytics-readiness` skill with that argument.
 - `ask`, or a data question with no setup work: load the `analytics-ask` skill. When this
   folder holds a run, pass its directory, so the answer uses the run's own rules.
 

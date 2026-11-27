@@ -115,7 +115,7 @@ with the schema used at preparation. Add `--tables schema.table ...` for a narro
 `context/database-schema.json` establish the physical columns and types. An embedded
 warehouse connector in a Power BI model does not override an explicitly selected local database.
 
-For an existing warehouse, reuse [connect](../../source-survey/references/connect.md) and its normal state. Do not require
+For an existing warehouse, reuse [connect](../../analytics-readiness/references/connect.md) and its normal state. Do not require
 a local database or migrate data. Without execution access, continue authoring with checks marked
 untested; explain that fresh numerical answers need a data connection.
 
@@ -129,7 +129,7 @@ require separately reviewed support. Host sandboxing is still required for hosti
 Run `PROJECT history` when selected history was found. It captures and privacy-filters
 history under `context/`; it does not mine shapes or author candidates. Pass the returned
 clean history path to the main engine's `local-files` history input. For live history, use
-[query history](../../source-survey/references/warehouses/query-history.md) or the configured native plug.
+[query history](../../analytics-readiness/references/warehouses/query-history.md) or the configured native plug.
 
 Follow [build and check](setup/build-check.md) and [the metrics engine](../../metrics-generation/references/metrics-engine.md)
 for the full selected collection. Reuse the combined survey and

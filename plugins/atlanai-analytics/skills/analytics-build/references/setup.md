@@ -56,7 +56,7 @@ run whose candidates were never shown in chat starts at Preview.
 
 | Entering | Read |
 | --- | --- |
-| Inspect or Scope | [inspect and scope](../../source-survey/references/inspect-scope.md), the `source-survey` skill's procedure |
+| Inspect or Scope | [inspect and scope](../../analytics-readiness/references/inspect-scope.md), the `analytics-readiness` skill's procedure |
 | Build or Check | [build and check](setup/build-check.md); new metrics also follow [the metrics module](../../metrics-generation/references/metrics-engine.md) for every source, including demos |
 | Preview, Publish or Ready to ask | [preview and publish](setup/preview-publish.md) |
 | Starting, resuming or any stage change | [the setup checklist](setup/checklist.md) |

@@ -36,7 +36,7 @@ the source tables the run's metrics read.
 On a warehouse run nothing on this machine can run SQL, and `PROJECT execute` refuses. The
 warehouse query tool is the one in `execution.warehouse.tool` when the build recorded it, else the
 one this conversation built the context with, else the one steps 0 to 2 of
-[warehouse discovery](../../source-survey/references/connect.md) find. Its read-only rules apply.
+[warehouse discovery](../../analytics-readiness/references/connect.md) find. Its read-only rules apply.
 With no tool, say "I can't reach <warehouse> from this chat, so I can't test your agent. Connect
 it here, then ask again." and stop: a check that cannot run its SQL has no score.
 
@@ -176,7 +176,7 @@ again, each to a fresh agent with only the source tables' schema and no addition
      {"answer": "<the answer>", "sql": "<the one SQL statement whose result you state>"}
      ```
    - Supply only the question, table identifiers and execution instructions, with no firm
-     background, source-survey findings or other context. Schema reads must select structural
+     background, survey findings or other context. Schema reads must select structural
      fields only (never comments or descriptions). The final answer query may read data;
      that permission does not allow sampling or profiling before writing it.
    - Name each of its helpers to `collect` as `raw:<id>=<output_file>`: its files go under

@@ -111,7 +111,7 @@ about.
 5. **Tick item 2 at once.** In the turn the person answers the pages question, before any
    other work, set the task list: item 2 completed, reading "Pick report and pages: `<report>`:
    `<pages, or all pages>`", and item 3 in progress. When the run exists (for a link, `PROJECT survey` on the working folder makes it), record the warehouse
-   card 1 found with `PROJECT warehouse`, as [connecting a warehouse](../../../source-survey/references/connect.md)
+   card 1 found with `PROJECT warehouse`, as [connecting a warehouse](../../../analytics-readiness/references/connect.md)
    step 5 says: the tests are refused without it. Then record
    `PROJECT journey report --answer "<report>: <pages, or all pages>"` first and set the list
    it returns. When it does not, set the list yourself and record the report the moment the

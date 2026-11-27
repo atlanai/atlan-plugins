@@ -42,7 +42,7 @@ plugin when the dispatcher reports missing module files.
   on this machine, or save them to Atlan Trident?"). Then show the definition and its check status
   and stop.
 
-Every operation needs a survey. With none in the run, run `source-survey` `inventory` first.
+Every operation needs a survey. With none in the run, run `analytics-readiness` `inventory` first.
 
 ## Operations
 

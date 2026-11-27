@@ -66,7 +66,7 @@ credentials. Without a trustworthy revision/access scope, do not claim cross-ses
 validity. Local files are never copied merely to use this cache. Keep run files private and
 clean up only explicitly selected owned outputs, never source files.
 
-Settle whether each source can be built from before returning, as the skill's `readiness`
+Settle whether each source can be built from before returning, as the skill's `buildable`
 section defines it: the tables a report reads must resolve in a reachable warehouse or a bound
 local database. Return that with the inventory, so no use-case question is asked about a
 source that cannot be built.

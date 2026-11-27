@@ -10,8 +10,8 @@ option to share a dashboard. The person picks which to build.
 
 ## 1. Get the use cases
 
-`source-survey` `discover` returns two to four use cases, each with the tables that power
-it. The card shows the top three and the dashboard option. With a BI source, `source-survey` `candidates` adds the metric names the report holds.
+`analytics-readiness` `discover` returns two to four use cases, each with the tables that power
+it. The card shows the top three and the dashboard option. With a BI source, `analytics-readiness` `candidates` adds the metric names the report holds.
 Neither generates SQL or runs a check on a metric.
 
 - With no subject named: the use cases are the most used subjects in the warehouse, most

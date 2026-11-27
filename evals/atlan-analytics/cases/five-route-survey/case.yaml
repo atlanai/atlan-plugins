@@ -15,7 +15,7 @@ graders:
   - name: loads-survey
     type: tool_used
     tool: Skill
-    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?source-survey"'
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?analytics-readiness"'
     min: 1
   - name: no-engine
     type: tool_used

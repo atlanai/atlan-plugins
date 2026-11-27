@@ -69,7 +69,7 @@ After "Start building", show the tracker, then do all of step 1's work:
    ([the metrics module](../metrics-generation/references/metrics-engine.md), section 1).
 2. **Read the sources.** Start a new setup run with `PROJECT location --workspace "<folder>"`,
    so it lives in `<folder>/.atlan-analytics/`, outside the folder it reads. Inspect only `working_folder`, with
-   [inspect and scope](../source-survey/references/inspect-scope.md) section 1, as if
+   [inspect and scope](../analytics-readiness/references/inspect-scope.md) section 1, as if
    the person had asked to set up that folder from scratch. Then run
    `DEMO requests <demo> --run-dir "<run-dir>"`. It writes the demo's fixed choices as request
    files, `prepare` and, for a Power BI dashboard, `scope`, and prints the dashboard file (`bi`),
@@ -88,7 +88,7 @@ The `sources` chip is the step's result: add no line. What the sources revealed 
 
 Ask the sources question from [the tour rules](references/tour.md): dashboard and past
 queries (Recommended), or dashboard only. Scope the run to the answer through
-[inspect and scope](../source-survey/references/inspect-scope.md) section 2, with
+[inspect and scope](../analytics-readiness/references/inspect-scope.md) section 2, with
 `PROJECT scope "<scope>"` for the whole dashboard when `requests` wrote one. The data
 tables are used either way, to check the context.
 

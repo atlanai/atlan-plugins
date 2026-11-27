@@ -93,7 +93,7 @@ display_name = "Atlan Analytics"
 version = "0.9.99"
 description = "Build an agent that answers your data questions, on a demo or your own data: I extract the context in your dashboards and past queries, add detailed information to it and validate it, then you store it here or save it to Atlan Trident, ask it questions and build a dashboard."
 short_description = "Build an agent that answers your data questions"
-long_description = "The analytics workload on Atlan Trident, as seven skills. analytics-demo walks through a made-up firm end to end. analytics-build does the same on your own data, starting from nothing, a dashboard or a subject: it surveys what you already have, asks what you want to answer, and builds from dashboards first, then past queries, then table definitions. source-survey says what a setup, a subject or a source holds, what can be built from it, and which metric names it offers. metrics-generation builds, tests, edits, proposes and saves metrics and saved queries. analytics-ask answers a data question from saved metrics, names what each answer is based on, and turns answers into a dashboard. eval-generation turns the questions a team already asks into test questions with known answers, kept here or saved to Atlan Trident. accuracy-check tests your agent on those questions and scores it, saying why each miss failed. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection."
+long_description = "The analytics workload on Atlan Trident, as seven skills. analytics-demo walks through a made-up firm end to end. analytics-readiness checks whether this machine, your warehouse and your dashboard are ready to build from, and writes a report of what to fix first; it also says what a setup, a subject or a source holds, what can be built from it, and which metric names it offers. analytics-build does the same on your own data, starting from nothing, a dashboard or a subject: it surveys what you already have, asks what you want to answer, and builds from dashboards first, then past queries, then table definitions. metrics-generation builds, tests, edits, proposes and saves metrics and saved queries. analytics-ask answers a data question from saved metrics, names what each answer is based on, and turns answers into a dashboard. eval-generation turns the questions a team already asks into test questions with known answers, kept here or saved to Atlan Trident. accuracy-check tests your agent on those questions and scores it, saying why each miss failed. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection."
 keywords = ["atlan", "analytics", "metrics", "text-to-sql", "talk-to-data", "snowflake", "databricks", "dashboards"]
 category = "Data & Analytics"
 claude_category = "data"
@@ -139,9 +139,20 @@ how = """
   Code or Codex.
 - A **workspace** is where your team keeps that context when you save it, so others can ask
   from it too.
+
+**Before you build, check you are ready.** The readiness check takes about ten minutes and asks
+about seven questions: your use case, one yes for each route to your warehouse, your BI tool,
+the dashboard you would start from, the tables behind it, and your name and email. It looks at
+the coding agents and their MCP servers, Atlan Trident, a way to run SQL on your warehouse as you
+(Snowflake, Databricks, BigQuery, Redshift, Postgres and others), whether your team's past queries
+can be read, your dashboard files and the Python the plugin needs. It ends with
+`.atlan-analytics/readiness/report.md`: **Ready** or **Needs attention**, and each step that would
+speed up your build, with who takes it and the command. It installs, signs in to and changes
+nothing, and the report stays on your machine for you to share.
 """
 starts = [
   ["Learn how it works on a sample", "analytics-demo", "Show me how this works on a sample use case"],
+  ["Check you are ready to build, with a report of what to fix first", "analytics-readiness", "Run the readiness check"],
   ["Build your agent from your own data or a dashboard", "analytics-build", "Help me use this dashboard to ask questions about my data"],
   ["Ask your agent a question", "analytics-ask", "What was revenue last quarter, by region?"],
 ]
@@ -151,7 +162,7 @@ samples = [
   ["Fixit & Co., a builder's yard", "Which jobs lost money, and why. Built from a Power BI dashboard in about 15 minutes.", "https://atlanai.github.io/analytics-agent-accelerator/yard-tour/"],
   ["Ticketfuddle, a ticketing firm", "How much of what fans paid went on fees. Built from a Tableau dashboard in about 15 to 20 minutes.", "https://atlanai.github.io/analytics-agent-accelerator/box-office-tour/"],
 ]
-skills = ["analytics-demo", "analytics-build", "source-survey", "metrics-generation", "analytics-ask", "eval-generation", "accuracy-check"]
+skills = ["analytics-demo", "analytics-readiness", "analytics-build", "metrics-generation", "analytics-ask", "eval-generation", "accuracy-check"]
 privacy = """
 This plugin has no hooks and ships no executable binaries.
 
@@ -165,8 +176,13 @@ This plugin has no hooks and ships no executable binaries.
   Tableau, and `METRICS_AGENT_WAREHOUSE_DSN` for a local DuckDB or SQLite file. Each goes only to
   the system it names (Microsoft's sign-in and Power BI or Fabric APIs, your Tableau server), never
   anywhere else.
+- **Checks readiness, read-only:** version and listing commands of the coding agents and warehouse
+  CLIs on this machine (connection, profile and MCP server names only, never their configuration
+  files), one check statement per warehouse route you approve, and the dashboard files in your
+  project and their counts in Desktop, Documents and Downloads (counts only, never names).
 - **Writes:** working files in one folder in your project, `.atlan-analytics/`: each run, the
-  metrics runtime, test questions (`evals/`) and a demo's data (`demo/`). Add it to `.gitignore`.
+  metrics runtime, test questions (`evals/`), a demo's data (`demo/`) and the readiness report
+  (`readiness/`). Add it to `.gitignore`.
   Reading a Power BI workspace caches its sign-in token under `~/.cache/pbi_definition_extract/`.
 - **Sends:** to Atlan, only what you approve saving, through the `atlanai` plugin's connection,
   signed in as you.
@@ -291,10 +307,10 @@ display_name = "Atlan Analytics"
 short_description = "Build your agent on your own data, step by step"
 prompt = "Use $analytics-build to set up this project so I can ask questions about its data."
 
-[skills.source-survey]
-display_name = "Survey Your Data"
-short_description = "See what data, dashboards and past queries you can build from"
-prompt = "Use $source-survey to tell me what this folder's dashboards and past queries cover."
+[skills.analytics-readiness]
+display_name = "Readiness Check"
+short_description = "Check you are ready to build, or see what your data and dashboards hold"
+prompt = "Use $analytics-readiness to check whether this machine and my data are ready to build an agent with Atlan Analytics."
 
 [skills.metrics-generation]
 display_name = "Metrics Generation"
