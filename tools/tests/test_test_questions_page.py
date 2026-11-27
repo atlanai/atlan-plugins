@@ -82,7 +82,8 @@ class TestQuestions(unittest.TestCase):
         t = eval_runs.questions(self.ev)
         self.assertEqual((t['state'], t['answered']), ('running', 1))
         self.assertEqual(t['rows'][0]['agent'], {'value': '1,550,066.18', 'answer': 'Gross sales are $1,550,066.18.',
-                                                 'sql': 'SELECT 1', 'right': None, 'why': ''})
+                                                 'sql': 'SELECT 1', 'right': None, 'why': '', 'cause': None, 'used': [],
+                                                 'rows': {'columns': ['x'], 'rows': [[1550066.18]]}})
         self.assertIsNone(t['rows'][1]['agent'])
 
     def test_once_scored_each_pass_is_marked_as_the_card_marks_it(self):
@@ -119,6 +120,12 @@ class TestQuestions(unittest.TestCase):
         dump(other / 'context' / 'metrics.json', [])
         self.assertEqual(eval_runs.check_folder(other), self.root / '.atlan-analytics' / 'evals' / 'box-office-pulse')
         self.assertIsNone(eval_runs.check_folder(self.root / '.atlan-analytics' / 'never-checked'))
+
+    def test_a_folder_too_shallow_to_be_a_check_belongs_to_no_run(self):
+        # The score's self-test runs in a temporary folder, /tmp/<name> on Linux, which has no grandparent: the lookup
+        # raised IndexError there and failed CI, while macOS's deeper temporary folders passed (2026-11-27).
+        self.assertIsNone(eval_runs.run_of(Path('/tmp/check')))
+        self.assertIsNone(eval_runs.run_of(Path('/check')))
 
     def test_a_question_set_still_being_loaded_is_not_shown(self):
         (self.ev / 'work' / 'spec.json').unlink()
@@ -194,10 +201,15 @@ class TestQuestions(unittest.TestCase):
         self.assertIn('Question a?', off)
         with mock.patch.object(side_page, 'running', return_value='http://127.0.0.1:1/key/'):
             on = analytics_eval.cmd_before_after(args)['widget']
-        self.assertNotIn('Question a?', on)
+        # It counts the questions that changed rather than listing them; each opens in the card only when clicked
+        # (2026-11-27), from the page's own records.
+        self.assertNotIn('What changed', on)
+        self.assertIn('<div class="qd" data-q="1" hidden><div class="qh"><b>1.</b> Question a?', on)
+        self.assertIn('Tests Gross Sales', on)
         self.assertIn('3 questions right only with your agent', on)
         self.assertIn('side page', on)
-        self.assertEqual(on.count('<i class="y">'), off.count('<i class="y">'))
+        self.assertEqual(on.count('<i class="y" data-q='), 3)
+        self.assertEqual(on.count('<i class="y" data-q='), off.count('<i class="y" data-q='))
 
 
 class OnThePage(unittest.TestCase):

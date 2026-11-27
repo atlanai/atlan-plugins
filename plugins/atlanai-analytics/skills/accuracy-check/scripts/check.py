@@ -42,7 +42,7 @@ import python_version  # noqa: E402
 
 python_version.require()
 
-from eval_runs import Blocked, execution, find_run, load, questions, use_case  # noqa: E402
+from eval_runs import Blocked, execution, find_run, load, questions, questions_chip, questions_folder, set_key, use_case  # noqa: E402
 from run_facts import report_name  # noqa: E402
 import layout  # noqa: E402
 
@@ -145,7 +145,11 @@ def cmd_start(a) -> dict:
     if not found:
         out["next"] = "generate"
         return out
-    # With a set in the folder the person chooses, even when there is one: a caller that skips
+    # The one set is the questions written for this agent: the person picked the check, and "Which questions?" offered
+    # only those (2026-11-26).
+    if len(found) == 1 and found[0]["written"]:
+        return {**out, "next": "load", "load": found[0]["file"]}
+    # With a set the person brought, they choose, even when it is the only one: a caller that skips
     # this question tests questions nobody picked.
     q = lambda n: f"{n} question{'' if n == 1 else 's'}"  # noqa: E731
     names = ", ".join(f"{s['name']} ({q(s['questions'])})" for s in found)
@@ -269,53 +273,21 @@ def read_set(src: pathlib.Path) -> list:
     return rows
 
 
-# A moment shown this recently is this sitting's: a later session shows it again.
-SITTING = 3 * 3600
-
-
-def _shown_since(run: pathlib.Path, kinds: tuple, since: float) -> bool:
-    """Whether one of these moments was shown after `since` (seconds since the epoch) and within this sitting."""
+def show_questions(run: pathlib.Path, since: float = None, ev: pathlib.Path = None) -> dict:
+    """Hand over this set's chip, once per sitting when called with a time to check from."""
     import side_view
-    floor = max(since, datetime.datetime.now(datetime.timezone.utc).timestamp() - SITTING)
-    for m in side_view._state(run)["moments"]:
-        try:
-            at = datetime.datetime.fromisoformat(m.get("at")).timestamp()
-        except (TypeError, ValueError):
-            continue
-        if m.get("kind") in kinds and at >= floor:
-            return True
-    return False
-
-
-def _hand_over(run: pathlib.Path, kind: str) -> dict:
-    """A moment drawn whole, handed over with the result the check reads, and marked shown: a chip only a guide asked
-    for went undrawn in the dry run (2026-11-25)."""
-    import side_view
-    return side_view.handed(side_view.show_card(run, kind))
-
-
-def show_questions(run: pathlib.Path, since: float = None) -> dict:
-    """The chip that says the questions are written. With `since` (the set file's time), not when writing the set
-    already showed it in this sitting. The side page lists the questions."""
-    if since is not None and _shown_since(run, ("questions",), since):
+    ev = ev or questions_folder(run)
+    spec = questions_chip(ev) if ev else {}
+    if not spec or since is not None and side_view.shown_since(run, ("questions",), since, key=spec["set_key"]):
         return {}
-    return _hand_over(run, "questions")
-
-
-def _set_time(plan: dict) -> float:
-    """When the set this check loads was written, so a chip shown since then is not shown again."""
-    try:
-        return pathlib.Path(plan.get("file") or "").stat().st_mtime
-    except OSError:
-        return 0.0
+    return side_view.handed(side_view.show_card(run, "questions", questions_dir=ev))
 
 
 def show_agent(run: pathlib.Path) -> dict:
     """What a check works on, as it starts: the agent this folder holds. Not when this sitting already showed it or the
     build's own card."""
-    if _shown_since(run, ("agent", "build", "saved"), 0):
-        return {}
-    return _hand_over(run, "agent")
+    import side_view
+    return side_view.handed(side_view.welcome(run))
 
 
 def finish(ev: pathlib.Path, plan: dict, ran: dict) -> dict:
@@ -327,19 +299,33 @@ def finish(ev: pathlib.Path, plan: dict, ran: dict) -> dict:
         raise Blocked(f"I couldn't work out the known answer to any question in {name} from your data: " +
                       "; ".join(f"{f['id']}: {f['why']}" for f in ran["failed"]))
     by_id = {str(r.get("id") or f"q{i}"): r for i, r in enumerate(rows, 1)}
-    dump(ev / "work" / "spec.json", {"name": name, "source_description": f"eval set {name}.jsonl", "records": records})
+    dump(ev / "work" / "spec.json", {"name": name, "source_description": f"eval set {name}.jsonl", "records": records,
+                                     "set_key": set_key(plan["file"], rows)})
     dump(ev / "work" / "selection.json", [{"id": rec["id"], "metric": by_id[rec["id"]].get("tests") or "",
                                            "from": by_id[rec["id"]].get("from") or f"eval set {name}",
                                            "expected": next(g["first"] for g in ran["ran"] if g["id"] == rec["id"])}
                                           for rec in records])
     stage(ev, re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "eval-set")
     run = pathlib.Path(plan["run"])
+    # eval-generation marks each question it wrote; a set the person brought carries no mark.
+    generated = all(r.get("generated") is True for r in rows)
     return {"status": "ok", "run": str(run), "evals": str(ev), "context_saved_to": saved_to(run), "set": name,
-            # eval-generation marks each question it wrote; a set the person brought carries no mark.
-            "generated": all(r.get("generated") is True for r in rows), "execution": plan["execution"],
+            "generated": generated, "execution": plan["execution"],
             "questions": len(records), "dropped": ran["failed"], "selection": str(ev / "work" / "selection.json"),
+            # Written questions the side page lists run now: the person already chose to check, and "Test them?"
+            # asked a second time (2026-11-26). With no page, the table and its question come first.
+            "run_now": generated and page_open(run),
             # Not again when writing the set just showed it.
-            **show_questions(run, since=_set_time(plan))}
+            **show_questions(run, since=0, ev=ev)}
+
+
+def page_open(run: pathlib.Path) -> bool:
+    """Whether the run's side page is serving, so it lists the questions as they run."""
+    try:
+        import side_page
+        return bool(side_page.running(run))
+    except Exception:  # noqa: BLE001 - no page reads as no page
+        return False
 
 
 def cmd_load(a) -> dict:
@@ -352,7 +338,7 @@ def cmd_load(a) -> dict:
                 "golden_sql": r["sql"], "review_status": "approved", "provenance": {"source": f"eval set {src.stem}"},
                 "modes": []} for i, r in enumerate(rows, 1)]
     how = execution(run)
-    plan = {"set": src.stem, "file": str(src), "run": str(run), "execution": how, "rows": rows, "records": records}
+    plan = {"set": src.stem, "file": str(src.resolve()), "run": str(run), "execution": how, "rows": rows, "records": records}
     if how["via"] == "local":
         return finish(ev, plan, gold_local(run, ev, records))
     # A warehouse run: the host runs each trusted SQL. Keep the plan so `gold` can finish it.
@@ -402,6 +388,21 @@ def cmd_show(a) -> dict:
     lines += [f"| {r['n']} | {clean(r['question'])} | {clean(r['metric']) or 'No metric yet'} | {clean(r['known'])} |"
               for r in asked["rows"]]
     return {"status": "ok", "questions": asked["total"], "table": "\n".join(lines), "ask": run_ask(asked["total"])}
+
+
+def cmd_question(a) -> dict:
+    """One question of a check, for a person who asked to see it (the accuracy card's marks ask by number): its record,
+    and the side page's address opened at it while the page serves."""
+    import eval_runs
+    import side_page
+    ev = pathlib.Path(a.evals)
+    rows = (questions(ev) or {}).get("rows") or []
+    row = next((r for r in rows if str(a.n) in (str(r["n"]), r["id"])), None)
+    if row is None:
+        raise Blocked(f"No question {a.n} in this check. Name it by its number, 1 to {len(rows)}.")
+    run = eval_runs.run_of(ev)
+    url = side_page.running(run) if run else None
+    return {"status": "ok", "question": row, **({"page": f"{url}#l=tests&t={row['n']}"} if url else {})}
 
 
 def run_ask(n: int) -> dict:
@@ -625,6 +626,10 @@ def main(argv=None) -> int:
     c = s.add_parser("show", help="the loaded set as one markdown table, to read before it runs")
     c.add_argument("--evals", required=True)
     c.set_defaults(func=cmd_show)
+    c = s.add_parser("question", help="one question of a check, and the side page opened at it")
+    c.add_argument("--evals", required=True)
+    c.add_argument("--n", required=True, help="its number in the score, or its id")
+    c.set_defaults(func=cmd_question)
     c = s.add_parser("edit", help="reword one question of a loaded set before it is scored")
     c.add_argument("--evals", required=True)
     c.add_argument("--question", required=True, help="its number in the shown table, or its id")
