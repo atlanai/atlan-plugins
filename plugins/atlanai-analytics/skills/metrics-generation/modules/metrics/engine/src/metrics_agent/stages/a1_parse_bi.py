@@ -257,14 +257,17 @@ def body(ctx: stage.Ctx) -> None:
         if (off or not f["usage"]) and callable(getattr(rdr, "explain_empty_usage", None)):
             _report_empty_usage(ctx, rdr, pathlib.Path(src["path"]), off)
     if resolved_pub:
-        ctx.say(f"a1: {len(resolved_pub)} PUBLISHED datasource(s) resolved against their "
-                f".tds by name: {', '.join(resolved_pub[:4])}.")
+        ctx.say(f"a1: {len(resolved_pub)} PUBLISHED datasource(s) resolved by name, against "
+                f"their .tds or a lineage file: {', '.join(resolved_pub[:4])}.")
     if unresolved:
         ctx.say(f"a1: {len(unresolved)} PUBLISHED datasource(s) resolved to no warehouse "
                 f"target: {', '.join(unresolved[:4])}. A .twb referencing a published "
                 f"datasource carries no connection — the .tds does: put the datasource's "
-                f".tds/.tdsx beside the workbook (matched by name) and re-run. This is a "
-                f"named ACQUISITION GAP, not a finding that the estate lacks lineage.")
+                f".tds/.tdsx beside the workbook (matched by name) and re-run. Where its "
+                f"download is refused, a `<datasource>.lineage.json` beside the workbook, "
+                f"naming the connection, database, schema and tables the site's lineage page "
+                f"shows, rebuilds it from the workbook's own copy. This is a named "
+                f"ACQUISITION GAP, not a finding that the estate lacks lineage.")
 
 
 def main() -> None:

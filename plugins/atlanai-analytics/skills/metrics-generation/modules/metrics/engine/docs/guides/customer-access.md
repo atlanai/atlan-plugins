@@ -123,7 +123,12 @@ tool itself offers that person into one capture folder, and lists every file, wi
   operator is asked first.
 - **Tableau**: **Download > Tableau Workbook**, plus **Download** on every published data source
   the workbook uses. It needs **Explorer** or **Creator** with the Download Workbook and Download
-  Data Source capabilities; a Viewer can download neither.
+  Data Source capabilities; a Viewer can download neither. Where a data source's Download is
+  refused, its page's **Lineage > Tables and Objects** (Tableau Catalog) names its upstream
+  tables: a `<data source>.lineage.json` beside the workbook (connection, database, schema,
+  tables, and where they were read) rebuilds it from the workbook's own copy, which keeps its
+  tables, relationships and fields. Data source filters saved on the server are not in that
+  copy.
 - **The values the tool shows**, per widget and filter state: Power BI's **Export data >
   Summarized data** (raw numbers) or **Show as a table** (as displayed); Tableau's **Download >
   Crosstab** (as displayed). Any viewer can take these, unless an admin turned exports off.
@@ -151,7 +156,8 @@ browser capture. No stage calls the MCP server.
   `tableau-cloud` plug (Explorer or Creator, Download Workbook). `download-workbook` gives the
   workbook's own `.twb`; `get-view-data` the values each sheet shows, filtered or not. It has
   no tool that downloads a **published data source**, so a workbook on one needs that data
-  source's `.tds` from the browser (Download Data Source) or the plug; without it the gap
+  source's `.tds` from the browser (Download Data Source), the plug, or its lineage file (the
+  browser route above); without any of them the gap
   `data_source_definition` is recorded and those sheets get no SQL. Checked live (tableau-mcp
   4.27.2, PAT and connected app): with the data source added from the browser, the MCP capture
   gives the same bi_facts and the same SQL as the `tableau-cloud` plug, and the SQL returns

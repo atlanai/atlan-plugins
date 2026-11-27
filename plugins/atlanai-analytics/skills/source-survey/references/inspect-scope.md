@@ -40,10 +40,11 @@ Preserve existing run locations; do not change host permissions or read credenti
   A **Tableau workbook link** takes another order, because Tableau has no sign-in a tool can
   start for the person: (1) the person's signed-in browser downloads the workbook and every
   published data source it uses; (2) the `tableau-cloud` plug with a Personal Access Token
-  the person created; (3) the plug with `TABLEAU_USERNAME` and `TABLEAU_PASSWORD`. A route
-  that brings the workbook without its published data sources leaves those sheets without
-  SQL: say "Your workbook uses data sources I couldn't get: <names>. Sheets that use them have
-  no SQL yet."
+  the person created; (3) the plug with `TABLEAU_USERNAME` and `TABLEAU_PASSWORD`. A published
+  data source that will not download is located from its lineage page instead, as
+  [the dashboard routes](../../metrics-generation/references/dashboard-agent.md) say, with no
+  question. Only one that neither route reaches leaves its sheets without SQL: say "Your
+  workbook uses data sources I couldn't locate: <names>. Sheets that use them have no SQL yet."
 
   Never carry a definition through chat or page text: page readers cap output and collapse
   whitespace, so a copied model differs from the original. Check any staged file against the
