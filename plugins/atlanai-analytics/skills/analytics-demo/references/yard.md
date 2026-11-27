@@ -13,13 +13,15 @@ also print the welcome as a reply before the question.
 
 ```
 I'll build a job profit agent for Fixit & Co., a made-up building
-firm. It answers questions about Fixit's jobs in plain English, and
-shows how each number is worked out.
+firm. You ask it about Fixit's jobs in plain English, such as which
+jobs lost margin and why, and it shows how it worked out each number.
 
-To build it, I read Fixit's dashboard and past queries, define each
-metric once and test each one on Fixit's data. Then I suggest
-questions to ask your agent. I build one on your own data the same
-way, from your dashboards.
+To build it, I read Fixit's dashboard and the questions its analysts
+asked before. From them I write down how Fixit works out each number
+it cares about, such as gross margin: each one is a metric. I check
+every number on Fixit's data before your agent uses it. Then I
+suggest questions to ask. I build one on your own data the same way,
+from your dashboards.
 
 What you're working with:
   Dashboard      Power BI, 6 tiles: 4 metrics (gross margin, rework
@@ -30,7 +32,8 @@ What you're working with:
   Past queries   110 past queries from Fixit's analysts
 
   Steps          1. Choose the sources
-                 2. Build your context: metrics and saved queries
+                 2. Build your context: the metrics, and past
+                    questions saved with their queries
                     (about 13 min)
                  3. Choose where to store your context
                  4. Ask your agent a question

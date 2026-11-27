@@ -295,6 +295,14 @@ def _engine(reader, directory):
                      and isinstance(s.get('outputs', []), list)
                      and any(v == file or v == str(expected) for v in s.get('outputs', []) if isinstance(v, str))), None)
 
+    if produced('metric_proposals.json'):
+        # The metrics the draft step found, each once, as its chip counts them: the task list said "27 metrics found"
+        # beside a chip listing 10 (the Fixit run, 2026-11-27).
+        from run_facts import metrics_found
+        drafts = _dict(reader.read(directory / 'metric_proposals.json', {})).get('proposals')
+        found = len(metrics_found(drafts if isinstance(drafts, list) else []))
+        if found:
+            result['found'] = found
     layer = _dict(reader.read(directory / 'verified_queries.json', {}))
     producer = produced('verified_queries.json')
     if not layer or not producer:
