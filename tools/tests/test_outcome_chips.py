@@ -16,6 +16,7 @@ from analytics_run import ROOT, SCRIPTS, at, facts, make_run, stop_pages
 
 sys.path.insert(0, str(SCRIPTS))
 sys.path.insert(0, str(ROOT / 'plugins/atlanai-analytics/skills/metrics-generation'))
+import side_page  # noqa: E402
 import side_view  # noqa: E402
 import visuals  # noqa: E402
 from modules.metrics import driver  # noqa: E402
@@ -55,7 +56,7 @@ class Chips(unittest.TestCase):
         # A person asked what "28 drafts became 10 metrics" or "+29 more in plain words" meant to them: each chip says what
         # the step produced in their terms, and its tail says why that matters.
         first = lambda kind: self.show(kind).split('\n')[0]  # a metric step's second line places it in the three steps
-        self.assertEqual(first('group'), '» **2 questions your team asks** · found in 2 of your 3 past queries')
+        self.assertEqual(first('group'), '» **2 distinct past queries** · from 2 of your 3')
         self.assertEqual(first('tiles'), '▦ **2 tiles read** · each written as a question with SQL')
         # Each count says where it came from, so 110, 95, 24, 30, 25 and 8 read as one story.
         self.assertEqual(first('described'), '❝ **4 saved queries written** · from your 2 past queries and 2 dashboard tiles')
@@ -186,7 +187,7 @@ class Chips(unittest.TestCase):
 
     def test_a_warehouse_build_says_the_same_and_opens_the_same(self):
         warehouse = make_run(self.root / 'w', warehouse='snowflake', chosen={'bi': False, 'history': True})
-        self.assertEqual(self.show('group', warehouse), '» **2 questions your team asks** · found in 2 of your 3 past queries')
+        self.assertEqual(self.show('group', warehouse), '» **2 distinct past queries** · from 2 of your 3')
         self.assertEqual(self.show('tiles', warehouse), '', 'the dashboard was not chosen')
         for kind in ('group', 'described', 'metrics', 'links'):
             self.assertIn('<details', self.show(kind, warehouse, widget=True), kind)
@@ -358,8 +359,27 @@ class Chips(unittest.TestCase):
         detail = self.show('group', widget=True).split('</summary>', 1)[1]
         rows = re.findall(r'<b style="font-weight:400">([^<]*)</b><span>([^<]*)</span>', detail)
         self.assertEqual(rows, [('On time rate', '2 queries, run 39 times'),
-                                ('A question about projects and work logs, by project', 'run 34 times'),
+                                ('A query on projects and work logs, by project', 'run 34 times'),
                                 ('On time rate by project type', 'run 14 times')])
+
+    def test_the_grouped_past_queries_are_never_called_questions(self):
+        # Live (Fixit demo, 2026-11-27) the card read "10 questions Fixit's team asks" before anything was asked: it
+        # clashed with the test questions and "Ask your agent a question" that come later.
+        def query(vid, name, tables, runs):
+            return {'vq_id': vid, 'question': name, 'group_by': [], 'tables': tables,
+                    'provenance': {'lane': 'history', 'history': {'n_exec': runs, 'n_distinct_users': 1}}}
+        write(self.run / 'engine' / 'sql_descriptions.json', {'descriptions': {}})
+        write(self.run / 'engine' / 'verified_queries.history.json', {'objects': [
+            query('h-1', 'on time rate', ['SITE.SITE.PROJECTS'], 36), query('h-2', 'measure', ['SITE.SITE.PROJECTS'], 14)]})
+        card = self.show('group', widget=True)
+        self.assertIn('Many past queries do the same thing in different SQL. These are the 2 distinct ones, most run first. '
+                      'Each gets a plain description once I&#x27;ve read it. The other 1 was set aside before grouping.', card)
+        self.assertIn('A query on projects', card)
+        self.assertNotIn('question', card.lower())
+        self.assertEqual(self.show('group').split('\n')[0], '» **2 distinct past queries** · from 2 of your 3')
+        group = next(s for s in side_page.checkpoints(side_page.RunFacts(self.run), {'metrics': []}) if s['id'] == 'group')
+        self.assertEqual((group['name'], group.get('result')), ('Grouped past queries', '2 distinct queries'))
+        self.assertEqual(side_page.CHECKPOINTS[0][1], 'Group past queries that do the same thing')
 
     def test_before_the_queries_are_described_their_short_names_are_spelled_out(self):
         # A first-time reader of a live run stopped at "Waste pct", "Rework cost gbp by project name" and "A number by
@@ -467,7 +487,7 @@ class Due(unittest.TestCase):
         for kind in ('connect', 'found', 'sources'):
             side_view.note(self.run, kind)
         first = self.project('visual', 'next')
-        self.assertTrue(first.startswith('» **2 questions your team asks**'), first)
+        self.assertTrue(first.startswith('» **2 distinct past queries**'), first)
         self.assertIn('`visual next` again', first, 'more is due')
         second = self.project('visual', 'next')
         self.assertTrue(second.startswith('▦ **2 tiles read**'), second)
@@ -485,7 +505,7 @@ class Due(unittest.TestCase):
         due = side_view.due(self.run)
         self.assertNotIn('described', due)
         self.assertNotIn('links', due)
-        self.assertTrue(self.project('visual', 'next').startswith('» **2 questions your team asks**'))
+        self.assertTrue(self.project('visual', 'next').startswith('» **2 distinct past queries**'))
 
     def test_opening_the_page_first_still_says_more_is_due(self):
         out = self.project('visual', 'next')

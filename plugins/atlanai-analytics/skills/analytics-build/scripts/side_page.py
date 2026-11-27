@@ -427,7 +427,7 @@ def tiles_by_page(f, pages=None):
 
 
 # The build's checkpoints, in the order a build passes them: (group, name while it waits or runs, name once done).
-CHECKPOINTS = (('group', 'Group past queries into questions', 'Grouped past queries'),
+CHECKPOINTS = (('group', 'Group past queries that do the same thing', 'Grouped past queries'),
                ('translate', "Read the dashboard's tiles", 'Read the tiles'),
                ('describe', 'Write each question', 'Wrote each question'),
                ('read', 'Find metrics and saved queries', 'Found metrics and saved queries'),
@@ -445,7 +445,7 @@ def checkpoints(f, d):
     order = [g for g, _ in WORK]
     at = len(order) if work == 'check' else order.index(work) if work in order else -1
     results = {
-        'group': count(st('h1_shapes', 'canonical_shapes'), 'question') if st('h1_shapes', 'canonical_shapes') else None,
+        'group': count(st('h1_shapes', 'canonical_shapes'), 'distinct query', 'distinct queries') if st('h1_shapes', 'canonical_shapes') else None,
         'translate': '%d of %s' % (st('a3_translate', 'candidates'), count(st('a3_translate', 'units'), 'tile'))
         if st('a3_translate', 'candidates') is not None else None,
         'describe': count(st('m2_ingest', 'described'), 'query', 'queries') if st('m2_ingest', 'described') else None,

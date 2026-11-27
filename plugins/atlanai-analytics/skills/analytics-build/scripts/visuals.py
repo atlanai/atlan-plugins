@@ -444,7 +444,7 @@ def _before_described(o):
         tables = _words(list(dict.fromkeys(table_name(t).lower() for t in o.get('tables') or [] if isinstance(t, str)))[:3])
         # A fresh reader of h9 could not tell what "A number by project, from crew, material orders and projects" asked.
         said = VAGUE_SAID.get(name.lower())
-        return ((said + ' from ' if said else 'A question about ') + tables + (', by ' + by if by else '')) if tables else ''
+        return ((said + ' from ' if said else 'A query on ') + tables + (', by ' + by if by else '')) if tables else ''
     name = _spelled(name)
     return name[:1].upper() + name[1:] + (' by ' + by if by else '')
 
@@ -830,16 +830,19 @@ def _outcome(kind, s):
         kept, total = s.get('read'), s.get('total')
         # A demo's sources are its firm's, never the person's: its welcome says "nothing of yours is touched".
         whose = their(s.get('firm'))
-        tail = ('found in %d of %s %s' % (kept, whose, count(total, 'past query', 'past queries')) if kept and total and kept < total
-                else 'from %s %s' % (whose, count(kept or total, 'past query', 'past queries')) if kept or total else '')
-        what = ('Many past queries ask the same thing in different SQL. These are the distinct questions, most asked first.'
-                + (' Each gets plain words once its query is described.' if s.get('short') else '')
-                + ((' The other 1 was set aside before grouping.' if total - kept == 1 else
-                    ' The other %d were set aside before grouping.' % (total - kept)) if kept and total and kept < total else ''))
         # The count is the rows listed, so it agrees with "N more" below them: two shapes that read the same are one
         # row (the review's run said 39 questions over a list that ended "25 more" after 8).
         asks = len(s['rows']) if s.get('rows') else s['questions']
-        o = {'mark': 'group', 'bold': count(asks, 'question') + ' %s team asks' % whose, 'tail': tail, 'what': what,
+        # Groups of past queries, never "questions": nothing has been asked yet, and the test questions and "Ask your
+        # agent a question" come later (the Fixit demo, 2026-11-27, read "10 questions Fixit's team asks").
+        tail = ('from %d of %s %s' % (kept, whose, '{:,}'.format(total)) if kept and total and kept < total
+                else 'from all of %s %s' % (whose, '{:,}'.format(kept or total)) if kept or total else '')
+        what = ('Many past queries do the same thing in different SQL. '
+                + ('These are the %d distinct ones, most run first.' % asks if asks != 1 else 'This is the one they share.')
+                + (" Each gets a plain description once I've read it." if s.get('short') else '')
+                + ((' The other 1 was set aside before grouping.' if total - kept == 1 else
+                    ' The other %d were set aside before grouping.' % (total - kept)) if kept and total and kept < total else ''))
+        o = {'mark': 'group', 'bold': count(asks, 'distinct past query', 'distinct past queries'), 'tail': tail, 'what': what,
              'rows': s.get('rows')}
     elif kind == 'tiles' and s.get('tiles'):
         named = s.get('report') or s.get('bi_page')

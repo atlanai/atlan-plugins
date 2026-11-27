@@ -50,7 +50,7 @@ before going on. While the engine builds, its result after each gate says so too
 | The queries are in plain words, before any metric | `connect` | One line once the side page shows: "A page has opened beside this chat…", as its `next` gives it | |
 | Own data, right before choosing what to build from | `found` | Chip: the sources and the warehouse found | |
 | Data read: a demo's or local tables loaded, or a warehouse's past queries read | `sources` | Chip: the rows and what was read (a demo's opens the next question in a terminal) | |
-| The engine grouped the past queries | `group` | Chip: how many different questions | |
+| The engine grouped the past queries | `group` | Chip: how many distinct past queries | |
 | The engine wrote up the dashboard's tiles | `tiles` | Chip: the tiles, each now a question | |
 | The engine described each query | `described` | Chip: one question in plain words | |
 | The engine found the metrics in the queries | `drafted` | Chip: how many metrics were found, and in how many queries | |
