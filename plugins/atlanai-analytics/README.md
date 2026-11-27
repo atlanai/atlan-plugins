@@ -129,8 +129,12 @@ This plugin has no hooks and ships no executable binaries.
   `~/.cache/pbi_definition_extract/`; Snowflake sign-in profiles you create in the browser, and runs
   you choose to keep in your home folder, go under `~/.atlan/analytics/`; the PBIXRay environment
   and dashboard jobs go under `~/.trident/`.
-- **Sends:** to Atlan, only what you approve saving, through the `atlanai` plugin's connection,
-  signed in as you.
+- **Sends:** to Atlan, only when you choose Save to Atlan Trident and approve the plan, through the
+  `atlanai` plugin's connection, signed in as you. It saves the metric and saved-query definitions
+  it built: names, descriptions, SQL, filters, joins and a few example column values with how often
+  they're used. Saving test questions or an accuracy check also sends the questions, their known
+  answers, your agent's answers and the scores, never the chat transcripts. It never sends
+  credentials, connection settings or table contents to Atlan. What you keep on this machine stays there.
 - **Starts:** a progress page served on `127.0.0.1` for this machine only, opened in your browser;
   and, when you check accuracy, your own Claude Code or Codex CLI to answer each test question
   fresh, signed in as you.
