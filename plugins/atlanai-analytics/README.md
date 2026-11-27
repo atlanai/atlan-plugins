@@ -22,6 +22,7 @@ your data, before you keep them on this machine or save them to share with your 
    | You want to | Claude Code | Codex | Or say |
    |---|---|---|---|
    | Learn how it works on a sample | `/atlanai-analytics:analytics-demo` | `$analytics-demo` | *"Show me how this works on a sample use case"* |
+   | Check you are ready to build, with a report of what to fix first | `/atlanai-analytics:analytics-readiness` | `$analytics-readiness` | *"Run the readiness check"* |
    | Build your agent from your own data or a dashboard | `/atlanai-analytics:analytics-build` | `$analytics-build` | *"Help me use this dashboard to ask questions about my data"* |
    | Ask your agent a question | `/atlanai-analytics:analytics-ask` | `$analytics-ask` | *"What was revenue last quarter, by region?"* |
 
@@ -48,6 +49,16 @@ Two fictional companies, with made-up data, ship with the plugin. Each sample bu
   Code or Codex.
 - A **workspace** is where your team keeps that context when you save it, so others can ask
   from it too.
+
+**Before you build, check you are ready.** The readiness check takes about ten minutes and asks
+about seven questions: your use case, one yes for each route to your warehouse, your BI tool,
+the dashboard you would start from, the tables behind it, and your name and email. It looks at
+the coding agents and their MCP servers, Atlan Trident, a way to run SQL on your warehouse as you
+(Snowflake, Databricks, BigQuery, Redshift, Postgres and others), whether your team's past queries
+can be read, your dashboard files and the Python the plugin needs. It ends with
+`.atlan-analytics/readiness/report.md`: **Ready** or **Needs attention**, and each step that would
+speed up your build, with who takes it and the command. It installs, signs in to and changes
+nothing, and the report stays on your machine for you to share.
 
 ## Skills
 
@@ -116,8 +127,13 @@ This plugin has no hooks and ships no executable binaries.
   Tableau, and `METRICS_AGENT_WAREHOUSE_DSN` for a local DuckDB or SQLite file. Each goes only to
   the system it names (Microsoft's sign-in and Power BI or Fabric APIs, your Tableau server), never
   anywhere else.
+- **Checks readiness, read-only:** version and listing commands of the coding agents and warehouse
+  CLIs on this machine (connection, profile and MCP server names only, never their configuration
+  files), one check statement per warehouse route you approve, and the dashboard files in your
+  project and their counts in Desktop, Documents and Downloads (counts only, never names).
 - **Writes:** working files in one folder in your project, `.atlan-analytics/`: each run, the
-  metrics runtime, test questions (`evals/`) and a demo's data (`demo/`). Add it to `.gitignore`.
+  metrics runtime, test questions (`evals/`), a demo's data (`demo/`) and the readiness report
+  (`readiness/`). Add it to `.gitignore`.
   Reading a Power BI workspace caches its sign-in token under `~/.cache/pbi_definition_extract/`.
 - **Sends:** to Atlan, only what you approve saving, through the `atlanai` plugin's connection,
   signed in as you.
