@@ -79,7 +79,7 @@ This is an available data connection; do not ask for Snowflake or a new MCP serv
 the binding across turns and use fresh released definitions and fresh query results.
 
 Find the warehouse query tool with steps 0 to 2 of
-[warehouse discovery](../source-survey/references/connect.md): a record this conversation
+[connect](../analytics-readiness/references/connect.md): a record this conversation
 or a project holds, then a SQL tool behind Atlan (`mcp__search_tools`), then the harness's own
 connectors. Hold what you find, or that there is none, for the rest of the conversation.
 
@@ -87,7 +87,7 @@ With no warehouse tool, do not stop and do not run the rest of discovery for a o
 question. Open with "I can't reach your warehouse through Atlan. An Atlan admin can add it
 from the Atlan Store." Then offer the smallest thing that answers the question:
 - **Run the SQL yourself**: "I'll write it from the definition for you to run." Use its
-  dialect ([warehouses](../source-survey/references/warehouses.md));
+  dialect ([warehouses](../analytics-readiness/references/warehouses.md));
 - **Paste a result**: "Paste a query result here, or attach a CSV export."
 
 End with "Next: paste the result, and I'll answer from it." The published definition still

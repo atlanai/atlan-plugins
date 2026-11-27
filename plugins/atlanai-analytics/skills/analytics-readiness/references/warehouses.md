@@ -1,131 +1,178 @@
-# Warehouse routes and checks
+# Warehouse statements
 
-Read in step 3. The goal is one way to run SQL on the team's warehouse as this person. Check the
-routes in this order, stop at the first that is verified, and record the others found as
-`present`. When the person names their warehouse, go straight to its row; a route for a warehouse
-the team does not use is noted, not checked. With several connections or profiles on one route,
-ask which; never pick for the person.
+The SQL each skill sends, per warehouse. Every statement is read-only: a single SELECT, WITH,
+SHOW or DESCRIBE, with a LIMIT on anything that returns rows. Replace `<…>` slots before
+running.
 
-| Order | Route | Check |
-|---|---|---|
-| 1 | A warehouse server in **your own tool list**: names with `snowflake`, `databricks`, `bigquery`, `redshift` or `postgres`, or Atlan's gateway fronting one | [Through a tool](#through-a-tool) |
-| 2 | **Snowflake CLI** (`snow`), or Cortex Code (`cortex`), which shares its connections | `READY check snowflake --connection "<label>"` |
-| 3 | **Databricks CLI** | `READY check databricks --profile "<label>"` |
-| 4 | **BigQuery** (`gcloud`, `bq`) | `READY check bigquery --configuration "<label>"`, adding `--project <id>` when the configuration sets none |
-| 5 | **Redshift** (`aws`) | `READY check redshift --profile "<label>" --database <db> --workgroup <name>`, or `--cluster <name>` for a provisioned cluster. Ask for the workgroup or cluster and the database: they are not secrets |
-| 6 | **Postgres, ClickHouse, Microsoft Fabric or SQL Server, Trino, DuckDB** | [Other warehouses](#other-warehouses) |
+**Check several numbers in one statement without UNION.** Some read-only tools refuse
+statement types beyond a single SELECT, UNION among them. Put each check in its own scalar
+subquery, `SELECT (SELECT …) AS a, (SELECT …) AS b`, one column per metric. When the tool
+refuses a statement type the definition itself needs (a UNION inside a metric's source), record
+that metric as not executable through this tool, say "<metric> can't be tested through this
+warehouse tool: <reason>. Its definition is kept as written." and keep it parse-only;
+never rewrite the definition to get it to run.
 
-`via` in a record is `atlan` (a tool behind Atlan's gateway), `host` (a tool connected to this
-agent directly) or `cli` (rows 2 to 6).
+Read only the section for the recorded warehouse, or for the dialect a metric names when none
+is recorded. Three topics live apart, because most runs
+never need them: [query history](warehouses/query-history.md) (metrics mode's pull, its
+fallbacks and the view an admin can create), [through a CLI](warehouses/cli.md) and
+[adding a server here](warehouses/add-server.md).
 
-## Through a tool
+## Snowflake
 
-- **Behind Atlan:** `mcp__search_tools` with the query "run a read-only SQL query on the data
-  warehouse". A candidate runs one SQL statement and returns rows; skip tools that create, write or
-  call procedures. Its `_meta` `com.atlan/server-domain` names the warehouse:
-  `snowflakecomputing.com` is Snowflake, `databricks.com` or `azuredatabricks.net` is Databricks;
-  otherwise go by the server's and the tool's names. A matching server listed under `connect` is
-  set up but not signed in: `mcp__connect_server` returns its sign-in link. Say "<server> is set up
-  in Atlan, but you haven't signed in to it yet. Sign in with this link, then tell me when you're
-  done: <link>", and record the route `present` until a check passes.
-- **Connected to this agent:** a SQL tool in your own list. In Cortex Code, the session's own
-  Snowflake connection is one. A server listed but not callable needs the person to sign in from
-  their agent (Claude Code `/mcp`; Codex `codex mcp login <name>`; Cursor Settings, then MCP): record
-  it `present`.
+- **Check:** `select current_role(), current_warehouse()`
+- **Find tables:** `show terse tables in schema <db>.<schema>`, or search
+  `<db>.information_schema.tables` by name for the domain's nouns.
+- **Columns:** `select column_name, data_type, comment from <db>.information_schema.columns
+  where table_schema = '<SCHEMA>' and table_name = '<TABLE>'`
+- **Query history:** [query history](warehouses/query-history.md), only when metrics mode pulls it.
+- **Table usage**, for [discovery](discovery.md). Try in order; stop at the first that answers.
+  1. Account-wide access, with the `GOVERNANCE_VIEWER` database role or imported privileges.
+     It returns no rows on an edition that does not record access history: treat empty as
+     refused and go to 2.
 
-Run the warehouse's check statement once:
+     ```sql
+     select f.value:"objectName"::string as table_name,
+            count(distinct ah.query_id) as queries, count(distinct ah.user_name) as people
+     from snowflake.account_usage.access_history ah,
+          lateral flatten(input => ah.base_objects_accessed) f
+     where ah.query_start_time >= dateadd('day', -7, current_timestamp())
+       and f.value:"objectDomain"::string in ('Table', 'View')
+     group by 1 order by people desc, queries desc limit 50
+     ```
+  2. Account-wide queries. Table names are pulled out of the query text, never matched
+     against a list of tables: the cost grows with the number of query patterns, not with
+     patterns times tables. Start with 7 days.
 
-| Warehouse | Check statement | Administrator when |
-|---|---|---|
-| Snowflake | `select current_user(), current_role(), current_warehouse()` | The role is ACCOUNTADMIN, SECURITYADMIN, SYSADMIN, ORGADMIN or USERADMIN: recording the role is enough |
-| Databricks | `select current_user(), current_catalog(), is_member('admins') as is_admin` | `is_admin` is true: add `--set admin=yes` |
-| BigQuery | `select session_user()` | |
-| Redshift | `select current_user` | |
-| Postgres | `select current_user, current_setting('is_superuser')` | The second column is `on`: add `--set admin=yes` |
-| Another | `select current_user`, or that engine's equivalent | |
+     ```sql
+     with q as (select any_value(query_text) as sql, count(*) as runs,
+                       array_agg(distinct user_name) as users
+                from snowflake.account_usage.query_history
+                where start_time >= dateadd('day', -7, current_timestamp())
+                  and execution_status = 'SUCCESS' and query_type = 'SELECT'
+                group by query_parameterized_hash order by runs desc limit 500),
+     refs as (select distinct q.sql, q.runs, q.users,
+                     upper(replace(f.value::string, '"', '')) as ref
+              from q, lateral flatten(input => regexp_substr_all(
+                     q.sql, '(from|join)\\s+([A-Za-z0-9_$."]+)', 1, 1, 'ie', 2)) f)
+     select ref as table_ref, array_size(array_union_agg(users)) as people, sum(runs) as queries
+     from refs
+     where ref like '%.%' and ref not like 'SNOWFLAKE.%' and ref not like '%INFORMATION_SCHEMA%'
+     group by 1 order by people desc, queries desc limit 50
+     ```
+  3. The person's own queries, with no grant at all. Just under seven days, the most the
+     function allows, and only what they ran:
 
-Then `READY record warehouse --status verified --set kind=<kind> --set via=<atlan|host> --set
-server="<server>" --set user=<user> --set role=<role>`. A refusal is `failed` with `--set
-error="<first line>"`; the script strips hosts and links from it.
+     ```sql
+     with q as (select query_text as sql
+                from table(snowflake.information_schema.query_history_by_user(
+                       end_time_range_start => dateadd('hour', -167, current_timestamp()),
+                       result_limit => 10000))
+                where execution_status = 'SUCCESS' and query_type = 'SELECT'),
+     refs as (select upper(replace(f.value::string, '"', '')) as ref
+              from q, lateral flatten(input => regexp_substr_all(
+                     q.sql, '(from|join)\\s+([A-Za-z0-9_$."]+)', 1, 1, 'ie', 2)) f)
+     select ref as table_ref, count(*) as queries
+     from refs
+     where ref like '%.%' and ref not like 'SNOWFLAKE.%' and ref not like '%INFORMATION_SCHEMA%'
+     group by 1 order by queries desc limit 50
+     ```
+  4. None readable: `row_count` and `last_altered` from `<db>.information_schema.tables`.
 
-## Past queries
+  Only names written with a schema are kept (`ref like '%.%'`): a bare name in a query is
+  usually a CTE. A two-part name such as `SALESFORCE.ACCOUNT` is the same table as its
+  three-part form when the search below finds one match: add their counts.
+- **Table search**, always, beside the usage statement. Name matches come first:
 
-The same yes covers one more statement: whether the team's past queries can be read. Each returns a
-count from at most one row, never a statement's text. Try everyone's first, then the person's own,
-and stop at the first that answers:
+  ```sql
+  select table_schema, table_name, table_type, row_count, last_altered, left(comment, 120) as comment
+  from <db>.information_schema.tables
+  where table_schema <> 'INFORMATION_SCHEMA'
+    and (table_name ilike any ('%<WORD_1>%', '%<WORD_2>%') or comment ilike any ('%<word_1>%', '%<word_2>%'))
+  order by (table_name ilike any ('%<WORD_1>%', '%<WORD_2>%')) desc, row_count desc nulls last limit 50
+  ```
+- **Names:** `DB.SCHEMA.TABLE`. Unquoted identifiers are upper-cased; quote with `"…"` to keep
+  case.
+- **Server:** Snowflake's managed MCP server exposes SQL only when its specification includes a
+  `SYSTEM_EXECUTE_SQL` tool. Its URL is
+  `https://<account>.snowflakecomputing.com/api/v2/databases/<db>/schemas/<schema>/mcp-servers/<server>`.
 
-| Warehouse | Everyone's | Their own |
-|---|---|---|
-| Snowflake | `select count(*) as n from (select 1 from snowflake.account_usage.query_history limit 1)` | `select count(*) as n from (select 1 from table(<database>.information_schema.query_history_by_user(result_limit => 1)))`, with a database they read |
-| Databricks | `select count(*) as n from (select 1 from system.query.history limit 1)` | |
-| BigQuery | ``select count(*) as n from (select 1 from `<project>`.`region-<region>`.INFORMATION_SCHEMA.JOBS limit 1)`` | The same with `JOBS_BY_USER` |
-| Redshift | | `select count(*) from (select 1 from sys_query_history limit 1)` |
-| Another | Not checked: record `not_checked` | |
+## Databricks
 
-Record `READY record history --status verified --set kind=<kind> --set scope=<everyone|your own>`,
-or `--status failed --set kind=<kind> --set error="<first line>"` when neither answers.
+- **Check:** `select current_catalog(), current_schema()`
+- **Find tables:** `show tables in <catalog>.<schema>`, or search
+  `<catalog>.information_schema.tables` by name for the domain's nouns.
+- **Columns:** `select column_name, data_type, comment from <catalog>.information_schema.columns
+  where table_schema = '<schema>' and table_name = '<table>'`
+- **Query history:** [query history](warehouses/query-history.md), only when metrics mode pulls it.
+- **Table usage**, for [discovery](discovery.md). Try in order; stop at the first that answers.
+  1. Account-wide access, when the person can read system tables:
 
-## Through a CLI
+     ```sql
+     select source_table_full_name as table_name,
+            count(*) as reads, count(distinct created_by) as people
+     from system.access.table_lineage
+     where event_time >= current_timestamp() - interval 7 days
+       and source_table_full_name is not null
+     group by 1 order by people desc, reads desc limit 50
+     ```
+  2. Account-wide queries, when lineage is refused. Table names are pulled out of the
+     statement text, never matched against a list of tables. Start with 7 days:
 
-Rows 2 to 5 run through the script: it runs one read-only statement with the person's own sign-in,
-keeps names only, flags an administrator role and records the result itself, then checks past
-queries the same way and records that too. A connection that
-signs in through the browser opens a tab during its check. A sign-in that has to run on its own
-(`databricks auth login`, `gcloud auth login`, `aws sso login`, `az login`) is the person's to run:
-the check records the failure and the report gives them the command.
+     ```sql
+     with q as (select any_value(statement_text) as sql, count(*) as runs,
+                       collect_set(executed_by) as users
+                from system.query.history
+                where start_time >= current_timestamp() - interval 7 days
+                  and execution_status = 'FINISHED' and statement_type = 'SELECT'
+                group by statement_text order by runs desc limit 500),
+     refs as (select distinct q.sql, q.runs, q.users, lower(replace(ref, '`', '')) as ref
+              from q lateral view explode(
+                     regexp_extract_all(q.sql, '(?i)(from|join)\\s+([A-Za-z0-9_.`]+)', 2)) x as ref)
+     select ref as table_ref, size(array_distinct(flatten(collect_list(users)))) as people,
+            sum(runs) as queries
+     from refs where ref like '%.%' and ref not like 'system.%'
+     group by 1 order by people desc, queries desc limit 50
+     ```
+  3. The person's own queries: the statement in 2 with `and executed_by = current_user()`
+     where their own rows are readable, otherwise the Query History API through the CLI,
+     which returns their own queries, matched to table names the same way.
+  4. None readable: `show table extended` or the catalog's table metadata for size and
+     last change.
+- **Table search**, always, beside the usage statement:
 
-## Other warehouses
+  ```sql
+  select table_schema, table_name, table_type, comment
+  from <catalog>.information_schema.tables
+  where table_schema <> 'information_schema'
+    and (table_name ilike '%<word_1>%' or table_name ilike '%<word_2>%'
+         or comment ilike '%<word_1>%' or comment ilike '%<word_2>%')
+  limit 50
+  ```
+- **Names:** `catalog.schema.table`, lower case. Quote with `` `…` ``.
+- **Server:** Databricks' managed SQL MCP service, at
+  `https://<workspace-host>/ai-gateway/mcp-services/system.ai.dbsql` or the older
+  `https://<workspace-host>/api/2.0/mcp/sql`. When the server offers a read-only variant of its
+  execute tool, record that one. If a result comes back as a pending statement, poll it with the
+  server's own status tool before reading rows.
 
-Run the one command for the person's warehouse after a yes, with the host, database and user they
-give you. Those go into the command only, never into a record or the report. A command that asks
-for a password is the person's to run in their own terminal: record the route `present`.
+## SQLite
 
-| Warehouse | Check command |
-|---|---|
-| Postgres, Aurora, Supabase, Neon, AlloyDB | `psql -w "host=<host> port=5432 dbname=<db> user=<user> sslmode=require" -Atc "select current_user, current_setting('is_superuser')"`. The password comes from their `~/.pgpass` or `PGPASSWORD`, never from you; `-w` stops it prompting. `on` in the second column is a superuser |
-| ClickHouse | `clickhouse-client --host <host> --secure --user <user> --query "select currentUser()"` |
-| Microsoft Fabric, SQL Server | `sqlcmd -S <server> -d <database> --authentication-method ActiveDirectoryAzCli -Q "select suser_sname()"`, after the person's own `az login` |
-| Trino, Starburst | `trino --server https://<host> --user <user> --external-authentication --execute "select current_user"`, which opens a browser to sign in |
-| DuckDB, MotherDuck | `duckdb <file> "select 1"`; MotherDuck `duckdb md: "select 1"` with `motherduck_token` set in their shell |
+- **Check:** `select sqlite_version()`
+- **Find tables:** `select name, type from sqlite_master where type in ('table', 'view') order by name`
+- **Columns:** `select name, type from pragma_table_info('<table>')`
+- **Query history:** none; SQLite keeps no log of what ran. Use a declared model, a BI file or
+  an export.
+- **Names:** `table`, or `schema.table` for an attached database. Quote with `"…"`.
+- **Dates:** stored as text or numbers. Truncate with `strftime('%Y-%m-01', <col>)` or
+  `date(<col>, 'start of month')`, never `date_trunc`; shift with `date(<col>, '-7 days')`, never
+  `interval`. Divide with `1.0 * a / b`, since integer division truncates a rate to 0.
+- **Server:** no vendor-managed one. An Atlan admin registers the team's SQLite store as a
+  custom MCP server whose tool runs one read-only statement.
 
-Record `READY record warehouse --status <verified|failed|present> --set kind=<postgres|clickhouse|
-fabric|trino|duckdb> --set via=cli --set user=<user it returned>`, adding `--set admin=yes` for a
-superuser. For anything else, record `--set kind=other` with how the person reaches it today as a
-`note`: it is not a blocker.
+## Another warehouse
 
-## For your warehouse admin
-
-When only the person's own past queries, or none, can be read, the report hands them this script for
-their warehouse admin, who reviews and runs it: you never run it. It creates one view of past
-queries without user names; the admin narrows the `where` to the databases the team works in.
-
-**Snowflake**, run by a role that can read `SNOWFLAKE.ACCOUNT_USAGE`:
-
-```sql
-create schema if not exists <db>.atlan;
-create or replace secure view <db>.atlan.query_shapes as
-select query_text as sql, count(*) as exec, count(distinct user_name) as users,
-       max(start_time) as last_run
-from snowflake.account_usage.query_history
-where execution_status = 'SUCCESS' and query_type = 'SELECT'
-  and start_time >= dateadd('day', -90, current_timestamp())
-  and database_name in ('<DB>')
-group by query_text;
-grant usage on schema <db>.atlan to role <analyst_role>;
-grant select on view <db>.atlan.query_shapes to role <analyst_role>;
-```
-
-**Databricks**, run by someone who can read `system.query.history`:
-
-```sql
-create schema if not exists <catalog>.atlan;
-create or replace view <catalog>.atlan.query_shapes as
-select statement_text as sql, count(*) as exec, count(distinct executed_by_user_id) as users,
-       max(start_time) as last_run
-from system.query.history
-where execution_status = 'FINISHED' and statement_type = 'SELECT'
-  and start_time >= current_timestamp() - interval 90 days
-group by statement_text;
-grant use schema on schema <catalog>.atlan to `<analyst_group>`;
-grant select on view <catalog>.atlan.query_shapes to `<analyst_group>`;
-```
+Use `select 1` as the check, its `information_schema` for tables and columns, and its own
+documented read-only query history. Record its name as `dialect`. If you can't find a
+read-only history source, say "I can't find past queries for <warehouse>. If someone with access
+exports them to a file, I'll use that."

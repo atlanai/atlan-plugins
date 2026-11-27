@@ -1003,7 +1003,7 @@
   {
    "id": "analytics-connect-warehouse",
    "plugin": "atlanai-analytics",
-   "skill": "source-survey",
+   "skill": "analytics-readiness",
    "title": "Find and prove the warehouse query tool",
    "route": "Reuse the tool in state, else search Atlan for a SQL tool and run its check",
    "calls": {

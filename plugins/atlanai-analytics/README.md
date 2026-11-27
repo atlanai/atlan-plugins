@@ -65,9 +65,8 @@ nothing, and the report stays on your machine for you to share.
 | Skill | Use it to | Try |
 |---|---|---|
 | `analytics-demo` | Build your agent on made-up data, step by step | *"Show me how this works on a sample use case."* |
-| `analytics-readiness` | Check you are ready to build, and get a report of what to fix first | *"Check whether this machine and my data are ready to build an agent with Atlan Analytics."* |
+| `analytics-readiness` | Check you are ready to build, or see what your data and dashboards hold | *"Check whether this machine and my data are ready to build an agent with Atlan Analytics."* |
 | `analytics-build` | Build your agent on your own data, step by step | *"Set up this project so I can ask questions about its data."* |
-| `source-survey` | See what data, dashboards and past queries you can build from | *"Tell me what this folder's dashboards and past queries cover."* |
 | `metrics-generation` | Turn dashboards and past queries into metrics your agent answers from | *"Build metrics from our warehouse's past queries."* |
 | `analytics-ask` | Answer data questions from your metrics and saved queries | *"What was revenue last quarter, by region?"* |
 | `eval-generation` | Write test questions, with known answers, from what your team asks | *"Write test questions for our agent from what our team already asks."* |

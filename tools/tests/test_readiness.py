@@ -405,13 +405,21 @@ class Dashboards(unittest.TestCase):
 
 
 class SelfContained(unittest.TestCase):
-    def test_the_skill_names_nothing_outside_its_folder(self):
+    def test_the_readiness_check_needs_no_build_helper(self):
+        """It runs before the build's Python is in place, so its files use nothing outside the skill."""
         folder = SCRIPT.parents[1]
-        for path in folder.rglob('*'):
-            if path.suffix in ('.md', '.py'):
-                text = path.read_text()
-                for outside in ('source-survey', 'source_survey', 'analytics-build', 'atlan-share', '../'):
-                    self.assertNotIn(outside, text, '%s names %s' % (path.relative_to(folder), outside))
+        for path in (folder / 'references' / 'readiness.md', folder / 'references' / 'warehouse-checks.md', SCRIPT):
+            text = path.read_text()
+            for outside in ('PROJECT', 'project.py', 'analytics-build', 'atlan-share', '../'):
+                self.assertNotIn(outside, text, '%s names %s' % (path.relative_to(folder), outside))
+
+    def test_nothing_names_the_skill_it_replaced(self):
+        """source-survey's flows live in this skill now: a leftover name would load nothing."""
+        places = [ROOT / 'plugin.toml', ROOT / 'tools/tests/fixtures/journeys.json']
+        for top in (ROOT / 'plugins/atlanai-analytics', ROOT / 'evals/atlan-analytics/cases'):
+            places += [p for p in top.rglob('*') if p.suffix in ('.md', '.py', '.json', '.yaml', '.toml', '.html')]
+        for path in places:
+            self.assertNotIn('source-survey', path.read_text(errors='ignore'), str(path.relative_to(ROOT)))
 
 
 class Portable(unittest.TestCase):

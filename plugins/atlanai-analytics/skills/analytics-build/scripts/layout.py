@@ -4,6 +4,7 @@
     .atlan-analytics/runtime/      the metrics engine's pinned runtime
     .atlan-analytics/evals/        eval sets (sets/), drafts (gen/) and scored checks
     .atlan-analytics/demo/<demo>/  a demo's working copy of its data
+    .atlan-analytics/readiness/    the readiness check's record and report
 
 One folder means one line in a project's .gitignore. Earlier versions wrote `.atlan-metrics/`,
 `.atlan-evals/` and `atlan-analytics-demo/`; `adopt` moves those in once, on first use, and
@@ -18,8 +19,9 @@ ROOT = '.atlan-analytics'
 RUNTIME = 'runtime'
 EVALS = 'evals'
 DEMO = 'demo'
+READINESS = 'readiness'
 # A run is a direct child of ROOT, so these names are never a run's.
-RESERVED = (RUNTIME, EVALS, DEMO)
+RESERVED = (RUNTIME, EVALS, DEMO, READINESS)
 # Each earlier folder, and where its contents go under ROOT ('' is ROOT itself).
 EARLIER = (('.atlan-metrics', ''), ('.atlan-evals', EVALS), ('atlan-analytics-demo', DEMO))
 TEXT = ('.json', '.jsonl', '.yml', '.yaml', '.md', '.txt', '.sql', '.csv', '.toml')

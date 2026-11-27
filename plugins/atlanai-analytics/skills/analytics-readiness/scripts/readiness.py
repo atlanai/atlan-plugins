@@ -1433,11 +1433,12 @@ def history_words(state):
 
 
 def admin_sql(kind):
-    """The view an admin can create once, read from this skill's warehouses.md so the report and the
-    reference never drift."""
+    """The view an admin can create once, read from this skill's query-history.md so the report and
+    the reference never drift."""
     heading = {'snowflake': '**Snowflake**', 'databricks': '**Databricks**'}.get(kind)
     try:
-        section = (SKILL / 'references' / 'warehouses.md').read_text(encoding='utf-8').split('## For your warehouse admin', 1)
+        section = (SKILL / 'references' / 'warehouses' / 'query-history.md').read_text(encoding='utf-8').split(
+            '## One-time setup an admin can run', 1)
     except OSError:
         return None
     if not heading or len(section) < 2 or heading not in section[1]:

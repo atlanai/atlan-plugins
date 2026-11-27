@@ -167,7 +167,7 @@ was read, since the `sources` chip says it. In order:
 | Dashboard and past queries (Recommended) | The dashboard's 4 metrics, plus what `<firm>`'s analysts actually ask. More metrics and saved queries, and a few minutes longer. |
 | Dashboard only | The dashboard's 4 metrics. Fastest. |
 
-Scope the run to the answer through [inspect and scope](../../source-survey/references/inspect-scope.md). With "Dashboard
+Scope the run to the answer through [inspect and scope](../../analytics-readiness/references/inspect-scope.md). With "Dashboard
 only", author from the dashboard's measures alone and leave the past queries out. The data
 tables are used either way, to check the context. Continue through the complete build and
 checks after this choice, showing what each step produced (`PROJECT visual next`) and no intermediate metric-list

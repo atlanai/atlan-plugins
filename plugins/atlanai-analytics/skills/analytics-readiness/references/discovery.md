@@ -152,7 +152,7 @@ Bounds: one statement each for schemas, search and columns, and one per usage ru
 most four use cases and twelve tables in all. Stop earlier when the suggestion is clear. Query history itself is pulled later, by
 generation, scoped to the confirmed tables.
 
-When no table fits, `readiness` is `none`: say "No tables matched <words>. Next: try the demo,
+When no table fits, `buildable` is `none`: say "No tables matched <words>. Next: try the demo,
 which shows how this works on made-up data." (the demo is `analytics-demo`).
 
 ## `access`: can the named sources be read
