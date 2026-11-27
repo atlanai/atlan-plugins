@@ -581,6 +581,10 @@ class Helper(unittest.TestCase):
             self.assertNotIn(gone, shown, "a question's text shows no bars, marks or Markdown")
         self.assertIn('never reword or shorten it', asked['next'],
                       'a live run added "7 need a look" from another step to a line that said every check passed')
+        # 2026-11-27: a live run put the workspace question in the save question's card, so a person who kept the
+        # context on this machine was still asked which workspace should hold it.
+        self.assertIn('Ask it alone, with no other question in the same card', asked['next'])
+        self.assertIn('"Keep it on this machine" never gets one', asked['next'])
         widget = self.project('visual', 'build', '--widget')
         self.assertTrue(widget.startswith('<style>'), 'a widget host draws the card as it happens')
 

@@ -65,8 +65,12 @@ the check and then opens the question step.
 nothing is saved until you pick a workspace." After sign-in, name the
 tenant the result shows, never a guess.
 
-**Workspace.** Ask one native question, "Which workspace should hold your agent's metrics?". List
-the person's own workspace first (the `user_default` one from the workspace read):
+**Workspace: a follow-up to "Save to Atlan Trident" only.** Ask it after the person picks
+"Save to Atlan Trident" and signs in, never in the save question's card or before its answer:
+until then nobody has chosen Atlan, and after "Keep it on this machine" a workspace means
+nothing, so that answer never gets this question. Skip it too when the person already named a
+workspace the read returns. Ask one native question, "Which workspace should hold your agent's
+metrics?". List the person's own workspace first (the `user_default` one from the workspace read):
 
 | Option | Description |
 | --- | --- |
